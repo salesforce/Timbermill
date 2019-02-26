@@ -1,5 +1,7 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.BufferingOutputPipe;
+
 import java.util.HashMap;
 import java.util.Map;
 

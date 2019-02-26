@@ -1,4 +1,4 @@
-package com.datorama.timbermill.redis.datastructures;
+package com.datorama.timbermill.pipe.redis.datastructures;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

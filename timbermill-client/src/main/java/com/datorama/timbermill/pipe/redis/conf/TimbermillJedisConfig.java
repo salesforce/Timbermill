@@ -1,4 +1,4 @@
-package com.datorama.timbermill.redis.conf;
+package com.datorama.timbermill.pipe.redis.conf;
 
 import com.datorama.timbermill.DateTimeTypeConverter;
 import com.google.gson.Gson;

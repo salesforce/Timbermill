@@ -1,4 +1,6 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.pipe;
+
+import com.datorama.timbermill.Event;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -6,7 +8,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class MockPipe implements EventOutputPipe, EventInputPipe {
+public class MockPipe implements EventOutputPipe{
 
 
     private Queue<Event> queue;
@@ -27,26 +29,12 @@ public class MockPipe implements EventOutputPipe, EventInputPipe {
         return 1000;
     }
 
-    @Override
-    public List<Event> read(int maxEvent) {
-        int i = 1;
-        List<Event> returnEvents = new ArrayList<>();
-        while((i <= maxEvent) && !queue.isEmpty()) {
-			Event event = queue.poll();
-			if (event != null){
-				returnEvents.add(event);
-			}
-			i++;
-        }
-        return returnEvents;
+    public List<Event> getCollectedEvents() {
+        return Collections.unmodifiableList(collectedEvents);
     }
 
     public void cleanQueue() {
         queue.clear();
         collectedEvents.clear();
-    }
-
-    public List<Event> getCollectedEvents() {
-        return Collections.unmodifiableList(collectedEvents);
     }
 }

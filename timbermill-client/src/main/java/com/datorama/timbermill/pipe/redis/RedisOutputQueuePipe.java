@@ -1,9 +1,9 @@
-package com.datorama.timbermill.redis;
+package com.datorama.timbermill.pipe.redis;
 
 import com.datorama.timbermill.DateTimeTypeConverter;
 import com.datorama.timbermill.Event;
-import com.datorama.timbermill.EventOutputPipe;
-import com.datorama.timbermill.redis.datastructures.JedisQueueImpl;
+import com.datorama.timbermill.pipe.EventOutputPipe;
+import com.datorama.timbermill.pipe.redis.datastructures.JedisQueueImpl;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.joda.time.DateTime;

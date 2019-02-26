@@ -1,5 +1,6 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.EventOutputPipe;
 import org.joda.time.DateTime;
 
 import java.util.Map;

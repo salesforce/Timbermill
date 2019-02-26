@@ -1,4 +1,6 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.pipe;
+
+import com.datorama.timbermill.Event;
 
 public interface EventOutputPipe {
 

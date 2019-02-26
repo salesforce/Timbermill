@@ -1,12 +1,13 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.pipe;
 
+import com.datorama.timbermill.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-public class BufferingOutputPipe implements EventOutputPipe{
+public class BufferingOutputPipe implements EventOutputPipe {
 
 	private final EventOutputPipe eventOutputPipe;
 	private final BlockingQueue<Event> buffer;
@@ -16,12 +17,12 @@ public class BufferingOutputPipe implements EventOutputPipe{
 	private static final int SLEEP_ON_ERROR_MILLIS = 10000;
 	private static final Logger LOG = LoggerFactory.getLogger(BufferingOutputPipe.class);
 
-	BufferingOutputPipe(EventOutputPipe eventOutputPipe) {
+	public BufferingOutputPipe(EventOutputPipe eventOutputPipe) {
 		this.eventOutputPipe = eventOutputPipe;
 		buffer = new ArrayBlockingQueue<>(MAX_BUFFER_SIZE + 1000);
 	}
 
-	void start() {
+	public void start() {
 		Thread bufferConsumer = new Thread(() -> {
 			try {
 				while (true) {
@@ -66,7 +67,7 @@ public class BufferingOutputPipe implements EventOutputPipe{
 		return eventOutputPipe.getMaxQueueSize();
 	}
 
-	int getCurrentBufferSize() {
+	public int getCurrentBufferSize() {
 		return buffer.size();
 	}
 }

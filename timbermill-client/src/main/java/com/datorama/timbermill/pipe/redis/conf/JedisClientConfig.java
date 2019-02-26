@@ -1,4 +1,4 @@
-package com.datorama.timbermill.redis.conf;
+package com.datorama.timbermill.pipe.redis.conf;
 
 public class JedisClientConfig {
 
@@ -24,7 +24,7 @@ public class JedisClientConfig {
 	private Long softMinEvictableIdleTimeMillis;
 	private Long timeBetweenEvictionRunsMillis;
 	private Integer numTestsPerEvictionRun;
-	private boolean testWhileIdle = true;
+	private boolean testWhileIdle;
 	//endregion
 
 	//region constructors

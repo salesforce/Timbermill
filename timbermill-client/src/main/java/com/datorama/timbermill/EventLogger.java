@@ -1,5 +1,8 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.BlackHolePipe;
+import com.datorama.timbermill.pipe.BufferingOutputPipe;
+import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Maps;
@@ -15,7 +18,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 public final class EventLogger {
-	static final String EXCEPTION = "exception";
+	public static final String EXCEPTION = "exception";
 
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
 
@@ -30,9 +33,9 @@ public final class EventLogger {
 	 * Instance fields
 	 */
 	private Stack<String> taskIdStack = new Stack<>();
-	private EventOutputPipe eventOutputPipe;
+	private com.datorama.timbermill.pipe.EventOutputPipe eventOutputPipe;
 
-	private EventLogger(EventOutputPipe eventOutputPipe) {
+	private EventLogger(com.datorama.timbermill.pipe.EventOutputPipe eventOutputPipe) {
 		this.eventOutputPipe = eventOutputPipe;
 	}
 
