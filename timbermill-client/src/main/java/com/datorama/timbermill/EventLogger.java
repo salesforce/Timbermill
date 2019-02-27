@@ -1,8 +1,8 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.pipe.BlackHolePipe;
-import com.datorama.timbermill.pipe.BufferingOutputPipe;
-import com.datorama.timbermill.pipe.EventOutputPipe;
+import com.datorama.timbermill.common.Constants;
+import com.datorama.timbermill.pipe.*;
+import com.datorama.timbermill.unit.Event;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Maps;
@@ -17,9 +17,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
-public final class EventLogger {
-	public static final String EXCEPTION = "exception";
+import static com.datorama.timbermill.common.Constants.EXCEPTION;
+import static com.datorama.timbermill.unit.Event.*;
 
+final class EventLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
 
 	/**
@@ -69,15 +70,15 @@ public final class EventLogger {
 	}
 
 	String startEvent(String taskType) {
-		return startEvent(taskType, null, new DateTime(), false);
+		return startEvent(taskType, null, new DateTime());
 	}
 
-	String startEvent(String taskType, String parentTaskId, DateTime time, boolean isOngoingTask) {
-		return startEvent(taskType, parentTaskId, time, null, null, null, isOngoingTask);
+	String startEvent(String taskType, String parentTaskId, DateTime time) {
+		return startEvent(taskType, parentTaskId, time, null, null, null, false);
 	}
 
 	String startEvent(String taskType, String parentTaskId) {
-		return startEvent(taskType, parentTaskId, new DateTime(), false);
+		return startEvent(taskType, parentTaskId, new DateTime());
 	}
 
 	String spotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data, String parentTaskId) {
@@ -144,10 +145,6 @@ public final class EventLogger {
 		return endWithError(t, new DateTime(), taskId);
 	}
 
-	String endWithAppError(Throwable t) {
-		return endWithAppError(t, new DateTime());
-	}
-
 	<T> Callable<T> wrapCallable(Callable<T> callable) {
 		final Stack<String> origTaskIdStack = taskIdStack;
 		return () -> {
@@ -173,6 +170,9 @@ public final class EventLogger {
 
 		if(data == null){
 			data = Maps.newHashMap();
+		}
+		if(metrics == null){
+			metrics = Maps.newHashMap();
 		}
 
 		String threadName = Thread.currentThread().getName();
@@ -205,13 +205,6 @@ public final class EventLogger {
 			LOG.warn("Couldn't print exception for task ID:{}", taskId);
 		}
 		Event event = createEndEvent(EventType.END_ERROR, time, data, taskId);
-		return submitEvent(event);
-	}
-
-	String endWithAppError(Throwable t, DateTime time) {
-		Map<String, String> data = new HashMap<>();
-		data.put(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
-		Event event = createEndEvent(EventType.END_APP_ERROR, time, data, null);
 		return submitEvent(event);
 	}
 

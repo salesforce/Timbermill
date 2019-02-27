@@ -1,5 +1,7 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.unit.Task;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -11,7 +13,7 @@ public class ElasticsearchClientMock extends ElasticsearchClient {
     private Map<String, Task> indexedTasks = new HashMap<>();
 
     public ElasticsearchClientMock() {
-        super(null, "", 0, null, 0, 0);
+        super(null, "", 0, 0);
     }
 
 

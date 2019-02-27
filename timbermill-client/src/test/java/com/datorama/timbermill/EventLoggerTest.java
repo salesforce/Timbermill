@@ -1,6 +1,8 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.MockPipe;
+import com.datorama.timbermill.unit.Event;
 import com.google.common.collect.ImmutableMap;
 import com.jayway.awaitility.Awaitility;
 import org.junit.After;
@@ -10,6 +12,8 @@ import org.junit.Test;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.datorama.timbermill.common.Constants.EXCEPTION;
+import static com.datorama.timbermill.unit.Event.*;
 import static org.junit.Assert.*;
 
 public class EventLoggerTest {
@@ -69,25 +73,7 @@ public class EventLoggerTest {
 
 		Event endEvent = events.get(1);
 		assertEquals(EventType.END_ERROR, endEvent.getEventType());
-		assertTrue(endEvent.getData().get(EventLogger.EXCEPTION).contains(exception.toString()));
-	}
-
-	@Test
-	public void testFailedWithAppErrorLogger() {
-
-		el.startEvent(QUERY);
-		Exception exception = new Exception(FAIL_MESSAGE);
-		el.endWithAppError(exception);
-
-		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
-		List<Event> events = mockPipe.getCollectedEvents();
-
-		Event startEvent = events.get(0);
-		Event endEvent = events.get(1);
-		assertEquals(QUERY, startEvent.getTaskType());
-		assertEquals(EventType.START, startEvent.getEventType());
-		assertEquals(EventType.END_APP_ERROR, endEvent.getEventType());
-		assertTrue(endEvent.getData().get(EventLogger.EXCEPTION).contains(exception.toString()));
+		assertTrue(endEvent.getData().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test
@@ -186,22 +172,7 @@ public class EventLoggerTest {
 		assertEquals(Constants.END_WITHOUT_START, event.getTaskType());
 		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
-		assertTrue(event.getData().get(EventLogger.EXCEPTION).contains(exception.toString()));
-	}
-
-	@Test
-	public void testEndAppErrorWithoutStart(){
-		Exception exception = new Exception(FAIL_MESSAGE);
-		el.endWithAppError(exception);
-		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
-		List<Event> events = mockPipe.getCollectedEvents();
-
-		assertEquals(1, events.size());
-		Event event = events.get(0);
-		assertEquals(Constants.END_WITHOUT_START, event.getTaskType());
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
-		assertTrue(event.getData().get(EventLogger.EXCEPTION).contains(exception.toString()));
+		assertTrue(event.getData().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test

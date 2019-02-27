@@ -1,7 +1,6 @@
 package com.datorama.timbermill.pipe;
 
-import com.datorama.timbermill.Event;
-import com.datorama.timbermill.EventType;
+import com.datorama.timbermill.unit.Event;
 import com.jayway.awaitility.Awaitility;
 import org.joda.time.DateTime;
 import org.junit.Before;
@@ -9,6 +8,7 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.datorama.timbermill.unit.Event.*;
 import static org.junit.Assert.assertEquals;
 
 public class BufferingOutputPipeTest {

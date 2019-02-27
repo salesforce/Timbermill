@@ -1,7 +1,11 @@
-package com.datorama.timbermill.pipe;
+package com.datorama.timbermill;
 
-import com.datorama.timbermill.*;
-import com.datorama.timbermill.Task.TaskStatus;
+import com.datorama.timbermill.common.Constants;
+import com.datorama.timbermill.plugins.PluginsConfig;
+import com.datorama.timbermill.plugins.TaskLogPlugin;
+import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.Task;
+import com.datorama.timbermill.unit.Task.TaskStatus;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -15,6 +19,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
+import static com.datorama.timbermill.unit.Event.*;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
@@ -29,12 +34,10 @@ public class LocalTaskIndexer {
     private static final String PREV_INDEXED_TASKS_FETCHED = "prevIndexedTasksFetched";
     private static final String INDEXED_TASKS = "indexedTasks";
     private Collection<TaskLogPlugin> logPlugins;
-    private String profile;
     private Map<String, Integer> propertiesLengthMap;
     private int defaultMaxChars;
 
-    public LocalTaskIndexer(String pluginsJson, String profile, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es) {
-        this.profile = profile;
+    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.propertiesLengthMap = propertiesLengthMap;
         this.defaultMaxChars = defaultMaxChars;
@@ -46,7 +49,7 @@ public class LocalTaskIndexer {
         }).start();
     }
 
-    public void retrieveAndIndex() {
+    private void retrieveAndIndex() {
         LOG.info("------------------ Batch Start ------------------");
         List<Event> events = new ArrayList<>();
         eventsQueue.drainTo(events, 100);
@@ -112,7 +115,6 @@ public class LocalTaskIndexer {
         long pluginsStart = System.currentTimeMillis();
         try {
             String taskType = "timbermill_plugin";
-            List<Task> metaTasks = new ArrayList<>();
             for (TaskLogPlugin plugin : logPlugins) {
                 Task t = new Task(taskType + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart);
                 try {
@@ -132,7 +134,6 @@ public class LocalTaskIndexer {
                     t.setStatus(TaskStatus.ERROR);
                     LOG.error("error in plugin" + plugin, ex);
                 }
-                metaTasks.add(t);
                 es.indexTaskToMetaDataIndex(t);
             }
         } catch (Exception ex) {
@@ -140,10 +141,6 @@ public class LocalTaskIndexer {
         }
         long pluginsEnd = System.currentTimeMillis();
         return pluginsEnd - pluginsStart;
-    }
-
-    private String getProfile() {
-        return profile;
     }
 
     private void trimAttributesAndData(List<Event> events) {
@@ -282,7 +279,7 @@ public class LocalTaskIndexer {
                 t.setStatus(TaskStatus.CORRUPTED);
                 t.setStartTime(t.getEndTime());
             }
-            t.setEnv(getProfile());
+            t.setEnv(es.getEnv());
             tasksToIndex.put(idToEventEntry.getKey(), t);
         }
 

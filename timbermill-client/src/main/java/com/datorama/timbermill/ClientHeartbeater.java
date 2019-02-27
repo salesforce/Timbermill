@@ -1,6 +1,8 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.BufferingOutputPipe;
+import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
 
 import java.util.HashMap;
 import java.util.Map;

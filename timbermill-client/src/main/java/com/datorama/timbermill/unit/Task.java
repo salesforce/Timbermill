@@ -1,16 +1,7 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.unit;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.datorama.timbermill.common.Constants;
 import org.joda.time.DateTime;
-
-import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -18,36 +9,17 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 public class Task {
-	public enum TaskStatus {
-		UNTERMINATED,
-		SUCCESS,
-		ERROR,
-		APP_ERROR,
-		CORRUPTED;
-	}
 	private String taskId;
-
 	private String taskType;
-
 	private String env;
-
 	private TaskStatus status;
 	private String parentTaskId;
 	private String primaryTaskId;
-
 	private boolean primary;
-
-	@JsonSerialize(using = CustomDateSerializer.class)
-	@JsonDeserialize(using = CustomDateDeserializer.class)
 	private DateTime startTime;
-	@JsonSerialize(using = CustomDateSerializer.class)
-	@JsonDeserialize(using = CustomDateDeserializer.class)
 	private DateTime endTime;
-
 	private Long totalDuration;
-
 	private Long selfDuration;
-
 	private Long childrenDelta;
 	private List<String> origins;
 	private String primaryOrigin;
@@ -55,14 +27,15 @@ public class Task {
 	private Map<String, Number> metrics = new HashMap<>();
 	private Map<String, String> data = new HashMap<>();
 
-	public Task(String taskId) {
-		this.taskId = taskId;
-	}
 	public Task() {
 	}
 
+	public Task(String taskId) {
+		this.taskId = taskId;
+	}
+
 	public void update(Collection<Event> events) {
-		events.stream().forEach(e -> update(e));
+		events.forEach(e -> update(e));
 	}
 
 	public void update(Event e) {
@@ -334,31 +307,15 @@ public class Task {
 		}
 		Task other = (Task) obj;
 		if (taskId == null) {
-			if (other.taskId != null) {
-				return false;
-			}
-		} else if (!taskId.equals(other.taskId)) {
-			return false;
-		}
-		return true;
+			return other.taskId == null;
+		} else return taskId.equals(other.taskId);
 	}
 
-	public static class CustomDateSerializer extends JsonSerializer<DateTime> {
-
-		@Override
-		public void serialize(DateTime t, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-			jsonGenerator.writeString(t.toString());
-		}
-
+	public enum TaskStatus {
+		UNTERMINATED,
+		SUCCESS,
+		ERROR,
+		APP_ERROR,
+		CORRUPTED
 	}
-
-	public static class CustomDateDeserializer extends JsonDeserializer<DateTime> {
-
-		@Override
-		public DateTime deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-			return DateTime.parse(jsonParser.getText());
-		}
-
-	}
-
 }

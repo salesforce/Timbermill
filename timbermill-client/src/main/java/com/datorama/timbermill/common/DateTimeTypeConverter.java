@@ -1,4 +1,4 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.common;
 
 import java.lang.reflect.Type;
 import org.joda.time.DateTime;

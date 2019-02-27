@@ -1,12 +1,11 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.pipe;
 
-import com.datorama.timbermill.pipe.EventOutputPipe;
-
+import com.datorama.timbermill.unit.Event;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class StatisticsCollectorOutputPipe implements com.datorama.timbermill.pipe.EventOutputPipe {
+public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 
-	private com.datorama.timbermill.pipe.EventOutputPipe delegate;
+	private EventOutputPipe delegate;
 
 	private AtomicLong eventsAmount = new AtomicLong(0);
 
@@ -14,7 +13,7 @@ public class StatisticsCollectorOutputPipe implements com.datorama.timbermill.pi
 
 	private AtomicLong maxSubmitDuration = new AtomicLong(0);
 
-	StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
+	public StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
 		this.delegate = delegate;
 	}
 
@@ -40,17 +39,17 @@ public class StatisticsCollectorOutputPipe implements com.datorama.timbermill.pi
 		return delegate.getMaxQueueSize();
 	}
 
-	void initCounters() {
+	public void initCounters() {
 		eventsAmount.set(0);
 		totalSubmitDuration.set(0);
 		maxSubmitDuration.set(0);
 	}
 
-	long getEventsAmount() {
+	public long getEventsAmount() {
 		return eventsAmount.get();
 	}
 
-	long getMaxSubmitDuration() {
+	public long getMaxSubmitDuration() {
 		return maxSubmitDuration.get();
 	}
 
@@ -58,7 +57,7 @@ public class StatisticsCollectorOutputPipe implements com.datorama.timbermill.pi
 		return totalSubmitDuration.get();
 	}
 
-	double getAvgSubmitDuration() {
+	public double getAvgSubmitDuration() {
 		if (getEventsAmount() > 0) {
 			return (double) getTotalSubmitDuration() / getEventsAmount();
 		} else {

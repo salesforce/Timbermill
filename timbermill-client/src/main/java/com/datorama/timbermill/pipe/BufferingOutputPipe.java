@@ -1,6 +1,6 @@
 package com.datorama.timbermill.pipe;
 
-import com.datorama.timbermill.Event;
+import com.datorama.timbermill.unit.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,16 +26,12 @@ public class BufferingOutputPipe implements EventOutputPipe {
 		Thread bufferConsumer = new Thread(() -> {
 			try {
 				while (true) {
-					Event e;
-					if ((e = buffer.take()) != null) {
-						try {
-
-							eventOutputPipe.send(e);
-						} catch (Throwable t) {
-							LOG.warn("Failed sending event down the pipe, going to rest for a few... \n Exception: ", t);
-							Thread.sleep(SLEEP_ON_ERROR_MILLIS);
-						}
-
+					Event e = buffer.take();
+					try {
+						eventOutputPipe.send(e);
+					} catch (Throwable t) {
+						LOG.warn("Failed sending event down the pipe, going to rest for a few... \n Exception: ", t);
+						Thread.sleep(SLEEP_ON_ERROR_MILLIS);
 					}
 				}
 			} catch (InterruptedException ignored) {

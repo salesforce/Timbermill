@@ -1,5 +1,7 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.common.DateTimeTypeConverter;
+import com.datorama.timbermill.unit.Task;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -25,25 +27,25 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.datorama.timbermill.common.Constants.*;
+
 public class ElasticsearchClient {
-    private static final String TIMBERMILL_INDEX_PREFIX = "timbermill";
-    private static final String TYPE = "task";
+
+    private static final int MAX_TRY_NUMBER = 3;
+    private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
+
     private final Gson gson = new GsonBuilder().registerTypeAdapter(DateTime.class, new DateTimeTypeConverter()).create();
     private final RestHighLevelClient client;
     private String env;
-    private static final String METADATA = "timbermill_metadata";
-    private static final int MAX_TRY_NUMBER = 3;
-    private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private int indexBulkSize;
     private int daysBackToDelete;
 
-    public ElasticsearchClient(String env, String url, int port, String scheme, int indexBulkSize, int daysBackToDelete) {
+    public ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
         this.env = env;
         client = new RestHighLevelClient(
-                RestClient.builder(
-                        new HttpHost(url, port, scheme)));
+                RestClient.builder(HttpHost.create(elasticUrl)));
     }
 
     private String getTaskIndexWithEnv(String indexPrefix, DateTime startTime) {
@@ -154,7 +156,7 @@ public class ElasticsearchClient {
 
     public void indexTaskToMetaDataIndex(Task task) {
         try {
-            String metadataIndex = getTaskIndexWithEnv(METADATA, task.getStartTime());
+            String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, task.getStartTime());
             createNewIndices(metadataIndex);
 
             IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, task.getTaskId()).source(gson.toJson(task), XContentType.JSON);
@@ -180,4 +182,7 @@ public class ElasticsearchClient {
 
     }
 
+    String getEnv() {
+        return env;
+    }
 }

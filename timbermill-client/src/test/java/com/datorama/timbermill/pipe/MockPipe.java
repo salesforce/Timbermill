@@ -1,6 +1,6 @@
 package com.datorama.timbermill.pipe;
 
-import com.datorama.timbermill.Event;
+import com.datorama.timbermill.unit.Event;
 
 import java.util.ArrayList;
 import java.util.Collections;

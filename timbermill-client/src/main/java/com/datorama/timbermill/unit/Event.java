@@ -1,4 +1,4 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.unit;
 
 import org.joda.time.DateTime;
 
@@ -67,11 +67,7 @@ public class Event{
         return time;
     }
 
-    void setTime(DateTime time) {
-        this.time = time;
-    }
-
-    public Map<String, Object> getAttributes() {
+	public Map<String, Object> getAttributes() {
         return attributes;
     }
 
@@ -111,5 +107,14 @@ public class Event{
 				this.data.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
 			}
 		}
+	}
+
+	public enum EventType {
+		START,
+		END_SUCCESS,
+		END_ERROR,
+		END_APP_ERROR,
+		INFO,
+		SPOT
 	}
 }

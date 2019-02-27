@@ -1,4 +1,7 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.plugins;
+
+import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.Task;
 
 import java.io.Serializable;
 import java.util.List;

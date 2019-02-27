@@ -1,4 +1,4 @@
-package com.datorama.timbermill;
+package com.datorama.timbermill.plugins;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
