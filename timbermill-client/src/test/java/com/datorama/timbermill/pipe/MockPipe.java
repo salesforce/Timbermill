@@ -2,6 +2,7 @@ package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,12 +30,14 @@ public class MockPipe implements EventOutputPipe{
         return 1000;
     }
 
+    @Override
+    public void close() {
+        queue.clear();
+        collectedEvents.clear();
+    }
+
     public List<Event> getCollectedEvents() {
         return Collections.unmodifiableList(collectedEvents);
     }
 
-    public void cleanQueue() {
-        queue.clear();
-        collectedEvents.clear();
-    }
 }

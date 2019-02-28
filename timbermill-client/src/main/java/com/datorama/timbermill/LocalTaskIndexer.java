@@ -14,6 +14,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -36,17 +37,46 @@ public class LocalTaskIndexer {
     private Collection<TaskLogPlugin> logPlugins;
     private Map<String, Integer> propertiesLengthMap;
     private int defaultMaxChars;
+    private boolean keepRunning = true;
+    private boolean stoppedRunning = false;
 
-    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es) {
+    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es, int secondBetweenPolling) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.propertiesLengthMap = propertiesLengthMap;
         this.defaultMaxChars = defaultMaxChars;
         this.es = es;
         new Thread(() -> {
-            while(true){
-                retrieveAndIndex();
+            indexMetadataTaskToTimbermill();
+            try {
+                while (keepRunning) {
+                    long l1 = System.currentTimeMillis();
+                    try {
+                        retrieveAndIndex();
+                    } catch (RuntimeException e) {
+                        LOG.error("Error was thrown from TaskIndexer:", e);
+                    } finally {
+                        long l2 = System.currentTimeMillis();
+                        long timeToSleep = (secondBetweenPolling * 1000) - (l2 - l1);
+                        Thread.sleep(Math.max(timeToSleep, 0));
+                    }
+                }
+                stoppedRunning = true;
+            }catch (InterruptedException ignore){
+                LOG.info("Timbermill server was interrupted, exiting");
             }
         }).start();
+    }
+
+    public void close() throws IOException {
+        keepRunning = false;
+        while(!stoppedRunning){
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+
+            }
+        }
+        es.close();
     }
 
     private void retrieveAndIndex() {
@@ -342,5 +372,14 @@ public class LocalTaskIndexer {
             parentTask = previouslyIndexedTasks.get(parentTaskId);
         }
         return parentTask;
+    }
+
+    private void indexMetadataTaskToTimbermill() {
+        Task task = new Task("timbermill_server_startup" + '-' + new DateTime().getMillis());
+        task.setTaskType("timbermill_server_startup");
+        task.setPrimary(true);
+        task.setStartTime(new DateTime());
+        task.setEndTime(new DateTime());
+        es.indexTaskToMetaDataIndex(task);
     }
 }

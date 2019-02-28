@@ -12,6 +12,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
@@ -34,9 +35,9 @@ final class EventLogger {
 	 * Instance fields
 	 */
 	private Stack<String> taskIdStack = new Stack<>();
-	private com.datorama.timbermill.pipe.EventOutputPipe eventOutputPipe;
+	private EventOutputPipe eventOutputPipe;
 
-	private EventLogger(com.datorama.timbermill.pipe.EventOutputPipe eventOutputPipe) {
+	private EventLogger(EventOutputPipe eventOutputPipe) {
 		this.eventOutputPipe = eventOutputPipe;
 	}
 
@@ -61,7 +62,8 @@ final class EventLogger {
 		}
 	}
 
-	static void stop() {
+	static void stop() throws IOException {
+		threadInstance.get().eventOutputPipe.close();
 		isBootstrapped = false;
 	}
 
@@ -73,7 +75,7 @@ final class EventLogger {
 		return startEvent(taskType, null, new DateTime());
 	}
 
-	String startEvent(String taskType, String parentTaskId, DateTime time) {
+	private String startEvent(String taskType, String parentTaskId, DateTime time) {
 		return startEvent(taskType, parentTaskId, time, null, null, null, false);
 	}
 
@@ -86,7 +88,7 @@ final class EventLogger {
 		return submitEvent(event);
 	}
 
-	public String getCurrentTaskId() {
+	String getCurrentTaskId() {
 		return taskIdStack.empty() ? null : taskIdStack.peek();
 	}
 
@@ -94,7 +96,7 @@ final class EventLogger {
 		return logAttributes(params, null);
 	}
 
-	String logAttributes(Map<String, ?> params, String taskId) {
+	private String logAttributes(Map<String, ?> params, String taskId) {
 		Event event = createInfoEvent(params, null, null, taskId);
 		return submitEvent(event);
 	}
@@ -103,7 +105,7 @@ final class EventLogger {
 		return logMetrics(params, null);
 	}
 
-	String logMetrics(Map<String, Number> params, String taskId) {
+	private String logMetrics(Map<String, Number> params, String taskId) {
 		Event event = createInfoEvent(null, params, null, taskId);
 		return submitEvent(event);
 	}
@@ -112,7 +114,7 @@ final class EventLogger {
 		return logData(params, null);
 	}
 
-	String logData(Map<String, ?> params, String taskId) {
+	private String logData(Map<String, ?> params, String taskId) {
 		Event event = createInfoEvent(null, null, params, taskId);
 		return submitEvent(event);
 	}
@@ -127,12 +129,7 @@ final class EventLogger {
 		return successEvent(new DateTime(), null);
 	}
 
-	String successEvent(String taskId) {
-
-		return successEvent(new DateTime(), taskId);
-	}
-
-	String successEvent(DateTime time, String taskId) {
+    String successEvent(DateTime time, String taskId) {
 		Event event = createEndEvent(EventType.END_SUCCESS, time, null, taskId);
 		return submitEvent(event);
 	}
@@ -141,11 +138,7 @@ final class EventLogger {
 		return endWithError(t, new DateTime(), null);
 	}
 
-	String endWithError(Throwable t, String taskId) {
-		return endWithError(t, new DateTime(), taskId);
-	}
-
-	<T> Callable<T> wrapCallable(Callable<T> callable) {
+    <T> Callable<T> wrapCallable(Callable<T> callable) {
 		final Stack<String> origTaskIdStack = taskIdStack;
 		return () -> {
 			get().taskIdStack = (Stack<String>) origTaskIdStack.clone();
@@ -208,20 +201,7 @@ final class EventLogger {
 		return submitEvent(event);
 	}
 
-	void addIdToContext(String ongoingTaskId) {
-		taskIdStack.push(ongoingTaskId);
-	}
-
-	void removeIdFromContext(String ongoingTaskId) {
-		if (!taskIdStack.isEmpty() && taskIdStack.peek().equals(ongoingTaskId)){
-			taskIdStack.pop();
-		}
-		else{
-			throw new RuntimeException("Task id opened with TimberlogAdvanced.withContext() is not the top of the stack, probably failed to closed all the tasks in the scope");
-		}
-	}
-
-	private static Map<String, String> convertValuesToStringValues(Map<String, ?> map) {
+    private static Map<String, String> convertValuesToStringValues(Map<String, ?> map) {
 		Map<String, String> returnedMap = new HashMap<>();
 		if (map != null) {
 			for (Entry<String, ?> entry : map.entrySet()) {

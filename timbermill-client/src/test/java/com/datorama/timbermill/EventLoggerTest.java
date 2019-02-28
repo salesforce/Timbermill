@@ -9,6 +9,7 @@ import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -36,8 +37,9 @@ public class EventLoggerTest {
 	}
 
 	@After
-	public void tearDown(){
-		mockPipe.cleanQueue();
+	public void tearDown() throws IOException {
+		EventLogger.stop();
+		mockPipe.close();
 	}
 
 	@Test

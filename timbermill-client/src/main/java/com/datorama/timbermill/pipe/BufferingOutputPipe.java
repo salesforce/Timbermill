@@ -4,6 +4,7 @@ import com.datorama.timbermill.unit.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -61,6 +62,11 @@ public class BufferingOutputPipe implements EventOutputPipe {
 
 	@Override public int getMaxQueueSize() {
 		return eventOutputPipe.getMaxQueueSize();
+	}
+
+	@Override
+	public void close() throws IOException {
+		eventOutputPipe.close();
 	}
 
 	public int getCurrentBufferSize() {

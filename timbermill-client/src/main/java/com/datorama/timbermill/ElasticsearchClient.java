@@ -15,10 +15,14 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.MultiGetItemResponse;
 import org.elasticsearch.action.get.MultiGetRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,22 +70,28 @@ public class ElasticsearchClient {
 
     private Map<String, Task> fetchIndexedTasksByIndex(Collection<String> eventsToFetch, String index) {
 
-        MultiGetRequest request = new MultiGetRequest();
-        for (String id : eventsToFetch) {
-            request.add(
-                    new MultiGetRequest.Item(index, TYPE, id)
-            );
-        }
+        GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
         Map<String, Task> ret = new HashMap<>();
-        try {
-            MultiGetItemResponse[] responses = client.mget(request, RequestOptions.DEFAULT).getResponses();
-            for (MultiGetItemResponse response : responses) {
-                String sourceAsString = response.getResponse().getSourceAsString();
-                Task task = gson.fromJson(sourceAsString, Task.class);
-                ret.put(task.getTaskId(), task);
+        try{
+            boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
+            if (exists){
+                MultiGetRequest request = new MultiGetRequest();
+                for (String id : eventsToFetch) {
+                    request.add(
+                            new MultiGetRequest.Item(index, TYPE, id)
+                    );
+                }
+                MultiGetItemResponse[] responses = client.mget(request, RequestOptions.DEFAULT).getResponses();
+                for (MultiGetItemResponse response : responses) {
+                    if (response.getResponse().isExists()) {
+                        String sourceAsString = response.getResponse().getSourceAsString();
+                        Task task = gson.fromJson(sourceAsString, Task.class);
+                        ret.put(task.getTaskId(), task);
+                    }
+                }
+                LOG.info("Batch of {} tasks fetched successfully", ret.size());
             }
-            LOG.info("Batch of {} tasks fetched successfully", ret.size());
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new ElasticsearchException(e);
         }
         return ret;
@@ -166,6 +176,30 @@ public class ElasticsearchClient {
         }
     }
 
+    public Task getTaskById(String taskId) {
+
+        SearchRequest searchRequest = new SearchRequest();
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.idsQuery().addIds(taskId));
+        searchRequest.source(searchSourceBuilder);
+
+        try {
+            SearchResponse search = client.search(searchRequest, RequestOptions.DEFAULT);
+            if (search.getHits().totalHits == 1){
+                String sourceAsString = search.getHits().getAt(0).getSourceAsString();
+                return gson.fromJson(sourceAsString, Task.class);
+            }
+            else {
+                return null;
+            }
+        } catch (IOException e) {
+            LOG.error("Couldn't get Task {} from elasticsearch culster", taskId);
+            throw new ElasticsearchException(e);
+        } catch (NullPointerException e){
+            return null;
+        }
+    }
+
 
     private void deleteOldIndex(String currIndex) throws IOException {
         if (daysBackToDelete < 1){
@@ -184,5 +218,9 @@ public class ElasticsearchClient {
 
     String getEnv() {
         return env;
+    }
+
+    public void close() throws IOException {
+        client.close();
     }
 }
