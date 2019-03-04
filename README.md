@@ -92,9 +92,10 @@ TimberLog.bootstrap(config);
  Get familiar with our [wiki](timbermill.wiki) so you get a better sense on how to properlly use Timbermill.
  
  
- explain how it works with threads
- Attr vs data vs metrics
- explain all fields in task
- explain metadata
- explain all properties for timbermill
+ ###### Things to add to the wiki
+ * How timbermill works with different threads
+ * Attributes vs. data vs. metrics
+ * Explain all fields in task
+ * Explain metadata on task
+ * Explain all properties for timbermill bootstrap
  
