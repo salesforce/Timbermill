@@ -5,9 +5,9 @@
 Timbermill is an advanced, open-source logging service built for [Elasticsearch](https://www.elastic.co/products/elasticsearch).  
 Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware**  method which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
 
-####Task-based, Context-Aware, cool. What's that?
+#### Task-based, Context-Aware, cool. What's that?
 
-#####Task-based:
+##### Task-based:
 Timbermill logs aren't just lines of text, they are `Tasks`.
 
 
@@ -20,7 +20,7 @@ Timbermill logs aren't just lines of text, they are `Tasks`.
     * Closing event that closes the Task either successfully or with an error. (`Success`/`Error`)
   * Has a start-time, end-time and duration. 
 
-#####Context-Aware: 
+##### Context-Aware: 
 System events doesn't occur in a void.
  
 Events always have context.  When did this event happen? Why did it happen? What was the path of events leading to this event? What were the values we encountered along the path?
@@ -34,9 +34,9 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * More!
 
 
-###Getting Started
+### Getting Started
 
-####Requirements
+#### Requirements
 * Elasticsearch cluster
 * Java project (1.8+)
 * Add dependency to maven (hosted on Maven Central)
@@ -49,7 +49,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
          </dependency>
 
 
-####How to use Timbermill
+#### How to use Timbermill
 
 Timbermill is designed to be plug-and-play out-of-the-box.  
  
