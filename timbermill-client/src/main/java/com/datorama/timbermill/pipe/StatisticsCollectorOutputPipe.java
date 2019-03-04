@@ -42,7 +42,7 @@ public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close(){
 		delegate.close();
 	}
 

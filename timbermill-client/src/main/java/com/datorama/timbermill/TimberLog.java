@@ -1,11 +1,9 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import org.joda.time.DateTime;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -27,8 +25,8 @@ public final class TimberLog {
 		EventLogger.bootstrap(config.getStaticParams(), pipe, true);
 	}
 
-	static void stop() throws IOException {
-		EventLogger.stop();
+    public static void exit() {
+		EventLogger.exit();
 	}
 
 	/*

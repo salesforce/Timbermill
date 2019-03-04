@@ -3,7 +3,6 @@ package com.datorama.timbermill;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.Task;
 import com.jayway.awaitility.Awaitility;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -13,13 +12,12 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.datorama.timbermill.unit.Task.*;
+import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
 
 public class TimberLogTest {
 
 	private static final String EVENT = "Event";
-
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
@@ -27,6 +25,7 @@ public class TimberLogTest {
 	private static final String TEST = "test";
 	private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
 	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0);
+
 	@BeforeClass
 	public static void init() {
 		Map<String, Integer> map = Collections.singletonMap("data.sql", 1000);
@@ -36,8 +35,8 @@ public class TimberLogTest {
 	}
 
 	@AfterClass
-	public static void kill() throws IOException {
-		TimberLog.stop();
+	public static void kill() {
+		TimberLog.exit();
 	}
 
 	@Test
@@ -50,24 +49,21 @@ public class TimberLogTest {
 		String data1 = "data1";
 		String data2 = "data2";
 
-		String taskId;
-		TimberLog.start(EVENT);
+		String taskId = TimberLog.start(EVENT);
 		try{
 			TimberLog.logAttributes(attr1, attr1);
 			TimberLog.logMetrics(metric1, 1);
 			TimberLog.logData(data1, data1);
 			TimberLog.logAttributes(attr2, attr2);
 			TimberLog.logParams(LogParams.create().attr(attr3, attr3).metric(metric2, 2).data(data2, data2));
-			taskId = TimberLog.getCurrentTaskId();
 			TimberLog.success();
 		} catch (Throwable t){
 			TimberLog.error(t);
 			throw t;
 		}
 
-		String finalTaskId = taskId;
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(finalTaskId) != null)
-				&& (client.getTaskById(finalTaskId).getStatus() == TaskStatus.SUCCESS));
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
 		assertEquals(EVENT, task.getTaskType());
 		assertEquals(taskId, task.getPrimaryTaskId());
@@ -101,12 +97,10 @@ public class TimberLogTest {
 		}
 		String hugeString = sb.toString();
 
-		String taskId;
-		TimberLog.start(EVENT);
+		String taskId = TimberLog.start(EVENT);
 		try{
 			TimberLog.logAttributes(attr, hugeString);
 			TimberLog.logData(data, hugeString);
-			taskId = TimberLog.getCurrentTaskId();
 			TimberLog.success();
 		} catch (Throwable t){
 			TimberLog.error(t);
@@ -125,22 +119,17 @@ public class TimberLogTest {
 
 	@Test
 	public void testSpotWithParent(){
-
 		String attr1 = "attr1";
 		String attr2 = "attr2";
 
-		String taskId;
-		String taskId2;
 		final String[] taskIdSpot = {null};
-
-		TimberLog.start(EVENT);
+		String taskId2;
+		String taskId = TimberLog.start(EVENT);
 		try {
-			taskId = TimberLog.getCurrentTaskId();
 			TimberLog.logAttributes(attr1, attr1);
 
-			TimberLog.start(EVENT + '2');
+			taskId2 = TimberLog.start(EVENT + '2');
 			try{
-				taskId2 = TimberLog.getCurrentTaskId();
 				TimberLog.logAttributes(attr2, attr2);
 				new Thread(() -> {
 					try {
@@ -160,9 +149,8 @@ public class TimberLogTest {
 			throw t;
 		}
 
-		String finalTaskId = taskId;
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(finalTaskId) != null)
-				&& (client.getTaskById(finalTaskId).getStatus() == TaskStatus.SUCCESS));
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		String finalTaskId1 = taskId2;
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(finalTaskId1) != null)
 				&& (client.getTaskById(finalTaskId1).getStatus() == TaskStatus.SUCCESS));
@@ -188,31 +176,26 @@ public class TimberLogTest {
 
 	@Test
 	public void testSimpleTasksFromDifferentThreadsIndexerJob(){
-		final String[] taskId1Arr = new String[1];
-		final String[] taskId2Arr = new String[1];
-
-		final String[] task3IdArr = new String[1];
-		final String[] taskSpotArr = new String[1];
 
 		String attr1 = "attr1";
 		String attr2 = "attr2";
 
-		TimberLog.start(EVENT);
+		String taskId2;
+		final String[] taskId3 = new String[1];
+		final String[] taskIdSpot = new String[1];
+		String taskId = TimberLog.start(EVENT);
 		try{
-			taskId1Arr[0] = TimberLog.getCurrentTaskId();
 			TimberLog.logAttributes(attr1, attr1);
 
-			TimberLog.start(EVENT + '2');
+			taskId2 = TimberLog.start(EVENT + '2');
 			try{
-				taskId2Arr[0] = TimberLog.getCurrentTaskId();
 
 				TimberLog.logAttributes(attr2, attr2);
 
 				new Thread(() -> {
 					try {
-						TimberLog.start(EVENT + '3', taskId2Arr[0]);
+						taskId3[0] = TimberLog.start(EVENT + '3', taskId2);
 						try{
-							task3IdArr[0] = TimberLog.getCurrentTaskId();
 							TimberLog.success();
 						} catch (Throwable t){
 							TimberLog.error(t);
@@ -225,9 +208,8 @@ public class TimberLogTest {
 
 				new Thread(() -> {
 					try {
-						TimberLog.start(SPOT, taskId1Arr[0]);
+						taskIdSpot[0] = TimberLog.start(SPOT, taskId);
 						try{
-							taskSpotArr[0] = TimberLog.getCurrentTaskId();
 							TimberLog.success();
 						} catch (Throwable t){
 							TimberLog.error(t);
@@ -248,24 +230,19 @@ public class TimberLogTest {
 			throw t;
 		}
 
-		String taskId = taskId1Arr[0];
-		String taskId2 = taskId2Arr[0];
-		String taskId3 = task3IdArr[0];
-		String taskIdSpot = taskSpotArr[0];
-
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId2) != null)
 				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId3) != null)
-				&& (client.getTaskById(taskId3).getStatus() == TaskStatus.SUCCESS));
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId3[0]) != null)
+				&& (client.getTaskById(taskId3[0]).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
 		assertEquals(EVENT, task.getTaskType());
 		assertEquals(taskId, task.getPrimaryTaskId());
 		assertEquals(TaskStatus.SUCCESS, task.getStatus());
 		assertNull(task.getParentTaskId());
 
-		Task task3 = client.getTaskById(taskId3);
+		Task task3 = client.getTaskById(taskId3[0]);
 		assertEquals(EVENT + '3', task3.getTaskType());
 		assertEquals(attr1, task3.getAttributes().get(attr1));
 		assertEquals(attr2, task3.getAttributes().get(attr2));
@@ -276,7 +253,7 @@ public class TimberLogTest {
 		assertTrue(task3.getOrigins().contains(EVENT));
 		assertTrue(task3.getOrigins().contains(EVENT + '2'));
 
-		Task spot = client.getTaskById(taskIdSpot);
+		Task spot = client.getTaskById(taskIdSpot[0]);
 		assertEquals(SPOT, spot.getTaskType());
 		assertEquals(attr1, spot.getAttributes().get(attr1));
 		assertEquals(taskId, spot.getPrimaryTaskId());
@@ -291,9 +268,8 @@ public class TimberLogTest {
 		final String[] taskIdArr = new String[1];
 		new Thread(() -> {
 			try {
-				TimberLog.start(EVENT, "bla");
+				taskIdArr[0] = TimberLog.start(EVENT, "bla");
 				try{
-					taskIdArr[0] = TimberLog.getCurrentTaskId();
 					TimberLog.success();
 				} catch (Throwable t){
 					TimberLog.error(t);
@@ -320,19 +296,19 @@ public class TimberLogTest {
 
 	@Test
 	public void testComplexTaskIndexerWithErrorTask() {
-		String[] taskIds = new String[3];
 
-		TimberLog.start(EVENT);
+		String childTaskId = null;
+		String childOfChildTaskId = null;
+		String parentTaskId = TimberLog.start(EVENT);
 		try{
 			try {
-				taskIds[0] = TimberLog.getCurrentTaskId();
 				TimberLog.start(EVENT_CHILD);
 				try{
-					taskIds[1] = TimberLog.getCurrentTaskId();
+					childTaskId = TimberLog.getCurrentTaskId();
 					try {
 						TimberLog.start(EVENT_CHILD_OF_CHILD);
 						try{
-							taskIds[2] = TimberLog.getCurrentTaskId();
+							childOfChildTaskId = TimberLog.getCurrentTaskId();
 							throw FAIL;
 						} catch (Throwable t){
 							TimberLog.error(t);
@@ -350,15 +326,12 @@ public class TimberLogTest {
 			TimberLog.error(t);
 			throw t;
 		}
-
-		String parentTaskId = taskIds[0];
-		String childTaskId = taskIds[1];
-		String childOfChildTaskId = taskIds[2];
-
+		String finalChildTaskId = childTaskId;
+		String finalChildOfChildTaskId = childOfChildTaskId;
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(parentTaskId) != null)
 				&& (client.getTaskById(parentTaskId).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(childTaskId) != null);
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(childOfChildTaskId) != null);
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(finalChildTaskId) != null);
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(finalChildOfChildTaskId) != null);
 
 		Task taskParent = client.getTaskById(parentTaskId);
 		Task taskChild = client.getTaskById(childTaskId);
@@ -386,19 +359,15 @@ public class TimberLogTest {
 
 	@Test
 	public void testTaskWithNullString() {
-		String[] taskIds = new String[1];
 
-		TimberLog.start(EVENT);
+		String taskId = TimberLog.start(EVENT);
 		try{
-			taskIds[0] = TimberLog.getCurrentTaskId();
 			TimberLog.logAttributes("key", "null");
 			TimberLog.success();
 		} catch (Throwable t){
 			TimberLog.error(t);
 			throw t;
 		}
-		String taskId = taskIds[0];
-
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 

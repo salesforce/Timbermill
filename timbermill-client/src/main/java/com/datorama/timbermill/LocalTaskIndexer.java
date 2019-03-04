@@ -14,13 +14,12 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
-import static com.datorama.timbermill.unit.Event.*;
+import static com.datorama.timbermill.unit.Event.EventType;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
@@ -67,7 +66,7 @@ public class LocalTaskIndexer {
         }).start();
     }
 
-    public void close() throws IOException {
+    public void close() {
         keepRunning = false;
         while(!stoppedRunning){
             try {

@@ -65,7 +65,7 @@ public class BufferingOutputPipe implements EventOutputPipe {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() {
 		eventOutputPipe.close();
 	}
 

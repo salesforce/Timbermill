@@ -220,7 +220,11 @@ public class ElasticsearchClient {
         return env;
     }
 
-    public void close() throws IOException {
-        client.close();
+    public void close(){
+        try {
+            client.close();
+        } catch (IOException e) {
+            throw new ElasticsearchException(e);
+        }
     }
 }

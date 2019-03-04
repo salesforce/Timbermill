@@ -62,7 +62,7 @@ final class EventLogger {
 		}
 	}
 
-	static void stop() throws IOException {
+	static void exit(){
 		threadInstance.get().eventOutputPipe.close();
 		isBootstrapped = false;
 	}

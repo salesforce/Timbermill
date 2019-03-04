@@ -1,10 +1,8 @@
 package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.ElasticsearchClient;
-import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.LocalTaskIndexer;
-
-import java.io.IOException;
+import com.datorama.timbermill.unit.Event;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -25,7 +23,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         return 0;
     }
 
-    public void close() throws IOException {
+    public void close() {
         localTaskIndexer.close();
     }
 }

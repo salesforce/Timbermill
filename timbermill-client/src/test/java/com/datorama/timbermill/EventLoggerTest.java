@@ -9,12 +9,11 @@ import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
-import static com.datorama.timbermill.unit.Event.*;
+import static com.datorama.timbermill.unit.Event.EventType;
 import static org.junit.Assert.*;
 
 public class EventLoggerTest {
@@ -37,8 +36,8 @@ public class EventLoggerTest {
 	}
 
 	@After
-	public void tearDown() throws IOException {
-		EventLogger.stop();
+	public void tearDown() {
+		EventLogger.exit();
 		mockPipe.close();
 	}
 
