@@ -12,7 +12,7 @@ Timbermill logs aren't just lines of text, they are `Tasks`.
 
 
 `Task` characteristics:
-  * Represented by a specific `Type` (not to me confused with Elasticsearch document's type).
+  * Represented by a specific `Type` (not to be confused with Elasticsearch document's type).
   * Has a unique ID.
   * Represents multiple `Events` that where called for it.
     * Start event that open the Task.
