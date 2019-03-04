@@ -32,7 +32,6 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * Complete path of tasks leading to this task.
 * Important properties from its ancestors.
 * More!
-* [Eden] please add here the default attributes that every event contains (e.g. host, jvm, ip etc.)
 
 
 ### Getting Started
@@ -99,4 +98,5 @@ TimberLog.bootstrap(config);
  * Explain all fields in task
  * Explain metadata on task
  * Explain all properties for timbermill bootstrap
+ * Global attributes that every event contains (e.g. host, jvm, ip etc.)
  
