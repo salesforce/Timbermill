@@ -17,7 +17,7 @@ Timbermill logs aren't just lines of text, they are `Tasks`.
   * Represents multiple `Events` that where called for it.
     * Start event that open the Task.
     * Zero or more info events (`Attributes`/`Data`/`Metrics`) that add properties values to the task. 
-    * Closing event that closes the Task either successfully or with an error. (`Success`/`Error`)
+    * Closing event that closes the Task either successfully or with an error (`Success`/`Error`), note that as long as an event is in the works its status is `Unterminated`
   * Has a start-time, end-time and duration. 
 
 ##### Context-Aware: 
@@ -32,6 +32,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * Complete path of tasks leading to this task.
 * Important properties from its ancestors.
 * More!
+* [Eden] please add here the default attributes that every event contains (e.g. host, jvm, ip etc.)
 
 
 ### Getting Started
