@@ -3,7 +3,7 @@
 ### Task-Based,A Context-Aware Logging service
 
 Timbermill is an advanced, open-source logging service built for [Elasticsearch](https://www.elastic.co/products/elasticsearch).  
-Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware**  method which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
+Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware** manner which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
 
 #### Task-based, Context-Aware, cool. What's that?
 
