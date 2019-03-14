@@ -1,9 +1,9 @@
 # Timbermill
 
-### Task-Based,A Context-Aware Logging service
+### A Task-Based, Context-Aware Logging service
 
 Timbermill is an advanced, open-source logging service built for [Elasticsearch](https://www.elastic.co/products/elasticsearch).  
-Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware**  method which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
+Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware** manner which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
 
 #### Task-based, Context-Aware, cool. What's that?
 
@@ -12,12 +12,12 @@ Timbermill logs aren't just lines of text, they are `Tasks`.
 
 
 `Task` characteristics:
-  * Represented by a specific `Type` (not to me confused with Elasticsearch document's type).
+  * Represented by a specific `Type` (not to be confused with Elasticsearch document's type).
   * Has a unique ID.
   * Represents multiple `Events` that where called for it.
     * Start event that open the Task.
     * Zero or more info events (`Attributes`/`Data`/`Metrics`) that add properties values to the task. 
-    * Closing event that closes the Task either successfully or with an error. (`Success`/`Error`)
+    * Closing event that closes the Task either successfully or with an error (`Success`/`Error`), note that as long as an event is in the works its status is `Unterminated`
   * Has a start-time, end-time and duration. 
 
 ##### Context-Aware: 
@@ -98,4 +98,5 @@ TimberLog.bootstrap(config);
  * Explain all fields in task
  * Explain metadata on task
  * Explain all properties for timbermill bootstrap
+ * Global attributes that every event contains (e.g. host, jvm, ip etc.)
  
