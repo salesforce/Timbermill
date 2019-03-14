@@ -39,7 +39,7 @@ public class ClientHeartbeater {
 					metrics.put(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
 				}
 
-				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, metrics, null, null);
+				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, metrics, null);
 
 
 				try {

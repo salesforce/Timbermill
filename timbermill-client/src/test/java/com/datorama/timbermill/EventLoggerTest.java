@@ -5,6 +5,7 @@ import com.datorama.timbermill.pipe.MockPipe;
 import com.datorama.timbermill.unit.Event;
 import com.google.common.collect.ImmutableMap;
 import com.jayway.awaitility.Awaitility;
+import org.joda.time.DateTime;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -44,7 +45,7 @@ public class EventLoggerTest {
 	@Test
 	public void testSimpleEventLogger() {
 		el.startEvent(QUERY);
-		el.successEvent();
+		el.successEvent(new DateTime());
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -66,7 +67,7 @@ public class EventLoggerTest {
 		el.startEvent(QUERY);
 
 		Exception exception = new Exception(FAIL_MESSAGE);
-		el.endWithError(exception);
+		el.endWithError(exception, new DateTime());
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -82,8 +83,8 @@ public class EventLoggerTest {
 
 		el.startEvent(QUERY);
 		el.startEvent(SQL);
-		el.successEvent();
-		el.successEvent();
+		el.successEvent(new DateTime());
+		el.successEvent(new DateTime());
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 4);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -111,7 +112,7 @@ public class EventLoggerTest {
 
 		String startId = el.startEvent(QUERY);
 		el.logData(ImmutableMap.of(PARAM, TEST));
-		el.successEvent();
+		el.successEvent(new DateTime());
 
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 3);
@@ -129,8 +130,8 @@ public class EventLoggerTest {
 	public void testSpotEvent(){
 
 		String startId = el.startEvent(QUERY);
-		el.spotEvent("Testing", null, null, null, null);
-		el.successEvent();
+		el.spotEvent("Testing", null, null, null);
+		el.successEvent(new DateTime());
 
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 3);
@@ -147,7 +148,7 @@ public class EventLoggerTest {
 
 	@Test
 	public void testEndSuccessWithoutStart(){
-		el.successEvent();
+		el.successEvent(new DateTime());
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
 		List<Event> events = mockPipe.getCollectedEvents();
 
@@ -162,7 +163,7 @@ public class EventLoggerTest {
 	@Test
 	public void testEndErrorWithoutStart(){
 		Exception exception = new Exception(FAIL_MESSAGE);
-		el.endWithError(exception);
+		el.endWithError(exception, new DateTime());
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -232,10 +233,12 @@ public class EventLoggerTest {
 	@Test
 	public void testSimpleTwoEventsFromDifferentThreads() {
 		String taskId = el.startEvent(QUERY);
-		el.successEvent();
+		el.successEvent(new DateTime());
 
-		el.startEvent(QUERY + '2', taskId);
-		el.successEvent();
+		try (TimberLogContext tlc = new TimberLogContext(taskId)){
+			el.startEvent(QUERY + '2', null, null, null);
+			el.successEvent(new DateTime());
+		}
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 4);
 		List<Event> events = mockPipe.getCollectedEvents();
 

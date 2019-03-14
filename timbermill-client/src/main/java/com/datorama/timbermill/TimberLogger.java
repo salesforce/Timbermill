@@ -9,9 +9,9 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
-public final class TimberLog {
+public final class TimberLogger {
 
-	private TimberLog() {
+	private TimberLogger() {
 	}
 
 	public static void bootstrap() {
@@ -37,18 +37,10 @@ public final class TimberLog {
 	}
 
 	public static String start(String taskType) {
-		return start(taskType, null, null);
+		return start(taskType, null);
 	}
 
 	public static String start(String taskType, LogParams logParams) {
-		return start(taskType, null, logParams);
-	}
-
-	public static String start(String taskType, String parentTaskId) {
-		return start(taskType, parentTaskId, null);
-	}
-
-	public static String start(String taskType, String parentTaskId, LogParams logParams) {
 		Map<String, Object> attributes = null;
 		Map<String, Number> metrics = null;
 		Map<String, String> data = null;
@@ -57,15 +49,15 @@ public final class TimberLog {
 			metrics = logParams.getMetrics();
 			data = logParams.getData();
 		}
-		return EventLogger.get().startEvent(taskType, parentTaskId, new DateTime(), attributes, metrics, data, false);
+		return EventLogger.get().startEvent(taskType, attributes, metrics, data);
 	}
 
 	public static String success() {
-		return EventLogger.get().successEvent(new DateTime(), null);
+		return EventLogger.get().successEvent(new DateTime());
 	}
 
 	public static String error(Throwable t) {
-		return EventLogger.get().endWithError(t, new DateTime(), null);
+		return EventLogger.get().endWithError(t, new DateTime());
 	}
 
 	public static String logParams(LogParams logParams) {
@@ -84,12 +76,20 @@ public final class TimberLog {
 		return EventLogger.get().logData(Collections.singletonMap(key, value));
 	}
 
-	public static String spot(String taskType, LogParams logParams) {
-		return spot(taskType, logParams, null);
+	public static String spot(String taskType) {
+		return spot(taskType, null);
 	}
 
-	public static String spot(String taskType, LogParams logParams, String parentTaskId) {
-		return EventLogger.get().spotEvent(taskType, logParams.getAttributes(), logParams.getMetrics(), logParams.getData(), parentTaskId);
+	private static String spot(String taskType, LogParams logParams) {
+		Map<String, Object> attributes = null;
+		Map<String, Number> metrics = null;
+		Map<String, String> data = null;
+		if (logParams != null) {
+			attributes = logParams.getAttributes();
+			metrics = logParams.getMetrics();
+			data = logParams.getData();
+		}
+		return EventLogger.get().spotEvent(taskType, attributes, metrics, data);
 	}
 
 	public static <T> Callable<T> wrapCallable(Callable<T> callable) {

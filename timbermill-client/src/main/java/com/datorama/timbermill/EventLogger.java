@@ -1,7 +1,10 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.pipe.*;
+import com.datorama.timbermill.pipe.BlackHolePipe;
+import com.datorama.timbermill.pipe.BufferingOutputPipe;
+import com.datorama.timbermill.pipe.EventOutputPipe;
+import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
 import com.datorama.timbermill.unit.Event;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -12,14 +15,13 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
-import static com.datorama.timbermill.unit.Event.*;
+import static com.datorama.timbermill.unit.Event.EventType;
 
 final class EventLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
@@ -72,19 +74,11 @@ final class EventLogger {
 	}
 
 	String startEvent(String taskType) {
-		return startEvent(taskType, null, new DateTime());
+		return startEvent(taskType, null, null, null);
 	}
 
-	private String startEvent(String taskType, String parentTaskId, DateTime time) {
-		return startEvent(taskType, parentTaskId, time, null, null, null, false);
-	}
-
-	String startEvent(String taskType, String parentTaskId) {
-		return startEvent(taskType, parentTaskId, new DateTime());
-	}
-
-	String spotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data, String parentTaskId) {
-		Event event = createSpotEvent(taskType, attributes, metrics, data, parentTaskId);
+	String spotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data) {
+		Event event = createSpotEvent(taskType, attributes, metrics, data);
 		return submitEvent(event);
 	}
 
@@ -93,52 +87,30 @@ final class EventLogger {
 	}
 
 	String logAttributes(Map<String, ?> params) {
-		return logAttributes(params, null);
-	}
-
-	private String logAttributes(Map<String, ?> params, String taskId) {
-		Event event = createInfoEvent(params, null, null, taskId);
+		Event event = createInfoEvent(params, null, null);
 		return submitEvent(event);
 	}
-
 	String logMetrics(Map<String, Number> params) {
-		return logMetrics(params, null);
-	}
-
-	private String logMetrics(Map<String, Number> params, String taskId) {
-		Event event = createInfoEvent(null, params, null, taskId);
+		Event event = createInfoEvent(null, params, null);
 		return submitEvent(event);
 	}
 
 	String logData(Map<String, ?> params) {
-		return logData(params, null);
-	}
-
-	private String logData(Map<String, ?> params, String taskId) {
-		Event event = createInfoEvent(null, null, params, taskId);
+		Event event = createInfoEvent(null, null, params);
 		return submitEvent(event);
 	}
 
 	String logParams(LogParams logParams) {
-		Event event = createInfoEvent(logParams.getAttributes(), logParams.getMetrics(), logParams.getData(), null);
+		Event event = createInfoEvent(logParams.getAttributes(), logParams.getMetrics(), logParams.getData());
 		return submitEvent(event);
 	}
 
-	String successEvent() {
-
-		return successEvent(new DateTime(), null);
-	}
-
-    String successEvent(DateTime time, String taskId) {
-		Event event = createEndEvent(EventType.END_SUCCESS, time, null, taskId);
+	String successEvent(DateTime time) {
+		Event event = createEndEvent(EventType.END_SUCCESS, time, null);
 		return submitEvent(event);
 	}
 
-	String endWithError(Throwable t) {
-		return endWithError(t, new DateTime(), null);
-	}
-
-    <T> Callable<T> wrapCallable(Callable<T> callable) {
+	<T> Callable<T> wrapCallable(Callable<T> callable) {
 		final Stack<String> origTaskIdStack = taskIdStack;
 		return () -> {
 			get().taskIdStack = (Stack<String>) origTaskIdStack.clone();
@@ -158,8 +130,7 @@ final class EventLogger {
 		};
 	}
 
-	String startEvent(String taskType, String parentTaskId, DateTime time, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data,
-			boolean isOngoingTask) {
+	String startEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data) {
 
 		if(data == null){
 			data = Maps.newHashMap();
@@ -173,7 +144,7 @@ final class EventLogger {
 
 		Map<String, String> allAttributes = getAllAttributes(attributes);
 
-		Event event = createEvent(null, taskType, EventType.START, time, allAttributes, metrics, data, parentTaskId, isOngoingTask);
+		Event event = createEvent(null, taskType, EventType.START, new DateTime(), allAttributes, metrics, data);
 		return submitEvent(event);
 	}
 
@@ -190,14 +161,10 @@ final class EventLogger {
 		}
 	}
 
-	String endWithError(Throwable t, DateTime time, String taskId) {
+	String endWithError(Throwable t, DateTime time) {
 		Map<String, String> data = new HashMap<>();
-		try {
-			data.put(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
-		} catch (Throwable e){
-			LOG.warn("Couldn't print exception for task ID:{}", taskId);
-		}
-		Event event = createEndEvent(EventType.END_ERROR, time, data, taskId);
+		data.put(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+		Event event = createEndEvent(EventType.END_ERROR, time, data);
 		return submitEvent(event);
 	}
 
@@ -211,8 +178,8 @@ final class EventLogger {
 		return returnedMap;
 	}
 
-	private Event createEvent(String taskId, String taskType, EventType eventType, DateTime time, Map<String, String> attributes, Map<String, Number> metrics, Map<String, String> data,
-			String parentTaskId, boolean ongoingTask) {
+	private Event createEvent(String taskId, String taskType, EventType eventType, DateTime time, Map<String, String> attributes,
+							  Map<String, Number> metrics, Map<String, String> data) {
 		if (taskId == null) {
 			taskId = generateTaskId(taskType, time);
 		}
@@ -220,23 +187,15 @@ final class EventLogger {
 		e.setAttributes(attributes);
 		e.setMetrics(metrics);
 		e.setData(data);
-		if (ongoingTask) {
+		StringUtils.isEmpty(null);
+		if (taskIdStack.isEmpty()) {
 			e.setPrimaryTaskId(taskId);
-			e.setParentTaskId(parentTaskId);
 		} else {
-			if (StringUtils.isEmpty(parentTaskId)) {
-				if (taskIdStack.isEmpty()) {
-					e.setPrimaryTaskId(taskId);
-				} else {
-					e.setPrimaryTaskId(taskIdStack.firstElement());
-					e.setParentTaskId(taskIdStack.peek());
-				}
-			} else {
-				e.setParentTaskId(parentTaskId);
-			}
-			if (eventType == EventType.START) {
-				taskIdStack.push(taskId);
-			}
+			e.setPrimaryTaskId(taskIdStack.firstElement());
+			e.setParentTaskId(taskIdStack.peek());
+		}
+		if (eventType == EventType.START) {
+			taskIdStack.push(taskId);
 		}
 		return e;
 	}
@@ -250,25 +209,20 @@ final class EventLogger {
 		return taskType + '_' + time.getMillis() + '_' + Math.abs(new Random().nextInt());
 	}
 
-	private Event createInfoEvent(Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data, String taskId) {
+	private Event createInfoEvent(Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data) {
 		Event event;
 		Map<String, String> newData = convertValuesToStringValues(data);
-		if (taskId == null) {
-			if (taskIdStack.empty()) {
-				String stackTrace = getStackTraceString();
-				newData.put("stackTrace", stackTrace);
-				event = createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, attributes, metrics, newData, null);
-			} else {
-				event = createEvent(taskIdStack.peek(), null, EventType.INFO, new DateTime(), convertValuesToStringValues(attributes), metrics, newData, null, false);
-			}
-		}
-		else{ // For ongoing tasks
-			event = createEvent(taskId, null, EventType.INFO, new DateTime(), convertValuesToStringValues(attributes), metrics, newData, null, false);
+		if (taskIdStack.empty()) {
+			String stackTrace = getStackTraceString();
+			newData.put("stackTrace", stackTrace);
+			event = createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, attributes, metrics, newData);
+		} else {
+			event = createEvent(taskIdStack.peek(), null, EventType.INFO, new DateTime(), convertValuesToStringValues(attributes), metrics, newData);
 		}
 		return event;
 	}
 
-	private Event createSpotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data, String parentTaskId) {
+	private Event createSpotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data) {
 		Map<String, String> convertedAttributesMap = convertValuesToStringValues(attributes);
 		Map<String, String> convertedDataMap = convertValuesToStringValues(data);
 		convertedAttributesMap.putAll(convertValuesToStringValues(staticParams));
@@ -279,34 +233,25 @@ final class EventLogger {
 		} else {
 			datas = ImmutableMap.of("threadName", threadName);
 		}
-		return createEvent(null, taskType, EventType.SPOT, new DateTime(), convertedAttributesMap, metrics, datas, parentTaskId, false);
+		return createEvent(null, taskType, EventType.SPOT, new DateTime(), convertedAttributesMap, metrics, datas);
 	}
 
-	private Event createEndEvent(EventType eventType, DateTime time, Map<String, String> data, String taskId) {
+	private Event createEndEvent(EventType eventType, DateTime time, Map<String, String> data) {
 		if (data == null){
 			data = new HashMap<>();
 		}
-		// Puts stacktrace in data (debug purposes)
-//		String stackTrace = getStackTraceString();
-//		data.put("stackTrace", stackTrace);
 		Event e;
-		if (taskId == null) {
-			if (taskIdStack.empty()) {
-				String stackTrace = getStackTraceString();
-				data.put("stackTrace", stackTrace);
-				e = createEvent(null, Constants.END_WITHOUT_START, EventType.SPOT, new DateTime(), convertValuesToStringValues(staticParams), null, data, null, false);
-			} else {
-				e = new Event(taskIdStack.pop(), eventType, time);
-				e.setData(data);
-				if (!taskIdStack.isEmpty()) {
-					e.setPrimaryTaskId(taskIdStack.firstElement());
-					e.setParentTaskId(taskIdStack.peek());
-				}
-			}
-		}
-		else{
-			e = new Event(taskId, eventType, time);
+		if (taskIdStack.empty()) {
+			String stackTrace = getStackTraceString();
+			data.put("stackTrace", stackTrace);
+			e = createEvent(null, Constants.END_WITHOUT_START, EventType.SPOT, new DateTime(), convertValuesToStringValues(staticParams), null, data);
+		} else {
+			e = new Event(taskIdStack.pop(), eventType, time);
 			e.setData(data);
+			if (!taskIdStack.isEmpty()) {
+				e.setPrimaryTaskId(taskIdStack.firstElement());
+				e.setParentTaskId(taskIdStack.peek());
+			}
 		}
 		return e;
 	}
@@ -319,5 +264,18 @@ final class EventLogger {
 			sb.append(stackTraceElement).append('\n');
 		}
 		return sb.toString();
+	}
+
+	void addIdToContext(String ongoingTaskId) {
+		taskIdStack.push(ongoingTaskId);
+	}
+
+	void removeIdFromContext(String ongoingTaskId) {
+		if (!taskIdStack.isEmpty() && taskIdStack.peek().equals(ongoingTaskId)){
+			taskIdStack.pop();
+		}
+		else{
+			throw new RuntimeException("Task id opened with TimberlogAdvanced.withContext() is not the top of the stack, probably failed to closed all the tasks in the scope");
+		}
 	}
 }

@@ -2,7 +2,6 @@ package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
 
-import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class StatisticsCollectorOutputPipe implements EventOutputPipe {
