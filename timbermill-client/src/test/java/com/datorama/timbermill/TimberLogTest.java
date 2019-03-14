@@ -355,4 +355,31 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
+	@Test
+	public void testOverConstructor() {
+
+		TimberLogTestClass timberLogTestClass = new TimberLogTestClass();
+		String taskId = timberLogTestClass.getTaskId();
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+		Task task = client.getTaskById(taskId);
+		assertSame(TaskStatus.SUCCESS, task.getStatus());
+	}
+
+	@Test
+	public void testOverConstructorException() {
+		String[] taskArr = new String[1];
+		try {
+			new TimberLogTestClass(taskArr);
+		} catch (Exception ignored) {
+		}
+		String taskId = taskArr[0];
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+				&& (client.getTaskById(taskId).getStatus() == TaskStatus.ERROR));
+
+		Task task = client.getTaskById(taskId);
+		assertSame(TaskStatus.ERROR, task.getStatus());
+	}
+
 }
