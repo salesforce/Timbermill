@@ -75,7 +75,7 @@ Timbermill is designed to be plug-and-play out-of-the-box.
                  
  This code bootstraps Timbermill with a local default Elasticsearch cluster (http://localhost:9200). It will write one task of type `hello_world` with the above properties to elasticsearch.
  
- ![Alt text](helloworld1.png?raw=true "Title")
+ ![Alt text](helloworld1.png?raw=true "Kibana")
  
  * The catch clouse is mandatory. If your code will throw an exception without a closing TimberLog method (success/error) being
 called, tasks in Timbermill could become corrupted.
