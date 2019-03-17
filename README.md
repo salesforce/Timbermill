@@ -54,23 +54,23 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 Timbermill is designed to be plug-and-play out-of-the-box.  
  
 ```
-TimberLog.bootstrap();
-//...
-try {
-    TimberLog.start("hello_world");
-    TimberLog.logAttributes("foo", "bar");
-    TimberLog.logData("text", "This is a text!");
-    TimberLog.logMetrics("number", 42);
-    /**
-     *  Your Code
-     */
-    TimberLog.success();
-} catch (Exception e){
-    TimberLog.error(e);
-    throw e;
-}
-//...
-TimberLog.exit();
+    public void main(String[] args) {
+        TimberLogger.bootstrap();
+        
+        log();
+        
+        TimberLogger.exit();
+    }
+
+    @TimberLog(taskType = "hello_world")
+    public void log() {
+        TimberLogger.logAttributes("foo", "bar");
+        TimberLogger.logData("text", "This is a text!");
+        TimberLogger.logMetrics("number", 42);
+        /**
+         *  Your Code
+         */
+    }
 ```
                  
  This code bootstraps Timbermill with a local default Elasticsearch cluster (http://localhost:9200). It will write one task of type `hello_world` with the above properties to elasticsearch.
