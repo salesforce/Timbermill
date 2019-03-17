@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class ClientHeartbeater {
 
-	private static final int MIN = 60000;
+	private static final int TIME_TO_SLEEP = 60000;
 
 	private static final String SUBMIT_AMOUNT = "submitAmount";
 	private static final String AVG_SUBMIT_DURATION = "avgSubmitDuration";
@@ -39,11 +39,12 @@ public class ClientHeartbeater {
 					metrics.put(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
 				}
 
+
 				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, metrics, null);
 
 
 				try {
-					Thread.sleep(MIN);
+					Thread.sleep(TIME_TO_SLEEP);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}

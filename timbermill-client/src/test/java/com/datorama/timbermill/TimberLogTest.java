@@ -298,18 +298,15 @@ public class TimberLogTest {
 		Task taskChildOfChild = client.getTaskById(childOfChildTaskId);
 
 		assertSame(TaskStatus.SUCCESS, taskParent.getStatus());
-		assertEquals(parentTaskId, taskParent.getTaskId());
 		assertNull(taskParent.getOrigins());
 
 		assertSame(TaskStatus.ERROR, taskChild.getStatus());
-		assertEquals(childTaskId, taskChild.getTaskId());
 		assertEquals(parentTaskId, taskChild.getPrimaryTaskId());
 		assertEquals(parentTaskId, taskChild.getParentTaskId());
 		assertEquals(1, taskChild.getOrigins().size());
 		assertTrue(taskChild.getOrigins().contains(taskParent.getTaskType()));
 
 		assertSame(TaskStatus.ERROR, taskChildOfChild.getStatus());
-		assertEquals(childOfChildTaskId, taskChildOfChild.getTaskId());
 		assertEquals(parentTaskId, taskChildOfChild.getPrimaryTaskId());
 		assertEquals(childTaskId, taskChildOfChild.getParentTaskId());
 		assertEquals(2, taskChildOfChild.getOrigins().size());

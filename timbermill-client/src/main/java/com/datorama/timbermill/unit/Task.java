@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 public class Task {
-	private String taskId;
 	private String taskType;
 	private String env;
 	private TaskStatus status;
@@ -28,10 +27,6 @@ public class Task {
 	private Map<String, String> data = new HashMap<>();
 
 	public Task() {
-	}
-
-	public Task(String taskId) {
-		this.taskId = taskId;
 	}
 
 	public void update(Collection<Event> events) {
@@ -165,11 +160,6 @@ public class Task {
 		this.status = status;
 	}
 
-
-	public String getTaskId() {
-		return taskId;
-	}
-
 	public String getParentTaskId() {
 		return parentTaskId;
 	}
@@ -284,31 +274,6 @@ public class Task {
 
 	public boolean taskWithNoStartEvent() {
 		return startTime == null;
-	}
-
-	@Override
-	public int hashCode() {
-		int prime = 31;
-		int result = 1;
-		result = (prime * result) + ((taskId == null) ? 0 : taskId.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		if (obj == null) {
-			return false;
-		}
-		if (getClass() != obj.getClass()) {
-			return false;
-		}
-		Task other = (Task) obj;
-		if (taskId == null) {
-			return other.taskId == null;
-		} else return taskId.equals(other.taskId);
 	}
 
 	public enum TaskStatus {

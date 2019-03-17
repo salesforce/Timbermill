@@ -12,6 +12,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.get.MultiGetItemResponse;
 import org.elasticsearch.action.get.MultiGetRequest;
 import org.elasticsearch.action.index.IndexRequest;
@@ -56,7 +57,7 @@ public class ElasticsearchClient {
         return indexPrefix + '-' + env + '-' + startTime.toString("dd-MM-yyyy");
     }
 
-    public Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {
+    Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {
         if (eventsToFetch.isEmpty()) {
             return Collections.emptyMap();
         } else {
@@ -83,10 +84,11 @@ public class ElasticsearchClient {
                 }
                 MultiGetItemResponse[] responses = client.mget(request, RequestOptions.DEFAULT).getResponses();
                 for (MultiGetItemResponse response : responses) {
-                    if (response.getResponse().isExists()) {
-                        String sourceAsString = response.getResponse().getSourceAsString();
+                    GetResponse getResponse = response.getResponse();
+                    if (getResponse.isExists()) {
+                        String sourceAsString = getResponse.getSourceAsString();
                         Task task = gson.fromJson(sourceAsString, Task.class);
-                        ret.put(task.getTaskId(), task);
+                        ret.put(getResponse.getId(), task);
                     }
                 }
                 LOG.info("Batch of {} tasks fetched successfully", ret.size());
@@ -97,15 +99,14 @@ public class ElasticsearchClient {
         return ret;
     }
 
-    public void indexTasks(Map<String, Task> tasksToIndex) {
+    void indexTasks(Map<String, Task> tasksToIndex) {
         if (!tasksToIndex.isEmpty()) {
             Set<String> indices = tasksToIndex.values().stream()
                     .map(t -> getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime())).collect(Collectors.toSet());
             for (String index : indices){
                 createNewIndices(index);
             }
-            Task[] tasks = tasksToIndex.values().toArray(new Task[0]);
-            bulkIndexByBulkSize(tasks, indexBulkSize, 1);
+            bulkIndexByBulkSize(tasksToIndex, indexBulkSize, 1);
 
         }
     }
@@ -125,18 +126,20 @@ public class ElasticsearchClient {
         }
     }
 
-    private void bulkIndexByBulkSize(Task[] tasks, int bulkSize, int tryNum){
+    private void bulkIndexByBulkSize(Map<String, Task> tasks, int bulkSize, int tryNum){
         BulkRequest request = new BulkRequest();
         try {
             int currBatch = 0;
-            for (int i = 1; i <= tasks.length; i++) {
+            int i = 0;
+            for (Map.Entry<String, Task> taskEntry : tasks.entrySet()) {
+                i++;
                 currBatch++;
-                Task t = tasks[i - 1];
+                Task t = taskEntry.getValue();
                 String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime());
-                IndexRequest req = new IndexRequest(index, TYPE, t.getTaskId()).source(gson.toJson(t), XContentType.JSON);
+                IndexRequest req = new IndexRequest(index, TYPE, taskEntry.getKey()).source(gson.toJson(t), XContentType.JSON);
                 request.add(req);
 
-                if (((i % bulkSize) == 0) || (i == tasks.length)) {
+                if (((i % bulkSize) == 0) || (i == tasks.size())) {
                     BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
 
                     if (responses.hasFailures()) {
@@ -152,7 +155,7 @@ public class ElasticsearchClient {
         }
     }
 
-    private void retryIndexWithSmallerBulkSizeOrFail(Task[] tasks, int bulkSize, int tryNum, String errorMessage) {
+    private void retryIndexWithSmallerBulkSizeOrFail(Map<String, Task> tasks, int bulkSize, int tryNum, String errorMessage) {
         if (tryNum == MAX_TRY_NUMBER) {
             throw new ElasticsearchException("Couldn't bulk index tasks to elsticsearch cluster after {} tries,"
                     + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
@@ -164,19 +167,19 @@ public class ElasticsearchClient {
         }
     }
 
-    public void indexTaskToMetaDataIndex(Task task) {
+    void indexTaskToMetaDataIndex(Task task, String taskId) {
         try {
             String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, task.getStartTime());
             createNewIndices(metadataIndex);
 
-            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, task.getTaskId()).source(gson.toJson(task), XContentType.JSON);
+            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, taskId).source(gson.toJson(task), XContentType.JSON);
             client.index(indexRequest, RequestOptions.DEFAULT);
         } catch (Exception e) {
-            throw new ElasticsearchException("Couldn't index task {} to elsticsearch cluster: {}" ,task.getTaskId(), ExceptionUtils.getStackTrace(e));
+            throw new ElasticsearchException("Couldn't index task {} to elsticsearch cluster: {}" ,taskId, ExceptionUtils.getStackTrace(e));
         }
     }
 
-    public Task getTaskById(String taskId) {
+    Task getTaskById(String taskId) {
 
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -220,7 +223,7 @@ public class ElasticsearchClient {
         return env;
     }
 
-    public void close(){
+    void close(){
         try {
             client.close();
         } catch (IOException e) {
