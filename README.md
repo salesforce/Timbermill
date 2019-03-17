@@ -54,7 +54,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 Timbermill is designed to be plug-and-play out-of-the-box.  
  
 ```
-    public void main(String[] args) {
+    public void main() {
         TimberLogger.bootstrap();
         
         log();
