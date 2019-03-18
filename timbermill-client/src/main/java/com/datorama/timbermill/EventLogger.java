@@ -225,7 +225,9 @@ final class EventLogger {
 	}
 
 	static String generateTaskId(String name) {
-		return name + '_' + UUID.randomUUID() ;
+		String uuid = UUID.randomUUID().toString();
+		uuid = uuid.replace("-", "_");
+		return name + '_' + uuid;
 	}
 
 	private String submitEvent(Event event) {
