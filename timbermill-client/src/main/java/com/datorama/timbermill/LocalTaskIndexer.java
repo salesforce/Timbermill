@@ -85,15 +85,15 @@ public class LocalTaskIndexer {
         List<Event> events = new ArrayList<>();
         eventsQueue.drainTo(events, 100);
         DateTime taskIndexerStartTime = new DateTime();
-        trimAttributesAndData(events);
-        List<Event> heartbeatEvents = events.stream().filter(e -> (e.getTaskType() != null) && e.getTaskType().equals(Constants.HEARTBEAT_TASK)).collect(toList());
+        trimAllStrings(events);
+        List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
             Task heartbeatTask = new Task();
             heartbeatTask.update(e);
             this.es.indexTaskToMetaDataIndex(heartbeatTask, e.getTaskId());
         }
 
-        List<Event> timbermillEvents = events.stream().filter(e -> (e.getTaskType() == null) || !e.getTaskType().equals(Constants.HEARTBEAT_TASK)).collect(toList());
+        List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
 
         LOG.info("{} events retrieved from pipe", timbermillEvents.size());
         Set<String> missingStartEvents = getMissingStartEvents(timbermillEvents);
@@ -116,7 +116,7 @@ public class LocalTaskIndexer {
 
             if (!missingEvents.isEmpty()) {
                 if (missingEvents.size() == previouslyIndexedTasks.size()) {
-                    LOG.info("All {} missing event were retreived from elasticsearch..", missingEvents.size());
+                    LOG.info("All {} missing event were retrieved from elasticsearch..", missingEvents.size());
                 } else {
                     LOG.warn("{} missing events were not retrieved from elasticsearch", missingEvents.size() - previouslyIndexedTasks.size(),
                             StringUtils.join(missingEvents.removeAll(previouslyIndexedTasks.keySet())), ", ");
@@ -145,16 +145,16 @@ public class LocalTaskIndexer {
     private long applyPlugins(List<Event> events, Map<String, Task> tasks) {
         long pluginsStart = System.currentTimeMillis();
         try {
-            String taskType = "timbermill_plugin";
+            String taskName = "timbermill_plugin";
             for (TaskLogPlugin plugin : logPlugins) {
 
                 Task t = new Task();
                 try {
-                    t.setTaskType(taskType);
+                    t.setName(taskName);
                     t.setPrimary(true);
                     t.setStartTime(new DateTime());
-                    t.getAttributes().put("pluginName", plugin.getName());
-                    t.getAttributes().put("pluginClass", plugin.getClass().getSimpleName());
+                    t.getString().put("pluginName", plugin.getName());
+                    t.getString().put("pluginClass", plugin.getClass().getSimpleName());
 
                     plugin.apply(events, tasks);
 
@@ -162,11 +162,11 @@ public class LocalTaskIndexer {
                     t.setTotalDuration(t.getEndTime().getMillis() - t.getStartTime().getMillis());
                     t.setStatus(TaskStatus.SUCCESS);
                 } catch (Exception ex) {
-                    t.getData().put("error", ex.toString());
+                    t.getText().put("error", ex.toString());
                     t.setStatus(TaskStatus.ERROR);
                     LOG.error("error in plugin" + plugin, ex);
                 }
-                String taskId = taskType + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart;
+                String taskId = taskName + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart;
                 es.indexTaskToMetaDataIndex(t, taskId);
             }
         } catch (Exception ex) {
@@ -176,10 +176,11 @@ public class LocalTaskIndexer {
         return pluginsEnd - pluginsStart;
     }
 
-    private void trimAttributesAndData(List<Event> events) {
+    private void trimAllStrings(List<Event> events) {
         events.forEach(e -> {
-            e.setAttributes(getTrimmedLongValues(e.getAttributes(), "attributes"));
-            e.setData(getTrimmedLongValues(e.getData(), "data"));
+            e.setStrings(getTrimmedLongValues(e.getStrings(), "string"));
+            e.setTexts(getTrimmedLongValues(e.getTexts(), "text"));
+            e.setGlobals(getTrimmedLongValues(e.getGlobals(), "global"));
         });
     }
 
@@ -214,7 +215,7 @@ public class LocalTaskIndexer {
         metadataTask.setStatus(TaskStatus.ERROR);
         Map<String, String> exceptionMap = new HashMap<>();
         exceptionMap.put("exception", ExceptionUtils.getStackTrace(e));
-        metadataTask.setData(exceptionMap);
+        metadataTask.setText(exceptionMap);
         es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
     }
 
@@ -224,7 +225,7 @@ public class LocalTaskIndexer {
         Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, missingStartEventsSize, missingParentEventsSize, previouslyIndexedTasksSize, tasksToIndexSize);
         Task metadataTask = metadataTaskPair.getRight();
         metadataTask.setStatus(TaskStatus.SUCCESS);
-        metadataTask.getMetrics().put("pluginsDuration", pluginsDuration);
+        metadataTask.getMetric().put("pluginsDuration", pluginsDuration);
         es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
     }
 
@@ -234,7 +235,7 @@ public class LocalTaskIndexer {
         DateTime taskIndexerEndTime = new DateTime();
 
         Task metadataTask = new Task();
-        metadataTask.setTaskType("timbermill_index");
+        metadataTask.setName("timbermill_index");
         metadataTask.setPrimary(true);
         Map<String, Number> taskIndexerMetrics = new HashMap<>();
 
@@ -244,12 +245,12 @@ public class LocalTaskIndexer {
         taskIndexerMetrics.put(PREV_INDEXED_TASKS_FETCHED, previouslyIndexedTasksSize);
         taskIndexerMetrics.put(INDEXED_TASKS, tasksToIndexSize);
 
-        metadataTask.setMetrics(taskIndexerMetrics);
+        metadataTask.setMetric(taskIndexerMetrics);
 
         metadataTask.setStartTime(taskIndexerStartTime);
         metadataTask.setEndTime(taskIndexerEndTime);
         metadataTask.setTotalDuration(taskIndexerEndTime.getMillis() - taskIndexerStartTime.getMillis());
-        String taskId = metadataTask.getTaskType() + '-' + taskIndexerStartTime.getMillis();
+        String taskId = metadataTask.getName() + '-' + taskIndexerStartTime.getMillis();
         return org.apache.commons.lang3.tuple.Pair.of(taskId, metadataTask);
     }
 
@@ -263,8 +264,8 @@ public class LocalTaskIndexer {
 
     private static Set<String> getMissingParentEvents(Collection<Event> events) {
         Set<String> allEventParentTasks = events.stream()
-                .filter(e -> e.getParentTaskId() != null)
-                .map(e -> e.getParentTaskId()).collect(Collectors.toCollection(LinkedHashSet::new));
+                .filter(e -> e.getParentId() != null)
+                .map(e -> e.getParentId()).collect(Collectors.toCollection(LinkedHashSet::new));
 
         return Sets.difference(allEventParentTasks, getAllTaskIds(events));
     }
@@ -278,7 +279,6 @@ public class LocalTaskIndexer {
     private static Iterable<String> getEndEventsTaskIds(Collection<Event> events) {
         return events.stream()
                 .filter(e -> (e.getEventType() == EventType.END_SUCCESS)
-                        || (e.getEventType() == EventType.END_APP_ERROR)
                         || (e.getEventType() == EventType.END_ERROR)
                         || (e.getEventType() == EventType.SPOT))
                 .map(e -> e.getTaskId()).collect(Collectors.toCollection(LinkedHashSet::new));
@@ -310,7 +310,7 @@ public class LocalTaskIndexer {
             t.update(idToEventEntry.getValue());
 
             //Start event was not indexed
-            if (t.taskWithNoStartEvent()){
+            if (t.isStartTimeMissing()){
                 LOG.error("Task id {} start event is missing from the elasticsearch", taskId);
                 t.setStatus(TaskStatus.CORRUPTED);
                 t.setStartTime(t.getEndTime());
@@ -325,46 +325,43 @@ public class LocalTaskIndexer {
         for (String tid : getStartEventsTaskIds(events)) {
             Task t = tasksToIndex.get(tid);
             List<String> origins = new ArrayList<>();
-            String parentTaskId = t.getParentTaskId();
-            if (parentTaskId != null) {
-                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentTaskId);
+            String parentId = t.getParentId();
+            if (parentId != null) {
+                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentId);
                 if (parentTask != null) {
-                    t.setPrimaryTaskId(parentTask.getPrimaryTaskId());
-                    for (Map.Entry<String, Object> entry : parentTask.getAttributes().entrySet()) {
-                        t.getAttributes().putIfAbsent(entry.getKey(), entry.getValue());
+                    t.setPrimaryId(parentTask.getPrimaryId());
+                    for (Map.Entry<String, Object> entry : parentTask.getGlobal().entrySet()) {
+                        t.getGlobal().putIfAbsent(entry.getKey(), entry.getValue());
                     }
-                    if((parentTask.getOrigins() != null) && !parentTask.getOrigins().isEmpty()) {
-                        origins.addAll(parentTask.getOrigins());
+                    if((parentTask.getParentsPath() != null) && !parentTask.getParentsPath().isEmpty()) {
+                        origins.addAll(parentTask.getParentsPath());
                     }
-                    origins.add(parentTask.getTaskType());
+                    origins.add(parentTask.getName());
                 }
                 else {
-                    t.setPrimaryTaskId(tid);
-                    t.setParentTaskId(null);
+                    t.setPrimaryId(tid);
+                    t.setParentId(null);
                 }
             }
             if(!origins.isEmpty()) {
-                t.setOrigins(origins);
-                t.setPrimaryOrigin(origins.get(0));
+                t.setParentsPath(origins);
             }
         }
 
         for (String tid : getEndEventsTaskIds(events)){
             Task t = tasksToIndex.get(tid);
-            String parentTaskId = t.getParentTaskId();
+            String parentId = t.getParentId();
             long totalDuration = t.getEndTime().getMillis() - t.getStartTime().getMillis();
             t.setTotalDuration(totalDuration);
-            t.setSelfDuration(Math.max(0, totalDuration - t.getChildrenDelta()));
-            if (parentTaskId != null) {
-                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentTaskId);
+            if (parentId != null) {
+                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentId);
                 if( parentTask != null) {
-                    parentTask.updateChildrenDelta(totalDuration);
-                    if (!tasksToIndex.containsKey(parentTaskId)) {
-                        tasksToIndex.put(parentTaskId, parentTask);
+                    if (!tasksToIndex.containsKey(parentId)) {
+                        tasksToIndex.put(parentId, parentTask);
                     }
                 }
                 else{
-                    LOG.error("Parent task with id {} for child task with id {} could not be found in elasticsearch", parentTaskId, tid);
+                    LOG.error("Parent task with id {} for child task with id {} could not be found in elasticsearch", parentId, tid);
                 }
             }
         }
@@ -372,10 +369,10 @@ public class LocalTaskIndexer {
         return tasksToIndex;
     }
 
-    private static Task getParentTask(Map<String, Task> previouslyIndexedTasks, Map<String, Task> tasksToIndex, String parentTaskId) {
-        Task parentTask = tasksToIndex.get(parentTaskId);
+    private static Task getParentTask(Map<String, Task> previouslyIndexedTasks, Map<String, Task> tasksToIndex, String parenId) {
+        Task parentTask = tasksToIndex.get(parenId);
         if (parentTask == null) {
-            parentTask = previouslyIndexedTasks.get(parentTaskId);
+            parentTask = previouslyIndexedTasks.get(parenId);
         }
         return parentTask;
     }
@@ -383,7 +380,7 @@ public class LocalTaskIndexer {
     private void indexMetadataTaskToTimbermill() {
         String taskId = "timbermill_server_startup" + '-' + new DateTime().getMillis();
         Task task = new Task();
-        task.setTaskType("timbermill_server_startup");
+        task.setName("timbermill_server_startup");
         task.setPrimary(true);
         task.setStartTime(new DateTime());
         task.setEndTime(new DateTime());

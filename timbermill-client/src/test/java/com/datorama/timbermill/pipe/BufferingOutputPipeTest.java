@@ -1,7 +1,7 @@
 package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
-import com.jayway.awaitility.Awaitility;
+import org.awaitility.Awaitility;
 import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Test;

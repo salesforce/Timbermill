@@ -40,7 +40,7 @@ public class ClientHeartbeater {
 				}
 
 
-				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, metrics, null);
+				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, null, null, metrics);
 
 
 				try {

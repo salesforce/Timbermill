@@ -9,25 +9,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 public class Task {
-	private String taskType;
-	private String env;
+	private String name;
 	private TaskStatus status;
-	private String parentTaskId;
-	private String primaryTaskId;
+	private String parentId;
 	private boolean primary;
-	private DateTime startTime;
-	private DateTime endTime;
-	private Long totalDuration;
-	private Long selfDuration;
-	private Long childrenDelta;
-	private List<String> origins;
-	private String primaryOrigin;
-	private Map<String, Object> attributes = new HashMap<>();
-	private Map<String, Number> metrics = new HashMap<>();
-	private Map<String, String> data = new HashMap<>();
+	private String primaryId;
+	private List<String> parentsPath;
 
-	public Task() {
-	}
+	private TaskMetaData meta = new TaskMetaData();
+
+	private Map<String, Object> global = new HashMap<>();
+	private Map<String, Object> string = new HashMap<>();
+	private Map<String, String> text = new HashMap<>();
+	private Map<String, Number> metric = new HashMap<>();
 
 	public void update(Collection<Event> events) {
 		events.forEach(e -> update(e));
@@ -35,24 +29,26 @@ public class Task {
 
 	public void update(Event e) {
 
-		Map<String, Object> eAttributes = e.getAttributes();
-		Map<String, String> eData = e.getData();
+		Map<String, Object> eStrings = e.getStrings();
+		Map<String, String> eTexts = e.getTexts();
+		Map<String, Object> eGlobals = e.getGlobals();
 		Map<String, Number> eMetrics = e.getMetrics();
-		eAttributes = replaceDotsInKeysAttributes(eAttributes);
-		eData = replaceDotsInKeysData(eData);
+		eStrings = replaceDotsInKeysStrings(eStrings);
+		eTexts = replaceDotsInKeysTexts(eTexts);
 		eMetrics = replaceDotsInKeysMetrics(eMetrics);
 
-		attributes.putAll(eAttributes);
-		metrics.putAll(eMetrics);
-		data.putAll(eData);
+		global.putAll(eGlobals);
+		string.putAll(eStrings);
+		text.putAll(eTexts);
+		metric.putAll(eMetrics);
 
 		switch (e.getEventType()) {
 			case START:
-				taskType = e.getTaskType();
-				parentTaskId = e.getParentTaskId();
-				primaryTaskId = e.getPrimaryTaskId();
-				primary = (e.getPrimaryTaskId() != null) && e.getPrimaryTaskId().equals(e.getTaskId());
-				startTime = e.getTime();
+				name = e.getName();
+				parentId = e.getParentId();
+				primaryId = e.getPrimaryId();
+				primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
+				meta.setTaskBegin(e.getTime());
 				if (status == null) {
 					status = TaskStatus.UNTERMINATED;
 				}
@@ -63,25 +59,22 @@ public class Task {
 				}
 				else if(isStartTimeMissing()){
 					status = TaskStatus.CORRUPTED;
-					taskType = Constants.LOG_WITHOUT_CONTEXT;
-					startTime = e.getTime();
-					endTime = e.getTime();
+					name = Constants.LOG_WITHOUT_CONTEXT;
+					meta.setTaskBegin(e.getTime());
+					meta.setTaskEnd(e.getTime());
 				}
 				break;
 			case SPOT:
 				status = TaskStatus.SUCCESS;
-				taskType = e.getTaskType();
-				parentTaskId = e.getParentTaskId();
-				primaryTaskId = e.getPrimaryTaskId();
-				primary = (e.getPrimaryTaskId() != null) && e.getPrimaryTaskId().equals(e.getTaskId());
-				startTime = e.getTime();
-				endTime = e.getTime();
+				name = e.getName();
+				parentId = e.getParentId();
+				primaryId = e.getPrimaryId();
+				primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
+				meta.setTaskBegin(e.getTime());
+				meta.setTaskEnd(e.getTime());
 				break;
 			case END_ERROR:
 				updateEndEvent(e, TaskStatus.ERROR);
-				break;
-			case END_APP_ERROR:
-				updateEndEvent(e, TaskStatus.APP_ERROR);
 				break;
 			case END_SUCCESS:
 				updateEndEvent(e, TaskStatus.SUCCESS);
@@ -90,7 +83,7 @@ public class Task {
 
 	}
 
-	private Map<String, Object> replaceDotsInKeysAttributes(Map<String, Object> oldMap) {
+	private Map<String, Object> replaceDotsInKeysStrings(Map<String, Object> oldMap) {
 		Map<String, Object> newMap = new HashMap<>();
 		for (Entry<String, Object> entry : oldMap.entrySet()){
 			newMap.put(entry.getKey().replace(".", "_"), entry.getValue());
@@ -98,7 +91,7 @@ public class Task {
 		return newMap;
 	}
 
-	private Map<String, String> replaceDotsInKeysData(Map<String, String> oldMap) {
+	private Map<String, String> replaceDotsInKeysTexts(Map<String, String> oldMap) {
 		Map<String, String> newMap = new HashMap<>();
 		for (Entry<String, String> entry : oldMap.entrySet()){
 			newMap.put(entry.getKey().replace(".", "_"), entry.getValue());
@@ -120,36 +113,36 @@ public class Task {
 		}
 		else if(isStartTimeMissing()){
 			this.status = TaskStatus.CORRUPTED;
-			taskType = Constants.END_WITHOUT_START;
-			endTime = e.getTime();
+			name = Constants.END_WITHOUT_START;
+			meta.setTaskEnd(e.getTime());
 		}
 		else{
 			this.status = status;
-			endTime = e.getTime();
+			meta.setTaskEnd(e.getTime());
 		}
 	}
 
 	private void updateTimes(Event e) {
-		if (e.getTime().getMillis() < startTime.getMillis() ){
-			startTime = e.getTime();
+		if (e.getTime().getMillis() < meta.getTaskBegin().getMillis() ){
+			meta.setTaskBegin(e.getTime());
 		}
-		if (e.getTime().getMillis() > endTime.getMillis() ){
-			endTime = e.getTime();
+		if (e.getTime().getMillis() > meta.getTaskEnd().getMillis() ){
+			meta.setTaskEnd(e.getTime());
 		}
 	}
 
 
-	private boolean isStartTimeMissing() {
-		return startTime == null;
+	public boolean isStartTimeMissing() {
+		return meta.getTaskBegin() == null;
 
 	}
 
-	public String getTaskType() {
-		return taskType;
+	public String getName() {
+		return name;
 	}
 
-	public void setTaskType(String taskType) {
-		this.taskType = taskType;
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	public TaskStatus getStatus() {
@@ -160,20 +153,20 @@ public class Task {
 		this.status = status;
 	}
 
-	public String getParentTaskId() {
-		return parentTaskId;
+	public String getParentId() {
+		return parentId;
 	}
 
-	public void setParentTaskId(String parentTaskId) {
-		this.parentTaskId = parentTaskId;
+	public void setParentId(String parentId) {
+		this.parentId = parentId;
 	}
 
-	public String getPrimaryTaskId() {
-		return primaryTaskId;
+	public String getPrimaryId() {
+		return primaryId;
 	}
 
-	public void setPrimaryTaskId(String primaryTaskId) {
-		this.primaryTaskId = primaryTaskId;
+	public void setPrimaryId(String primaryId) {
+		this.primaryId = primaryId;
 	}
 
 	public boolean isPrimary() {
@@ -185,102 +178,81 @@ public class Task {
 	}
 
 	public DateTime getStartTime() {
-		return startTime;
+		return meta.getTaskBegin();
 	}
 
 	public void setStartTime(DateTime startTime) {
-		this.startTime = startTime;
+		meta.setTaskBegin(startTime);
 	}
 
 	public DateTime getEndTime() {
-		return endTime;
+		return meta.getTaskEnd();
 	}
 
 	public void setEndTime(DateTime endTime) {
-		this.endTime = endTime;
+		meta.setTaskEnd(endTime);
 	}
 
 	public long getTotalDuration() {
-		return (totalDuration != null) ? totalDuration : 0;
+		return meta.getTotalDuration();
 	}
 
 	public void setTotalDuration(long totalDuration) {
-		this.totalDuration = totalDuration;
+		meta.setTotalDuration(totalDuration);
 	}
 
-	public long getSelfDuration() {
-		return (selfDuration != null) ? selfDuration : 0;
+	public Map<String, Object> getString() {
+		return string;
 	}
 
-	public void setSelfDuration(long selfDuration) {
-		this.selfDuration = selfDuration;
+	public void setString(Map<String, Object> string) {
+		this.string = string;
 	}
 
-	public Map<String, Object> getAttributes() {
-		return attributes;
+	public Map<String, Number> getMetric() {
+		return metric;
 	}
 
-	public void setAttributes(Map<String, Object> attributes) {
-		this.attributes = attributes;
+	public void setMetric(Map<String, Number> metric) {
+		this.metric = metric;
 	}
 
-	public Map<String, Number> getMetrics() {
-		return metrics;
+	public Map<String, String> getText() {
+		return text;
 	}
 
-	public void setMetrics(Map<String, Number> metrics) {
-		this.metrics = metrics;
+	public void setText(Map<String, String> text) {
+		this.text = text;
 	}
 
-	public Map<String, String> getData() {
-		return data;
+	public List<String> getParentsPath() {
+		return parentsPath;
 	}
 
-	public void setData(Map<String, String> data) {
-		this.data = data;
-	}
-
-	public List<String> getOrigins() {
-		return origins;
-	}
-
-	public void setOrigins(List<String> origins) {
-		this.origins = origins;
-	}
-
-	public void setPrimaryOrigin(String primaryOrigin) {
-		this.primaryOrigin = primaryOrigin;
+	public void setParentsPath(List<String> parentsPath) {
+		this.parentsPath = parentsPath;
 	}
 
 	public void setEnv(String env) {
-		this.env = env;
+		meta.setEnv(env);
 	}
 
 	public String getEnv() {
-		return env;
+		return meta.getEnv();
 	}
 
-	public String getPrimaryOrigin() {
-		return primaryOrigin;
-	}
+    public void setMeta(TaskMetaData meta) {
+        this.meta = meta;
+    }
 
-	public long getChildrenDelta() {
-		return (childrenDelta != null) ? childrenDelta : 0;
-	}
-
-	public void updateChildrenDelta(long childrenDelta) {
-		this.childrenDelta = (this.childrenDelta != null) ? (this.childrenDelta + childrenDelta) : childrenDelta;
-	}
-
-	public boolean taskWithNoStartEvent() {
-		return startTime == null;
+	public Map<String, Object> getGlobal() {
+		return global;
 	}
 
 	public enum TaskStatus {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		APP_ERROR,
 		CORRUPTED
 	}
 }

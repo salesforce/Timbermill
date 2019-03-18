@@ -4,7 +4,6 @@ import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import org.joda.time.DateTime;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -36,20 +35,15 @@ public final class TimberLogger {
 		return EventLogger.get().getCurrentTaskId();
 	}
 
-	public static String start(String taskType) {
-		return start(taskType, null);
+	public static String start(String name) {
+		return start(name, null);
 	}
 
-	public static String start(String taskType, LogParams logParams) {
-		Map<String, Object> attributes = null;
-		Map<String, Number> metrics = null;
-		Map<String, String> data = null;
-		if (logParams != null) {
-			attributes = logParams.getAttributes();
-			metrics = logParams.getMetrics();
-			data = logParams.getData();
+	static String start(String name, LogParams logParams) {
+		if (logParams == null){
+			logParams = LogParams.create();
 		}
-		return EventLogger.get().startEvent(taskType, attributes, metrics, data);
+		return EventLogger.get().startEvent(name, logParams.getStrings(), logParams.getTexts(), logParams.getGlobals(), logParams.getMetrics());
 	}
 
 	public static String success() {
@@ -64,32 +58,38 @@ public final class TimberLogger {
 		return EventLogger.get().logParams(logParams);
 	}
 
-	public static String logAttributes(String key, Object value) {
-		return EventLogger.get().logAttributes(Collections.singletonMap(key, value));
+	public static String logString(String key, Object value) {
+		return EventLogger.get().logParams(LogParams.create().string(key, value));
 	}
 
-	public static String logMetrics(String key, Number value) {
-		return EventLogger.get().logMetrics(Collections.singletonMap(key, value));
+	public static String logGlobal(String key, Object value) {
+		return EventLogger.get().logParams(LogParams.create().global(key, value));
 	}
 
-	public static String logData(String key, String value) {
-		return EventLogger.get().logData(Collections.singletonMap(key, value));
+	public static String logMetric(String key, Number value) {
+		return EventLogger.get().logParams(LogParams.create().metric(key, value));
 	}
 
-	public static String spot(String taskType) {
-		return spot(taskType, null);
+	public static String logText(String key, String value) {
+		return EventLogger.get().logParams(LogParams.create().text(key, value));
 	}
 
-	private static String spot(String taskType, LogParams logParams) {
-		Map<String, Object> attributes = null;
+	public static String spot(String name) {
+		return spot(name, null);
+	}
+
+	private static String spot(String name, LogParams logParams) {
+		Map<String, Object> strings = null;
+		Map<String, String> texts = null;
+		Map<String, Object> globals = null;
 		Map<String, Number> metrics = null;
-		Map<String, String> data = null;
 		if (logParams != null) {
-			attributes = logParams.getAttributes();
+			strings = logParams.getStrings();
+			globals = logParams.getGlobals();
 			metrics = logParams.getMetrics();
-			data = logParams.getData();
+			texts = logParams.getTexts();
 		}
-		return EventLogger.get().spotEvent(taskType, attributes, metrics, data);
+		return EventLogger.get().spotEvent(name, strings, texts, globals, metrics);
 	}
 
 	public static <T> Callable<T> wrapCallable(Callable<T> callable) {

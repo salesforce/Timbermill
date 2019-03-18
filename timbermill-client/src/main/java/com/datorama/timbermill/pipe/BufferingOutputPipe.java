@@ -49,7 +49,7 @@ public class BufferingOutputPipe implements EventOutputPipe {
 			LOG.warn("buffer size is above {} it's {}",WARNING_BUFFER_SIZE, buffer.size());
 		}
 		if (buffer.size() >= MAX_BUFFER_SIZE) {
-			LOG.warn("Event {} was removed from the queue due to insufficent space", buffer.poll().getTaskId());
+			LOG.warn("Event {} was removed from the queue due to insufficient space", buffer.poll().getTaskId());
 		}
 		try {
 			buffer.add(e);

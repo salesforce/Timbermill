@@ -157,11 +157,11 @@ public class ElasticsearchClient {
 
     private void retryIndexWithSmallerBulkSizeOrFail(Map<String, Task> tasks, int bulkSize, int tryNum, String errorMessage) {
         if (tryNum == MAX_TRY_NUMBER) {
-            throw new ElasticsearchException("Couldn't bulk index tasks to elsticsearch cluster after {} tries,"
+            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
                     + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
         }
         else{
-            int smallerBulkSize = (int) Math.ceil(bulkSize / 2);
+            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
             LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
             bulkIndexByBulkSize(tasks, smallerBulkSize, tryNum + 1);
         }
@@ -175,7 +175,7 @@ public class ElasticsearchClient {
             IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, taskId).source(gson.toJson(task), XContentType.JSON);
             client.index(indexRequest, RequestOptions.DEFAULT);
         } catch (Exception e) {
-            throw new ElasticsearchException("Couldn't index task {} to elsticsearch cluster: {}" ,taskId, ExceptionUtils.getStackTrace(e));
+            throw new ElasticsearchException("Couldn't index task {} to elasticsearch cluster: {}" ,taskId, ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -196,7 +196,7 @@ public class ElasticsearchClient {
                 return null;
             }
         } catch (IOException e) {
-            LOG.error("Couldn't get Task {} from elasticsearch culster", taskId);
+            LOG.error("Couldn't get Task {} from elasticsearch cluster", taskId);
             throw new ElasticsearchException(e);
         } catch (NullPointerException e){
             return null;

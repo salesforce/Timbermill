@@ -73,12 +73,8 @@ final class EventLogger {
 		return threadInstance.get();
 	}
 
-	String startEvent(String taskType) {
-		return startEvent(taskType, null, null, null);
-	}
-
-	String spotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data) {
-		Event event = createSpotEvent(taskType, attributes, metrics, data);
+	String spotEvent(String name, Map<String, ?> strings, Map<String, String> texts, Map<String, ?> globals, Map<String, Number> metrics) {
+		Event event = createSpotEvent(name, strings, texts, globals, metrics);
 		return submitEvent(event);
 	}
 
@@ -86,22 +82,8 @@ final class EventLogger {
 		return taskIdStack.empty() ? null : taskIdStack.peek();
 	}
 
-	String logAttributes(Map<String, ?> params) {
-		Event event = createInfoEvent(params, null, null);
-		return submitEvent(event);
-	}
-	String logMetrics(Map<String, Number> params) {
-		Event event = createInfoEvent(null, params, null);
-		return submitEvent(event);
-	}
-
-	String logData(Map<String, ?> params) {
-		Event event = createInfoEvent(null, null, params);
-		return submitEvent(event);
-	}
-
 	String logParams(LogParams logParams) {
-		Event event = createInfoEvent(logParams.getAttributes(), logParams.getMetrics(), logParams.getData());
+		Event event = createInfoEvent(logParams.getStrings(), logParams.getTexts(), logParams.getGlobals(), logParams.getMetrics());
 		return submitEvent(event);
 	}
 
@@ -130,41 +112,33 @@ final class EventLogger {
 		};
 	}
 
-	String startEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, String> data) {
+	String startEvent(String name, Map<String, ?> strings,  Map<String, String> texts,  Map<String, ?> globals,  Map<String, Number> metrics) {
 
-		if(data == null){
-			data = Maps.newHashMap();
-		}
-		if(metrics == null){
-			metrics = Maps.newHashMap();
-		}
 
-		String threadName = Thread.currentThread().getName();
-		data.put("threadName", threadName);
+		Map<String, String> allGlobals = getAllGlobals(globals);
+		allGlobals.put("threadName", Thread.currentThread().getName());
 
-		Map<String, String> allAttributes = getAllAttributes(attributes);
-
-		Event event = createEvent(null, taskType, EventType.START, new DateTime(), allAttributes, metrics, data);
+		Event event = createEvent(null, name, EventType.START, new DateTime(), convertValuesToStringValues(strings), texts, allGlobals, metrics);
 		return submitEvent(event);
 	}
 
-	private Map<String, String> getAllAttributes(Map<String, ?> attributes) {
-		Map<String, String> retAttrs = convertValuesToStringValues(staticParams);
-		if (attributes == null){
-			return retAttrs;
+	private Map<String, String> getAllGlobals(Map<String, ?> strings) {
+		Map<String, String> retStrings = convertValuesToStringValues(staticParams);
+		if (strings == null){
+			return retStrings;
 		}
 		else {
-			for (Entry<String, ?> entry : attributes.entrySet()) {
-				retAttrs.put(entry.getKey(), String.valueOf(entry.getValue()));
+			for (Entry<String, ?> entry : strings.entrySet()) {
+				retStrings.put(entry.getKey(), String.valueOf(entry.getValue()));
 			}
-			return retAttrs;
+			return retStrings;
 		}
 	}
 
 	String endWithError(Throwable t, DateTime time) {
-		Map<String, String> data = new HashMap<>();
-		data.put(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
-		Event event = createEndEvent(EventType.END_ERROR, time, data);
+		Map<String, String> texts = new HashMap<>();
+		texts.put(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+		Event event = createEndEvent(EventType.END_ERROR, time, texts);
 		return submitEvent(event);
 	}
 
@@ -178,21 +152,22 @@ final class EventLogger {
 		return returnedMap;
 	}
 
-	private Event createEvent(String taskId, String taskType, EventType eventType, DateTime time, Map<String, String> attributes,
-							  Map<String, Number> metrics, Map<String, String> data) {
+	private Event createEvent(String taskId, String name, EventType eventType, DateTime time, Map<String, String> strings,
+							  Map<String, String> texts, Map<String, ?> globals, Map<String, Number> metrics) {
 		if (taskId == null) {
-			taskId = generateTaskId(taskType, time);
+			taskId = generateTaskId(name, time);
 		}
-		Event e = new Event(taskId, eventType, time, taskType);
-		e.setAttributes(attributes);
+		Event e = new Event(taskId, eventType, time, name);
+		e.setStrings(strings);
+		e.setTexts(texts);
+		e.setGlobals(globals);
 		e.setMetrics(metrics);
-		e.setData(data);
 		StringUtils.isEmpty(null);
 		if (taskIdStack.isEmpty()) {
-			e.setPrimaryTaskId(taskId);
+			e.setPrimaryId(taskId);
 		} else {
-			e.setPrimaryTaskId(taskIdStack.firstElement());
-			e.setParentTaskId(taskIdStack.peek());
+			e.setPrimaryId(taskIdStack.firstElement());
+			e.setParentId(taskIdStack.peek());
 		}
 		if (eventType == EventType.START) {
 			taskIdStack.push(taskId);
@@ -205,52 +180,53 @@ final class EventLogger {
 		return event.getTaskId();
 	}
 
-	private static String generateTaskId(String taskType, DateTime time) {
-		return taskType + '_' + time.getMillis() + '_' + Math.abs(new Random().nextInt());
+	private static String generateTaskId(String name, DateTime time) {
+		return name + '_' + time.getMillis() + '_' + Math.abs(new Random().nextInt());
 	}
 
-	private Event createInfoEvent(Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data) {
+	private Event createInfoEvent(Map<String, ?> strings, Map<String, ?> texts, Map<String, ?> globals, Map<String, Number> metrics) {
 		Event event;
-		Map<String, String> newData = convertValuesToStringValues(data);
+		Map<String, String> newTexts = convertValuesToStringValues(texts);
 		if (taskIdStack.empty()) {
 			String stackTrace = getStackTraceString();
-			newData.put("stackTrace", stackTrace);
-			event = createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, attributes, metrics, newData);
+			newTexts.put("stackTrace", stackTrace);
+			event = createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, strings, newTexts, globals, metrics);
 		} else {
-			event = createEvent(taskIdStack.peek(), null, EventType.INFO, new DateTime(), convertValuesToStringValues(attributes), metrics, newData);
+			event = createEvent(taskIdStack.peek(), null, EventType.INFO, new DateTime(), convertValuesToStringValues(strings), newTexts, globals, metrics);
 		}
 		return event;
 	}
 
-	private Event createSpotEvent(String taskType, Map<String, ?> attributes, Map<String, Number> metrics, Map<String, ?> data) {
-		Map<String, String> convertedAttributesMap = convertValuesToStringValues(attributes);
-		Map<String, String> convertedDataMap = convertValuesToStringValues(data);
-		convertedAttributesMap.putAll(convertValuesToStringValues(staticParams));
+	private Event createSpotEvent(String name, Map<String, ?> strings, Map<String, ?> texts, Map<String, ?> globals, Map<String, Number> metrics) {
+		Map<String, String> convertedStringsMap = convertValuesToStringValues(strings);
+		Map<String, String> convertedTextsMap = convertValuesToStringValues(texts);
+		Map<String, String> convertedGlobalsMap = convertValuesToStringValues(globals);
+		convertedStringsMap.putAll(convertValuesToStringValues(staticParams));
 		String threadName = Thread.currentThread().getName();
-		ImmutableMap<String, String> datas;
-		if (data != null) {
-			datas = new Builder<String, String>().putAll(convertedDataMap).put("threadName", threadName).build();
+		ImmutableMap<String, String> newGlobals;
+		if (convertedGlobalsMap != null) {
+			newGlobals = new Builder<String, String>().putAll(convertedGlobalsMap).put("threadName", threadName).build();
 		} else {
-			datas = ImmutableMap.of("threadName", threadName);
+			newGlobals = ImmutableMap.of("threadName", threadName);
 		}
-		return createEvent(null, taskType, EventType.SPOT, new DateTime(), convertedAttributesMap, metrics, datas);
+		return createEvent(null, name, EventType.SPOT, new DateTime(), convertedStringsMap, convertedTextsMap, newGlobals, metrics);
 	}
 
-	private Event createEndEvent(EventType eventType, DateTime time, Map<String, String> data) {
-		if (data == null){
-			data = new HashMap<>();
+	private Event createEndEvent(EventType eventType, DateTime time, Map<String, String> texts) {
+		if (texts == null){
+			texts = new HashMap<>();
 		}
 		Event e;
 		if (taskIdStack.empty()) {
 			String stackTrace = getStackTraceString();
-			data.put("stackTrace", stackTrace);
-			e = createEvent(null, Constants.END_WITHOUT_START, EventType.SPOT, new DateTime(), convertValuesToStringValues(staticParams), null, data);
+			texts.put("stackTrace", stackTrace);
+			e = createSpotEvent(Constants.END_WITHOUT_START, null, texts, convertValuesToStringValues(staticParams), null);
 		} else {
 			e = new Event(taskIdStack.pop(), eventType, time);
-			e.setData(data);
+			e.setTexts(texts);
 			if (!taskIdStack.isEmpty()) {
-				e.setPrimaryTaskId(taskIdStack.firstElement());
-				e.setParentTaskId(taskIdStack.peek());
+				e.setPrimaryId(taskIdStack.firstElement());
+				e.setParentId(taskIdStack.peek());
 			}
 		}
 		return e;
@@ -277,5 +253,9 @@ final class EventLogger {
 		else{
 			throw new RuntimeException("Task id opened with TimberlogAdvanced.withContext() is not the top of the stack, probably failed to closed all the tasks in the scope");
 		}
+	}
+
+	String startEvent(String name) {
+		return startEvent(name, Maps.newHashMap(), Maps.newHashMap(), Maps.newHashMap(), Maps.newHashMap());
 	}
 }

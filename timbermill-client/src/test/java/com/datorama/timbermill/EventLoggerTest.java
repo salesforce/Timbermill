@@ -4,7 +4,7 @@ import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.MockPipe;
 import com.datorama.timbermill.unit.Event;
 import com.google.common.collect.ImmutableMap;
-import com.jayway.awaitility.Awaitility;
+import org.awaitility.Awaitility;
 import org.joda.time.DateTime;
 import org.junit.After;
 import org.junit.BeforeClass;
@@ -53,12 +53,12 @@ public class EventLoggerTest {
 
 		Event startEvent = events.get(0);
 		Event endEvent = events.get(1);
-		assertEquals(QUERY, startEvent.getTaskType());
+		assertEquals(QUERY, startEvent.getName());
 		assertEquals(EventType.START, startEvent.getEventType());
 		assertEquals(EventType.END_SUCCESS, endEvent.getEventType());
-		assertEquals(startEvent.getTaskId(), startEvent.getPrimaryTaskId());
-		assertNull(startEvent.getParentTaskId());
-		assertEquals(TEST, startEvent.getAttributes().get(BOOTSTRAP));
+		assertEquals(startEvent.getTaskId(), startEvent.getPrimaryId());
+		assertNull(startEvent.getParentId());
+		assertEquals(TEST, startEvent.getGlobals().get(BOOTSTRAP));
 	}
 
 	@Test
@@ -75,7 +75,7 @@ public class EventLoggerTest {
 
 		Event endEvent = events.get(1);
 		assertEquals(EventType.END_ERROR, endEvent.getEventType());
-		assertTrue(endEvent.getData().get(EXCEPTION).contains(exception.toString()));
+		assertTrue(endEvent.getTexts().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test
@@ -94,24 +94,24 @@ public class EventLoggerTest {
 		Event childEventStart = events.get(1);
 		Event childEventEnd = events.get(2);
 		Event parentEventEnd = events.get(3);
-		assertEquals(QUERY, parentEventStart.getTaskType());
-		assertEquals(SQL, childEventStart.getTaskType());
+		assertEquals(QUERY, parentEventStart.getName());
+		assertEquals(SQL, childEventStart.getName());
 		assertEquals(EventType.START, parentEventStart.getEventType());
 		assertEquals(EventType.START, childEventStart.getEventType());
 		assertEquals(EventType.END_SUCCESS, parentEventEnd.getEventType());
 		assertEquals(EventType.END_SUCCESS, childEventEnd.getEventType());
-		assertEquals(parentEventStart.getTaskId(), childEventStart.getParentTaskId());
-		assertEquals(parentEventStart.getTaskId(), childEventEnd.getParentTaskId());
-		assertEquals(parentEventStart.getTaskId(), childEventEnd.getPrimaryTaskId());
-		assertEquals(TEST, parentEventStart.getAttributes().get(BOOTSTRAP));
-		assertEquals(TEST, childEventStart.getAttributes().get(BOOTSTRAP));
+		assertEquals(parentEventStart.getTaskId(), childEventStart.getParentId());
+		assertEquals(parentEventStart.getTaskId(), childEventEnd.getParentId());
+		assertEquals(parentEventStart.getTaskId(), childEventEnd.getPrimaryId());
+		assertEquals(TEST, parentEventStart.getGlobals().get(BOOTSTRAP));
+		assertEquals(TEST, childEventStart.getGlobals().get(BOOTSTRAP));
 	}
 
 	@Test
 	public void testDiagnosticEvent() {
 
 		String startId = el.startEvent(QUERY);
-		el.logData(ImmutableMap.of(PARAM, TEST));
+		el.logParams(LogParams.create().text(PARAM, TEST));
 		el.successEvent(new DateTime());
 
 
@@ -122,7 +122,7 @@ public class EventLoggerTest {
 		Event diagnosticEvent = events.get(1);
 		assertEquals(startId, diagnosticEvent.getTaskId());
 		assertEquals(EventType.INFO, diagnosticEvent.getEventType());
-		assertEquals(TEST, diagnosticEvent.getData().get(PARAM));
+		assertEquals(TEST, diagnosticEvent.getTexts().get(PARAM));
 
 	}
 
@@ -130,7 +130,7 @@ public class EventLoggerTest {
 	public void testSpotEvent(){
 
 		String startId = el.startEvent(QUERY);
-		el.spotEvent("Testing", null, null, null);
+		el.spotEvent("Testing", null, null, null, null);
 		el.successEvent(new DateTime());
 
 
@@ -140,9 +140,9 @@ public class EventLoggerTest {
 
 		Event spotEvent = filteredEvents.get(1);
 		assertEquals(EventType.SPOT, spotEvent.getEventType());
-		assertEquals(startId, spotEvent.getParentTaskId());
-		assertEquals(startId, spotEvent.getPrimaryTaskId());
-		assertEquals("Testing", spotEvent.getTaskType());
+		assertEquals(startId, spotEvent.getParentId());
+		assertEquals(startId, spotEvent.getPrimaryId());
+		assertEquals("Testing", spotEvent.getName());
 
 	}
 
@@ -155,8 +155,8 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.END_WITHOUT_START, event.getTaskType());
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
+		assertEquals(Constants.END_WITHOUT_START, event.getName());
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
 	}
 
@@ -171,17 +171,17 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.END_WITHOUT_START, event.getTaskType());
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
+		assertEquals(Constants.END_WITHOUT_START, event.getName());
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
-		assertTrue(event.getData().get(EXCEPTION).contains(exception.toString()));
+		assertTrue(event.getTexts().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test
-	public void testDataWithoutStart(){
+	public void testTextWithoutStart(){
 		String key = "key";
 		String value = "value";
-		el.logData(ImmutableMap.of(key, value));
+		el.logParams(LogParams.create().text(key, value));
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -189,17 +189,17 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getTaskType());
-		assertEquals(value, event.getData().get(key));
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
+		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(value, event.getTexts().get(key));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
 	}
 
 	@Test
-	public void testAttributeWithoutStart(){
+	public void testStringsWithoutStart(){
 		String key = "key";
 		String value = "value";
-		el.logAttributes(ImmutableMap.of(key, value));
+		el.logParams(LogParams.create().string(key, value));
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -207,16 +207,16 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getTaskType());
-		assertEquals(value, event.getAttributes().get(key));
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
+		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(value, event.getStrings().get(key));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
 	}
 
 	@Test
 	public void testMetricsWithoutStart(){
 		String key = "key";
-		el.logMetrics(ImmutableMap.of(key, 1));
+		el.logParams(LogParams.create().metric(key, 1));
 
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 1);
 		List<Event> events = mockPipe.getCollectedEvents();
@@ -224,9 +224,9 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getTaskType());
+		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(1, event.getMetrics().get(key));
-		assertEquals(TEST, event.getAttributes().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertEquals(EventType.SPOT, event.getEventType());
 	}
 
@@ -235,8 +235,8 @@ public class EventLoggerTest {
 		String taskId = el.startEvent(QUERY);
 		el.successEvent(new DateTime());
 
-		try (TimberLogContext tlc = new TimberLogContext(taskId)){
-			el.startEvent(QUERY + '2', null, null, null);
+		try (TimberLogContext ignored = new TimberLogContext(taskId)){
+			el.startEvent(QUERY + '2', null, null, null, null);
 			el.successEvent(new DateTime());
 		}
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 4);
@@ -245,10 +245,10 @@ public class EventLoggerTest {
 
 		Event startEvent = events.get(2);
 		Event endEvent = events.get(3);
-		assertEquals(QUERY + '2', startEvent.getTaskType());
+		assertEquals(QUERY + '2', startEvent.getName());
 		assertEquals(EventType.START, startEvent.getEventType());
 		assertEquals(EventType.END_SUCCESS, endEvent.getEventType());
-		assertEquals(taskId, startEvent.getParentTaskId());
+		assertEquals(taskId, startEvent.getParentId());
 	}
 
 }

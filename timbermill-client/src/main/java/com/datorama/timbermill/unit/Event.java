@@ -8,25 +8,26 @@ import java.util.Map.Entry;
 
 public class Event{
 
-	private String taskType;
+	private String name;
 	private EventType eventType;
 	private String taskId;
-	private String parentTaskId;
-	private String primaryTaskId;
-	private Map<String, Object> attributes = new HashMap<>();
+	private String parentId;
+	private String primaryId;
+	private Map<String, Object> strings = new HashMap<>();
+	private Map<String, String> texts = new HashMap<>();
+	private Map<String, Object> globals = new HashMap<>();
 	private Map<String, Number> metrics = new HashMap<>();
-	private Map<String, String> data = new HashMap<>();
 	private DateTime time;
 
-    public Event(String taskId, EventType eventType, DateTime time) {
+	public Event(String taskId, EventType eventType, DateTime time) {
         this(taskId, eventType, time, null);
     }
 
-    public Event(String taskId, EventType eventType, DateTime time,String taskType) {
+    public Event(String taskId, EventType eventType, DateTime time,String name) {
 		this.taskId = taskId;
 		this.eventType = eventType;
 		this.time = time;
-		this.taskType = taskType;
+		this.name = name;
 	}
 
 	private static final int MAX_CHARS = 1000000;
@@ -35,8 +36,8 @@ public class Event{
         return taskId;
     }
 
-    public String getTaskType() {
-        return taskType;
+    public String getName() {
+        return name;
     }
 
     public EventType getEventType() {
@@ -47,64 +48,80 @@ public class Event{
         this.taskId = taskId;
     }
 
-    public String getParentTaskId() {
-        return parentTaskId;
+    public String getParentId() {
+        return parentId;
     }
 
-    public void setParentTaskId(String parentTaskId) {
-        this.parentTaskId = parentTaskId;
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
     }
 
-    public String getPrimaryTaskId() {
-        return primaryTaskId;
+    public String getPrimaryId() {
+        return primaryId;
     }
 
-    public void setPrimaryTaskId(String primaryTaskId) {
-        this.primaryTaskId = primaryTaskId;
+    public void setPrimaryId(String primaryId) {
+        this.primaryId = primaryId;
     }
 
     public DateTime getTime() {
         return time;
     }
 
-	public Map<String, Object> getAttributes() {
-        return attributes;
+	public Map<String, Object> getStrings() {
+        return strings;
     }
 
 	public Map<String, Number> getMetrics() {
 		return metrics;
 	}
 
-	public Map<String, String> getData() {
-		return data;
+	public Map<String, String> getTexts() {
+		return texts;
 	}
 
-	public void setAttributes(Map<String, ?> attributes) {
-		if(attributes != null) {
-			for (Entry<String, ?> entry : attributes.entrySet()){
+	public void setStrings(Map<String, ?> strings) {
+		if(strings != null) {
+			for (Entry<String, ?> entry : strings.entrySet()){
 				String value = String.valueOf(entry.getValue());
 				if (value == null){
 					value = "null";
 				}
-				this.attributes.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
+				this.strings.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
 			}
 		}
 	}
 
-	public void setMetrics(Map<String, Number> metrics) {
-		if(metrics != null) {
-			this.metrics.putAll(metrics);
+	public void setMetrics(Map<String, Number> metric) {
+		if(metric != null) {
+			this.metrics.putAll(metric);
 		}
 	}
 
-	public void setData(Map<String, String> data) {
-		if (data != null) {
-			for (Entry<String, String> entry : data.entrySet()){
+	public void setTexts(Map<String, String> text) {
+		if (text != null) {
+			for (Entry<String, String> entry : text.entrySet()){
 				String value = entry.getValue();
 				if (value == null){
 					value = "null";
 				}
-				this.data.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
+				this.texts.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
+			}
+		}
+	}
+
+	public Map<String, Object> getGlobals() {
+		return globals;
+	}
+
+	public void setGlobals(Map<String, ?> global) {
+		if(global != null) {
+			for (Entry<String, ?> entry : global.entrySet()){
+				String value = String.valueOf(entry.getValue());
+				if (value == null){
+					value = "null";
+				}
+				this.globals.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
 			}
 		}
 	}
@@ -113,7 +130,6 @@ public class Event{
 		START,
 		END_SUCCESS,
 		END_ERROR,
-		END_APP_ERROR,
 		INFO,
 		SPOT
 	}

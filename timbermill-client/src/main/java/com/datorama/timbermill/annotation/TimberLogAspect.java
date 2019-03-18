@@ -10,7 +10,7 @@ public class TimberLogAspect {
 
     @Around("(execution(* *(..)) || execution(*.new(..))) && @annotation(timberLogAnnotation)")
     public Object timberLog(ProceedingJoinPoint pjp, TimberLog timberLogAnnotation) throws Throwable {
-        TimberLogger.start(timberLogAnnotation.taskType());
+        TimberLogger.start(timberLogAnnotation.name());
         try {
             Object obj = pjp.proceed();
             TimberLogger.success();
