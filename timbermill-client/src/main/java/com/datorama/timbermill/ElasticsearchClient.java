@@ -12,9 +12,6 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.get.MultiGetItemResponse;
-import org.elasticsearch.action.get.MultiGetRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -22,7 +19,9 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.IdsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -61,42 +60,14 @@ public class ElasticsearchClient {
         if (eventsToFetch.isEmpty()) {
             return Collections.emptyMap();
         } else {
-            String todayIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, new DateTime());
-            Map<String, Task> retMap = new HashMap<>(fetchIndexedTasksByIndex(eventsToFetch, todayIndex));
-            String yesterdayMap = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, new DateTime().minusDays(1));
-            retMap.putAll(fetchIndexedTasksByIndex(eventsToFetch, yesterdayMap));
+            HashMap<String, Task> retMap = new HashMap<>();
+            SearchResponse response = getTasksByIds(eventsToFetch);
+            for (SearchHit hit : response.getHits()) {
+                Task task = gson.fromJson(hit.getSourceAsString(), Task.class);
+                retMap.put(hit.getId(), task);
+            }
             return retMap;
         }
-    }
-
-    private Map<String, Task> fetchIndexedTasksByIndex(Collection<String> eventsToFetch, String index) {
-
-        GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
-        Map<String, Task> ret = new HashMap<>();
-        try{
-            boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
-            if (exists){
-                MultiGetRequest request = new MultiGetRequest();
-                for (String id : eventsToFetch) {
-                    request.add(
-                            new MultiGetRequest.Item(index, TYPE, id)
-                    );
-                }
-                MultiGetItemResponse[] responses = client.mget(request, RequestOptions.DEFAULT).getResponses();
-                for (MultiGetItemResponse response : responses) {
-                    GetResponse getResponse = response.getResponse();
-                    if (getResponse.isExists()) {
-                        String sourceAsString = getResponse.getSourceAsString();
-                        Task task = gson.fromJson(sourceAsString, Task.class);
-                        ret.put(getResponse.getId(), task);
-                    }
-                }
-                LOG.info("Batch of {} tasks fetched successfully", ret.size());
-            }
-        } catch (Exception e) {
-            throw new ElasticsearchException(e);
-        }
-        return ret;
     }
 
     void indexTasks(Map<String, Task> tasksToIndex) {
@@ -107,12 +78,10 @@ public class ElasticsearchClient {
                 createNewIndices(index);
             }
             bulkIndexByBulkSize(tasksToIndex, indexBulkSize, 1);
-
         }
     }
 
     private void createNewIndices(String index) {
-
         GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
         try{
             boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
@@ -180,29 +149,34 @@ public class ElasticsearchClient {
     }
 
     Task getTaskById(String taskId) {
-
-        SearchRequest searchRequest = new SearchRequest();
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(QueryBuilders.idsQuery().addIds(taskId));
-        searchRequest.source(searchSourceBuilder);
-
-        try {
-            SearchResponse search = client.search(searchRequest, RequestOptions.DEFAULT);
-            if (search.getHits().totalHits == 1){
-                String sourceAsString = search.getHits().getAt(0).getSourceAsString();
-                return gson.fromJson(sourceAsString, Task.class);
-            }
-            else {
-                return null;
-            }
-        } catch (IOException e) {
-            LOG.error("Couldn't get Task {} from elasticsearch cluster", taskId);
-            throw new ElasticsearchException(e);
-        } catch (NullPointerException e){
+        HashSet<String> taskIds = new HashSet<>();
+        taskIds.add(taskId);
+        SearchResponse response = getTasksByIds(taskIds);
+        if (response.getHits().totalHits == 1){
+            String sourceAsString = response.getHits().getAt(0).getSourceAsString();
+            return gson.fromJson(sourceAsString, Task.class);
+        }
+        else {
             return null;
         }
     }
 
+    private SearchResponse getTasksByIds(Set<String> taskIds) {
+        SearchRequest searchRequest = new SearchRequest();
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
+        for (String taskId : taskIds) {
+            idsQueryBuilder.addIds(taskId);
+        }
+        searchSourceBuilder.query(idsQueryBuilder);
+        searchRequest.source(searchSourceBuilder);
+        try {
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            LOG.error("Couldn't get Tasks {} from elasticsearch cluster", taskIds);
+            throw new ElasticsearchException(e);
+        }
+    }
 
     private void deleteOldIndex(String currIndex) throws IOException {
         if (daysBackToDelete < 1){
@@ -216,7 +190,6 @@ public class ElasticsearchClient {
             DeleteIndexRequest request = new DeleteIndexRequest(oldIndex);
             client.indices().delete(request, RequestOptions.DEFAULT);
         }
-
     }
 
     String getEnv() {

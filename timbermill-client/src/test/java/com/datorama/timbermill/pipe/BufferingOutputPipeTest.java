@@ -2,13 +2,12 @@ package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
 import org.awaitility.Awaitility;
-import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.datorama.timbermill.unit.Event.*;
+import static com.datorama.timbermill.unit.Event.EventType;
 import static org.junit.Assert.assertEquals;
 
 public class BufferingOutputPipeTest {
@@ -26,8 +25,8 @@ public class BufferingOutputPipeTest {
 	@Test
 	public void testSimpleEventsInsertion() {
 		bufferingOutputPipe.start();
-		Event startEvent = new Event("Event", EventType.START, new DateTime());
-		Event endEvent = new Event("Event", EventType.END_SUCCESS, new DateTime());
+		Event startEvent = new Event("Event", EventType.START, null);
+		Event endEvent = new Event("Event", EventType.END_SUCCESS, null);
 		bufferingOutputPipe.send(startEvent);
 		bufferingOutputPipe.send(endEvent);
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).pollInterval(10, TimeUnit.MILLISECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
@@ -37,7 +36,7 @@ public class BufferingOutputPipeTest {
 	public void testOverCapacityInsertion() {
 
 		for (int i = 1 ; i <= 1000 ; i ++) {
-			Event event = new Event("Event" + i, EventType.START, new DateTime());
+			Event event = new Event("Event" + i, EventType.START, null);
 			bufferingOutputPipe.send(event);
 		}
 		bufferingOutputPipe.start();

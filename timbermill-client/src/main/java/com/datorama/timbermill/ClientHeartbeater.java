@@ -4,9 +4,6 @@ import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.BufferingOutputPipe;
 import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class ClientHeartbeater {
 
 	private static final int TIME_TO_SLEEP = 60000;
@@ -28,21 +25,13 @@ public class ClientHeartbeater {
 	public void start() {
 		Thread heartbeatThread = new Thread(() -> {
 			while (true) {
-				Map<String, Number> metrics = new HashMap<>();
-				metrics.put(SUBMIT_AMOUNT, statsCollector.getEventsAmount());
-				metrics.put(AVG_SUBMIT_DURATION, statsCollector.getAvgSubmitDuration());
-				metrics.put(MAX_SUBMIT_DURATION, statsCollector.getMaxSubmitDuration());
-
+				LogParams logParams = LogParams.create().metric(SUBMIT_AMOUNT, statsCollector.getEventsAmount())
+						.metric(AVG_SUBMIT_DURATION, statsCollector.getAvgSubmitDuration()).metric(MAX_SUBMIT_DURATION, statsCollector.getMaxSubmitDuration());
 				statsCollector.initCounters();
-
 				if (bop != null) {
-					metrics.put(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
+					logParams.metric(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
 				}
-
-
-				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, null, null, null, metrics);
-
-
+				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, logParams);
 				try {
 					Thread.sleep(TIME_TO_SLEEP);
 				} catch (InterruptedException e) {

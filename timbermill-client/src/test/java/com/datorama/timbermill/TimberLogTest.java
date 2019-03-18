@@ -9,7 +9,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -31,8 +31,15 @@ public class TimberLogTest {
 
 	@BeforeClass
 	public static void init() {
-		Map<String, Integer> map = Collections.singletonMap("text.sql", 1000);
-		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(10000).propertiesLengthMap(map).secondBetweenPolling(1);
+		Map<String, Integer> map = new HashMap<>();
+		map.put("text.sql1", 10000);
+		map.put("string.sql1", 10000);
+		map.put("global.sql1", 10000);
+		map.put("text.sql2", 100);
+		map.put("string.sql2", 100);
+		map.put("global.sql2", 100);
+
+		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1);
 		LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
 		TimberLogger.bootstrap(config);
 	}
@@ -62,7 +69,7 @@ public class TimberLogTest {
 		assertEquals(TaskStatus.SUCCESS, task.getStatus());
 		assertEquals(TEST, task.getEnv());
 
-		Map<String, Object> strings = task.getString();
+		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
 
@@ -89,8 +96,6 @@ public class TimberLogTest {
 
 	@Test
 	public void testSimpleTaskWithTrimmer() {
-		String str = "string";
-		String text = "sql";
 
 		StringBuilder sb = new StringBuilder();
 
@@ -99,22 +104,37 @@ public class TimberLogTest {
 		}
 		String hugeString = sb.toString();
 
-		String taskId = testSimpleTaskWithTrimmer1(str, text, hugeString);
+		String taskId = testSimpleTaskWithTrimmer1(hugeString);
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
 		assertEquals(EVENT, task.getName());
-		Map<String, Object> strings = task.getString();
+		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
-		assertEquals(10000, String.valueOf(strings.get(str)).length());
-		assertEquals(1000, String.valueOf(texts.get(text)).length());
+		Map<String, String> globals = task.getGlobal();
+		assertEquals(10000,strings.get("sql1").length());
+		assertEquals(100, strings.get("sql2").length());
+		assertEquals(1000, strings.get("sql3").length());
+		assertEquals(10000, texts.get("sql1").length());
+		assertEquals(100, texts.get("sql2").length());
+		assertEquals(1000, texts.get("sql3").length());
+		assertEquals(10000, globals.get("sql1").length());
+		assertEquals(100, globals.get("sql2").length());
+		assertEquals(1000, globals.get("sql3").length());
 	}
 
 	@TimberLog(name = EVENT)
-	private String testSimpleTaskWithTrimmer1(String str, String text, String hugeString) {
-		TimberLogger.logString(str, hugeString);
-		TimberLogger.logText(text, hugeString);
+	private String testSimpleTaskWithTrimmer1(String hugeString) {
+		TimberLogger.logString("sql1", hugeString);
+		TimberLogger.logString("sql2", hugeString);
+		TimberLogger.logString("sql3", hugeString);
+		TimberLogger.logText("sql1", hugeString);
+		TimberLogger.logText("sql2", hugeString);
+		TimberLogger.logText("sql3", hugeString);
+		TimberLogger.logGlobal("sql1", hugeString);
+		TimberLogger.logGlobal("sql2", hugeString);
+		TimberLogger.logGlobal("sql3", hugeString);
 		return TimberLogger.getCurrentTaskId();
 	}
 

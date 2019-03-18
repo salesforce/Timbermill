@@ -1,11 +1,10 @@
 package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
-import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Test;
 
-import static com.datorama.timbermill.unit.Event.*;
+import static com.datorama.timbermill.unit.Event.EventType;
 
 public class LocalOutputPipeTest {
 
@@ -20,8 +19,8 @@ public class LocalOutputPipeTest {
 
     @Test
     public void send(){
-        Event start = new Event("ID1", EventType.START, new DateTime());
-        Event success = new Event("ID1", EventType.END_SUCCESS, new DateTime());
+        Event start = new Event("ID1", EventType.START, null);
+        Event success = new Event("ID1", EventType.END_SUCCESS, null);
         localOutputPipe.send(start);
         localOutputPipe.send(success);
     }

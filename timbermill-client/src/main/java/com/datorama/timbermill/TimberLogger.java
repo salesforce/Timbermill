@@ -2,9 +2,8 @@ package com.datorama.timbermill;
 
 import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
-import org.joda.time.DateTime;
 
-import java.util.Map;
+import javax.validation.constraints.NotNull;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
@@ -43,18 +42,18 @@ public final class TimberLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		return EventLogger.get().startEvent(name, logParams.getStrings(), logParams.getTexts(), logParams.getGlobals(), logParams.getMetrics());
+		return EventLogger.get().startEvent(name, logParams);
 	}
 
 	public static String success() {
-		return EventLogger.get().successEvent(new DateTime());
+		return EventLogger.get().successEvent();
 	}
 
 	public static String error(Throwable t) {
-		return EventLogger.get().endWithError(t, new DateTime());
+		return EventLogger.get().endWithError(t);
 	}
 
-	public static String logParams(LogParams logParams) {
+	public static String logParams(@NotNull LogParams logParams) {
 		return EventLogger.get().logParams(logParams);
 	}
 
@@ -79,17 +78,10 @@ public final class TimberLogger {
 	}
 
 	private static String spot(String name, LogParams logParams) {
-		Map<String, Object> strings = null;
-		Map<String, String> texts = null;
-		Map<String, Object> globals = null;
-		Map<String, Number> metrics = null;
-		if (logParams != null) {
-			strings = logParams.getStrings();
-			globals = logParams.getGlobals();
-			metrics = logParams.getMetrics();
-			texts = logParams.getTexts();
+		if (logParams == null){
+			logParams = LogParams.create();
 		}
-		return EventLogger.get().spotEvent(name, strings, texts, globals, metrics);
+		return EventLogger.get().spotEvent(name, logParams);
 	}
 
 	public static <T> Callable<T> wrapCallable(Callable<T> callable) {

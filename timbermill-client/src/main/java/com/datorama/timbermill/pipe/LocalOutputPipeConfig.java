@@ -13,7 +13,7 @@ public class LocalOutputPipeConfig {
     private final String plugingJson;
     private final Map<String, Integer> propertiesLengthMap;
     private final int indexBulkSize;
-    private final Map<String, Object> staticParams;
+    private final Map<String, String> staticParams;
     private int secondBetweenPolling;
 
     public LocalOutputPipeConfig(Builder builder) {
@@ -66,7 +66,7 @@ public class LocalOutputPipeConfig {
         return secondBetweenPolling;
     }
 
-    public Map<String, Object> getStaticParams() {
+    public Map<String, String> getStaticParams() {
         return staticParams;
     }
 
@@ -79,7 +79,7 @@ public class LocalOutputPipeConfig {
         private int indexBulkSize = 1000;
         private int daysBackToDelete = 0;
         private int secondBetweenPolling = 10;
-        private Map<String, Object> staticParams = Collections.EMPTY_MAP;
+        private Map<String, String> staticParams = Collections.EMPTY_MAP;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -116,7 +116,7 @@ public class LocalOutputPipeConfig {
             return this;
         }
 
-        public Builder staticParams(Map<String, Object> staticParams) {
+        public Builder staticParams(Map<String, String> staticParams) {
             this.staticParams = staticParams;
             return this;
         }

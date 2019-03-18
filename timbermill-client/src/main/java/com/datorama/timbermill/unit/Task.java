@@ -2,11 +2,11 @@ package com.datorama.timbermill.unit;
 
 import com.datorama.timbermill.common.Constants;
 import org.joda.time.DateTime;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 public class Task {
 	private String name;
@@ -18,8 +18,8 @@ public class Task {
 
 	private TaskMetaData meta = new TaskMetaData();
 
-	private Map<String, Object> global = new HashMap<>();
-	private Map<String, Object> string = new HashMap<>();
+	private Map<String, String> global = new HashMap<>();
+	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
 
@@ -29,13 +29,10 @@ public class Task {
 
 	public void update(Event e) {
 
-		Map<String, Object> eStrings = e.getStrings();
+		Map<String, String> eStrings = e.getStrings();
 		Map<String, String> eTexts = e.getTexts();
-		Map<String, Object> eGlobals = e.getGlobals();
+		Map<String, String> eGlobals = e.getGlobals();
 		Map<String, Number> eMetrics = e.getMetrics();
-		eStrings = replaceDotsInKeysStrings(eStrings);
-		eTexts = replaceDotsInKeysTexts(eTexts);
-		eMetrics = replaceDotsInKeysMetrics(eMetrics);
 
 		global.putAll(eGlobals);
 		string.putAll(eStrings);
@@ -80,31 +77,6 @@ public class Task {
 				updateEndEvent(e, TaskStatus.SUCCESS);
 				break;
 		}
-
-	}
-
-	private Map<String, Object> replaceDotsInKeysStrings(Map<String, Object> oldMap) {
-		Map<String, Object> newMap = new HashMap<>();
-		for (Entry<String, Object> entry : oldMap.entrySet()){
-			newMap.put(entry.getKey().replace(".", "_"), entry.getValue());
-		}
-		return newMap;
-	}
-
-	private Map<String, String> replaceDotsInKeysTexts(Map<String, String> oldMap) {
-		Map<String, String> newMap = new HashMap<>();
-		for (Entry<String, String> entry : oldMap.entrySet()){
-			newMap.put(entry.getKey().replace(".", "_"), entry.getValue());
-		}
-		return newMap;
-	}
-
-	private Map<String, Number> replaceDotsInKeysMetrics(Map<String, Number> oldMap) {
-		Map<String, Number> newMap = new HashMap<>();
-		for (Entry<String, Number> entry : oldMap.entrySet()){
-			newMap.put(entry.getKey().replace(".", "_"), entry.getValue());
-		}
-		return newMap;
 	}
 
 	private void updateEndEvent(Event e, TaskStatus status) {
@@ -201,11 +173,11 @@ public class Task {
 		meta.setTotalDuration(totalDuration);
 	}
 
-	public Map<String, Object> getString() {
+	public Map<String, String> getString() {
 		return string;
 	}
 
-	public void setString(Map<String, Object> string) {
+	public void setString(Map<String, String> string) {
 		this.string = string;
 	}
 
@@ -223,6 +195,14 @@ public class Task {
 
 	public void setText(Map<String, String> text) {
 		this.text = text;
+	}
+
+	public Map<String, String> getGlobal() {
+		return global;
+	}
+
+	public void setGlobal(Map<String, String> global) {
+		this.global = global;
 	}
 
 	public List<String> getParentsPath() {
@@ -244,10 +224,6 @@ public class Task {
     public void setMeta(TaskMetaData meta) {
         this.meta = meta;
     }
-
-	public Map<String, Object> getGlobal() {
-		return global;
-	}
 
 	public enum TaskStatus {
 		UNTERMINATED,

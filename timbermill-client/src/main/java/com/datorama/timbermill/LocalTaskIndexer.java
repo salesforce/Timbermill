@@ -184,12 +184,11 @@ public class LocalTaskIndexer {
         });
     }
 
-    private Map<String, String> getTrimmedLongValues(Map<String, ?> oldMap, String prefix) {
+    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String prefix) {
         Map<String, String> newMap = new HashMap<>();
-        for (Map.Entry<String, ?> entry : oldMap.entrySet()){
+        for (Map.Entry<String, String> entry : oldMap.entrySet()){
             String key = entry.getKey();
-            String value = String.valueOf(entry.getValue());
-            value = trimIfNeededValue(prefix + "." + key, value);
+            String value = trimIfNeededValue(prefix + "." + key, entry.getValue());
             newMap.put(key, value);
         }
         return newMap;
@@ -215,7 +214,7 @@ public class LocalTaskIndexer {
         metadataTask.setStatus(TaskStatus.ERROR);
         Map<String, String> exceptionMap = new HashMap<>();
         exceptionMap.put("exception", ExceptionUtils.getStackTrace(e));
-        metadataTask.setText(exceptionMap);
+        metadataTask.setGlobal(exceptionMap);
         es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
     }
 
@@ -250,8 +249,8 @@ public class LocalTaskIndexer {
         metadataTask.setStartTime(taskIndexerStartTime);
         metadataTask.setEndTime(taskIndexerEndTime);
         metadataTask.setTotalDuration(taskIndexerEndTime.getMillis() - taskIndexerStartTime.getMillis());
-        String taskId = metadataTask.getName() + '-' + taskIndexerStartTime.getMillis();
-        return org.apache.commons.lang3.tuple.Pair.of(taskId, metadataTask);
+        String taskId = EventLogger.generateTaskId(metadataTask.getName());
+        return Pair.of(taskId, metadataTask);
     }
 
     private static Set<String> getMissingStartEvents(Collection<Event> events) {
@@ -330,7 +329,7 @@ public class LocalTaskIndexer {
                 Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentId);
                 if (parentTask != null) {
                     t.setPrimaryId(parentTask.getPrimaryId());
-                    for (Map.Entry<String, Object> entry : parentTask.getGlobal().entrySet()) {
+                    for (Map.Entry<String, String> entry : parentTask.getGlobal().entrySet()) {
                         t.getGlobal().putIfAbsent(entry.getKey(), entry.getValue());
                     }
                     if((parentTask.getParentsPath() != null) && !parentTask.getParentsPath().isEmpty()) {
@@ -378,7 +377,7 @@ public class LocalTaskIndexer {
     }
 
     private void indexMetadataTaskToTimbermill() {
-        String taskId = "timbermill_server_startup" + '-' + new DateTime().getMillis();
+        String taskId = EventLogger.generateTaskId("timbermill_server_startup");
         Task task = new Task();
         task.setName("timbermill_server_startup");
         task.setPrimary(true);

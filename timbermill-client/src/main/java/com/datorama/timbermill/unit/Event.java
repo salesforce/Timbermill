@@ -2,6 +2,7 @@ package com.datorama.timbermill.unit;
 
 import org.joda.time.DateTime;
 
+import javax.validation.constraints.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -13,20 +14,16 @@ public class Event{
 	private String taskId;
 	private String parentId;
 	private String primaryId;
-	private Map<String, Object> strings = new HashMap<>();
+	private Map<String, String> strings = new HashMap<>();
 	private Map<String, String> texts = new HashMap<>();
-	private Map<String, Object> globals = new HashMap<>();
+	private Map<String, String> globals = new HashMap<>();
 	private Map<String, Number> metrics = new HashMap<>();
 	private DateTime time;
 
-	public Event(String taskId, EventType eventType, DateTime time) {
-        this(taskId, eventType, time, null);
-    }
-
-    public Event(String taskId, EventType eventType, DateTime time,String name) {
+    public Event(@NotNull String taskId, EventType eventType, String name) {
 		this.taskId = taskId;
 		this.eventType = eventType;
-		this.time = time;
+		this.time = new DateTime();
 		this.name = name;
 	}
 
@@ -64,11 +61,11 @@ public class Event{
         this.primaryId = primaryId;
     }
 
-    public DateTime getTime() {
+    DateTime getTime() {
         return time;
     }
 
-	public Map<String, Object> getStrings() {
+	public Map<String, String> getStrings() {
         return strings;
     }
 
@@ -80,52 +77,41 @@ public class Event{
 		return texts;
 	}
 
-	public void setStrings(Map<String, ?> strings) {
-		if(strings != null) {
-			for (Entry<String, ?> entry : strings.entrySet()){
-				String value = String.valueOf(entry.getValue());
-				if (value == null){
-					value = "null";
-				}
-				this.strings.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
-			}
-		}
-	}
-
-	public void setMetrics(Map<String, Number> metric) {
-		if(metric != null) {
-			this.metrics.putAll(metric);
-		}
-	}
-
-	public void setTexts(Map<String, String> text) {
-		if (text != null) {
-			for (Entry<String, String> entry : text.entrySet()){
-				String value = entry.getValue();
-				if (value == null){
-					value = "null";
-				}
-				this.texts.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
-			}
-		}
-	}
-
-	public Map<String, Object> getGlobals() {
+	public Map<String, String> getGlobals() {
 		return globals;
 	}
 
-	public void setGlobals(Map<String, ?> global) {
-		if(global != null) {
-			for (Entry<String, ?> entry : global.entrySet()){
-				String value = String.valueOf(entry.getValue());
-				if (value == null){
-					value = "null";
-				}
-				this.globals.put(entry.getKey(), value.substring(0, Math.min(value.length(), MAX_CHARS))); // Preventing ultra big strings
-			}
+	public void setStrings(@NotNull Map<String, String> strings) {
+		for (Entry<String, String> entry : strings.entrySet()){
+			String trimmedString = getTrimmedString(entry.getValue());
+			this.strings.put(entry.getKey(), trimmedString); // Preventing ultra big strings
 		}
 	}
 
+	public void setTexts(@NotNull Map<String, String> text) {
+		for (Entry<String, String> entry : text.entrySet()){
+			String trimmedString = getTrimmedString(entry.getValue());
+			this.texts.put(entry.getKey(), trimmedString); // Preventing ultra big strings
+		}
+	}
+
+	public void setGlobals(@NotNull Map<String, String> global) {
+		for (Entry<String, String> entry : global.entrySet()){
+			String trimmedString = getTrimmedString(entry.getValue());
+			this.globals.put(entry.getKey(), trimmedString); // Preventing ultra big strings
+		}
+	}
+
+	public void setMetrics(@NotNull Map<String, Number> metrics) {
+		this.metrics.putAll(metrics);
+	}
+
+
+
+	private String getTrimmedString(String string) {
+		int stringLength = Math.min(string.length(), MAX_CHARS);
+		return string.substring(0, stringLength);
+	}
 	public enum EventType {
 		START,
 		END_SUCCESS,

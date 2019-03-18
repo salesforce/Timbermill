@@ -6,17 +6,17 @@ import java.util.Map;
 
 public class LogParams {
 
-	private Map<String, Object> strings = Maps.newHashMap();
+	private Map<String, String> strings = Maps.newHashMap();
 	private Map<String, String> texts = Maps.newHashMap();
 	private Map<String, Number> metrics = Maps.newHashMap();
-	private Map<String, Object> globals = Maps.newHashMap();
+	private Map<String, String> globals = Maps.newHashMap();
 
 	public static LogParams create() {
 		return new LogParams();
 	}
 
 	public LogParams string(String key, Object value) {
-		strings.put(key, value);
+		strings.put(key, String.valueOf(value));
 		return this;
 	}
 
@@ -31,12 +31,12 @@ public class LogParams {
 	}
 
 	public LogParams global(String key, Object value) {
-		globals.put(key, value);
+		globals.put(key, String.valueOf(value));
 		return this;
 	}
 
 
-	Map<String, Object> getStrings() {
+	Map<String, String> getStrings() {
 		return strings;
 	}
 
@@ -48,7 +48,7 @@ public class LogParams {
 		return texts;
 	}
 
-    Map<String, Object> getGlobals() {
+    Map<String, String> getGlobals() {
         return globals;
     }
 
