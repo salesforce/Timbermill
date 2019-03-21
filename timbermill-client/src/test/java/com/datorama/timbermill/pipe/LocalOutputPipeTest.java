@@ -1,10 +1,11 @@
 package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.StartEvent;
+import com.datorama.timbermill.unit.SuccessEvent;
 import org.junit.Before;
 import org.junit.Test;
-
-import static com.datorama.timbermill.unit.Event.EventType;
 
 public class LocalOutputPipeTest {
 
@@ -17,10 +18,12 @@ public class LocalOutputPipeTest {
         localOutputPipe = new LocalOutputPipe(config);
     }
 
+    //TODO add tests
     @Test
     public void send(){
-        Event start = new Event("ID1", EventType.START, null);
-        Event success = new Event("ID1", EventType.END_SUCCESS, null);
+        LogParams logParams = LogParams.create();
+        Event start = new StartEvent("ID1", logParams, null, null);
+        Event success = new SuccessEvent(start.getTaskId(), logParams);
         localOutputPipe.send(start);
         localOutputPipe.send(success);
     }

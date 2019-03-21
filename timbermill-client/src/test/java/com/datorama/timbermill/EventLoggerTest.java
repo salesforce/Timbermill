@@ -2,7 +2,7 @@ package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.MockPipe;
-import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.*;
 import com.google.common.collect.ImmutableMap;
 import org.awaitility.Awaitility;
 import org.junit.After;
@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
-import static com.datorama.timbermill.unit.Event.EventType;
 import static org.junit.Assert.*;
 
 public class EventLoggerTest {
@@ -52,11 +51,11 @@ public class EventLoggerTest {
 		Event startEvent = events.get(0);
 		Event endEvent = events.get(1);
 		assertEquals(QUERY, startEvent.getName());
-		assertEquals(EventType.START, startEvent.getEventType());
-		assertEquals(EventType.END_SUCCESS, endEvent.getEventType());
+		assertTrue(startEvent instanceof StartEvent);
+		assertTrue(endEvent instanceof SuccessEvent);
 		assertEquals(startEvent.getTaskId(), startEvent.getPrimaryId());
 		assertNull(startEvent.getParentId());
-		assertEquals(TEST, startEvent.getGlobals().get(BOOTSTRAP));
+		assertEquals(TEST, startEvent.getContext().get(BOOTSTRAP));
 	}
 
 	@Test
@@ -69,7 +68,7 @@ public class EventLoggerTest {
 		List<Event> events = mockPipe.getCollectedEvents();
 
 		Event endEvent = events.get(1);
-		assertEquals(EventType.END_ERROR, endEvent.getEventType());
+		assertTrue(endEvent instanceof ErrorEvent);
 		assertTrue(endEvent.getTexts().get(EXCEPTION).contains(exception.toString()));
 	}
 
@@ -89,15 +88,13 @@ public class EventLoggerTest {
 		Event parentEventEnd = events.get(3);
 		assertEquals(QUERY, parentEventStart.getName());
 		assertEquals(SQL, childEventStart.getName());
-		assertEquals(EventType.START, parentEventStart.getEventType());
-		assertEquals(EventType.START, childEventStart.getEventType());
-		assertEquals(EventType.END_SUCCESS, parentEventEnd.getEventType());
-		assertEquals(EventType.END_SUCCESS, childEventEnd.getEventType());
+		assertTrue(parentEventStart instanceof StartEvent);
+		assertTrue(childEventStart instanceof StartEvent);
+		assertTrue(parentEventEnd instanceof SuccessEvent);
+		assertTrue(childEventEnd instanceof SuccessEvent);
 		assertEquals(parentEventStart.getTaskId(), childEventStart.getParentId());
-		assertEquals(parentEventStart.getTaskId(), childEventEnd.getParentId());
-		assertEquals(parentEventStart.getTaskId(), childEventEnd.getPrimaryId());
-		assertEquals(TEST, parentEventStart.getGlobals().get(BOOTSTRAP));
-		assertEquals(TEST, childEventStart.getGlobals().get(BOOTSTRAP));
+		assertEquals(TEST, parentEventStart.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, childEventStart.getContext().get(BOOTSTRAP));
 	}
 
 	@Test
@@ -110,7 +107,7 @@ public class EventLoggerTest {
 
 		Event diagnosticEvent = events.get(1);
 		assertEquals(startId, diagnosticEvent.getTaskId());
-		assertEquals(EventType.INFO, diagnosticEvent.getEventType());
+		assertTrue(diagnosticEvent instanceof InfoEvent);
 		assertEquals(TEST, diagnosticEvent.getTexts().get(PARAM));
 
 	}
@@ -124,7 +121,7 @@ public class EventLoggerTest {
 		List<Event> filteredEvents = mockPipe.getCollectedEvents();
 
 		Event spotEvent = filteredEvents.get(1);
-		assertEquals(EventType.SPOT, spotEvent.getEventType());
+		assertTrue(spotEvent instanceof SpotEvent);
 		assertEquals(startId, spotEvent.getParentId());
 		assertEquals(startId, spotEvent.getPrimaryId());
 		assertEquals("Testing", spotEvent.getName());
@@ -138,9 +135,9 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.END_WITHOUT_START, event.getName());
-		assertEquals(TEST, event.getGlobals().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
+		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertTrue(event instanceof SpotEvent);
 	}
 
 	@Test
@@ -152,9 +149,9 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(Constants.END_WITHOUT_START, event.getName());
-		assertEquals(TEST, event.getGlobals().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
+		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertTrue(event instanceof SpotEvent);
 		assertTrue(event.getTexts().get(EXCEPTION).contains(exception.toString()));
 	}
 
@@ -170,8 +167,8 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getTexts().get(key));
-		assertEquals(TEST, event.getGlobals().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
+		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertTrue(event instanceof SpotEvent);
 	}
 
 	@Test
@@ -186,8 +183,8 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getStrings().get(key));
-		assertEquals(TEST, event.getGlobals().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
+		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertTrue(event instanceof SpotEvent);
 	}
 
 	@Test
@@ -202,8 +199,8 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(1, event.getMetrics().get(key));
-		assertEquals(TEST, event.getGlobals().get(BOOTSTRAP));
-		assertEquals(EventType.SPOT, event.getEventType());
+		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertTrue(event instanceof SpotEvent);
 	}
 
 	@Test
@@ -220,8 +217,8 @@ public class EventLoggerTest {
 		Event startEvent = events.get(2);
 		Event endEvent = events.get(3);
 		assertEquals(QUERY + '2', startEvent.getName());
-		assertEquals(EventType.START, startEvent.getEventType());
-		assertEquals(EventType.END_SUCCESS, endEvent.getEventType());
+		assertTrue(startEvent instanceof StartEvent);
+		assertTrue(endEvent instanceof SuccessEvent);
 		assertEquals(taskId, startEvent.getParentId());
 	}
 }

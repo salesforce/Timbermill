@@ -1,9 +1,7 @@
 package com.datorama.timbermill.unit;
 
-import com.datorama.timbermill.common.Constants;
 import org.joda.time.DateTime;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,95 +16,28 @@ public class Task {
 
 	private TaskMetaData meta = new TaskMetaData();
 
-	private Map<String, String> global = new HashMap<>();
+	private Map<String, String> ctx = new HashMap<>();
 	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
 
-	public void update(Collection<Event> events) {
-		events.forEach(e -> update(e));
+	public Task() {
 	}
 
-	public void update(Event e) {
+	public Task(Event e, DateTime startTime, DateTime endTime, TaskStatus status) {
+		name = e.getName();
+		parentId = e.getParentId();
+		primaryId = e.getPrimaryId();
+		primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
 
-		Map<String, String> eStrings = e.getStrings();
-		Map<String, String> eTexts = e.getTexts();
-		Map<String, String> eGlobals = e.getGlobals();
-		Map<String, Number> eMetrics = e.getMetrics();
-
-		global.putAll(eGlobals);
-		string.putAll(eStrings);
-		text.putAll(eTexts);
-		metric.putAll(eMetrics);
-
-		switch (e.getEventType()) {
-			case START:
-				name = e.getName();
-				parentId = e.getParentId();
-				primaryId = e.getPrimaryId();
-				primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
-				meta.setTaskBegin(e.getTime());
-				if (status == null) {
-					status = TaskStatus.UNTERMINATED;
-				}
-				break;
-			case INFO:
-				if(status == TaskStatus.CORRUPTED){
-					updateTimes(e);
-				}
-				else if(isStartTimeMissing()){
-					status = TaskStatus.CORRUPTED;
-					name = Constants.LOG_WITHOUT_CONTEXT;
-					meta.setTaskBegin(e.getTime());
-					meta.setTaskEnd(e.getTime());
-				}
-				break;
-			case SPOT:
-				status = TaskStatus.SUCCESS;
-				name = e.getName();
-				parentId = e.getParentId();
-				primaryId = e.getPrimaryId();
-				primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
-				meta.setTaskBegin(e.getTime());
-				meta.setTaskEnd(e.getTime());
-				break;
-			case END_ERROR:
-				updateEndEvent(e, TaskStatus.ERROR);
-				break;
-			case END_SUCCESS:
-				updateEndEvent(e, TaskStatus.SUCCESS);
-				break;
-		}
-	}
-
-	private void updateEndEvent(Event e, TaskStatus status) {
-		if(this.status == TaskStatus.CORRUPTED){
-			updateTimes(e);
-		}
-		else if(isStartTimeMissing()){
-			this.status = TaskStatus.CORRUPTED;
-			name = Constants.END_WITHOUT_START;
-			meta.setTaskEnd(e.getTime());
-		}
-		else{
-			this.status = status;
-			meta.setTaskEnd(e.getTime());
-		}
-	}
-
-	private void updateTimes(Event e) {
-		if (e.getTime().getMillis() < meta.getTaskBegin().getMillis() ){
-			meta.setTaskBegin(e.getTime());
-		}
-		if (e.getTime().getMillis() > meta.getTaskEnd().getMillis() ){
-			meta.setTaskEnd(e.getTime());
-		}
-	}
-
-
-	public boolean isStartTimeMissing() {
-		return meta.getTaskBegin() == null;
-
+		ctx.putAll(e.getContext());
+		string.putAll(e.getStrings());
+		text.putAll(e.getTexts());
+		metric.putAll(e.getMetrics());
+		meta.setTaskBegin(startTime);
+		meta.setTaskEnd(endTime);
+		this.status = status;
+		this.parentsPath = e.getParentsPath();
 	}
 
 	public String getName() {
@@ -197,12 +128,12 @@ public class Task {
 		this.text = text;
 	}
 
-	public Map<String, String> getGlobal() {
-		return global;
+	public Map<String, String> getCtx() {
+		return ctx;
 	}
 
-	public void setGlobal(Map<String, String> global) {
-		this.global = global;
+	public void setCtx(Map<String, String> ctx) {
+		this.ctx = ctx;
 	}
 
 	public List<String> getParentsPath() {
@@ -213,15 +144,7 @@ public class Task {
 		this.parentsPath = parentsPath;
 	}
 
-	public void setEnv(String env) {
-		meta.setEnv(env);
-	}
-
-	public String getEnv() {
-		return meta.getEnv();
-	}
-
-    public void setMeta(TaskMetaData meta) {
+	public void setMeta(TaskMetaData meta) {
         this.meta = meta;
     }
 
@@ -229,6 +152,6 @@ public class Task {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		CORRUPTED
+		CORRUPTED //TODO check
 	}
 }

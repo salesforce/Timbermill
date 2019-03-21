@@ -2,6 +2,7 @@ package com.datorama.timbermill;
 
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
+import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
@@ -13,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.datorama.timbermill.TimberLogger.ENV;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
 
@@ -34,10 +36,10 @@ public class TimberLogTest {
 		Map<String, Integer> map = new HashMap<>();
 		map.put("text.sql1", 10000);
 		map.put("string.sql1", 10000);
-		map.put("global.sql1", 10000);
+		map.put("ctx.sql1", 10000);
 		map.put("text.sql2", 100);
 		map.put("string.sql2", 100);
-		map.put("global.sql2", 100);
+		map.put("ctx.sql2", 100);
 
 		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1);
 		LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
@@ -67,8 +69,8 @@ public class TimberLogTest {
 		assertEquals(EVENT, task.getName());
 		assertEquals(taskId, task.getPrimaryId());
 		assertEquals(TaskStatus.SUCCESS, task.getStatus());
-		assertEquals(TEST, task.getEnv());
-
+		assertEquals(TEST, task.getCtx().get(ENV));
+		assertTrue(task.getTotalDuration() > 0);
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
@@ -112,16 +114,16 @@ public class TimberLogTest {
 		assertEquals(EVENT, task.getName());
 		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
-		Map<String, String> globals = task.getGlobal();
+		Map<String, String> context = task.getCtx();
 		assertEquals(10000,strings.get("sql1").length());
 		assertEquals(100, strings.get("sql2").length());
 		assertEquals(1000, strings.get("sql3").length());
 		assertEquals(10000, texts.get("sql1").length());
 		assertEquals(100, texts.get("sql2").length());
 		assertEquals(1000, texts.get("sql3").length());
-		assertEquals(10000, globals.get("sql1").length());
-		assertEquals(100, globals.get("sql2").length());
-		assertEquals(1000, globals.get("sql3").length());
+		assertEquals(10000, context.get("sql1").length());
+		assertEquals(100, context.get("sql2").length());
+		assertEquals(1000, context.get("sql3").length());
 	}
 
 	@TimberLog(name = EVENT)
@@ -132,19 +134,19 @@ public class TimberLogTest {
 		TimberLogger.logText("sql1", hugeString);
 		TimberLogger.logText("sql2", hugeString);
 		TimberLogger.logText("sql3", hugeString);
-		TimberLogger.logGlobal("sql1", hugeString);
-		TimberLogger.logGlobal("sql2", hugeString);
-		TimberLogger.logGlobal("sql3", hugeString);
+		TimberLogger.logContext("sql1", hugeString);
+		TimberLogger.logContext("sql2", hugeString);
+		TimberLogger.logContext("sql3", hugeString);
 		return TimberLogger.getCurrentTaskId();
 	}
 
 	@Test
 	public void testSpotWithParent(){
-		String global1 = "global1";
-		String str2 = "str2";
+		String context = "context";
+		String str = "str";
 
 		final String[] taskIdSpot = {null};
-		Pair<String, String> stringStringPair = testSpotWithParentTimberLog(global1, str2, taskIdSpot);
+		Pair<String, String> stringStringPair = testSpotWithParentTimberLog(context, str, taskIdSpot);
 
 		String taskId1 = stringStringPair.getLeft();
 		String taskId2 = stringStringPair.getRight();
@@ -163,7 +165,7 @@ public class TimberLogTest {
 
 		Task spot = client.getTaskById(taskIdSpot[0]);
 		assertEquals(SPOT, spot.getName());
-		assertEquals(global1, spot.getGlobal().get(global1));
+		assertEquals(context, spot.getCtx().get(context));
 		assertEquals(taskId1, spot.getPrimaryId());
 		assertEquals(TaskStatus.SUCCESS, spot.getStatus());
 		assertEquals(taskId1, spot.getParentId());
@@ -171,32 +173,34 @@ public class TimberLogTest {
 	}
 
 	@TimberLog(name = EVENT)
-	private Pair<String, String> testSpotWithParentTimberLog(String global1, String global2, String[] taskIdSpot) {
+	private Pair<String, String> testSpotWithParentTimberLog(String context1, String context2, String[] taskIdSpot) {
 		String taskId1 = TimberLogger.getCurrentTaskId();
-		TimberLogger.logGlobal(global1, global1);
-		String taskId2 = testSpotWithParentTimberLog2(global2, taskIdSpot, taskId1);
+		TimberLogger.logContext(context1, context1);
+		String taskId2 = testSpotWithParentTimberLog2(context2, taskIdSpot, taskId1);
 		return Pair.of(taskId1, taskId2);
 	}
 
 
 	@TimberLog(name = EVENT + '2')
-	private String testSpotWithParentTimberLog2(String global2, String[] taskIdSpot, String taskId1) {
-		TimberLogger.logGlobal(global2, global2);
-		new Thread(() -> {
-			try(TimberLogContext ignored = new TimberLogContext(taskId1)){
+	private String testSpotWithParentTimberLog2(String context2, String[] taskIdSpot, String taskId1) {
+		TimberLogger.logContext(context2, context2);
+		Thread thread = new Thread(() -> {
+			try (TimberLogContext ignored = new TimberLogContext(taskId1)) {
 				taskIdSpot[0] = TimberLogger.spot(SPOT);
 			}
-		}).run();
+		});
+		thread.start();
+		while(thread.isAlive()){}
 		return TimberLogger.getCurrentTaskId();
 	}
 
 	@Test
 	public void testSimpleTasksFromDifferentThreadsIndexerJob(){
 
-		String global1 = "global1";
-		String global2 = "global2";
+		String context1 = "context1";
+		String context2 = "context2";
 
-		String[] tasks = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog1(global1, global2);
+		String[] tasks = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog1(context1, context2);
 		String taskId = tasks[0];
 		String taskId2 = tasks[1];
 		String taskId3 = tasks[2];
@@ -209,6 +213,8 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId3) != null)
 				&& (client.getTaskById(taskId3).getStatus() == TaskStatus.SUCCESS));
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskIdSpot) != null)
+				&& (client.getTaskById(taskIdSpot).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
 		assertEquals(EVENT, task.getName());
 		assertEquals(taskId, task.getPrimaryId());
@@ -217,8 +223,8 @@ public class TimberLogTest {
 
 		Task task3 = client.getTaskById(taskId3);
 		assertEquals(EVENT + '3', task3.getName());
-		assertEquals(global1, task3.getGlobal().get(global1));
-		assertEquals(global2, task3.getGlobal().get(global2));
+		assertEquals(context1, task3.getCtx().get(context1));
+		assertEquals(context2, task3.getCtx().get(context2));
 		assertEquals(taskId, task3.getPrimaryId());
 		assertEquals(TaskStatus.SUCCESS, task3.getStatus());
 		assertEquals(taskId2, task3.getParentId());
@@ -227,7 +233,7 @@ public class TimberLogTest {
 
 		Task spot = client.getTaskById(taskIdSpot);
 		assertEquals(SPOT, spot.getName());
-		assertEquals(global1, spot.getGlobal().get(global1));
+		assertEquals(context1, spot.getCtx().get(context1));
 		assertEquals(taskId, spot.getPrimaryId());
 		assertEquals(TaskStatus.SUCCESS, spot.getStatus());
 		assertEquals(taskId, spot.getParentId());
@@ -235,32 +241,38 @@ public class TimberLogTest {
 	}
 
 	@TimberLog(name = EVENT)
-	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog1(String global1, String global2) {
-		TimberLogger.logGlobal(global1, global1);
+	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog1(String context1, String context2) {
+		TimberLogger.logContext(context1, context1);
 		String taskId = TimberLogger.getCurrentTaskId();
-		String[] tasks = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog2(global2, taskId);
+		String[] tasks = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog2(context2, taskId);
 		tasks[0] = TimberLogger.getCurrentTaskId();
 		return tasks;
 	}
 
 	@TimberLog(name = EVENT + '2')
-	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog2(String global2, String taskId) {
+	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog2(String context2, String taskId) {
 
-		TimberLogger.logGlobal(global2, global2);
+		TimberLogger.logContext(context2, context2);
 
 		final String[] tasks = new String[4];
 		tasks[1] = TimberLogger.getCurrentTaskId();
-		new Thread(() -> {
-			try(TimberLogContext ignored = new TimberLogContext(tasks[1])){
+		Thread thread1 = new Thread(() -> {
+			try (TimberLogContext ignored = new TimberLogContext(tasks[1])) {
 				tasks[2] = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog3();
 			}
-		}).run();
+		});
+		thread1.start();
 
-		new Thread(() -> {
-			try(TimberLogContext ignored = new TimberLogContext(taskId)) {
+		Thread thread2 = new Thread(() -> {
+			try (TimberLogContext ignored = new TimberLogContext(taskId)) {
 				tasks[3] = testSimpleTasksFromDifferentThreadsIndexerJobTimberLog4();
 			}
-		}).run();
+		});
+		thread2.start();
+		while(thread1.isAlive()){
+		}
+		while(thread2.isAlive()){
+		}
 		return tasks;
 	}
 
@@ -277,12 +289,14 @@ public class TimberLogTest {
 	@Test
 	public void testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob() {
 		final String[] taskId = new String[1];
-		new Thread(() -> {
-			try(TimberLogContext ignored = new TimberLogContext("bla")){
+		Thread thread = new Thread(() -> {
+			try (TimberLogContext ignored = new TimberLogContext("bla")) {
 				taskId[0] = testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJobTimberLog();
 			}
 
-		}).run();
+		});
+		thread.start();
+		while(thread.isAlive()){}
 
 
 

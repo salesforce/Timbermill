@@ -1,6 +1,7 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.DateTimeTypeConverter;
+import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -15,6 +16,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -70,16 +72,16 @@ public class ElasticsearchClient {
         }
     }
 
-    void indexTasks(Map<String, Task> tasksToIndex) {
-        if (!tasksToIndex.isEmpty()) {
-            Set<String> indices = tasksToIndex.values().stream()
-                    .map(t -> getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime())).collect(Collectors.toSet());
-            for (String index : indices){
-                createNewIndices(index);
-            }
-            bulkIndexByBulkSize(tasksToIndex, indexBulkSize, 1);
-        }
-    }
+//    void indexTasks(Map<String, Task> tasksToIndex) {
+//        if (!tasksToIndex.isEmpty()) {
+//            Set<String> indices = tasksToIndex.values().stream()
+//                    .map(t -> getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime())).collect(Collectors.toSet());
+//            for (String index : indices){
+//                createNewIndices(index);
+//            }
+//            bulkIndexByBulkSize(tasksToIndex, indexBulkSize, 1);
+//        }
+//    }
 
     private void createNewIndices(String index) {
         GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
@@ -95,46 +97,46 @@ public class ElasticsearchClient {
         }
     }
 
-    private void bulkIndexByBulkSize(Map<String, Task> tasks, int bulkSize, int tryNum){
-        BulkRequest request = new BulkRequest();
-        try {
-            int currBatch = 0;
-            int i = 0;
-            for (Map.Entry<String, Task> taskEntry : tasks.entrySet()) {
-                i++;
-                currBatch++;
-                Task t = taskEntry.getValue();
-                String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime());
-                IndexRequest req = new IndexRequest(index, TYPE, taskEntry.getKey()).source(gson.toJson(t), XContentType.JSON);
-                request.add(req);
+//    private void bulkIndexByBulkSize(Map<String, Task> tasks, int bulkSize, int tryNum){
+//        BulkRequest request = new BulkRequest();
+//        try {
+//            int currBatch = 0;
+//            int i = 0;
+//            for (Map.Entry<String, Task> taskEntry : tasks.entrySet()) {
+//                i++;
+//                currBatch++;
+//                Task t = taskEntry.getValue();
+//                String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime());
+//                IndexRequest req = new IndexRequest(index, TYPE, taskEntry.getKey()).source(gson.toJson(t), XContentType.JSON);
+//                request.add(req);
+//
+//                if (((i % bulkSize) == 0) || (i == tasks.size())) {
+//                    BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
+//
+//                    if (responses.hasFailures()) {
+//                        retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, responses.buildFailureMessage());
+//                    }
+//                    LOG.info("Batch of {} tasks indexed successfully", currBatch);
+//                    currBatch = 0;
+//                    request = new BulkRequest();
+//                }
+//            }
+//        } catch (IOException e) {
+//            retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, e.getMessage());
+//        }
+//    }
 
-                if (((i % bulkSize) == 0) || (i == tasks.size())) {
-                    BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
-
-                    if (responses.hasFailures()) {
-                        retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, responses.buildFailureMessage());
-                    }
-                    LOG.info("Batch of {} tasks indexed successfully", currBatch);
-                    currBatch = 0;
-                    request = new BulkRequest();
-                }
-            }
-        } catch (IOException e) {
-            retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, e.getMessage());
-        }
-    }
-
-    private void retryIndexWithSmallerBulkSizeOrFail(Map<String, Task> tasks, int bulkSize, int tryNum, String errorMessage) {
-        if (tryNum == MAX_TRY_NUMBER) {
-            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
-                    + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
-        }
-        else{
-            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
-            LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
-            bulkIndexByBulkSize(tasks, smallerBulkSize, tryNum + 1);
-        }
-    }
+//    private void retryIndexWithSmallerBulkSizeOrFail(Map<String, Task> tasks, int bulkSize, int tryNum, String errorMessage) {
+//        if (tryNum == MAX_TRY_NUMBER) {
+//            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
+//                    + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
+//        }
+//        else{
+//            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
+//            LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
+//            bulkIndexByBulkSize(tasks, smallerBulkSize, tryNum + 1);
+//        }
+//    }
 
     void indexTaskToMetaDataIndex(Task task, String taskId) {
         try {
@@ -192,15 +194,58 @@ public class ElasticsearchClient {
         }
     }
 
-    String getEnv() {
-        return env;
-    }
-
     void close(){
         try {
             client.close();
         } catch (IOException e) {
             throw new ElasticsearchException(e);
         }
+    }
+
+    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, int tryNum) {
+        BulkRequest request = new BulkRequest();
+        int currBatch = 0;
+        int i = 0;
+        String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, new DateTime());
+        //Should be changed
+
+        List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index, gson)).collect(Collectors.toList());
+
+
+        for (UpdateRequest updateRequest : requests) {
+            i++;
+            currBatch++;
+
+            request.add(updateRequest);
+            try{
+                if (((i % bulkSize) == 0) || (i == events.size())) {
+                    BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
+
+                    if (responses.hasFailures()) {
+                        retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, responses.buildFailureMessage());
+                    }
+                    LOG.info("Batch of {} tasks indexed successfully", currBatch);
+                    currBatch = 0;
+                    request = new BulkRequest();
+                }
+            } catch (IOException e) {
+                retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, e.getMessage());
+            }
+        }
+    }
+
+    private void retryUpdateWithSmallerBulkSizeOrFail(List<Event> events, int bulkSize, int tryNum, String errorMessage) {
+        if (tryNum == MAX_TRY_NUMBER) {
+            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
+                    + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
+        } else {
+            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
+            LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
+            bulkIndexByBulkSize(events, smallerBulkSize, tryNum + 1);
+        }
+    }
+
+    void index(List<Event> events) {
+        bulkIndexByBulkSize(events, indexBulkSize, 1);
     }
 }

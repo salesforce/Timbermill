@@ -2,10 +2,9 @@ package com.datorama.timbermill;
 
 
 import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.plugins.PluginsConfig;
-import com.datorama.timbermill.plugins.TaskLogPlugin;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -20,8 +19,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
-import static com.datorama.timbermill.unit.Event.*;
-import static com.datorama.timbermill.unit.Task.*;
+import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
@@ -31,18 +29,16 @@ public class LocalTaskIndexer {
     private BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
     private static final Logger LOG = LoggerFactory.getLogger(LocalTaskIndexer.class);
     private static final String INCOMING_EVENTS = "incomingEvents";
-    private static final String MISSING_START_EVENTS = "missingStartEvents";
-    private static final String MISSING_PARENTS_EVENTS = "missingParentEvents";
     private static final String PREV_INDEXED_TASKS_FETCHED = "prevIndexedTasksFetched";
     private static final String INDEXED_TASKS = "indexedTasks";
-    private Collection<TaskLogPlugin> logPlugins;
+//    private Collection<TaskLogPlugin> logPlugins;
     private Map<String, Integer> propertiesLengthMap;
     private int defaultMaxChars;
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
 
     public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es, int secondBetweenPolling) {
-        logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
+//        logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.propertiesLengthMap = propertiesLengthMap;
         this.defaultMaxChars = defaultMaxChars;
         this.es = es;
@@ -88,53 +84,87 @@ public class LocalTaskIndexer {
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
-            Task heartbeatTask = new Task();
-            heartbeatTask.update(e);
+            Task heartbeatTask = new Task(e, e.getTime(), e.getTime(), TaskStatus.SUCCESS);
             this.es.indexTaskToMetaDataIndex(heartbeatTask, e.getTaskId());
         }
 
         List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
 
         LOG.info("{} events retrieved from pipe", timbermillEvents.size());
-        Set<String> missingStartEvents = getMissingStartEvents(timbermillEvents);
         Set<String> missingParentEvents = getMissingParentEvents(timbermillEvents);
 
-        if (!missingStartEvents.isEmpty()){
-            LOG.info("{} missing start events for current batch", missingStartEvents.size());
-        }
+        int missingParentNum = missingParentEvents.size();
         if (!missingParentEvents.isEmpty()) {
-            LOG.info("{} missing parent events for current batch", missingParentEvents.size());
+            LOG.info("{} missing parent events for current batch", missingParentNum);
         }
 
-        Set<String> missingEvents = new LinkedHashSet<>();
-        missingEvents.addAll(missingStartEvents);
-        missingEvents.addAll(missingParentEvents);
         Map<String, Task> previouslyIndexedTasks = new HashMap<>();
-        Map<String, Task> tasksToIndex = new HashMap<>();
         try {
-            previouslyIndexedTasks = this.es.fetchIndexedTasks(missingEvents);
+            previouslyIndexedTasks = this.es.fetchIndexedTasks(missingParentEvents);
 
-            if (!missingEvents.isEmpty()) {
-                if (missingEvents.size() == previouslyIndexedTasks.size()) {
-                    LOG.info("All {} missing event were retrieved from elasticsearch..", missingEvents.size());
+            if (!missingParentEvents.isEmpty()) {
+                if (missingParentNum == previouslyIndexedTasks.size()) {
+                    LOG.info("All {} missing event were retrieved from elasticsearch..", missingParentNum);
                 } else {
-                    LOG.warn("{} missing events were not retrieved from elasticsearch", missingEvents.size() - previouslyIndexedTasks.size(),
-                            StringUtils.join(missingEvents.removeAll(previouslyIndexedTasks.keySet())), ", ");
+                    Sets.SetView<String> notFoundEvents = Sets.difference(missingParentEvents, previouslyIndexedTasks.keySet());
+                    String joinString = StringUtils.join(notFoundEvents, ",");
+                    LOG.warn("{} missing events were not retrieved from elasticsearch. Events [{}]", missingParentNum - previouslyIndexedTasks.size(), joinString);
                 }
             }
 
-            tasksToIndex = prepareTasksToIndex(timbermillEvents, previouslyIndexedTasks);
+//            long pluginsDuration = applyPlugins(timbermillEvents);
 
-            long pluginsDuration = applyPlugins(timbermillEvents, tasksToIndex);
-
-            this.es.indexTasks(tasksToIndex);
-            if (!tasksToIndex.isEmpty()) {
-                LOG.info("{} tasks were indexed to elasticsearch", tasksToIndex.size());
-                indexMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingStartEvents.size(), missingParentEvents.size(), previouslyIndexedTasks.size(), tasksToIndex.size(), pluginsDuration);
-            }
+            enrichEvents(timbermillEvents, previouslyIndexedTasks);
+            es.index(timbermillEvents);
+//            if (!tasksToIndex.isEmpty()) {
+//                LOG.info("{} tasks were indexed to elasticsearch", tasksToIndex.size());
+//                indexMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingParentEvents.size(), previouslyIndexedTasks.size(), tasksToIndex.size());
+////                indexMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingStartEvents.size(), missingParentEvents.size(), previouslyIndexedTasks.size(), tasksToIndex.size(), pluginsDuration);
+//            }
             LOG.info("------------------ Batch End ------------------");
         } catch (ElasticsearchException e){
-            indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingStartEvents.size(), missingParentEvents.size(), previouslyIndexedTasks.size(), tasksToIndex.size(), e);
+//            indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingStartEvents.size(), missingParentEvents.size(), previouslyIndexedTasks.size(), tasksToIndex.size(), e);
+            indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), previouslyIndexedTasks.size(), timbermillEvents.size(), e);
+        }
+    }
+
+    private void enrichEvents(List<Event> events, Map<String, Task> previouslyIndexedTasks) {
+
+        /*
+         * Compute origins and down merge parameters from parent
+         */
+        List<Event> startEvents = events.stream().filter(e -> e.isStartEvent()).collect(toList());
+        for (Event event : startEvents) {
+            List<String> parentsPath = new ArrayList<>();
+            String parentId = event.getParentId();
+            if (parentId != null) {
+                ParentProperties parentProperties = getParentProperties(previouslyIndexedTasks, events.stream().collect(groupingBy(e -> e.getTaskId())), parentId);
+
+                String primaryId = parentProperties.getPrimaryId();
+                if (primaryId == null){
+                    event.setPrimaryId(event.getTaskId());
+                    event.setParentId(null);
+                }
+                else {
+                    event.setPrimaryId(primaryId);
+                    for (Map.Entry<String, String> entry : parentProperties.getContex().entrySet()) {
+                        event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
+                    }
+
+                    List<String> parentParentsPath = parentProperties.getParentPath();
+                    if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
+                        parentsPath.addAll(parentParentsPath);
+                    }
+
+                    String parentName = parentProperties.getParentName();
+                    if(parentName != null) {
+                        parentsPath.add(parentName);
+                    }
+                }
+            }
+            if(!parentsPath.isEmpty()) {
+                event.setParentsPath(parentsPath);
+            }
         }
     }
 
@@ -142,45 +172,45 @@ public class LocalTaskIndexer {
         eventsQueue.add(e);
     }
 
-    private long applyPlugins(List<Event> events, Map<String, Task> tasks) {
-        long pluginsStart = System.currentTimeMillis();
-        try {
-            String taskName = "timbermill_plugin";
-            for (TaskLogPlugin plugin : logPlugins) {
-
-                Task t = new Task();
-                try {
-                    t.setName(taskName);
-                    t.setPrimary(true);
-                    t.setStartTime(new DateTime());
-                    t.getString().put("pluginName", plugin.getName());
-                    t.getString().put("pluginClass", plugin.getClass().getSimpleName());
-
-                    plugin.apply(events, tasks);
-
-                    t.setEndTime(new DateTime());
-                    t.setTotalDuration(t.getEndTime().getMillis() - t.getStartTime().getMillis());
-                    t.setStatus(TaskStatus.SUCCESS);
-                } catch (Exception ex) {
-                    t.getText().put("error", ex.toString());
-                    t.setStatus(TaskStatus.ERROR);
-                    LOG.error("error in plugin" + plugin, ex);
-                }
-                String taskId = taskName + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart;
-                es.indexTaskToMetaDataIndex(t, taskId);
-            }
-        } catch (Exception ex) {
-            LOG.error("Error running plugins", ex);
-        }
-        long pluginsEnd = System.currentTimeMillis();
-        return pluginsEnd - pluginsStart;
-    }
+//    private long applyPlugins(List<Event> events, Map<String, Task> tasks) {
+//        long pluginsStart = System.currentTimeMillis();
+//        try {
+//            String taskName = "timbermill_plugin";
+//            for (TaskLogPlugin plugin : logPlugins) {
+//
+//                Task t = new Task();
+//                try {
+//                    t.setName(taskName);
+//                    t.setPrimary(true);
+//                    t.setStartTime(new DateTime());
+//                    t.getString().put("pluginName", plugin.getName());
+//                    t.getString().put("pluginClass", plugin.getClass().getSimpleName());
+//
+//                    plugin.apply(events, tasks);
+//
+//                    t.setEndTime(new DateTime());
+//                    t.setTotalDuration(t.getEndTime().getMillis() - t.getStartTime().getMillis());
+//                    t.setStatus(TaskStatus.SUCCESS);
+//                } catch (Exception ex) {
+//                    t.getText().put("error", ex.toString());
+//                    t.setStatus(TaskStatus.ERROR);
+//                    LOG.error("error in plugin" + plugin, ex);
+//                }
+//                String taskId = taskName + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart;
+//                es.indexTaskToMetaDataIndex(t, taskId);
+//            }
+//        } catch (Exception ex) {
+//            LOG.error("Error running plugins", ex);
+//        }
+//        long pluginsEnd = System.currentTimeMillis();
+//        return pluginsEnd - pluginsStart;
+//    }
 
     private void trimAllStrings(List<Event> events) {
         events.forEach(e -> {
             e.setStrings(getTrimmedLongValues(e.getStrings(), "string"));
             e.setTexts(getTrimmedLongValues(e.getTexts(), "text"));
-            e.setGlobals(getTrimmedLongValues(e.getGlobals(), "global"));
+            e.setContext(getTrimmedLongValues(e.getContext(), "ctx"));
         });
     }
 
@@ -207,28 +237,28 @@ public class LocalTaskIndexer {
         return value;
     }
 
-    private void indexFailedMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize, Integer missingStartEventsSize, Integer missingParentEventsSize,
+    private void indexFailedMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize,
                                          Integer previouslyIndexedTasksSize, Integer tasksToIndexSize, Exception e) {
-        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, missingStartEventsSize, missingParentEventsSize, previouslyIndexedTasksSize, tasksToIndexSize);
+        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, previouslyIndexedTasksSize, tasksToIndexSize);
         Task metadataTask = metadataTaskPair.getRight();
         metadataTask.setStatus(TaskStatus.ERROR);
         Map<String, String> exceptionMap = new HashMap<>();
         exceptionMap.put("exception", ExceptionUtils.getStackTrace(e));
-        metadataTask.setGlobal(exceptionMap);
+        metadataTask.setCtx(exceptionMap);
         es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
     }
+//
+//    private void indexMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize, Integer missingParentEventsSize,
+//                                   Integer previouslyIndexedTasksSize, Integer tasksToIndexSize) {
+//
+//        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, missingParentEventsSize, previouslyIndexedTasksSize, tasksToIndexSize);
+//        Task metadataTask = metadataTaskPair.getRight();
+//        metadataTask.setStatus(TaskStatus.SUCCESS);
+////        metadataTask.getMetric().put("pluginsDuration", pluginsDuration);
+//        es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
+//    }
 
-    private void indexMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize, Integer missingStartEventsSize, Integer missingParentEventsSize,
-                                   Integer previouslyIndexedTasksSize, Integer tasksToIndexSize, long pluginsDuration) {
-
-        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, missingStartEventsSize, missingParentEventsSize, previouslyIndexedTasksSize, tasksToIndexSize);
-        Task metadataTask = metadataTaskPair.getRight();
-        metadataTask.setStatus(TaskStatus.SUCCESS);
-        metadataTask.getMetric().put("pluginsDuration", pluginsDuration);
-        es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
-    }
-
-    private static Pair<String, Task> createMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize, Integer missingStartEventsSize, Integer missingParentEventsSize,
+    private static Pair<String, Task> createMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize,
                                                          Integer previouslyIndexedTasksSize,
                                                          Integer tasksToIndexSize) {
         DateTime taskIndexerEndTime = new DateTime();
@@ -239,8 +269,6 @@ public class LocalTaskIndexer {
         Map<String, Number> taskIndexerMetrics = new HashMap<>();
 
         taskIndexerMetrics.put(INCOMING_EVENTS, timbermillEventSize);
-        taskIndexerMetrics.put(MISSING_START_EVENTS, missingStartEventsSize);
-        taskIndexerMetrics.put(MISSING_PARENTS_EVENTS, missingParentEventsSize);
         taskIndexerMetrics.put(PREV_INDEXED_TASKS_FETCHED, previouslyIndexedTasksSize);
         taskIndexerMetrics.put(INDEXED_TASKS, tasksToIndexSize);
 
@@ -249,16 +277,8 @@ public class LocalTaskIndexer {
         metadataTask.setStartTime(taskIndexerStartTime);
         metadataTask.setEndTime(taskIndexerEndTime);
         metadataTask.setTotalDuration(taskIndexerEndTime.getMillis() - taskIndexerStartTime.getMillis());
-        String taskId = EventLogger.generateTaskId(metadataTask.getName());
+        String taskId = Event.generateTaskId(metadataTask.getName());
         return Pair.of(taskId, metadataTask);
-    }
-
-    private static Set<String> getMissingStartEvents(Collection<Event> events) {
-        Set<String> startEventTasks = events.stream()
-                .filter(e -> (e.getEventType() == EventType.START) || (e.getEventType() == EventType.SPOT))
-                .map(e -> e.getTaskId()).collect(Collectors.toCollection(LinkedHashSet::new));
-
-        return Sets.difference(getAllTaskIds(events), startEventTasks);
     }
 
     private static Set<String> getMissingParentEvents(Collection<Event> events) {
@@ -269,120 +289,88 @@ public class LocalTaskIndexer {
         return Sets.difference(allEventParentTasks, getAllTaskIds(events));
     }
 
-    private static Iterable<String> getStartEventsTaskIds(Collection<Event> events) {
-        return events.stream()
-                .filter(e -> (e.getEventType() == EventType.START) || (e.getEventType() == EventType.SPOT))
-                .map(e -> e.getTaskId()).collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    private static Iterable<String> getEndEventsTaskIds(Collection<Event> events) {
-        return events.stream()
-                .filter(e -> (e.getEventType() == EventType.END_SUCCESS)
-                        || (e.getEventType() == EventType.END_ERROR)
-                        || (e.getEventType() == EventType.SPOT))
-                .map(e -> e.getTaskId()).collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
     private static Set<String> getAllTaskIds(Collection<Event> events) {
         return events.stream().map(e -> e.getTaskId()).collect(Collectors.toSet());
     }
 
-    private Map<String, Task> prepareTasksToIndex(Collection<Event> events, Map<String, Task> previouslyIndexedTasks) {
+    private static ParentProperties getParentProperties(Map<String, Task> previouslyIndexedTasks, Map<String, List<Event>> currentBatchEvents, String parentId) {
 
-        Map<String, List<Event>> groupedEvents = events.stream().collect(groupingBy(e -> e.getTaskId()));
-
-        Map<String, Task> tasksToIndex = new HashMap<>();
-
-        for (Map.Entry<String, List<Event>> idToEventEntry : groupedEvents.entrySet()) {
-            Task t;
-            String taskId = idToEventEntry.getKey();
-            if (previouslyIndexedTasks.containsKey(taskId)) {
-                t = previouslyIndexedTasks.get(taskId);
-            }
-            else if (tasksToIndex.containsKey(taskId)){
-                t = tasksToIndex.get(taskId);
-            }
-            else {
-                t = new Task();
-            }
-
-            t.update(idToEventEntry.getValue());
-
-            //Start event was not indexed
-            if (t.isStartTimeMissing()){
-                LOG.error("Task id {} start event is missing from the elasticsearch", taskId);
-                t.setStatus(TaskStatus.CORRUPTED);
-                t.setStartTime(t.getEndTime());
-            }
-            t.setEnv(es.getEnv());
-            tasksToIndex.put(taskId, t);
+        Map<String, String> context = Maps.newHashMap();
+        String primaryId = null;
+        List<String> parentPath = null;
+        String parentName = null;
+        Task indexedTask = previouslyIndexedTasks.get(parentId);
+        if (indexedTask != null){
+            primaryId = indexedTask.getPrimaryId();
+            context = indexedTask.getCtx();
+            parentPath = indexedTask.getParentsPath();
+            parentName = indexedTask.getName();
         }
 
-        /*
-         * Compute origins and down merge parameters from parent
-         */
-        for (String tid : getStartEventsTaskIds(events)) {
-            Task t = tasksToIndex.get(tid);
-            List<String> origins = new ArrayList<>();
-            String parentId = t.getParentId();
-            if (parentId != null) {
-                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentId);
-                if (parentTask != null) {
-                    t.setPrimaryId(parentTask.getPrimaryId());
-                    for (Map.Entry<String, String> entry : parentTask.getGlobal().entrySet()) {
-                        t.getGlobal().putIfAbsent(entry.getKey(), entry.getValue());
-                    }
-                    if((parentTask.getParentsPath() != null) && !parentTask.getParentsPath().isEmpty()) {
-                        origins.addAll(parentTask.getParentsPath());
-                    }
-                    origins.add(parentTask.getName());
+        List<Event> previousEvents = currentBatchEvents.get(parentId);
+        if (previousEvents != null){
+            for (Event previousEvent : previousEvents) {
+                String previousPrimaryId = previousEvent.getPrimaryId();
+                if (previousPrimaryId != null){
+                    primaryId = previousPrimaryId;
                 }
-                else {
-                    t.setPrimaryId(tid);
-                    t.setParentId(null);
-                }
-            }
-            if(!origins.isEmpty()) {
-                t.setParentsPath(origins);
-            }
-        }
+                Map<String, String> previousContext = previousEvent.getContext();
+                if (previousContext != null){
+                    context.putAll(previousContext);
 
-        for (String tid : getEndEventsTaskIds(events)){
-            Task t = tasksToIndex.get(tid);
-            String parentId = t.getParentId();
-            long totalDuration = t.getEndTime().getMillis() - t.getStartTime().getMillis();
-            t.setTotalDuration(totalDuration);
-            if (parentId != null) {
-                Task parentTask = getParentTask(previouslyIndexedTasks, tasksToIndex, parentId);
-                if( parentTask != null) {
-                    if (!tasksToIndex.containsKey(parentId)) {
-                        tasksToIndex.put(parentId, parentTask);
-                    }
                 }
-                else{
-                    LOG.error("Parent task with id {} for child task with id {} could not be found in elasticsearch", parentId, tid);
+                List<String> previousPath = previousEvent.getParentsPath();
+                if (previousPath != null){
+                    parentPath = previousPath;
+                }
+
+                String previousName = previousEvent.getName();
+                if (previousName != null){
+                    parentName = previousName;
                 }
             }
         }
-
-        return tasksToIndex;
-    }
-
-    private static Task getParentTask(Map<String, Task> previouslyIndexedTasks, Map<String, Task> tasksToIndex, String parenId) {
-        Task parentTask = tasksToIndex.get(parenId);
-        if (parentTask == null) {
-            parentTask = previouslyIndexedTasks.get(parenId);
-        }
-        return parentTask;
+        return new ParentProperties(primaryId, context, parentPath, parentName);
     }
 
     private void indexMetadataTaskToTimbermill() {
-        String taskId = EventLogger.generateTaskId("timbermill_server_startup");
+        String taskId = Event.generateTaskId("timbermill_server_startup");
         Task task = new Task();
         task.setName("timbermill_server_startup");
         task.setPrimary(true);
         task.setStartTime(new DateTime());
         task.setEndTime(new DateTime());
         es.indexTaskToMetaDataIndex(task, taskId);
+    }
+
+    private static class ParentProperties{
+
+        private final String primaryId;
+        private final Map<String, String> context;
+        private final List<String> parentPath;
+        private String parentName;
+
+        ParentProperties(String primaryId, Map<String, String> context, List<String> parentPath, String parentName) {
+            this.primaryId = primaryId;
+            this.context = context;
+            this.parentPath = parentPath;
+            this.parentName = parentName;
+        }
+
+        String getPrimaryId() {
+            return primaryId;
+        }
+
+        Map<String, String> getContex() {
+            return context;
+        }
+
+        List<String> getParentPath() {
+            return parentPath;
+        }
+
+        String getParentName() {
+            return parentName;
+        }
     }
 }

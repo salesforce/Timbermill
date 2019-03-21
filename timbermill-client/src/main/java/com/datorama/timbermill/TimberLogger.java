@@ -2,12 +2,16 @@ package com.datorama.timbermill;
 
 import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
+import com.datorama.timbermill.unit.LogParams;
 
 import javax.validation.constraints.NotNull;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 public final class TimberLogger {
+
+	static final String ENV = "env";
 
 	private TimberLogger() {
 	}
@@ -20,7 +24,9 @@ public final class TimberLogger {
 
 	public static void bootstrap(LocalOutputPipeConfig config) {
 		LocalOutputPipe pipe = new LocalOutputPipe(config);
-		EventLogger.bootstrap(config.getStaticParams(), pipe, true);
+		Map<String, String> staticParams = config.getStaticParams();
+		staticParams.put(ENV, config.getEnv());
+		EventLogger.bootstrap(staticParams, pipe, true);
 	}
 
     public static void exit() {
@@ -61,8 +67,8 @@ public final class TimberLogger {
 		return EventLogger.get().logParams(LogParams.create().string(key, value));
 	}
 
-	public static String logGlobal(String key, Object value) {
-		return EventLogger.get().logParams(LogParams.create().global(key, value));
+	public static String logContext(String key, Object value) {
+		return EventLogger.get().logParams(LogParams.create().context(key, value));
 	}
 
 	public static String logMetric(String key, Number value) {

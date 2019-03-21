@@ -3,8 +3,9 @@ package com.datorama.timbermill;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.BufferingOutputPipe;
 import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
+import com.datorama.timbermill.unit.LogParams;
 
-public class ClientHeartbeater {
+class ClientHeartbeater {
 
 	private static final int TIME_TO_SLEEP = 60000;
 
@@ -22,7 +23,7 @@ public class ClientHeartbeater {
 		this.bop = bop;
 	}
 
-	public void start() {
+	void start() {
 		Thread heartbeatThread = new Thread(() -> {
 			while (true) {
 				LogParams logParams = LogParams.create().metric(SUBMIT_AMOUNT, statsCollector.getEventsAmount())

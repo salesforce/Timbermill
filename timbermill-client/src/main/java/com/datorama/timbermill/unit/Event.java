@@ -1,30 +1,48 @@
 package com.datorama.timbermill.unit;
 
+import com.google.gson.Gson;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.joda.time.DateTime;
 
 import javax.validation.constraints.NotNull;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 
-public class Event{
+public abstract class Event{
+
+	protected String taskId;
+	protected DateTime time;
+
+	String primaryId;
 
 	private String name;
-	private EventType eventType;
-	private String taskId;
 	private String parentId;
-	private String primaryId;
-	private Map<String, String> strings = new HashMap<>();
-	private Map<String, String> texts = new HashMap<>();
-	private Map<String, String> globals = new HashMap<>();
-	private Map<String, Number> metrics = new HashMap<>();
-	private DateTime time;
+	private Map<String, String> strings;
+	private Map<String, String> texts;
+	private Map<String, String> context;
+	private Map<String, Number> metrics;
+	private List<String> parentsPath;
 
-    public Event(@NotNull String taskId, EventType eventType, String name) {
+	Event(String taskId, String name, @NotNull LogParams logParams, String parentId) {
+		if (taskId == null) {
+			taskId = generateTaskId(name);
+		}
 		this.taskId = taskId;
-		this.eventType = eventType;
+		this.parentId = parentId;
 		this.time = new DateTime();
 		this.name = name;
+		this.strings = logParams.getStrings();
+		this.texts = logParams.getTexts();
+		this.context = logParams.getContext();
+		this.metrics = logParams.getMetrics();
+	}
+
+	public static String generateTaskId(String name) {
+		String uuid = UUID.randomUUID().toString();
+		uuid = uuid.replace("-", "_");
+		return name + '_' + uuid;
 	}
 
 	private static final int MAX_CHARS = 1000000;
@@ -35,10 +53,6 @@ public class Event{
 
     public String getName() {
         return name;
-    }
-
-    public EventType getEventType() {
-        return eventType;
     }
 
     void setTaskId(String taskId) {
@@ -61,7 +75,7 @@ public class Event{
         this.primaryId = primaryId;
     }
 
-    DateTime getTime() {
+    public DateTime getTime() {
         return time;
     }
 
@@ -77,8 +91,8 @@ public class Event{
 		return texts;
 	}
 
-	public Map<String, String> getGlobals() {
-		return globals;
+	public Map<String, String> getContext() {
+		return context;
 	}
 
 	public void setStrings(@NotNull Map<String, String> strings) {
@@ -95,28 +109,29 @@ public class Event{
 		}
 	}
 
-	public void setGlobals(@NotNull Map<String, String> global) {
-		for (Entry<String, String> entry : global.entrySet()){
+	public void setContext(@NotNull Map<String, String> context) {
+		for (Entry<String, String> entry : context.entrySet()){
 			String trimmedString = getTrimmedString(entry.getValue());
-			this.globals.put(entry.getKey(), trimmedString); // Preventing ultra big strings
+			this.context.put(entry.getKey(), trimmedString); // Preventing ultra big strings
 		}
 	}
-
-	public void setMetrics(@NotNull Map<String, Number> metrics) {
-		this.metrics.putAll(metrics);
-	}
-
-
 
 	private String getTrimmedString(String string) {
 		int stringLength = Math.min(string.length(), MAX_CHARS);
 		return string.substring(0, stringLength);
 	}
-	public enum EventType {
-		START,
-		END_SUCCESS,
-		END_ERROR,
-		INFO,
-		SPOT
+
+	public abstract UpdateRequest getUpdateRequest(String index, Gson gson);
+
+	public  boolean isStartEvent(){
+		return false;
+	}
+
+	public List<String> getParentsPath() {
+		return parentsPath;
+	}
+
+	public void setParentsPath(List<String> parentsPath) {
+		this.parentsPath = parentsPath;
 	}
 }

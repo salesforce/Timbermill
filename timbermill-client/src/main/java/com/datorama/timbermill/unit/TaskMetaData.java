@@ -3,7 +3,6 @@ package com.datorama.timbermill.unit;
 import org.joda.time.DateTime;
 
 class TaskMetaData {
-    private String env;
     private DateTime taskBegin;
     private DateTime taskEnd;
     private long totalDuration;
@@ -23,14 +22,6 @@ class TaskMetaData {
 
     void setTaskEnd(DateTime taskEnd) {
         this.taskEnd = taskEnd;
-    }
-
-    String getEnv() {
-        return env;
-    }
-
-    void setEnv(String env) {
-        this.env = env;
     }
 
     void setTotalDuration(long totalDuration) {

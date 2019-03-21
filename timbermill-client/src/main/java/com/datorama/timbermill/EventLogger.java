@@ -5,24 +5,21 @@ import com.datorama.timbermill.pipe.BlackHolePipe;
 import com.datorama.timbermill.pipe.BufferingOutputPipe;
 import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
-import com.datorama.timbermill.unit.Event;
-import com.google.common.collect.ImmutableMap;
+import com.datorama.timbermill.unit.*;
 import com.google.common.collect.ImmutableMap.Builder;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.validation.constraints.NotNull;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Stack;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
-import static com.datorama.timbermill.unit.Event.EventType;
 
 final class EventLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
@@ -30,7 +27,7 @@ final class EventLogger {
 	/**
 	 * Factory related fields
 	 */
-	private static ImmutableMap<String, String> staticParams;
+	private static Map<String, String> staticParams = Collections.emptyMap();
 	private static ThreadLocal<EventLogger> threadInstance = ThreadLocal.withInitial(() -> new EventLogger(new BlackHolePipe()));
 	private static boolean isBootstrapped;
 
@@ -48,7 +45,7 @@ final class EventLogger {
 		if (isBootstrapped) {
 			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParameters);
 		} else {
-			LOG.info("Bootstrapping EventLogger with EventOutputPipe={}, ({})", eventOutputPipe, staticParameters);
+			LOG.info("Bootstrapping EventLogger with params ({})", eventOutputPipe, staticParameters);
 			isBootstrapped = true;
 			BufferingOutputPipe bufferingOutputPipe = new BufferingOutputPipe(eventOutputPipe);
 			bufferingOutputPipe.start();
@@ -85,13 +82,40 @@ final class EventLogger {
 	}
 
 	String successEvent() {
-		Event event = createEndEvent(EventType.END_SUCCESS, null);
+		Event event = createSuccessEvent();
 		return submitEvent(event);
 	}
 
+	private Event createSuccessEvent() {
+		LogParams logParams = LogParams.create();
+		Event e;
+		if (taskIdStack.empty()) {
+			e = getCorruptedEvent(logParams);
+		} else {
+			String taskId = taskIdStack.pop();
+			e = new SuccessEvent(taskId, logParams);
+		}
+		return e;
+	}
+
 	String endWithError(Throwable t) {
-		Event event = createEndEvent(EventType.END_ERROR, t);
+		Event event = createErrorEvent(t);
 		return submitEvent(event);
+	}
+
+	private Event createErrorEvent(Throwable t) {
+		LogParams logParams = LogParams.create();
+		if (t != null) {
+			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+		}
+		Event e;
+		if (taskIdStack.empty()) {
+			e = getCorruptedEvent(logParams);
+		} else {
+			String taskId = taskIdStack.pop();
+			e = new ErrorEvent(taskId, logParams);
+		}
+		return e;
 	}
 
 	String spotEvent(String name, @NotNull LogParams logParams) {
@@ -142,75 +166,48 @@ final class EventLogger {
 	}
 
 	private Event createStartEvent(String name, @NotNull LogParams logParams) {
-		return createEvent(null, name, EventType.START, logParams);
-	}
-
-	private Event createEndEvent(EventType eventType, Throwable t) {
-		LogParams logParams = LogParams.create();
-		if (t != null) {
-			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
-		}
-		Event e;
-		if (taskIdStack.empty()) {
-			e = getCorruptedEvent(logParams, Constants.END_WITHOUT_START);
-		} else {
-			String taskId = taskIdStack.pop();
-			e = createEvent(taskId, null, eventType, logParams);
-			if (!taskIdStack.isEmpty()) {
-				e.setPrimaryId(taskIdStack.firstElement());
-				e.setParentId(taskIdStack.peek());
-			}
-		}
-		return e;
+		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair();
+		Event event = new StartEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
+		taskIdStack.push(event.getTaskId());
+		return event;
 	}
 
 	private Event createInfoEvent(@NotNull LogParams logParams) {
 		Event e;
 		if (taskIdStack.empty()) {
-			e = getCorruptedEvent(logParams, Constants.LOG_WITHOUT_CONTEXT);
+			e = getCorruptedEvent(logParams);
 		} else {
-			e = createEvent(taskIdStack.peek(), null, EventType.INFO, logParams);
+			e = new InfoEvent(taskIdStack.peek(), logParams);
 		}
 		return e;
 	}
 
 	private Event createSpotEvent(String name, @NotNull LogParams logParams) {
 		addStaticParams(logParams);
-		return createEvent(null, name, EventType.SPOT, logParams);
+		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair();
+		return new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
 	}
 
-	private Event createEvent(String taskId, String name, EventType eventType, @NotNull LogParams logParams) {
-		if (taskId == null) {
-			taskId = generateTaskId(name);
+	private PrimaryParentIdPair getPrimaryParentIdPair() {
+		String primaryId = null;
+		String parentId = null;
+		if (!taskIdStack.isEmpty()) {
+			primaryId = taskIdStack.firstElement();
+			parentId = taskIdStack.peek();
 		}
-		Event e = new Event(taskId, eventType, name);
-		e.setStrings(logParams.getStrings());
-		e.setTexts(logParams.getTexts());
-		e.setGlobals(logParams.getGlobals());
-		e.setMetrics(logParams.getMetrics());
-		StringUtils.isEmpty(null);
-		if (taskIdStack.isEmpty()) {
-			e.setPrimaryId(taskId);
-		} else {
-			e.setPrimaryId(taskIdStack.firstElement());
-			e.setParentId(taskIdStack.peek());
-		}
-		if (eventType == EventType.START) {
-			taskIdStack.push(taskId);
-		}
-		return e;
+		return new PrimaryParentIdPair(primaryId, parentId);
 	}
 
 	private void addStaticParams(@NotNull LogParams logParams) {
-		logParams.global("threadName", Thread.currentThread().getName());
-		logParams.getGlobals().putAll(staticParams);
+		logParams.context("threadName", Thread.currentThread().getName());
+		logParams.context(staticParams);
 	}
 
-	private Event getCorruptedEvent(@NotNull LogParams logParams, String endWithoutStart) {
+	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		Event e;
 		String stackTrace = getStackTraceString();
 		logParams.text("stackTrace", stackTrace);
-		e = createSpotEvent(endWithoutStart, logParams);
+		e = createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams);
 		return e;
 	}
 
@@ -224,14 +221,27 @@ final class EventLogger {
 		return sb.toString();
 	}
 
-	static String generateTaskId(String name) {
-		String uuid = UUID.randomUUID().toString();
-		uuid = uuid.replace("-", "_");
-		return name + '_' + uuid;
-	}
-
 	private String submitEvent(Event event) {
 		eventOutputPipe.send(event);
 		return event.getTaskId();
+	}
+
+	private class PrimaryParentIdPair {
+		private final String primaryId;
+
+		private final String parentId;
+
+		PrimaryParentIdPair(String primaryId, String parentId) {
+
+			this.primaryId = primaryId;
+			this.parentId = parentId;
+		}
+		String getPrimaryId() {
+			return primaryId;
+		}
+
+		String getParentId() {
+			return parentId;
+		}
 	}
 }

@@ -16,7 +16,7 @@ Timbermill logs aren't just lines of text, they are `Tasks`.
   * Has a unique ID.
   * Represents multiple `Events` that where called for it.
     * Start event that open the Task.
-    * Zero or more info events (`Strings`/`Texts`/`Globals`/`Metrics`) that add properties values to the task. 
+    * Zero or more info events (`Strings`/`Texts`/`Context`/`Metrics`) that add properties values to the task. 
     * Closing event that closes the Task either successfully or with an error (`Success`/`Error`), note that as long as an event is in the works its status is `Unterminated`
   * Has a start-time, end-time and duration. 
 
@@ -93,7 +93,7 @@ TimberLog.bootstrap(config);
  
  ###### Things to add to the wiki
  * How timbermill works with different threads
- * string vs. text vs. globals vs. metric
+ * string vs. text vs. context vs. metric
  * Explain all fields in task
  * Explain metadata on task
  * Explain all properties for timbermill bootstrap

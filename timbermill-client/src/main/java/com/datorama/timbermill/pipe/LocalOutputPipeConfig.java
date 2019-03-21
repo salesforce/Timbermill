@@ -1,5 +1,6 @@
 package com.datorama.timbermill.pipe;
 
+import com.google.common.collect.Maps;
 import org.elasticsearch.ElasticsearchException;
 import java.util.Collections;
 import java.util.Map;
@@ -46,7 +47,7 @@ public class LocalOutputPipeConfig {
         return elasticUrl;
     }
 
-    String getEnv() {
+    public String getEnv() {
         return env;
     }
 
@@ -79,7 +80,7 @@ public class LocalOutputPipeConfig {
         private int indexBulkSize = 1000;
         private int daysBackToDelete = 0;
         private int secondBetweenPolling = 10;
-        private Map<String, String> staticParams = Collections.EMPTY_MAP;
+        private Map<String, String> staticParams = Maps.newHashMap();
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
