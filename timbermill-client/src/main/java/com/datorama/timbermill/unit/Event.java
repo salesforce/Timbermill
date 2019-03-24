@@ -2,9 +2,9 @@ package com.datorama.timbermill.unit;
 
 import com.google.gson.Gson;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.joda.time.DateTime;
 
 import javax.validation.constraints.NotNull;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -13,7 +13,7 @@ import java.util.UUID;
 public abstract class Event{
 
 	protected String taskId;
-	protected DateTime time;
+	protected ZonedDateTime time;
 
 	String primaryId;
 
@@ -31,7 +31,7 @@ public abstract class Event{
 		}
 		this.taskId = taskId;
 		this.parentId = parentId;
-		this.time = new DateTime();
+		this.time = ZonedDateTime.now();
 		this.name = name;
 		this.strings = logParams.getStrings();
 		this.texts = logParams.getTexts();
@@ -75,7 +75,7 @@ public abstract class Event{
         this.primaryId = primaryId;
     }
 
-    public DateTime getTime() {
+    public ZonedDateTime getTime() {
         return time;
     }
 

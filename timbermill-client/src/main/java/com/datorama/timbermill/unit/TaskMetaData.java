@@ -1,34 +1,33 @@
 package com.datorama.timbermill.unit;
 
-import org.joda.time.DateTime;
+import java.time.ZonedDateTime;
 
 class TaskMetaData {
-    private DateTime taskBegin;
-    private DateTime taskEnd;
-    private long totalDuration;
+    private ZonedDateTime taskBegin;
+    private ZonedDateTime taskEnd;
+    private Long duration;
 
-    DateTime getTaskBegin() {
+    ZonedDateTime getTaskBegin() {
         return taskBegin;
     }
 
-    void setTaskBegin(DateTime taskBegin) {
-
+    void setTaskBegin(ZonedDateTime taskBegin) {
         this.taskBegin = taskBegin;
     }
 
-    DateTime getTaskEnd() {
+    ZonedDateTime getTaskEnd() {
         return taskEnd;
     }
 
-    void setTaskEnd(DateTime taskEnd) {
+    void setTaskEnd(ZonedDateTime taskEnd) {
         this.taskEnd = taskEnd;
     }
 
-    void setTotalDuration(long totalDuration) {
-        this.totalDuration = totalDuration;
+    void setDuration(Long duration) {
+        this.duration = duration;
     }
 
-    long getTotalDuration() {
-        return totalDuration;
+    long getDuration() {
+        return duration;
     }
 }

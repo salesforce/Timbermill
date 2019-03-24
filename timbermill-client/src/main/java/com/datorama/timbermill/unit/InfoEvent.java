@@ -15,9 +15,15 @@ public class InfoEvent extends Event {
 
     @Override
     public UpdateRequest getUpdateRequest(String index, Gson gson) {
-        UpdateRequest updateRequest = new UpdateRequest(index, TYPE, getTaskId());
-        Task task = new Task(this, null, null, null);
+        UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);
+        Task task = new Task(this, time, time, Task.TaskStatus.CORRUPTED);
+
         updateRequest.upsert(gson.toJson(task), XContentType.JSON);
+
+
+        task = new Task(this, null, null, null);
+        task.setPrimary(null);
+        task.setMeta(null);
         updateRequest.doc(gson.toJson(task), XContentType.JSON);
         return updateRequest;
     }

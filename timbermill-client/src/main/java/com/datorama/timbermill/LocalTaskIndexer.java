@@ -10,10 +10,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.ElasticsearchException;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -80,7 +80,7 @@ public class LocalTaskIndexer {
         LOG.info("------------------ Batch Start ------------------");
         List<Event> events = new ArrayList<>();
         eventsQueue.drainTo(events, 100);
-        DateTime taskIndexerStartTime = new DateTime();
+        ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
@@ -189,7 +189,7 @@ public class LocalTaskIndexer {
 //                    plugin.apply(events, tasks);
 //
 //                    t.setEndTime(new DateTime());
-//                    t.setTotalDuration(t.getEndTime().getMillis() - t.getStartTime().getMillis());
+//                    t.setDuration(t.getEndTime().getMillis() - t.getStartTime().getMillis());
 //                    t.setStatus(TaskStatus.SUCCESS);
 //                } catch (Exception ex) {
 //                    t.getText().put("error", ex.toString());
@@ -237,7 +237,7 @@ public class LocalTaskIndexer {
         return value;
     }
 
-    private void indexFailedMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize,
+    private void indexFailedMetadataTask(ZonedDateTime taskIndexerStartTime, Integer timbermillEventSize,
                                          Integer previouslyIndexedTasksSize, Integer tasksToIndexSize, Exception e) {
         Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, previouslyIndexedTasksSize, tasksToIndexSize);
         Task metadataTask = metadataTaskPair.getRight();
@@ -258,10 +258,10 @@ public class LocalTaskIndexer {
 //        es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
 //    }
 
-    private static Pair<String, Task> createMetadataTask(DateTime taskIndexerStartTime, Integer timbermillEventSize,
+    private static Pair<String, Task> createMetadataTask(ZonedDateTime taskIndexerStartTime, Integer timbermillEventSize,
                                                          Integer previouslyIndexedTasksSize,
                                                          Integer tasksToIndexSize) {
-        DateTime taskIndexerEndTime = new DateTime();
+        ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
 
         Task metadataTask = new Task();
         metadataTask.setName("timbermill_index");
@@ -276,7 +276,7 @@ public class LocalTaskIndexer {
 
         metadataTask.setStartTime(taskIndexerStartTime);
         metadataTask.setEndTime(taskIndexerEndTime);
-        metadataTask.setTotalDuration(taskIndexerEndTime.getMillis() - taskIndexerStartTime.getMillis());
+        metadataTask.setDuration(taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli());
         String taskId = Event.generateTaskId(metadataTask.getName());
         return Pair.of(taskId, metadataTask);
     }
@@ -338,8 +338,8 @@ public class LocalTaskIndexer {
         Task task = new Task();
         task.setName("timbermill_server_startup");
         task.setPrimary(true);
-        task.setStartTime(new DateTime());
-        task.setEndTime(new DateTime());
+        task.setStartTime(ZonedDateTime.now());
+        task.setEndTime(ZonedDateTime.now());
         es.indexTaskToMetaDataIndex(task, taskId);
     }
 

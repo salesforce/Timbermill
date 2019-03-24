@@ -1,7 +1,6 @@
 package com.datorama.timbermill.unit;
 
-import org.joda.time.DateTime;
-
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,7 +9,7 @@ public class Task {
 	private String name;
 	private TaskStatus status;
 	private String parentId;
-	private boolean primary;
+	private Boolean primary;
 	private String primaryId;
 	private List<String> parentsPath;
 
@@ -24,7 +23,7 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(Event e, DateTime startTime, DateTime endTime, TaskStatus status) {
+	public Task(Event e, ZonedDateTime startTime, ZonedDateTime endTime, TaskStatus status) {
 		name = e.getName();
 		parentId = e.getParentId();
 		primaryId = e.getPrimaryId();
@@ -76,32 +75,32 @@ public class Task {
 		return primary;
 	}
 
-	public void setPrimary(boolean primary) {
+	public void setPrimary(Boolean primary) {
 		this.primary = primary;
 	}
 
-	public DateTime getStartTime() {
+	public ZonedDateTime getStartTime() {
 		return meta.getTaskBegin();
 	}
 
-	public void setStartTime(DateTime startTime) {
+	public void setStartTime(ZonedDateTime startTime) {
 		meta.setTaskBegin(startTime);
 	}
 
-	public DateTime getEndTime() {
+	public ZonedDateTime getEndTime() {
 		return meta.getTaskEnd();
 	}
 
-	public void setEndTime(DateTime endTime) {
+	public void setEndTime(ZonedDateTime endTime) {
 		meta.setTaskEnd(endTime);
 	}
 
-	public long getTotalDuration() {
-		return meta.getTotalDuration();
+	public long getDuration() {
+		return meta.getDuration();
 	}
 
-	public void setTotalDuration(long totalDuration) {
-		meta.setTotalDuration(totalDuration);
+	public void setDuration(Long duration) {
+		meta.setDuration(duration);
 	}
 
 	public Map<String, String> getString() {

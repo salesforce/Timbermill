@@ -52,7 +52,7 @@ public class TimberLogTest {
 	}
 
 	@Test
-	public void testSimpleTaskIndexerJob() {
+	public void testSimpleTaskIndexerJob() throws InterruptedException {
 		String str1 = "str1";
 		String str2 = "str2";
 		String str3 = "str3";
@@ -70,7 +70,8 @@ public class TimberLogTest {
 		assertEquals(taskId, task.getPrimaryId());
 		assertEquals(TaskStatus.SUCCESS, task.getStatus());
 		assertEquals(TEST, task.getCtx().get(ENV));
-		assertTrue(task.getTotalDuration() > 0);
+		assertTrue(task.getDuration() > 1000);
+		assertTrue(task.isPrimary());
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
@@ -87,12 +88,13 @@ public class TimberLogTest {
 	}
 
 	@TimberLog(name = EVENT)
-	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String str3, String metric1, String metric2, String text1, String text2) {
+	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String str3, String metric1, String metric2, String text1, String text2) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, 1);
 		TimberLogger.logText(text1, text1);
 		TimberLogger.logString(str2, str2);
 		TimberLogger.logParams(LogParams.create().string(str3, str3).metric(metric2, 2).text(text2, text2));
+		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
 	}
 

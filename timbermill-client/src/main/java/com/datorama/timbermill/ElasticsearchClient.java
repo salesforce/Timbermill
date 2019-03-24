@@ -1,6 +1,6 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.common.DateTimeTypeConverter;
+import com.datorama.timbermill.common.ZonedDateTimeConverter;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
 import com.google.gson.Gson;
@@ -25,11 +25,12 @@ import org.elasticsearch.index.query.IdsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,7 +41,7 @@ public class ElasticsearchClient {
     private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 
-    private final Gson gson = new GsonBuilder().registerTypeAdapter(DateTime.class, new DateTimeTypeConverter()).create();
+    private final Gson gson = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
     private final RestHighLevelClient client;
     private String env;
     private int indexBulkSize;
@@ -54,8 +55,9 @@ public class ElasticsearchClient {
                 RestClient.builder(HttpHost.create(elasticUrl)));
     }
 
-    private String getTaskIndexWithEnv(String indexPrefix, DateTime startTime) {
-        return indexPrefix + '-' + env + '-' + startTime.toString("dd-MM-yyyy");
+    private String getTaskIndexWithEnv(String indexPrefix, ZonedDateTime startTime) {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        return indexPrefix + '-' + env + '-' + startTime.format(dateTimeFormatter);
     }
 
     Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {
@@ -185,7 +187,7 @@ public class ElasticsearchClient {
             return;
         }
         String indexPrefix = currIndex.split("-")[0];
-        String oldIndex = getTaskIndexWithEnv(indexPrefix, new DateTime().minusDays(daysBackToDelete));
+        String oldIndex = getTaskIndexWithEnv(indexPrefix, ZonedDateTime.now().minusDays(daysBackToDelete));
         GetIndexRequest existsRequest = new GetIndexRequest().indices(oldIndex);
         boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
         if (exists) {
@@ -206,7 +208,7 @@ public class ElasticsearchClient {
         BulkRequest request = new BulkRequest();
         int currBatch = 0;
         int i = 0;
-        String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, new DateTime());
+        String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, ZonedDateTime.now());
         //Should be changed
 
         List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index, gson)).collect(Collectors.toList());
