@@ -76,44 +76,64 @@ final class EventLogger {
 	 * Maps are never null
 	 */
 	String startEvent(String name, @NotNull LogParams logParams) {
+		return startEvent(name, null ,logParams, false);
+	}
+
+	String startEvent(String name, String parentTaskId, LogParams logParams, boolean isOngoingTask) {
 		addStaticParams(logParams);
-		Event event = createStartEvent(name, logParams);
+		Event event = createStartEvent(name, logParams, parentTaskId, isOngoingTask);
 		return submitEvent(event);
 	}
 
 	String successEvent() {
-		Event event = createSuccessEvent();
+		return successEvent(null);
+	}
+
+	String successEvent(String ongoingTaskId) {
+		Event event = createSuccessEvent(ongoingTaskId);
 		return submitEvent(event);
 	}
 
-	private Event createSuccessEvent() {
+	private Event createSuccessEvent(String ongoingTaskId) {
 		LogParams logParams = LogParams.create();
 		Event e;
-		if (taskIdStack.empty()) {
-			e = getCorruptedEvent(logParams);
-		} else {
-			String taskId = taskIdStack.pop();
-			e = new SuccessEvent(taskId, logParams);
+		if (ongoingTaskId == null) {
+			if (taskIdStack.empty()) {
+				e = getCorruptedEvent(logParams);
+			} else {
+				e = new SuccessEvent(taskIdStack.pop(), logParams);
+			}
+		}
+		else {
+			e = new SuccessEvent(ongoingTaskId, logParams);
 		}
 		return e;
 	}
 
 	String endWithError(Throwable t) {
-		Event event = createErrorEvent(t);
+		return endWithError(t, null);
+	}
+
+	String endWithError(Throwable t, String ongoingTaskId) {
+		Event event = createErrorEvent(t, ongoingTaskId);
 		return submitEvent(event);
 	}
 
-	private Event createErrorEvent(Throwable t) {
+	private Event createErrorEvent(Throwable t, String ongoingTaskId) {
 		LogParams logParams = LogParams.create();
 		if (t != null) {
 			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
 		}
 		Event e;
-		if (taskIdStack.empty()) {
-			e = getCorruptedEvent(logParams);
-		} else {
-			String taskId = taskIdStack.pop();
-			e = new ErrorEvent(taskId, logParams);
+		if (ongoingTaskId == null) {
+			if (taskIdStack.empty()) {
+				e = getCorruptedEvent(logParams);
+			} else {
+				e = new ErrorEvent(taskIdStack.pop(), logParams);
+			}
+		}
+		else{
+			e = new ErrorEvent(ongoingTaskId, logParams);
 		}
 		return e;
 	}
@@ -124,7 +144,11 @@ final class EventLogger {
 	}
 
 	String logParams(@NotNull LogParams logParams) {
-		Event event = createInfoEvent(logParams);
+		return logParams(logParams, null);
+	}
+
+	public String logParams(LogParams logParams, String ongoingTaskId) {
+		Event event = createInfoEvent(logParams, ongoingTaskId);
 		return submitEvent(event);
 	}
 
@@ -165,19 +189,31 @@ final class EventLogger {
 		}
 	}
 
-	private Event createStartEvent(String name, @NotNull LogParams logParams) {
-		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair();
-		Event event = new StartEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
-		taskIdStack.push(event.getTaskId());
+	private Event createStartEvent(String name, @NotNull LogParams logParams, String parentTaskId, boolean isOngoingTask) {
+		PrimaryParentIdPair primaryParentIdPair;
+		Event event;
+		if (!isOngoingTask) {
+			primaryParentIdPair = getPrimaryParentIdPair();
+			event = new StartEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
+			taskIdStack.push(event.getTaskId());
+		}
+		else{
+			event = new StartEvent(name, logParams, null, parentTaskId);
+		}
 		return event;
 	}
 
-	private Event createInfoEvent(@NotNull LogParams logParams) {
+	private Event createInfoEvent(@NotNull LogParams logParams, String ongoingTaskId) {
 		Event e;
-		if (taskIdStack.empty()) {
-			e = getCorruptedEvent(logParams);
-		} else {
-			e = new InfoEvent(taskIdStack.peek(), logParams);
+		if (ongoingTaskId == null) {
+			if (taskIdStack.empty()) {
+				e = getCorruptedEvent(logParams);
+			} else {
+				e = new InfoEvent(taskIdStack.peek(), logParams);
+			}
+		}
+		else{
+			e = new InfoEvent(ongoingTaskId, logParams);
 		}
 		return e;
 	}

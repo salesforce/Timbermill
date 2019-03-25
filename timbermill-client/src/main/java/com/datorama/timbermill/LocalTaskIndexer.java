@@ -93,16 +93,12 @@ public class LocalTaskIndexer {
         LOG.info("{} events retrieved from pipe", timbermillEvents.size());
         Set<String> missingParentEvents = getMissingParentEvents(timbermillEvents);
 
-        int missingParentNum = missingParentEvents.size();
-        if (!missingParentEvents.isEmpty()) {
-            LOG.info("{} missing parent events for current batch", missingParentNum);
-        }
-
         Map<String, Task> previouslyIndexedTasks = new HashMap<>();
         try {
-            previouslyIndexedTasks = this.es.fetchIndexedTasks(missingParentEvents);
-
             if (!missingParentEvents.isEmpty()) {
+                int missingParentNum = missingParentEvents.size();
+                LOG.info("{} missing parent events for current batch", missingParentNum);
+                previouslyIndexedTasks = this.es.fetchIndexedTasks(missingParentEvents);
                 if (missingParentNum == previouslyIndexedTasks.size()) {
                     LOG.info("All {} missing event were retrieved from elasticsearch..", missingParentNum);
                 } else {
