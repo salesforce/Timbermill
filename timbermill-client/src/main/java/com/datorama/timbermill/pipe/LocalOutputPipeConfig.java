@@ -5,12 +5,13 @@ import org.elasticsearch.ElasticsearchException;
 import java.util.Collections;
 import java.util.Map;
 
+import static com.datorama.timbermill.TimberLogger.ENV;
+
 public class LocalOutputPipeConfig {
 
     private final int daysBackToDelete;
     private final int defaultMaxChars;
     private final String elasticUrl;
-    private final String env;
     private final String plugingJson;
     private final Map<String, Integer> propertiesLengthMap;
     private final int indexBulkSize;
@@ -25,7 +26,6 @@ public class LocalOutputPipeConfig {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
         elasticUrl = builder.elasticUrl;
-        env = builder.env;
         plugingJson = builder.plugingJson;
         propertiesLengthMap = builder.propertiesLengthMap;
         defaultMaxChars = builder.defaultMaxChars;
@@ -33,6 +33,7 @@ public class LocalOutputPipeConfig {
         daysBackToDelete = builder.daysBackToDelete;
         staticParams = builder.staticParams;
         secondBetweenPolling = builder.secondBetweenPolling;
+        staticParams.put(ENV, builder.env);
     }
 
     int getDaysBackToDelete() {
@@ -48,7 +49,7 @@ public class LocalOutputPipeConfig {
     }
 
     public String getEnv() {
-        return env;
+        return staticParams.get(ENV);
     }
 
     String getPlugingJson() {

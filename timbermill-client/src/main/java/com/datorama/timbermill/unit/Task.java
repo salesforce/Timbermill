@@ -151,6 +151,6 @@ public class Task {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		CORRUPTED //TODO check
+		CORRUPTED
 	}
 }

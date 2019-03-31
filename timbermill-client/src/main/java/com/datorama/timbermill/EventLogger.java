@@ -41,7 +41,8 @@ final class EventLogger {
 		this.eventOutputPipe = eventOutputPipe;
 	}
 
-	static void bootstrap(Map<String, String> staticParameters, EventOutputPipe eventOutputPipe, boolean doHeartbeat) {
+	static void bootstrap(EventOutputPipe eventOutputPipe, boolean doHeartbeat) {
+		Map<String, String> staticParameters = eventOutputPipe.getStaticParams();
 		if (isBootstrapped) {
 			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParameters);
 		} else {

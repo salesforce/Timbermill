@@ -1,6 +1,7 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
@@ -27,7 +28,7 @@ public class TimberLogAdvancedTest {
     public static void init() {
         LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).secondBetweenPolling(1);
         LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
-        TimberLogger.bootstrap(config);
+        TimberLogger.bootstrap(new LocalOutputPipe(config));
     }
 
     @AfterClass

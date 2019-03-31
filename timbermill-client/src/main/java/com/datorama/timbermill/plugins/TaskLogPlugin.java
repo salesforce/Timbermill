@@ -18,7 +18,7 @@ public abstract class TaskLogPlugin implements Serializable{
 		this.name = name;
 	}
 
-	public abstract void apply (List<Event> events, Map<String, Task> tasks);
+	public abstract void apply (List<Event> events);
 
 	public String getName() {
 		return name;

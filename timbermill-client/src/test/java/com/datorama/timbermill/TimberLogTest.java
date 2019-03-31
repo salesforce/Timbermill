@@ -1,6 +1,7 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
@@ -41,9 +42,10 @@ public class TimberLogTest {
 		map.put("string.sql2", 100);
 		map.put("ctx.sql2", 100);
 
-		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1);
+		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1)
+				.pluginJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
 		LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
-		TimberLogger.bootstrap(config);
+		TimberLogger.bootstrap(new LocalOutputPipe(config));
 	}
 
 	@AfterClass
@@ -95,6 +97,25 @@ public class TimberLogTest {
 		TimberLogger.logString(str2, str2);
 		TimberLogger.logParams(LogParams.create().string(str3, str3).metric(metric2, 2).text(text2, text2));
 		Thread.sleep(1000);
+		return TimberLogger.getCurrentTaskId();
+	}
+
+	@Test
+	public void testSwitchCasePlugin() {
+
+		String taskId = testSwitchCasePluginLog();
+
+		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		Task task = client.getTaskById(taskId);
+		Map<String, String> strings = task.getString();
+		String errorType = strings.get("errorType");
+		assertEquals("TOO_MANY_SERVER_ROWS", errorType);
+	}
+
+	@TimberLog(name = EVENT + "plugin")
+	private String testSwitchCasePluginLog() {
+		TimberLogger.logText("exception", "bla bla bla TOO_MANY_SERVER_ROWS bla bla bla");
 		return TimberLogger.getCurrentTaskId();
 	}
 

@@ -4,13 +4,17 @@ import com.datorama.timbermill.ElasticsearchClient;
 import com.datorama.timbermill.LocalTaskIndexer;
 import com.datorama.timbermill.unit.Event;
 
+import java.util.Map;
+
 public class LocalOutputPipe implements EventOutputPipe {
 
     private LocalTaskIndexer localTaskIndexer;
+    private Map<String, String> staticParams;
 
     public LocalOutputPipe(LocalOutputPipeConfig config) {
         ElasticsearchClient es = new ElasticsearchClient(config.getEnv(), config.getElasticUrl(), config.getIndexBulkSize(), config.getDaysBackToDelete());
         localTaskIndexer = new LocalTaskIndexer(config.getPlugingJson(), config.getPropertiesLengthMap(), config.getDefaultMaxChars(), es, config.getSecondBetweenPolling());
+        staticParams = config.getStaticParams();
     }
 
     @Override
@@ -18,12 +22,12 @@ public class LocalOutputPipe implements EventOutputPipe {
         localTaskIndexer.addEvent(e);
     }
 
-    @Override
-    public int getMaxQueueSize() {
-        return 0;
-    }
-
     public void close() {
         localTaskIndexer.close();
+    }
+
+    @Override
+    public Map<String, String> getStaticParams() {
+        return staticParams;
     }
 }

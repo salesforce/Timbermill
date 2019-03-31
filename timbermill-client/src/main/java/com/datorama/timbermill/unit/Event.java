@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public abstract class Event{
 
+	private static final String DELIMETER = "##@##";
 	protected String taskId;
 	protected ZonedDateTime time;
 
@@ -42,7 +43,7 @@ public abstract class Event{
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return name + '_' + uuid;
+		return name + DELIMETER + uuid;
 	}
 
 	private static final int MAX_CHARS = 1000000;
@@ -133,5 +134,20 @@ public abstract class Event{
 
 	public void setParentsPath(List<String> parentsPath) {
 		this.parentsPath = parentsPath;
+	}
+
+	public String getNameFromId() {
+		String[] split = taskId.split(DELIMETER);
+		if (name == null){
+			if (split.length == 0){
+				return null;
+			}
+			else {
+				return split[0];
+			}
+		}
+		else{
+			return name;
+		}
 	}
 }

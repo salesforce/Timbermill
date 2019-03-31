@@ -42,7 +42,7 @@ public class PluginsConfig {
 		String className = prim.getAsString();
 
 		if (className.indexOf('.') == -1) {
-			className = "com.datorama.microservice.timbermill.plugins." + className;
+			className = "com.datorama.timbermill.plugins." + className;
 		}
 
 		Class<?> klass;

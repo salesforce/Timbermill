@@ -74,17 +74,6 @@ public class ElasticsearchClient {
         }
     }
 
-//    void indexTasks(Map<String, Task> tasksToIndex) {
-//        if (!tasksToIndex.isEmpty()) {
-//            Set<String> indices = tasksToIndex.values().stream()
-//                    .map(t -> getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime())).collect(Collectors.toSet());
-//            for (String index : indices){
-//                createNewIndices(index);
-//            }
-//            bulkIndexByBulkSize(tasksToIndex, indexBulkSize, 1);
-//        }
-//    }
-
     private void createNewIndices(String index) {
         GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
         try{
@@ -98,47 +87,6 @@ public class ElasticsearchClient {
             throw new ElasticsearchException(e);
         }
     }
-
-//    private void bulkIndexByBulkSize(Map<String, Task> tasks, int bulkSize, int tryNum){
-//        BulkRequest request = new BulkRequest();
-//        try {
-//            int currBatch = 0;
-//            int i = 0;
-//            for (Map.Entry<String, Task> taskEntry : tasks.entrySet()) {
-//                i++;
-//                currBatch++;
-//                Task t = taskEntry.getValue();
-//                String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, t.getStartTime());
-//                IndexRequest req = new IndexRequest(index, TYPE, taskEntry.getKey()).source(gson.toJson(t), XContentType.JSON);
-//                request.add(req);
-//
-//                if (((i % bulkSize) == 0) || (i == tasks.size())) {
-//                    BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
-//
-//                    if (responses.hasFailures()) {
-//                        retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, responses.buildFailureMessage());
-//                    }
-//                    LOG.info("Batch of {} tasks indexed successfully", currBatch);
-//                    currBatch = 0;
-//                    request = new BulkRequest();
-//                }
-//            }
-//        } catch (IOException e) {
-//            retryIndexWithSmallerBulkSizeOrFail(tasks, bulkSize, tryNum, e.getMessage());
-//        }
-//    }
-
-//    private void retryIndexWithSmallerBulkSizeOrFail(Map<String, Task> tasks, int bulkSize, int tryNum, String errorMessage) {
-//        if (tryNum == MAX_TRY_NUMBER) {
-//            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
-//                    + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
-//        }
-//        else{
-//            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
-//            LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
-//            bulkIndexByBulkSize(tasks, smallerBulkSize, tryNum + 1);
-//        }
-//    }
 
     void indexTaskToMetaDataIndex(Task task, String taskId) {
         try {
@@ -209,10 +157,9 @@ public class ElasticsearchClient {
         int currBatch = 0;
         int i = 0;
         String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, ZonedDateTime.now());
-        //Should be changed
+        //TODO not correct - Should be changed to Rollover
 
         List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index, gson)).collect(Collectors.toList());
-
 
         for (UpdateRequest updateRequest : requests) {
             i++;

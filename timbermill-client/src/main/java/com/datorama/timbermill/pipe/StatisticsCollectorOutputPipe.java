@@ -2,6 +2,7 @@ package com.datorama.timbermill.pipe;
 
 import com.datorama.timbermill.unit.Event;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class StatisticsCollectorOutputPipe implements EventOutputPipe {
@@ -36,13 +37,14 @@ public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 		eventsAmount.incrementAndGet();
 	}
 
-	@Override public int getMaxQueueSize() {
-		return delegate.getMaxQueueSize();
-	}
-
 	@Override
 	public void close(){
 		delegate.close();
+	}
+
+	@Override
+	public Map<String, String> getStaticParams() {
+		return delegate.getStaticParams();
 	}
 
 	public void initCounters() {

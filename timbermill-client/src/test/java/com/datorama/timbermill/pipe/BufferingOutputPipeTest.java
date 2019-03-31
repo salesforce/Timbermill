@@ -8,6 +8,7 @@ import org.awaitility.Awaitility;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -19,7 +20,7 @@ public class BufferingOutputPipeTest {
 
 	@Before
 	public void setUp(){
-		mockPipe = new MockPipe();
+		mockPipe = new MockPipe(Collections.EMPTY_MAP);
 		bufferingOutputPipe = new BufferingOutputPipe(mockPipe);
 
 	}

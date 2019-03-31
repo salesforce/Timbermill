@@ -1,6 +1,8 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.Constants;
+import com.datorama.timbermill.pipe.LocalOutputPipe;
+import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.pipe.MockPipe;
 import com.datorama.timbermill.unit.*;
 import com.google.common.collect.ImmutableMap;
@@ -30,8 +32,8 @@ public class EventLoggerTest {
 
 	@BeforeClass
 	public static void init(){
-		mockPipe = new MockPipe();
-		EventLogger.bootstrap(ImmutableMap.of(BOOTSTRAP, TEST), mockPipe, false);
+		mockPipe = new MockPipe(ImmutableMap.of(BOOTSTRAP, TEST));
+		EventLogger.bootstrap(mockPipe, false);
 		el = EventLogger.get();
 	}
 
