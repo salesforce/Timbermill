@@ -18,8 +18,8 @@ public abstract class Event{
 
 	String primaryId;
 
-	private String name;
-	private String parentId;
+	protected String name;
+	protected String parentId;
 	private Map<String, String> strings;
 	private Map<String, String> texts;
 	private Map<String, String> context;

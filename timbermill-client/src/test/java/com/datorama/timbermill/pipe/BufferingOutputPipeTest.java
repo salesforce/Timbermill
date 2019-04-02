@@ -28,9 +28,8 @@ public class BufferingOutputPipeTest {
 	@Test
 	public void testSimpleEventsInsertion() {
 		bufferingOutputPipe.start();
-		LogParams logParams = LogParams.create();
-		Event startEvent = new StartEvent("Event", logParams, null, null);
-		Event endEvent = new SuccessEvent("Event", logParams);
+		Event startEvent = new StartEvent("Event", LogParams.create(), null, null);
+		Event endEvent = new SuccessEvent("Event", LogParams.create());
 		bufferingOutputPipe.send(startEvent);
 		bufferingOutputPipe.send(endEvent);
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).pollInterval(10, TimeUnit.MILLISECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
@@ -38,9 +37,8 @@ public class BufferingOutputPipeTest {
 
 	@Test
 	public void testOverCapacityInsertion() {
-		LogParams logParams = LogParams.create();
 		for (int i = 1 ; i <= 1000 ; i ++) {
-			Event event = new StartEvent("Event" + i, logParams, null, null);
+			Event event = new StartEvent("Event" + i, LogParams.create(), null, null);
 			bufferingOutputPipe.send(event);
 		}
 		bufferingOutputPipe.start();

@@ -1,0 +1,743 @@
+package com.datorama.timbermill;
+
+import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.pipe.LocalOutputPipe;
+import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
+import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
+import org.awaitility.Awaitility;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static com.datorama.timbermill.unit.Task.TaskStatus;
+import static org.junit.Assert.*;
+
+public class TimberLoggerAdvancedTest {
+
+    private static final String EVENT = "Event";
+    private static final String TEST = "test";
+    private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
+    private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0);
+
+
+    @BeforeClass
+    public static void init() {
+        LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).secondBetweenPolling(1);
+        LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
+        TimberLogger.bootstrap(new LocalOutputPipe(config));
+    }
+
+    @AfterClass
+    public static void kill() {
+        TimberLogger.exit();
+    }
+
+    @Test
+    public void testOngoingTask() {
+        final String[] taskId1Arr = new String[1];
+        final String[] taskId2Arr = new String[1];
+        final String[] ongoingtaskIdArr = new String[1];
+
+        String ctx = "ctx";
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+        String ongoingTaskName = EVENT + '1';
+
+        testOngoingTask1(taskId1Arr, taskId2Arr, ongoingtaskIdArr,ctx, ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName);
+
+
+        String taskId = taskId1Arr[0];
+        String childTaskId = taskId2Arr[0];
+        String ongoingTaskId = ongoingtaskIdArr[0];
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(childTaskId) != null)
+                && (client.getTaskById(childTaskId).getStatus() == TaskStatus.SUCCESS));
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(ongoingTaskId) != null)
+                && (client.getTaskById(ongoingTaskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task task = client.getTaskById(taskId);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+
+        Task childTask = client.getTaskById(childTaskId);
+        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+
+        Task ongoingTask = client.getTaskById(ongoingTaskId);
+        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+
+        assertEquals(ctx, ongoingTask.getCtx().get(ctx));
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+        assertEquals(taskId, ongoingTask.getParentId());
+    }
+
+    @Test
+    public void testOutOfOrderTask() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, true, taskId, null);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderWithParentTask() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String ongoingTaskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = testOutOfOrderWithParentTask1(ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName, ongoingTaskId);
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(ongoingTaskId) != null)
+                && (client.getTaskById(ongoingTaskId).getStatus() == TaskStatus.SUCCESS));
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(ongoingTaskId);
+        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+
+        Task task = client.getTaskById(taskId);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @TimberLog(name = EVENT)
+    private String testOutOfOrderWithParentTask1(String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName, String taskId) {
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        String currentTaskId = TimberLogger.getCurrentTaskId();
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, currentTaskId, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        return currentTaskId;
+    }
+
+    @Test
+    public void testOutOfOrderTaskError() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        String exception = "exception";
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.error(taskId, new Exception(exception), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.ERROR));
+
+        Task ongoingTask = client.getTaskById(taskId);
+
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.ERROR, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+        assertNotNull(ongoingTask.getText().get(exception));
+    }
+
+    @Test
+    public void testOutOfOrderTaskStartSuccessLog() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskLogStartSuccess() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskSuccessLogStart() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskSuccessStartLog() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text1 = "text1";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string1 = "string1";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskSuccessLogNoStart() {
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, taskId);
+
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskErrorLogNoStart() {
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.error(taskId, new Exception("exception"), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_ERROR, taskId);
+
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+        assertNotNull(ongoingTask.getText().get("exception"));
+    }
+
+    @Test
+    public void testOutOfOrderTaskLogSuccessNoStart() {
+        String ctx2 = "ctx2";
+        String ctx3 = "ctx3";
+        String metric2 = "metric2";
+        String metric3 = "metric3";
+        String text2 = "text2";
+        String text3 = "text3";
+        String string2 = "string2";
+        String string3 = "string3";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getCtx().get(ctx3) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, taskId);
+
+        assertEquals(ongoingTaskName, ongoingTask.getName());
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(3, ongoingTask.getMetric().get(metric3).intValue());
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(text3, ongoingTask.getText().get(text3));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+        assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    @Test
+    public void testOutOfOrderTaskStartLogNoSuccess() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String text1 = "text1";
+        String text2 = "text2";
+        String string1 = "string1";
+        String string2 = "string2";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+
+    }
+
+    @Test
+    public void testOutOfOrderTaskLogStartNoSuccess() {
+        String ctx1 = "ctx1";
+        String ctx2 = "ctx2";
+        String metric1 = "metric1";
+        String metric2 = "metric2";
+        String text1 = "text1";
+        String text2 = "text2";
+        String string1 = "string1";
+        String string2 = "string2";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
+                && (client.getTaskById(taskId).getCtx().get(ctx1) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId);
+
+        assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(1, ongoingTask.getMetric().get(metric1).intValue());
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(text1, ongoingTask.getText().get(text1));
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(string1, ongoingTask.getString().get(string1));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+    }
+
+    @Test
+    public void testOnlyLog() {
+        String ctx2 = "ctx2";
+        String metric2 = "metric2";
+        String text2 = "text2";
+        String string2 = "string2";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = Event.generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null));
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED, taskId);
+
+        assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
+        assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
+        assertEquals(text2, ongoingTask.getText().get(text2));
+        assertEquals(string2, ongoingTask.getString().get(string2));
+    }
+
+    @TimberLog(name = EVENT)
+    private void testOngoingTask1(String[] taskId1Arr, String[] taskId2Arr, String[] ongoingtaskIdArr, String ctx, String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName) {
+        TimberLogger.logParams(LogParams.create().context(ctx, ctx));
+        taskId1Arr[0] = TimberLogger.getCurrentTaskId();
+
+        ongoingtaskIdArr[0] = TimberLoggerAdvanced.start(ongoingTaskName, taskId1Arr[0], LogParams.create().context(ctx1, ctx1).text(text1, text1).metric(metric1, 1).string(string1, string1));
+
+        taskId2Arr[0] = testOngoingTask2();
+
+        new Thread(() -> {
+            TimberLoggerAdvanced.logParams(ongoingtaskIdArr[0], LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+            TimberLoggerAdvanced.success(ongoingtaskIdArr[0], LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        }).run();
+    }
+
+    @TimberLog(name = EVENT + '2')
+    private String testOngoingTask2() {
+        return TimberLogger.getCurrentTaskId();
+    }
+
+    @Test
+    public void testOngoingPrimaryTask() {
+        final String[] taskId1Arr = new String[1];
+
+        String ctx1 = "ctx1";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String parentTaskId = TimberLoggerAdvanced.start(ongoingTaskName, LogParams.create().context(ctx1, ctx1));
+
+        new Thread(() -> {
+            try(TimberLogContext ignored = new TimberLogContext(parentTaskId)) {
+                taskId1Arr[0] = testOngoingPrimaryTask2();
+            } catch (Exception e) {
+                fail(e.getMessage());
+            }
+        }).run();
+
+        TimberLoggerAdvanced.success(parentTaskId, LogParams.create());
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(parentTaskId) != null)
+                && (client.getTaskById(parentTaskId).getStatus() == TaskStatus.SUCCESS));
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1Arr[0]) != null)
+                && (client.getTaskById(taskId1Arr[0]).getStatus() == TaskStatus.SUCCESS));
+
+        Task parentTask = client.getTaskById(parentTaskId);
+        assertTaskPrimary(parentTask, ongoingTaskName, TaskStatus.SUCCESS, parentTaskId);
+        assertEquals(ctx1, parentTask.getCtx().get(ctx1));
+
+        Task childTask = client.getTaskById(taskId1Arr[0]);
+        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS, false, parentTaskId, parentTaskId, ongoingTaskName);
+        assertEquals(ctx1, childTask.getCtx().get(ctx1));
+    }
+
+    @TimberLog(name = EVENT + '2')
+    private String testOngoingPrimaryTask2() {
+        return TimberLogger.getCurrentTaskId();
+
+    }
+
+    @Test
+    public void testOngoingTaskWithContext() {
+        final String[] taskIdArr = new String[1];
+
+
+        String ongoingTaskName = EVENT + '1';
+
+        String ongoingTaskId = TimberLoggerAdvanced.start(ongoingTaskName);
+
+        new Thread(() -> {
+            try (TimberLogContext ignored = new TimberLogContext(ongoingTaskId)) {
+                taskIdArr[0] = testOngoingTaskWithContext2();
+            } catch (Exception ignored) {
+
+            }
+        }).run();
+
+        TimberLoggerAdvanced.success(ongoingTaskId, LogParams.create());
+
+        String childTaskId = taskIdArr[0];
+
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(ongoingTaskId) != null)
+                && (client.getTaskById(ongoingTaskId).getStatus() == TaskStatus.SUCCESS));
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(childTaskId) != null)
+                && (client.getTaskById(childTaskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task childTask = client.getTaskById(childTaskId);
+        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS,  false, ongoingTaskId, ongoingTaskId, ongoingTaskName);
+
+        Task ongoingTask = client.getTaskById(ongoingTaskId);
+        assertTaskPrimary(ongoingTask,  ongoingTaskName, TaskStatus.SUCCESS, ongoingTaskId);
+    }
+
+    @TimberLog(name = EVENT + '2')
+    private String testOngoingTaskWithContext2() {
+        return TimberLogger.getCurrentTaskId();
+    }
+
+    @Test
+    public void testOngoingTaskWithNullContext() {
+        String taskId = null;
+
+        try (TimberLogContext ignored = new TimberLogContext(null)) {
+            taskId = testOngoingTaskWithNullContext2();
+        } catch (Exception ignored) {
+        }
+
+        String finalTaskId = taskId;
+        Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(finalTaskId) != null)
+                && (client.getTaskById(finalTaskId).getStatus() == TaskStatus.SUCCESS));
+
+        Task childTask = client.getTaskById(taskId);
+        assertTaskPrimary(childTask, EVENT + '2', TaskStatus.SUCCESS, taskId);
+    }
+
+    @TimberLog(name = EVENT + '2')
+    private String testOngoingTaskWithNullContext2() {
+        return TimberLogger.getCurrentTaskId();
+    }
+
+    private void assertTask(Task ongoingTask, String name, TaskStatus status, boolean isPrimary, String primaryId, String parentId, String ... parents) {
+        assertEquals(name, ongoingTask.getName());
+        assertEquals(status, ongoingTask.getStatus());
+        assertEquals(isPrimary, ongoingTask.isPrimary());
+        assertEquals(primaryId, ongoingTask.getPrimaryId());
+        assertEquals(parentId, ongoingTask.getParentId());
+
+        List<String> parentsPath = ongoingTask.getParentsPath();
+        if (parentId == null){
+            assertNull(parentsPath);
+        }
+        else {
+            assertNotNull(parentsPath);
+            assertEquals(parents.length, parentsPath.size());
+            for (String parent : parents) {
+                assertTrue(parentsPath.contains(parent));
+            }
+        }
+    }
+
+    private void assertTaskPrimary(Task task, String name, TaskStatus status, String taskId) {
+        assertTask(task, name, status, true, taskId, null);
+    }
+}

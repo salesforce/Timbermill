@@ -23,6 +23,7 @@ public class InfoEvent extends Event {
 
         task = new Task(this, null, null, null);
         task.setPrimary(null);
+        task.setPrimaryId(null);
         task.setMeta(null);
         updateRequest.doc(gson.toJson(task), XContentType.JSON);
         return updateRequest;

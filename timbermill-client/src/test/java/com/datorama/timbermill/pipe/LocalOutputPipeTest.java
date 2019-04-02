@@ -21,9 +21,8 @@ public class LocalOutputPipeTest {
     //TODO add tests
     @Test
     public void send(){
-        LogParams logParams = LogParams.create();
-        Event start = new StartEvent("ID1", logParams, null, null);
-        Event success = new SuccessEvent(start.getTaskId(), logParams);
+        Event start = new StartEvent("ID1", LogParams.create(), null, null);
+        Event success = new SuccessEvent(start.getTaskId(), LogParams.create());
         localOutputPipe.send(start);
         localOutputPipe.send(success);
     }

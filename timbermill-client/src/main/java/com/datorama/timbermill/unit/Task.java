@@ -24,10 +24,10 @@ public class Task {
 	}
 
 	public Task(Event e, ZonedDateTime startTime, ZonedDateTime endTime, TaskStatus status) {
-		name = e.getName();
+		name = e.getNameFromId();
 		parentId = e.getParentId();
-		primaryId = e.getPrimaryId();
-		primary = (e.getPrimaryId() != null) && e.getPrimaryId().equals(e.getTaskId());
+		primaryId = e.getPrimaryId() == null ? e.getTaskId() : e.getPrimaryId();
+		primary = e.getPrimaryId() == null || e.getPrimaryId().equals(e.getTaskId());
 
 		ctx.putAll(e.getContext());
 		string.putAll(e.getStrings());
@@ -151,6 +151,6 @@ public class Task {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		CORRUPTED
+		CORRUPTED_SUCCESS, CORRUPTED_ERROR, CORRUPTED
 	}
 }
