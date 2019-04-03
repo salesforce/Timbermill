@@ -1,6 +1,5 @@
 package com.datorama.timbermill.unit;
 
-import com.google.gson.Gson;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.script.Script;
@@ -11,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
 
 public class StartEvent extends Event {
@@ -28,10 +28,10 @@ public class StartEvent extends Event {
     }
 
     @Override
-    public UpdateRequest getUpdateRequest(String index, Gson gson) {
+    public UpdateRequest getUpdateRequest(String index) {
         UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);
         Task task = new Task(this, this.time, null, Task.TaskStatus.UNTERMINATED);
-        updateRequest.upsert(gson.toJson(task), XContentType.JSON);
+        updateRequest.upsert(GSON.toJson(task), XContentType.JSON);
 
         Map<String, Object> params = new HashMap<>();
         params.put("taskBegin", time.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));

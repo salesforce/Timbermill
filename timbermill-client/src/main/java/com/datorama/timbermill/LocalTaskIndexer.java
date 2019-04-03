@@ -4,13 +4,11 @@ package com.datorama.timbermill;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.plugins.PluginsConfig;
 import com.datorama.timbermill.plugins.TaskLogPlugin;
-import com.datorama.timbermill.unit.Event;
-import com.datorama.timbermill.unit.Task;
+import com.datorama.timbermill.unit.*;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +19,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
+import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
@@ -30,8 +29,6 @@ public class LocalTaskIndexer {
     private final ElasticsearchClient es;
     private BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
     private static final Logger LOG = LoggerFactory.getLogger(LocalTaskIndexer.class);
-    private static final String INDEXED_EVENTS = "indexedEvents";
-    private static final String PREV_INDEXED_TASKS_FETCHED = "prevIndexedTasksFetched";
     private Collection<TaskLogPlugin> logPlugins;
     private Map<String, Integer> propertiesLengthMap;
     private int defaultMaxChars;
@@ -80,13 +77,14 @@ public class LocalTaskIndexer {
     private void retrieveAndIndex() {
         LOG.info("------------------ Batch Start ------------------");
         List<Event> events = new ArrayList<>();
+        //TODO move to configuration
         eventsQueue.drainTo(events, 100);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
-            Task heartbeatTask = new Task(e, e.getTime(), e.getTime(), TaskStatus.SUCCESS);
-            this.es.indexTaskToMetaDataIndex(heartbeatTask, e.getTaskId());
+            HeartbeatEvent heartbeatEvent = new HeartbeatEvent(e);
+            this.es.indexMetaDataEvent(e.getTime(), GSON.toJson(heartbeatEvent));
         }
 
         List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
@@ -170,29 +168,22 @@ public class LocalTaskIndexer {
     private long applyPlugins(List<Event> events) {
         long pluginsStart = System.currentTimeMillis();
         try {
-            String taskName = "timbermill_plugin";
             for (TaskLogPlugin plugin : logPlugins) {
-
-                Task t = new Task();
+                ZonedDateTime startTime = ZonedDateTime.now();
+                TaskStatus status;
+                String exception = null;
                 try {
-                    t.setName(taskName);
-                    t.setPrimary(true);
-                    t.setStartTime(ZonedDateTime.now());
-                    t.getString().put("pluginName", plugin.getName());
-                    t.getString().put("pluginClass", plugin.getClass().getSimpleName());
-
                     plugin.apply(events);
-
-                    t.setEndTime(ZonedDateTime.now());
-                    t.setDuration(t.getEndTime().toInstant().toEpochMilli() - t.getStartTime().toInstant().toEpochMilli());
-                    t.setStatus(TaskStatus.SUCCESS);
+                    status = TaskStatus.SUCCESS;
                 } catch (Exception ex) {
-                    t.getText().put("error", ex.toString());
-                    t.setStatus(TaskStatus.ERROR);
+                    exception = ExceptionUtils.getStackTrace(ex);
+                    status = TaskStatus.ERROR;
                     LOG.error("error in plugin" + plugin, ex);
                 }
-                String taskId = taskName + '_' + plugin.toString().replace(' ', '_') + "_" + pluginsStart;
-                es.indexTaskToMetaDataIndex(t, taskId);
+                ZonedDateTime endTime = ZonedDateTime.now();
+                long duration = endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli();
+                PluginApplierEvent pluginApplierEvent = new PluginApplierEvent(startTime, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration);
+                es.indexMetaDataEvent(startTime, GSON.toJson(pluginApplierEvent));
             }
         } catch (Exception ex) {
             LOG.error("Error running plugins", ex);
@@ -232,45 +223,22 @@ public class LocalTaskIndexer {
         return value;
     }
 
-    private void indexFailedMetadataTask(ZonedDateTime taskIndexerStartTime, Integer timbermillEventSize,
-                                         Integer previouslyIndexedTasksSize, Exception e) {
-        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, previouslyIndexedTasksSize);
-        Task metadataTask = metadataTaskPair.getRight();
-        metadataTask.setStatus(TaskStatus.ERROR);
-        Map<String, String> exceptionMap = new HashMap<>();
-        exceptionMap.put("exception", ExceptionUtils.getStackTrace(e));
-        metadataTask.setCtx(exceptionMap);
-        es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
-    }
-
-    private void indexMetadataTask(ZonedDateTime taskIndexerStartTime, Integer timbermillEventSize, Integer missingParentEventsSize, long pluginsDuration) {
-
-        Pair<String, Task> metadataTaskPair = createMetadataTask(taskIndexerStartTime, timbermillEventSize, missingParentEventsSize);
-        Task metadataTask = metadataTaskPair.getRight();
-        metadataTask.setStatus(TaskStatus.SUCCESS);
-        metadataTask.getMetric().put("pluginsDuration", pluginsDuration);
-        es.indexTaskToMetaDataIndex(metadataTask, metadataTaskPair.getLeft());
-    }
-
-    private static Pair<String, Task> createMetadataTask(ZonedDateTime taskIndexerStartTime, Integer timbermillEventSize,
-                                                         Integer previouslyIndexedTasksSize) {
+    private void indexFailedMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount,
+                                         Integer fetchedAmount, Exception e) {
         ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
+        long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
-        Task metadataTask = new Task();
-        metadataTask.setName("timbermill_index");
-        metadataTask.setPrimary(true);
-        Map<String, Number> taskIndexerMetrics = new HashMap<>();
+        IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.ERROR, ExceptionUtils.getStackTrace(e), null);
+        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent));
+    }
 
-        taskIndexerMetrics.put(INDEXED_EVENTS, timbermillEventSize);
-        taskIndexerMetrics.put(PREV_INDEXED_TASKS_FETCHED, previouslyIndexedTasksSize);
+    private void indexMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount, Integer fetchedAmount, long pluginsDuration) {
 
-        metadataTask.setMetric(taskIndexerMetrics);
+        ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
+        long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
-        metadataTask.setStartTime(taskIndexerStartTime);
-        metadataTask.setEndTime(taskIndexerEndTime);
-        metadataTask.setDuration(taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli());
-        String taskId = Event.generateTaskId(metadataTask.getName());
-        return Pair.of(taskId, metadataTask);
+        IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.SUCCESS, null, pluginsDuration);
+        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent));
     }
 
     private static Set<String> getMissingParentEvents(Collection<Event> events) {
@@ -326,13 +294,9 @@ public class LocalTaskIndexer {
     }
 
     private void indexMetadataTaskToTimbermill() {
-        String taskId = Event.generateTaskId("timbermill_server_startup");
-        Task task = new Task();
-        task.setName("timbermill_server_startup");
-        task.setPrimary(true);
-        task.setStartTime(ZonedDateTime.now());
-        task.setEndTime(ZonedDateTime.now());
-        es.indexTaskToMetaDataIndex(task, taskId);
+        ZonedDateTime time = ZonedDateTime.now();
+        LocalStartupEvent localStartupEvent = new LocalStartupEvent(time);
+        es.indexMetaDataEvent(time, GSON.toJson(localStartupEvent));
     }
 
     private static class ParentProperties{

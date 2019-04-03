@@ -1,10 +1,7 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.common.ZonedDateTimeConverter;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHost;
 import org.elasticsearch.ElasticsearchException;
@@ -41,7 +38,7 @@ public class ElasticsearchClient {
     private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 
-    private final Gson gson = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
+
     private final RestHighLevelClient client;
     private String env;
     private int indexBulkSize;
@@ -67,7 +64,7 @@ public class ElasticsearchClient {
             HashMap<String, Task> retMap = new HashMap<>();
             SearchResponse response = getTasksByIds(eventsToFetch);
             for (SearchHit hit : response.getHits()) {
-                Task task = gson.fromJson(hit.getSourceAsString(), Task.class);
+                Task task = GSON.fromJson(hit.getSourceAsString(), Task.class);
                 retMap.put(hit.getId(), task);
             }
             return retMap;
@@ -88,15 +85,15 @@ public class ElasticsearchClient {
         }
     }
 
-    void indexTaskToMetaDataIndex(Task task, String taskId) {
-        try {
-            String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, task.getStartTime());
+    void indexMetaDataEvent(ZonedDateTime time, String source) {
+            String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, time);
             createNewIndices(metadataIndex);
 
-            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, taskId).source(gson.toJson(task), XContentType.JSON);
+            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, String.valueOf(new Random().nextLong())).source(source, XContentType.JSON);
+        try {
             client.index(indexRequest, RequestOptions.DEFAULT);
-        } catch (Exception e) {
-            throw new ElasticsearchException("Couldn't index task {} to elasticsearch cluster: {}" ,taskId, ExceptionUtils.getStackTrace(e));
+        } catch (IOException e) {
+            LOG.error("Couldn't index metadata event with source {} to elasticsearch cluster: {}" , source, ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -106,7 +103,7 @@ public class ElasticsearchClient {
         SearchResponse response = getTasksByIds(taskIds);
         if (response.getHits().totalHits == 1){
             String sourceAsString = response.getHits().getAt(0).getSourceAsString();
-            return gson.fromJson(sourceAsString, Task.class);
+            return GSON.fromJson(sourceAsString, Task.class);
         }
         else {
             return null;
@@ -159,7 +156,7 @@ public class ElasticsearchClient {
         String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, ZonedDateTime.now());
         //TODO not correct - Should be changed to Rollover
 
-        List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index, gson)).collect(Collectors.toList());
+        List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index)).collect(Collectors.toList());
 
         for (UpdateRequest updateRequest : requests) {
             i++;

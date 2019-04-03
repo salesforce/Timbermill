@@ -1,6 +1,5 @@
 package com.datorama.timbermill.unit;
 
-import com.google.gson.Gson;
 import org.elasticsearch.action.update.UpdateRequest;
 
 import javax.validation.constraints.NotNull;
@@ -19,7 +18,7 @@ public abstract class Event{
 	String primaryId;
 
 	protected String name;
-	protected String parentId;
+	private String parentId;
 	private Map<String, String> strings;
 	private Map<String, String> texts;
 	private Map<String, String> context;
@@ -122,7 +121,7 @@ public abstract class Event{
 		return string.substring(0, stringLength);
 	}
 
-	public abstract UpdateRequest getUpdateRequest(String index, Gson gson);
+	public abstract UpdateRequest getUpdateRequest(String index);
 
 	public  boolean isStartEvent(){
 		return false;

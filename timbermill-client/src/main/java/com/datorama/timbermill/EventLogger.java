@@ -22,9 +22,10 @@ import java.util.function.Function;
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
 final class EventLogger {
-	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
+    private static final String THREAD_NAME = "threadName";
 
-	/**
+    /**
 	 * Factory related fields
 	 */
 	private static Map<String, String> staticParams = Collections.emptyMap();
@@ -99,7 +100,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams);
+				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED_SUCCESS);
 			} else {
 				e = new SuccessEvent(taskIdStack.pop(), logParams);
 			}
@@ -130,7 +131,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams);
+				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED_ERROR);
 			} else {
 				e = new ErrorEvent(taskIdStack.pop(), logParams);
 			}
@@ -141,8 +142,8 @@ final class EventLogger {
 		return e;
 	}
 
-	String spotEvent(String name, @NotNull LogParams logParams) {
-		Event event = createSpotEvent(name, logParams);
+	String spotEvent(String name, @NotNull LogParams logParams, Task.TaskStatus status) {
+		Event event = createSpotEvent(name, logParams, status);
 		return submitEvent(event);
 	}
 
@@ -210,7 +211,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams);
+				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED);
 			} else {
 				e = new InfoEvent(taskIdStack.peek(), logParams);
 			}
@@ -221,10 +222,10 @@ final class EventLogger {
 		return e;
 	}
 
-	private Event createSpotEvent(String name, @NotNull LogParams logParams) {
+	private Event createSpotEvent(String name, @NotNull LogParams logParams, Task.TaskStatus status) {
 		addStaticParams(logParams);
 		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair();
-		return new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
+		return new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status);
 	}
 
 	private PrimaryParentIdPair getPrimaryParentIdPair() {
@@ -238,14 +239,14 @@ final class EventLogger {
 	}
 
 	private void addStaticParams(@NotNull LogParams logParams) {
-		logParams.context("threadName", Thread.currentThread().getName());
+		logParams.context(THREAD_NAME, Thread.currentThread().getName());
 		logParams.context(staticParams);
 	}
 
-	private Event getCorruptedEvent(@NotNull LogParams logParams) {
+	private Event getCorruptedEvent(@NotNull LogParams logParams, Task.TaskStatus status) {
 		String stackTrace = getStackTraceString();
 		logParams.text("stackTrace", stackTrace);
-		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams);
+		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, status);
 	}
 
 	private static String getStackTraceString() {

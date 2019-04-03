@@ -4,11 +4,14 @@ import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import javax.validation.constraints.NotNull;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+
+import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
 public final class TimberLogger {
 
@@ -86,7 +89,22 @@ public final class TimberLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		return EventLogger.get().spotEvent(name, logParams);
+		return EventLogger.get().spotEvent(name, logParams, Task.TaskStatus.SUCCESS);
+	}
+
+	public static String spotError(String name, Throwable t) {
+		return spotError(name, null, t);
+	}
+
+	private static String spotError(String name, LogParams logParams, Throwable t) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
+		if (t != null) {
+			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+		}
+
+		return EventLogger.get().spotEvent(name, logParams, Task.TaskStatus.ERROR);
 	}
 
 	public static <T> Callable<T> wrapCallable(Callable<T> callable) {
