@@ -1,5 +1,7 @@
 package com.datorama.timbermill.unit;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +21,7 @@ public class Task {
 	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
+	private String log;
 
 	public Task() {
 	}
@@ -33,6 +36,7 @@ public class Task {
 		string.putAll(e.getStrings());
 		text.putAll(e.getTexts());
 		metric.putAll(e.getMetrics());
+		log = StringUtils.join(e.getLogs(), '\n');
 		meta.setTaskBegin(startTime);
 		meta.setTaskEnd(endTime);
 		this.status = status;
@@ -133,6 +137,14 @@ public class Task {
 
 	public void setCtx(Map<String, String> ctx) {
 		this.ctx = ctx;
+	}
+
+	public String getLog() {
+		return log;
+	}
+
+	public void setLog(String log) {
+		this.log = log;
 	}
 
 	public List<String> getParentsPath() {

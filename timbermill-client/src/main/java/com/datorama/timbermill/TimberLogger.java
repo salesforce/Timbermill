@@ -46,7 +46,7 @@ public final class TimberLogger {
 		return start(name, null);
 	}
 
-	static String start(String name, LogParams logParams) {
+	public static String start(String name, LogParams logParams) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
@@ -80,6 +80,10 @@ public final class TimberLogger {
 	public static String logText(String key, String value) {
 		return EventLogger.get().logParams(LogParams.create().text(key, value));
 	}
+
+    public static String appendLog(String log) {
+        return EventLogger.get().logParams(LogParams.create().log(log));
+    }
 
 	public static String spot(String name) {
 		return spot(name, null);

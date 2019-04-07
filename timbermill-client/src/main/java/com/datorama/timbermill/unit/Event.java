@@ -12,19 +12,21 @@ import java.util.UUID;
 public abstract class Event{
 
 	private static final String DELIMETER = "##@##";
-	protected String taskId;
-	protected ZonedDateTime time;
+    protected String taskId;
+    protected ZonedDateTime time;
 
-	String primaryId;
+    String primaryId;
 
-	protected String name;
-	private String parentId;
-	private Map<String, String> strings;
-	private Map<String, String> texts;
-	private Map<String, String> context;
-	private Map<String, Number> metrics;
-	private List<String> parentsPath;
+    protected String name;
+    private String parentId;
+    private Map<String, String> strings;
+    private Map<String, String> texts;
+    private Map<String, String> context;
+    private Map<String, Number> metrics;
 
+    private List<String> logs;
+
+    private List<String> parentsPath;
 	Event(String taskId, String name, @NotNull LogParams logParams, String parentId) {
 		if (taskId == null) {
 			taskId = generateTaskId(name);
@@ -37,6 +39,7 @@ public abstract class Event{
 		this.texts = logParams.getTexts();
 		this.context = logParams.getContext();
 		this.metrics = logParams.getMetrics();
+		this.logs = logParams.getLogs();
 	}
 
 	public static String generateTaskId(String name) {
@@ -94,6 +97,10 @@ public abstract class Event{
 	public Map<String, String> getContext() {
 		return context;
 	}
+
+    public List<String> getLogs() {
+        return logs;
+    }
 
 	public void setStrings(@NotNull Map<String, String> strings) {
 		for (Entry<String, String> entry : strings.entrySet()){

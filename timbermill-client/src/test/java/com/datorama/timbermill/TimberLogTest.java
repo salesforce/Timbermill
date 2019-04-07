@@ -12,6 +12,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -57,45 +58,45 @@ public class TimberLogTest {
 	public void testSimpleTaskIndexerJob() throws InterruptedException {
 		String str1 = "str1";
 		String str2 = "str2";
-		String str3 = "str3";
 		String metric1 = "metric1";
 		String metric2 = "metric2";
 		String text1 = "text1";
 		String text2 = "text2";
 
-		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, str3, metric1, metric2, text1, text2);
+		String log1 = "log1";
+		String log2 = "log2";
+		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2);
 
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
-		assertEquals(EVENT, task.getName());
-		assertEquals(taskId, task.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, task.getStatus());
+
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
 		assertEquals(TEST, task.getCtx().get(ENV));
 		assertTrue(task.getDuration() > 1000);
-		assertTrue(task.isPrimary());
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
+		String log = task.getLog();
 
-		assertEquals(str2, strings.get(str2));
-		assertEquals(str3, strings.get(str3));
 		assertEquals(str1, strings.get(str1));
+		assertEquals(str2, strings.get(str2));
 		assertEquals(1, metrics.get(metric1).intValue());
 		assertEquals(2, metrics.get(metric2).intValue());
 		assertEquals(text1, texts.get(text1));
 		assertEquals(text2, texts.get(text2));
+		assertEquals(log1 + "\n" + log2, log);
 
 		assertNull(task.getParentId());
 	}
 
 	@TimberLog(name = EVENT)
-	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String str3, String metric1, String metric2, String text1, String text2) throws InterruptedException {
+	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, 1);
 		TimberLogger.logText(text1, text1);
-		TimberLogger.logString(str2, str2);
-		TimberLogger.logParams(LogParams.create().string(str3, str3).metric(metric2, 2).text(text2, text2));
+		TimberLogger.appendLog(log1);
+		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).log(log2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
 	}
@@ -108,6 +109,8 @@ public class TimberLogTest {
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
+
+        assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId);
 		Map<String, String> strings = task.getString();
 		String errorType = strings.get("errorType");
 		assertEquals("TOO_MANY_SERVER_ROWS", errorType);
@@ -134,7 +137,8 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
-		assertEquals(EVENT, task.getName());
+
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
 		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
 		Map<String, String> context = task.getCtx();
@@ -181,18 +185,15 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId1);
-		assertEquals(EVENT, task.getName());
-		assertEquals(taskId1, task.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, task.getStatus());
-		assertNull(task.getParentId());
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1);
 
 		Task spot = client.getTaskById(taskIdSpot[0]);
-		assertEquals(SPOT, spot.getName());
+		assertTask(spot, SPOT, TaskStatus.SUCCESS, false, taskId1, taskId1, EVENT);
 		assertEquals(context, spot.getCtx().get(context));
-		assertEquals(taskId1, spot.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, spot.getStatus());
-		assertEquals(taskId1, spot.getParentId());
-		assertTrue(spot.getParentsPath().contains(EVENT));
+
+        Task child = client.getTaskById(taskId2);
+        assertTask(child, EVENT + '2', TaskStatus.SUCCESS, false, taskId1, taskId1, EVENT);
+        assertEquals(context, child.getCtx().get(context));
 	}
 
 	@TimberLog(name = EVENT)
@@ -238,29 +239,25 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId3).getStatus() == TaskStatus.SUCCESS));
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskIdSpot) != null)
 				&& (client.getTaskById(taskIdSpot).getStatus() == TaskStatus.SUCCESS));
+
+
 		Task task = client.getTaskById(taskId);
-		assertEquals(EVENT, task.getName());
-		assertEquals(taskId, task.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, task.getStatus());
-		assertNull(task.getParentId());
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+        assertEquals(context1, task.getCtx().get(context1));
+
+        Task task2 = client.getTaskById(taskId2);
+        assertTask(task2, EVENT + '2', TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+        assertEquals(context1, task2.getCtx().get(context1));
+        assertEquals(context2, task2.getCtx().get(context2));
 
 		Task task3 = client.getTaskById(taskId3);
-		assertEquals(EVENT + '3', task3.getName());
+        assertTask(task3, EVENT + '3', TaskStatus.SUCCESS, false, taskId, taskId2, EVENT, EVENT + '2');
 		assertEquals(context1, task3.getCtx().get(context1));
 		assertEquals(context2, task3.getCtx().get(context2));
-		assertEquals(taskId, task3.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, task3.getStatus());
-		assertEquals(taskId2, task3.getParentId());
-		assertTrue(task3.getParentsPath().contains(EVENT));
-		assertTrue(task3.getParentsPath().contains(EVENT + '2'));
 
 		Task spot = client.getTaskById(taskIdSpot);
-		assertEquals(SPOT, spot.getName());
+		assertTask(spot, SPOT, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
 		assertEquals(context1, spot.getCtx().get(context1));
-		assertEquals(taskId, spot.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, spot.getStatus());
-		assertEquals(taskId, spot.getParentId());
-		assertTrue(spot.getParentsPath().contains(EVENT));
 	}
 
 	@TimberLog(name = EVENT)
@@ -327,10 +324,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId[0]).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId[0]);
-		assertEquals(EVENT, task.getName());
-		assertEquals(taskId[0], task.getPrimaryId());
-		assertEquals(TaskStatus.SUCCESS, task.getStatus());
-		assertNull(task.getParentId());
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId[0]);
 	}
 
 	@TimberLog(name = EVENT)
@@ -351,21 +345,11 @@ public class TimberLogTest {
 		Task taskChild = client.getTaskById(childTaskId);
 		Task taskChildOfChild = client.getTaskById(childOfChildTaskId);
 
-		assertSame(TaskStatus.SUCCESS, taskParent.getStatus());
-		assertNull(taskParent.getParentsPath());
+		assertTaskPrimary(taskParent, EVENT, TaskStatus.SUCCESS, parentId);
 
-		assertSame(TaskStatus.ERROR, taskChild.getStatus());
-		assertEquals(parentId, taskChild.getPrimaryId());
-		assertEquals(parentId, taskChild.getParentId());
-		assertEquals(1, taskChild.getParentsPath().size());
-		assertTrue(taskChild.getParentsPath().contains(taskParent.getName()));
+		assertTask(taskChild, EVENT_CHILD, TaskStatus.ERROR, false, parentId, parentId, EVENT);
 
-		assertSame(TaskStatus.ERROR, taskChildOfChild.getStatus());
-		assertEquals(parentId, taskChildOfChild.getPrimaryId());
-		assertEquals(childTaskId, taskChildOfChild.getParentId());
-		assertEquals(2, taskChildOfChild.getParentsPath().size());
-		assertEquals(taskChildOfChild.getParentsPath().get(0), taskParent.getName());
-		assertEquals(taskChildOfChild.getParentsPath().get(1), taskChild.getName());
+		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, TaskStatus.ERROR, false, parentId, childTaskId, EVENT, EVENT_CHILD);
 	}
 
 	@TimberLog(name = EVENT)
@@ -397,7 +381,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
-		assertSame(TaskStatus.SUCCESS, task.getStatus());
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
 	}
 
 	@TimberLog(name = EVENT)
@@ -415,7 +399,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
-		assertSame(TaskStatus.SUCCESS, task.getStatus());
+		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId);
 	}
 
 	@Test
@@ -430,7 +414,30 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.ERROR));
 
 		Task task = client.getTaskById(taskId);
-		assertSame(TaskStatus.ERROR, task.getStatus());
+		assertTaskPrimary(task, "ctr", TaskStatus.ERROR, taskId);
 	}
 
+    static void assertTask(Task task, String name, TaskStatus status, boolean isPrimary, String primaryId, String parentId, String... parents) {
+        assertEquals(name, task.getName());
+        assertEquals(status, task.getStatus());
+        assertEquals(isPrimary, task.isPrimary());
+        assertEquals(primaryId, task.getPrimaryId());
+        assertEquals(parentId, task.getParentId());
+
+        List<String> parentsPath = task.getParentsPath();
+        if (parentId == null){
+            assertNull(parentsPath);
+        }
+        else {
+            assertNotNull(parentsPath);
+            assertEquals(parents.length, parentsPath.size());
+            for (String parent : parents) {
+                assertTrue(parentsPath.contains(parent));
+            }
+        }
+    }
+
+    static void assertTaskPrimary(Task task, String name, TaskStatus status, String taskId) {
+        assertTask(task, name, status, true, taskId, null);
+    }
 }

@@ -189,7 +189,7 @@ final class EventLogger {
 			taskIdStack.pop();
 		}
 		else{
-			throw new RuntimeException("Task id opened with TimberlogAdvanced.withContext() is not the top of the stack, probably failed to closed all the tasks in the scope");
+            LOG.error("Task id: {} opened with TimberlogAdvanced.withContext() is not the top of the stack, probably failed to closed all the tasks in the scope", ongoingTaskId);
 		}
 	}
 

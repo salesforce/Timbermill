@@ -25,6 +25,23 @@ public class SpotEvent extends Event {
     public UpdateRequest getUpdateRequest(String index) {
         UpdateRequest updateRequest = new UpdateRequest(index, TYPE, getTaskId());
         Task task = new Task(this, time, time, status);
+
+        if (task.getCtx().isEmpty()){
+            task.setCtx(null);
+        }
+        if (task.getString().isEmpty()){
+            task.setString(null);
+        }
+        if (task.getText().isEmpty()){
+            task.setText(null);
+        }
+        if (task.getMetric().isEmpty()){
+            task.setMetric(null);
+        }
+        if (task.getLog().isEmpty()){
+            task.setLog(null);
+        }
+
         updateRequest.upsert(GSON.toJson(task), XContentType.JSON);
         updateRequest.doc(GSON.toJson(task), XContentType.JSON);
         return updateRequest;

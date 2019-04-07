@@ -86,10 +86,10 @@ public class ElasticsearchClient {
     }
 
     void indexMetaDataEvent(ZonedDateTime time, String source) {
-            String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, time);
-            createNewIndices(metadataIndex);
+        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, time);
+        createNewIndices(metadataIndex);
 
-            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, String.valueOf(new Random().nextLong())).source(source, XContentType.JSON);
+        IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, String.valueOf(new Random().nextLong())).source(source, XContentType.JSON);
         try {
             client.index(indexRequest, RequestOptions.DEFAULT);
         } catch (IOException e) {
@@ -157,7 +157,6 @@ public class ElasticsearchClient {
         //TODO not correct - Should be changed to Rollover
 
         List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index)).collect(Collectors.toList());
-
         for (UpdateRequest updateRequest : requests) {
             i++;
             currBatch++;

@@ -1,7 +1,9 @@
 package com.datorama.timbermill.unit;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import java.util.List;
 import java.util.Map;
 
 public class LogParams {
@@ -11,8 +13,15 @@ public class LogParams {
 	private Map<String, Number> metrics = Maps.newHashMap();
 	private Map<String, String> context = Maps.newHashMap();
 
+	private List<String> logs = Lists.newArrayList();
+
 	public static LogParams create() {
 		return new LogParams();
+	}
+
+	public LogParams log(String log) {
+		logs.add(log);
+		return this;
 	}
 
 	public LogParams string(String key, Object value) {
@@ -70,4 +79,8 @@ public class LogParams {
     Map<String, String> getContext() {
         return context;
     }
+
+	public List<String> getLogs() {
+		return logs;
+	}
 }
