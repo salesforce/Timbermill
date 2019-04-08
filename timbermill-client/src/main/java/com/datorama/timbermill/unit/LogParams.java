@@ -3,6 +3,9 @@ package com.datorama.timbermill.unit;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.Map;
 
@@ -19,9 +22,24 @@ public class LogParams {
 		return new LogParams();
 	}
 
-	public LogParams log(String log) {
-		logs.add(log);
+	public LogParams logInfo(String s) {
+		addToLogs(s, "INFO");
 		return this;
+	}
+
+	public LogParams logWarn(String s) {
+		addToLogs(s, "WARN");
+		return this;
+	}
+
+	public LogParams logError(String s) {
+		addToLogs(s, "Error");
+		return this;
+	}
+
+	private void addToLogs(String s, String warn) {
+		String date = ZonedDateTime.now().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
+		logs.add(String.format("[%s] [%s] - %s", date, warn, s));
 	}
 
 	public LogParams string(String key, Object value) {

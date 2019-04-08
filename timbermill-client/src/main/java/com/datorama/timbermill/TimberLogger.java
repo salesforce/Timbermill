@@ -81,9 +81,17 @@ public final class TimberLogger {
 		return EventLogger.get().logParams(LogParams.create().text(key, value));
 	}
 
-    public static String appendLog(String log) {
-        return EventLogger.get().logParams(LogParams.create().log(log));
+    public static String logInfo(String log) {
+        return EventLogger.get().logParams(LogParams.create().logInfo(log));
     }
+
+	public static String logWarn(String log) {
+		return EventLogger.get().logParams(LogParams.create().logWarn(log));
+	}
+
+	public static String logError(String log) {
+		return EventLogger.get().logParams(LogParams.create().logError(log));
+	}
 
 	public static String spot(String name) {
 		return spot(name, null);

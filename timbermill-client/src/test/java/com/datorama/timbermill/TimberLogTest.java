@@ -29,7 +29,8 @@ public class TimberLogTest {
 	private static final String SPOT = "Spot";
 	private static final String TEST = "test";
 	private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0);
+	public static final String LOG_REGEX = "\\[\\d+-.*-\\d+ \\d+:\\d\\d:\\d\\d\\] \\[INFO\\] - ";
+	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0, null);
 	private String childTaskId;
 	private String childOfChildTaskId;
 
@@ -85,9 +86,11 @@ public class TimberLogTest {
 		assertEquals(2, metrics.get(metric2).intValue());
 		assertEquals(text1, texts.get(text1));
 		assertEquals(text2, texts.get(text2));
-		assertEquals(log1 + "\n" + log2, log);
 
-		assertNull(task.getParentId());
+		String[] split = log.split("\n");
+		assertEquals(2, split.length);
+		assertTrue(split[0].matches(LOG_REGEX + log1));
+		assertTrue(split[1].matches(LOG_REGEX + log2));
 	}
 
 	@TimberLog(name = EVENT)
@@ -95,8 +98,8 @@ public class TimberLogTest {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, 1);
 		TimberLogger.logText(text1, text1);
-		TimberLogger.appendLog(log1);
-		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).log(log2));
+		TimberLogger.logInfo(log1);
+		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).logInfo(log2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
 	}
