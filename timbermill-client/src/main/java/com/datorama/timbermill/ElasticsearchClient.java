@@ -1,9 +1,14 @@
 package com.datorama.timbermill;
 
+import com.amazonaws.auth.AWS4Signer;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
@@ -15,6 +20,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.IdsQueryBuilder;
@@ -36,19 +42,26 @@ public class ElasticsearchClient {
 
     private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
-
-
     private final RestHighLevelClient client;
     private String env;
     private int indexBulkSize;
     private int daysBackToDelete;
+    static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
-    public ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete) {
+    public ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
         this.env = env;
-        client = new RestHighLevelClient(
-                RestClient.builder(HttpHost.create(elasticUrl)));
+        RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
+        if (awsRegion != null){
+            AWS4Signer signer = new AWS4Signer();
+            String serviceName = "es";
+            signer.setServiceName(serviceName);
+            signer.setRegionName(awsRegion);
+            HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
+            builder.setHttpClientConfigCallback(hacb -> hacb.addInterceptorLast(interceptor));
+        }
+        client = new RestHighLevelClient(builder);
     }
 
     Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {

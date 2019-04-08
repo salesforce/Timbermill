@@ -17,6 +17,7 @@ public class LocalOutputPipeConfig {
     private final int indexBulkSize;
     private final Map<String, String> staticParams;
     private int secondBetweenPolling;
+    private String awsRegion;
 
     public LocalOutputPipeConfig(Builder builder) {
         if (builder == null){
@@ -34,6 +35,7 @@ public class LocalOutputPipeConfig {
         staticParams = builder.staticParams;
         secondBetweenPolling = builder.secondBetweenPolling;
         staticParams.put(ENV, builder.env);
+        awsRegion = builder.awsRegion;
     }
 
     int getDaysBackToDelete() {
@@ -72,7 +74,12 @@ public class LocalOutputPipeConfig {
         return staticParams;
     }
 
+    public String getAwsRegion() {
+        return awsRegion;
+    }
+
     public static class Builder {
+        public String awsRegion;
         private String elasticUrl = null;
         private String env = "default";
         private String plugingJson = "[]";
@@ -125,6 +132,11 @@ public class LocalOutputPipeConfig {
 
         public Builder secondBetweenPolling(int secondBetweenPolling) {
             this.secondBetweenPolling = secondBetweenPolling;
+            return this;
+        }
+
+        public Builder awsRegion(String awsRegion) {
+            this.awsRegion = awsRegion;
             return this;
         }
 

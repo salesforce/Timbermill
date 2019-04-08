@@ -12,7 +12,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private Map<String, String> staticParams;
 
     public LocalOutputPipe(LocalOutputPipeConfig config) {
-        ElasticsearchClient es = new ElasticsearchClient(config.getEnv(), config.getElasticUrl(), config.getIndexBulkSize(), config.getDaysBackToDelete());
+        ElasticsearchClient es = new ElasticsearchClient(config.getEnv(), config.getElasticUrl(), config.getIndexBulkSize(), config.getDaysBackToDelete(), config.getAwsRegion());
         localTaskIndexer = new LocalTaskIndexer(config.getPlugingJson(), config.getPropertiesLengthMap(), config.getDefaultMaxChars(), es, config.getSecondBetweenPolling());
         staticParams = config.getStaticParams();
     }

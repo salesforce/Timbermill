@@ -4,6 +4,7 @@ import java.time.ZonedDateTime;
 
 public class IndexEvent {
     private final String name = "timbermill_index";
+
     private final Integer eventsAmount;
     private final Integer fetchedAmount;
     private final ZonedDateTime startTime;
@@ -12,7 +13,6 @@ public class IndexEvent {
     private final Task.TaskStatus status;
     private final String exception;
     private Long pluginsDuration;
-
     public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, long indexerDuration, Task.TaskStatus status, String exception, Long pluginsDuration) {
         this.eventsAmount = eventsAmount;
         this.fetchedAmount = fetchedAmount;
@@ -22,6 +22,10 @@ public class IndexEvent {
         this.status = status;
         this.exception = exception;
         this.pluginsDuration = pluginsDuration;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public Integer getEventsAmount() {
