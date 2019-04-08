@@ -48,7 +48,7 @@ public class LocalOutputPipeConfig {
         return elasticUrl;
     }
 
-    public String getEnv() {
+    String getEnv() {
         return staticParams.get(ENV);
     }
 
@@ -68,7 +68,7 @@ public class LocalOutputPipeConfig {
         return secondBetweenPolling;
     }
 
-    public Map<String, String> getStaticParams() {
+    Map<String, String> getStaticParams() {
         return staticParams;
     }
 

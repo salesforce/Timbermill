@@ -5,7 +5,6 @@ import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHost;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -52,11 +51,6 @@ public class ElasticsearchClient {
                 RestClient.builder(HttpHost.create(elasticUrl)));
     }
 
-    private String getTaskIndexWithEnv(String indexPrefix, ZonedDateTime startTime) {
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        return indexPrefix + '-' + env + '-' + startTime.format(dateTimeFormatter);
-    }
-
     Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {
         if (eventsToFetch.isEmpty()) {
             return Collections.emptyMap();
@@ -71,26 +65,11 @@ public class ElasticsearchClient {
         }
     }
 
-    private void createNewIndices(String index) {
-        GetIndexRequest existsRequest = new GetIndexRequest().indices(index);
-        try{
-            boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
-            if (!exists){
-                CreateIndexRequest createRequest = new CreateIndexRequest(index);
-                client.indices().create(createRequest, RequestOptions.DEFAULT);
-                deleteOldIndex(index);
-            }
-        } catch (IOException e) {
-            throw new ElasticsearchException(e);
-        }
-    }
-
     void indexMetaDataEvent(ZonedDateTime time, String source) {
         String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, time);
-        createNewIndices(metadataIndex);
-
-        IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE, String.valueOf(new Random().nextLong())).source(source, XContentType.JSON);
         try {
+            deleteOldIndex(metadataIndex);
+            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE).source(source, XContentType.JSON);
             client.index(indexRequest, RequestOptions.DEFAULT);
         } catch (IOException e) {
             LOG.error("Couldn't index metadata event with source {} to elasticsearch cluster: {}" , source, ExceptionUtils.getStackTrace(e));
@@ -154,6 +133,11 @@ public class ElasticsearchClient {
         int currBatch = 0;
         int i = 0;
         String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, ZonedDateTime.now());
+        try {
+            deleteOldIndex(index);
+        } catch (IOException e) {
+            LOG.error("Could not delete index " + index, e);
+        }
         //TODO not correct - Should be changed to Rollover
 
         List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index)).collect(Collectors.toList());
@@ -192,5 +176,10 @@ public class ElasticsearchClient {
 
     void index(List<Event> events) {
         bulkIndexByBulkSize(events, indexBulkSize, 1);
+    }
+
+    private String getTaskIndexWithEnv(String indexPrefix, ZonedDateTime startTime) {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        return indexPrefix + '-' + env + '-' + startTime.format(dateTimeFormatter);
     }
 }
