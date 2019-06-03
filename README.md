@@ -3,7 +3,7 @@
 ### A Task-Based, Context-Aware Logging service
 
 Timbermill is an advanced, open-source logging service built for [Elasticsearch](https://www.elastic.co/products/elasticsearch).  
-Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware** manner which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana's advantages)
+Timbermill collects all events sent to it, processes them, and sends them to your elasticsearch cluster in a **task-based, context-aware** manner which gives an easy way to search, analyze and monitor your system. (mainly by using Kibana)
 
 #### Task-based, Context-Aware, cool. What's that?
 
@@ -39,7 +39,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 #### Requirements
 * Elasticsearch cluster
 * Java project (1.8+)
-* Add dependency to maven (hosted on Maven Central)
+* Add dependency to maven
 
 
          <dependency>
@@ -89,13 +89,4 @@ TimberLog.bootstrap(config);
 #### What can I do next?
  
  Get familiar with our [wiki](timbermill.wiki) so you get a better sense on how to properlly use Timbermill.
- 
- 
- ###### Things to add to the wiki
- * How timbermill works with different threads
- * string vs. text vs. context vs. metric
- * Explain all fields in task
- * Explain metadata on task
- * Explain all properties for timbermill bootstrap
- * Global string that every event contains (e.g. host, jvm, ip etc.)
  
