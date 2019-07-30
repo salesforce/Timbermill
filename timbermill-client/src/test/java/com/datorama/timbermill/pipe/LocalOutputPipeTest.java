@@ -13,12 +13,10 @@ public class LocalOutputPipeTest {
 
     @Before
     public void setUp() {
-        LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().url("http://localhost:9200");
-        LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
+        LocalOutputPipeConfig config  = new LocalOutputPipeConfig.Builder().url("http://localhost:9200").build();
         localOutputPipe = new LocalOutputPipe(config);
     }
 
-    //TODO add tests
     @Test
     public void send(){
         Event start = new StartEvent("ID1", LogParams.create(), null, null);

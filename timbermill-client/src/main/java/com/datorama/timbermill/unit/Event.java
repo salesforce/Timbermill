@@ -1,7 +1,5 @@
 package com.datorama.timbermill.unit;
 
-import org.elasticsearch.action.update.UpdateRequest;
-
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -11,7 +9,7 @@ import java.util.UUID;
 
 public abstract class Event{
 
-	private static final String DELIMETER = "##@##";
+	private static final String DELIMETER = "___";
     protected String taskId;
     protected ZonedDateTime time;
 
@@ -27,7 +25,8 @@ public abstract class Event{
     private List<String> logs;
 
     private List<String> parentsPath;
-	Event(String taskId, String name, @NotNull LogParams logParams, String parentId) {
+
+    Event(String taskId, String name, @NotNull LogParams logParams, String parentId) {
 		if (taskId == null) {
 			taskId = generateTaskId(name);
 		}
@@ -128,9 +127,7 @@ public abstract class Event{
 		return string.substring(0, stringLength);
 	}
 
-	public abstract UpdateRequest getUpdateRequest(String index);
-
-	public  boolean isStartEvent(){
+    public  boolean isStartEvent(){
 		return false;
 	}
 
@@ -143,8 +140,8 @@ public abstract class Event{
 	}
 
 	public String getNameFromId() {
-		String[] split = taskId.split(DELIMETER);
 		if (name == null){
+			String[] split = taskId.split(DELIMETER);
 			if (split.length == 0){
 				return null;
 			}
@@ -156,4 +153,14 @@ public abstract class Event{
 			return name;
 		}
 	}
+
+	public ZonedDateTime getStartTime() {
+		return time;
+	}
+
+	public ZonedDateTime getEndTime() {
+		return null;
+	}
+
+	public abstract Task.TaskStatus getStatus(Task.TaskStatus status);
 }

@@ -27,8 +27,7 @@ public class TimberLoggerAdvancedTest {
 
     @BeforeClass
     public static void init() {
-        LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).secondBetweenPolling(1);
-        LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
+        LocalOutputPipeConfig config = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).secondBetweenPolling(1).build();
         TimberLogger.bootstrap(new LocalOutputPipe(config));
     }
 
@@ -76,13 +75,13 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(ongoingTaskId).getStatus() == TaskStatus.SUCCESS));
 
         Task task = client.getTaskById(taskId);
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 
         Task childTask = client.getTaskById(childTaskId);
-        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+        assertTask(childTask, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
 
         Task ongoingTask = client.getTaskById(ongoingTaskId);
-        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+        assertTask(ongoingTask, ongoingTaskName, true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
 
         assertEquals(ctx, ongoingTask.getCtx().get(ctx));
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
@@ -134,7 +133,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, true, taskId, null);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -185,10 +184,10 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
         Task ongoingTask = client.getTaskById(ongoingTaskId);
-        assertTask(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+        assertTask(ongoingTask, ongoingTaskName, true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
 
         Task task = client.getTaskById(taskId);
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -249,7 +248,7 @@ public class TimberLoggerAdvancedTest {
 
         Task ongoingTask = client.getTaskById(taskId);
 
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.ERROR, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.ERROR, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -297,10 +296,10 @@ public class TimberLoggerAdvancedTest {
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
 
         Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS) && client.getTaskById(taskId).getCtx().get(ctx2) != null);
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -350,7 +349,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -400,7 +399,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -447,10 +446,10 @@ public class TimberLoggerAdvancedTest {
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
 
         Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+                && (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS) && client.getTaskById(taskId).getCtx().get(ctx2) != null);
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -494,7 +493,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, taskId);
+        assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, true);
 
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
         assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
@@ -533,7 +532,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_ERROR, taskId);
+        assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_ERROR, true);
 
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
         assertEquals(ctx3, ongoingTask.getCtx().get(ctx3));
@@ -573,7 +572,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getCtx().get(ctx3) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, taskId);
+        assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED_SUCCESS, true);
 
         assertEquals(ongoingTaskName, ongoingTask.getName());
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -613,7 +612,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getCtx().get(ctx2) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId, false, false);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -652,7 +651,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId).getCtx().get(ctx1) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId);
+        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.UNTERMINATED, taskId, false, false);
 
         assertEquals(ctx1, ongoingTask.getCtx().get(ctx1));
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
@@ -686,7 +685,7 @@ public class TimberLoggerAdvancedTest {
         Awaitility.await().atMost(90, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null));
 
         Task ongoingTask = client.getTaskById(taskId);
-        assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED, taskId);
+        assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.CORRUPTED, false);
 
         assertEquals(ctx2, ongoingTask.getCtx().get(ctx2));
         assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
@@ -745,11 +744,11 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(taskId1Arr[0]).getStatus() == TaskStatus.SUCCESS));
 
         Task parentTask = client.getTaskById(parentTaskId);
-        assertTaskPrimary(parentTask, ongoingTaskName, TaskStatus.SUCCESS, parentTaskId);
+        assertTaskPrimary(parentTask, ongoingTaskName, TaskStatus.SUCCESS, parentTaskId, true, true);
         assertEquals(ctx1, parentTask.getCtx().get(ctx1));
 
         Task childTask = client.getTaskById(taskId1Arr[0]);
-        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS, false, parentTaskId, parentTaskId, ongoingTaskName);
+        assertTask(childTask, EVENT + '2', true, true, parentTaskId, parentTaskId, TaskStatus.SUCCESS, false, ongoingTaskName);
         assertEquals(ctx1, childTask.getCtx().get(ctx1));
     }
 
@@ -786,10 +785,10 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(childTaskId).getStatus() == TaskStatus.SUCCESS));
 
         Task childTask = client.getTaskById(childTaskId);
-        assertTask(childTask, EVENT + '2', TaskStatus.SUCCESS,  false, ongoingTaskId, ongoingTaskId, ongoingTaskName);
+        assertTask(childTask, EVENT + '2', true, true, ongoingTaskId, ongoingTaskId, TaskStatus.SUCCESS, false, ongoingTaskName);
 
         Task ongoingTask = client.getTaskById(ongoingTaskId);
-        assertTaskPrimary(ongoingTask,  ongoingTaskName, TaskStatus.SUCCESS, ongoingTaskId);
+        assertTaskPrimary(ongoingTask,  ongoingTaskName, TaskStatus.SUCCESS, ongoingTaskId, true, true);
     }
 
     @TimberLog(name = EVENT + '2')
@@ -811,7 +810,7 @@ public class TimberLoggerAdvancedTest {
                 && (client.getTaskById(finalTaskId).getStatus() == TaskStatus.SUCCESS));
 
         Task childTask = client.getTaskById(taskId);
-        assertTaskPrimary(childTask, EVENT + '2', TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(childTask, EVENT + '2', TaskStatus.SUCCESS, taskId, true, true);
     }
 
     @TimberLog(name = EVENT + '2')

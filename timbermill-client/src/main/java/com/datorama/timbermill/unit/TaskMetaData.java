@@ -27,7 +27,7 @@ class TaskMetaData {
         this.duration = duration;
     }
 
-    long getDuration() {
+    Long getDuration() {
         return duration;
     }
 }

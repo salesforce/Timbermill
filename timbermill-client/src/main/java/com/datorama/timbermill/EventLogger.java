@@ -81,6 +81,10 @@ final class EventLogger {
 		return startEvent(null, name, null ,logParams, false);
 	}
 
+	String startEvent(String name, String parentTaskId, LogParams logParams) {
+		return startEvent(null, name, parentTaskId ,logParams, false);
+	}
+
 	String startEvent(String taskId, String name, String parentTaskId, LogParams logParams, boolean isOngoingTask) {
 		addStaticParams(logParams);
 		Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name);
@@ -112,11 +116,7 @@ final class EventLogger {
 	}
 
 	String endWithError(Throwable t) {
-		return endWithError(t, null);
-	}
-
-	String endWithError(Throwable t, String ongoingTaskId) {
-		return endWithError(t, ongoingTaskId, LogParams.create());
+		return endWithError(t, null, LogParams.create());
 	}
 
     String endWithError(Throwable t, String ongoingTaskId, @NotNull LogParams logParams) {
@@ -197,7 +197,7 @@ final class EventLogger {
 		PrimaryParentIdPair primaryParentIdPair;
 		Event event;
 		if (!isOngoingTask) {
-			primaryParentIdPair = getPrimaryParentIdPair();
+			primaryParentIdPair = getPrimaryParentIdPair(parentTaskId);
 			event = new StartEvent(taskId, name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
 			taskIdStack.push(event.getTaskId());
 		}
@@ -224,11 +224,14 @@ final class EventLogger {
 
 	private Event createSpotEvent(String name, @NotNull LogParams logParams, Task.TaskStatus status) {
 		addStaticParams(logParams);
-		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair();
+		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(null);
 		return new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status);
 	}
 
-	private PrimaryParentIdPair getPrimaryParentIdPair() {
+	private PrimaryParentIdPair getPrimaryParentIdPair(String parentTaskId) {
+		if (parentTaskId != null){
+			return new PrimaryParentIdPair(null, parentTaskId);
+		}
 		String primaryId = null;
 		String parentId = null;
 		if (!taskIdStack.isEmpty()) {

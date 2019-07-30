@@ -18,8 +18,9 @@ public class LocalOutputPipeConfig {
     private final Map<String, String> staticParams;
     private int secondBetweenPolling;
     private String awsRegion;
+    private int maxEventsToDrainFromQueue;
 
-    public LocalOutputPipeConfig(Builder builder) {
+    private LocalOutputPipeConfig(Builder builder) {
         if (builder == null){
             throw new ElasticsearchException("LocalOutputPipeConfig.Builder can't be null");
         }
@@ -36,6 +37,7 @@ public class LocalOutputPipeConfig {
         secondBetweenPolling = builder.secondBetweenPolling;
         staticParams.put(ENV, builder.env);
         awsRegion = builder.awsRegion;
+        maxEventsToDrainFromQueue = builder.maxEventsToDrainFromQueue;
     }
 
     int getDaysBackToDelete() {
@@ -74,12 +76,16 @@ public class LocalOutputPipeConfig {
         return staticParams;
     }
 
-    public String getAwsRegion() {
+    String getAwsRegion() {
         return awsRegion;
     }
 
+    public int getMaxEventsToDrainFromQueue() {
+        return maxEventsToDrainFromQueue;
+    }
+
     public static class Builder {
-        public String awsRegion;
+        private String awsRegion;
         private String elasticUrl = null;
         private String env = "default";
         private String plugingJson = "[]";
@@ -88,6 +94,7 @@ public class LocalOutputPipeConfig {
         private int indexBulkSize = 1000;
         private int daysBackToDelete = 0;
         private int secondBetweenPolling = 10;
+        private int maxEventsToDrainFromQueue = 1000;
         private Map<String, String> staticParams = Maps.newHashMap();
 
         public Builder url(String elasticUrl) {
@@ -137,6 +144,11 @@ public class LocalOutputPipeConfig {
 
         public Builder awsRegion(String awsRegion) {
             this.awsRegion = awsRegion;
+            return this;
+        }
+
+        public Builder maxEventsToDrainFromQueue(int maxEventsToDrainFromQueue) {
+            this.maxEventsToDrainFromQueue = maxEventsToDrainFromQueue;
             return this;
         }
 

@@ -34,11 +34,13 @@ public class LocalTaskIndexer {
     private int defaultMaxChars;
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
+    private int maxEventsToDrainFromQueue;
 
-    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es, int secondBetweenPolling) {
+    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es, int secondBetweenPolling, int maxEventsToDrainFromQueue) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.propertiesLengthMap = propertiesLengthMap;
         this.defaultMaxChars = defaultMaxChars;
+        this.maxEventsToDrainFromQueue = maxEventsToDrainFromQueue;
         this.es = es;
         new Thread(() -> {
             indexMetadataTaskToTimbermill();
@@ -77,8 +79,7 @@ public class LocalTaskIndexer {
     private void retrieveAndIndex() {
         LOG.info("------------------ Batch Start ------------------");
         List<Event> events = new ArrayList<>();
-        //TODO move to configuration
-        eventsQueue.drainTo(events, 100);
+        eventsQueue.drainTo(events, maxEventsToDrainFromQueue);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
@@ -102,6 +103,16 @@ public class LocalTaskIndexer {
                     LOG.info("All {} missing event were retrieved from elasticsearch..", missingParentNum);
                 } else {
                     Sets.SetView<String> notFoundEvents = Sets.difference(missingParentEvents, previouslyIndexedTasks.keySet());
+
+                    for (String notFoundEvent : notFoundEvents) {
+                        for (Event event : timbermillEvents) {
+                            if (notFoundEvent.equals(event.getPrimaryId())){
+                                event.setPrimaryId(null);
+                            }
+                        }
+                    }
+
+
                     String joinString = StringUtils.join(notFoundEvents, ",");
                     LOG.warn("{} missing events were not retrieved from elasticsearch. Events [{}]", missingParentNum - previouslyIndexedTasks.size(), joinString);
                 }
@@ -134,9 +145,8 @@ public class LocalTaskIndexer {
                 ParentProperties parentProperties = getParentProperties(previouslyIndexedTasks, events.stream().collect(groupingBy(e -> e.getTaskId())), parentId);
 
                 String primaryId = parentProperties.getPrimaryId();
-                if (primaryId == null){
+                if (primaryId == null && parentId == null){
                     event.setPrimaryId(event.getTaskId());
-                    event.setParentId(null);
                 }
                 else {
                     event.setPrimaryId(primaryId);
@@ -250,7 +260,7 @@ public class LocalTaskIndexer {
     }
 
     private static Set<String> getAllTaskIds(Collection<Event> events) {
-        return events.stream().map(e -> e.getTaskId()).collect(Collectors.toSet());
+        return events.stream().filter(e -> e.isStartEvent()).map(e -> e.getTaskId()).collect(Collectors.toSet());
     }
 
     private static ParentProperties getParentProperties(Map<String, Task> previouslyIndexedTasks, Map<String, List<Event>> currentBatchEvents, String parentId) {

@@ -1,5 +1,6 @@
 package com.datorama.timbermill;
 
+import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipe;
 import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
@@ -43,14 +44,18 @@ public final class TimberLogger {
 	}
 
 	public static String start(String name) {
-		return start(name, null);
+		return start(name, null, null);
 	}
 
 	public static String start(String name, LogParams logParams) {
+		return start(name, null, logParams);
+	}
+
+	public static String start(String name, String parentTaskId, LogParams logParams) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		return EventLogger.get().startEvent(name, logParams);
+		return EventLogger.get().startEvent(name, parentTaskId, logParams);
 	}
 
 	public static String success() {
@@ -125,5 +130,22 @@ public final class TimberLogger {
 
 	public static <T,R> Function<T,R> wrapFunctional(Function<T, R> function){
 		return EventLogger.get().wrapFunction(function);
+	}
+
+	public static void main(String[] args) {
+		LocalOutputPipeConfig config = new LocalOutputPipeConfig.Builder().url("http://localhost:9200").env("local").build();
+		TimberLogger.bootstrap(new LocalOutputPipe(config));
+		methodToLog();
+		TimberLogger.exit();
+	}
+
+	@TimberLog(name = "method_to_log")
+	public static void methodToLog() {
+		TimberLogger.logContext("key", "context");
+		TimberLogger.logText("key", "This is a text");
+		TimberLogger.logString("key", "string");
+		TimberLogger.logMetric("key", 2);
+		TimberLogger.logInfo("This is a regular log");
+		TimberLogger.logInfo("This is also a regular log");
 	}
 }

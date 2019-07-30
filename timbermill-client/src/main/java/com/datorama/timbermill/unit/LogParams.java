@@ -37,9 +37,9 @@ public class LogParams {
 		return this;
 	}
 
-	private void addToLogs(String s, String warn) {
+	private void addToLogs(String log, String severity) {
 		String date = ZonedDateTime.now().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
-		logs.add(String.format("[%s] [%s] - %s", date, warn, s));
+		logs.add(String.format("[%s] [%s] - %s", date, severity, log));
 	}
 
 	public LogParams string(String key, Object value) {
@@ -98,7 +98,7 @@ public class LogParams {
         return context;
     }
 
-	public List<String> getLogs() {
+	List<String> getLogs() {
 		return logs;
 	}
 }

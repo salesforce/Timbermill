@@ -11,7 +11,6 @@ import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -22,6 +21,7 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.IdsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -34,9 +34,10 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.datorama.timbermill.common.Constants.*;
+import static java.util.stream.Collectors.groupingBy;
+
 
 public class ElasticsearchClient {
 
@@ -46,7 +47,7 @@ public class ElasticsearchClient {
     private String env;
     private int indexBulkSize;
     private int daysBackToDelete;
-    static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
+    private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
     public ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
         this.indexBulkSize = indexBulkSize;
@@ -93,7 +94,7 @@ public class ElasticsearchClient {
         HashSet<String> taskIds = new HashSet<>();
         taskIds.add(taskId);
         SearchResponse response = getTasksByIds(taskIds);
-        if (response.getHits().totalHits == 1){
+        if (response.getHits().getHits().length == 1){
             String sourceAsString = response.getHits().getAt(0).getSourceAsString();
             return GSON.fromJson(sourceAsString, Task.class);
         }
@@ -125,7 +126,7 @@ public class ElasticsearchClient {
         }
         String indexPrefix = currIndex.split("-")[0];
         String oldIndex = getTaskIndexWithEnv(indexPrefix, ZonedDateTime.now().minusDays(daysBackToDelete));
-        GetIndexRequest existsRequest = new GetIndexRequest().indices(oldIndex);
+        GetIndexRequest existsRequest = new GetIndexRequest(oldIndex);
         boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
         if (exists) {
             DeleteIndexRequest request = new DeleteIndexRequest(oldIndex);
@@ -153,14 +154,22 @@ public class ElasticsearchClient {
         }
         //TODO not correct - Should be changed to Rollover
 
-        List<UpdateRequest> requests = events.stream().map(event -> event.getUpdateRequest(index)).collect(Collectors.toList());
+
+        List<UpdateRequest> requests = new ArrayList<>();
+        Map<String, List<Event>> eventsMap = events.stream().collect(groupingBy(e -> e.getTaskId()));
+        for (Map.Entry<String, List<Event>> eventsEntry : eventsMap.entrySet()) {
+            Task task = new Task(eventsEntry.getValue());
+            UpdateRequest updateRequest = task.getUpdateRequest(index, eventsEntry.getKey());
+            requests.add(updateRequest);
+        }
+
         for (UpdateRequest updateRequest : requests) {
             i++;
             currBatch++;
 
             request.add(updateRequest);
             try{
-                if (((i % bulkSize) == 0) || (i == events.size())) {
+                if (((i % bulkSize) == 0) || (i == requests.size())) {
                     BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
 
                     if (responses.hasFailures()) {

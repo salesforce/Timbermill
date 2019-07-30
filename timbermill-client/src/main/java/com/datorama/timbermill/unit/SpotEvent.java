@@ -1,12 +1,8 @@
 package com.datorama.timbermill.unit;
 
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
-
 import javax.validation.constraints.NotNull;
 
-import static com.datorama.timbermill.common.Constants.GSON;
-import static com.datorama.timbermill.common.Constants.TYPE;
+import java.time.ZonedDateTime;
 
 public class SpotEvent extends Event {
     private final Task.TaskStatus status;
@@ -21,30 +17,13 @@ public class SpotEvent extends Event {
         this.status = status;
     }
 
+    public ZonedDateTime getEndTime() {
+        return time;
+    }
+
     @Override
-    public UpdateRequest getUpdateRequest(String index) {
-        UpdateRequest updateRequest = new UpdateRequest(index, TYPE, getTaskId());
-        Task task = new Task(this, time, time, status);
-
-        if (task.getCtx().isEmpty()){
-            task.setCtx(null);
-        }
-        if (task.getString().isEmpty()){
-            task.setString(null);
-        }
-        if (task.getText().isEmpty()){
-            task.setText(null);
-        }
-        if (task.getMetric().isEmpty()){
-            task.setMetric(null);
-        }
-        if (task.getLog().isEmpty()){
-            task.setLog(null);
-        }
-
-        updateRequest.upsert(GSON.toJson(task), XContentType.JSON);
-        updateRequest.doc(GSON.toJson(task), XContentType.JSON);
-        return updateRequest;
+    public Task.TaskStatus getStatus(Task.TaskStatus status) {
+        return this.status;
     }
 
     @Override

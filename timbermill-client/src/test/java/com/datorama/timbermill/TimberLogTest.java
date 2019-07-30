@@ -21,7 +21,6 @@ import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
 
 public class TimberLogTest {
-
 	private static final String EVENT = "Event";
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
@@ -29,10 +28,11 @@ public class TimberLogTest {
 	private static final String SPOT = "Spot";
 	private static final String TEST = "test";
 	private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	public static final String LOG_REGEX = "\\[\\d+-.*-\\d+ \\d+:\\d\\d:\\d\\d\\] \\[INFO\\] - ";
 	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0, null);
 	private String childTaskId;
 	private String childOfChildTaskId;
+
+	static final String LOG_REGEX = "\\[\\w\\w\\w \\d+, \\d\\d\\d\\d \\d+:\\d\\d:\\d\\d \\w\\w] \\[INFO] - ";
 
 	@BeforeClass
 	public static void init() {
@@ -44,9 +44,9 @@ public class TimberLogTest {
 		map.put("string.sql2", 100);
 		map.put("ctx.sql2", 100);
 
-		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1)
-				.pluginJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
-		LocalOutputPipeConfig config = new LocalOutputPipeConfig(builder);
+        LocalOutputPipeConfig config = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1)
+				.pluginJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]")
+                .build();
 		TimberLogger.bootstrap(new LocalOutputPipe(config));
 	}
 
@@ -72,7 +72,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
 
-		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 		assertEquals(TEST, task.getCtx().get(ENV));
 		assertTrue(task.getDuration() > 1000);
 		Map<String, String> strings = task.getString();
@@ -113,7 +113,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 		Task task = client.getTaskById(taskId);
 
-        assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId, true, true);
 		Map<String, String> strings = task.getString();
 		String errorType = strings.get("errorType");
 		assertEquals("TOO_MANY_SERVER_ROWS", errorType);
@@ -141,7 +141,7 @@ public class TimberLogTest {
 
 		Task task = client.getTaskById(taskId);
 
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
 		Map<String, String> context = task.getCtx();
@@ -188,14 +188,14 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId1);
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1);
+        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1, true, true);
 
 		Task spot = client.getTaskById(taskIdSpot[0]);
-		assertTask(spot, SPOT, TaskStatus.SUCCESS, false, taskId1, taskId1, EVENT);
+		assertTask(spot, SPOT, true, true, taskId1, taskId1, TaskStatus.SUCCESS, false, EVENT);
 		assertEquals(context, spot.getCtx().get(context));
 
         Task child = client.getTaskById(taskId2);
-        assertTask(child, EVENT + '2', TaskStatus.SUCCESS, false, taskId1, taskId1, EVENT);
+        assertTask(child, EVENT + '2', true, true, taskId1, taskId1, TaskStatus.SUCCESS, false, EVENT);
         assertEquals(context, child.getCtx().get(context));
 	}
 
@@ -245,21 +245,21 @@ public class TimberLogTest {
 
 
 		Task task = client.getTaskById(taskId);
-		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
         assertEquals(context1, task.getCtx().get(context1));
 
         Task task2 = client.getTaskById(taskId2);
-        assertTask(task2, EVENT + '2', TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+        assertTask(task2, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
         assertEquals(context1, task2.getCtx().get(context1));
         assertEquals(context2, task2.getCtx().get(context2));
 
 		Task task3 = client.getTaskById(taskId3);
-        assertTask(task3, EVENT + '3', TaskStatus.SUCCESS, false, taskId, taskId2, EVENT, EVENT + '2');
+        assertTask(task3, EVENT + '3', true, true, taskId, taskId2, TaskStatus.SUCCESS, false, EVENT, EVENT + '2');
 		assertEquals(context1, task3.getCtx().get(context1));
 		assertEquals(context2, task3.getCtx().get(context2));
 
 		Task spot = client.getTaskById(taskIdSpot);
-		assertTask(spot, SPOT, TaskStatus.SUCCESS, false, taskId, taskId, EVENT);
+		assertTask(spot, SPOT, true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
 		assertEquals(context1, spot.getCtx().get(context1));
 	}
 
@@ -327,7 +327,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId[0]).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId[0]);
-		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId[0]);
+		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS, false);
 	}
 
 	@TimberLog(name = EVENT)
@@ -348,11 +348,11 @@ public class TimberLogTest {
 		Task taskChild = client.getTaskById(childTaskId);
 		Task taskChildOfChild = client.getTaskById(childOfChildTaskId);
 
-		assertTaskPrimary(taskParent, EVENT, TaskStatus.SUCCESS, parentId);
+		assertTaskPrimary(taskParent, EVENT, TaskStatus.SUCCESS, parentId, true, true);
 
-		assertTask(taskChild, EVENT_CHILD, TaskStatus.ERROR, false, parentId, parentId, EVENT);
+		assertTask(taskChild, EVENT_CHILD, true, true, parentId, parentId, TaskStatus.ERROR, false, EVENT);
 
-		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, TaskStatus.ERROR, false, parentId, childTaskId, EVENT, EVENT_CHILD);
+		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, true, true, parentId, childTaskId, TaskStatus.ERROR, false, EVENT, EVENT_CHILD);
 	}
 
 	@TimberLog(name = EVENT)
@@ -384,7 +384,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
-		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId);
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 	}
 
 	@TimberLog(name = EVENT)
@@ -402,7 +402,7 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
 
 		Task task = client.getTaskById(taskId);
-		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId);
+		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId, true, true);
 	}
 
 	@Test
@@ -417,18 +417,37 @@ public class TimberLogTest {
 				&& (client.getTaskById(taskId).getStatus() == TaskStatus.ERROR));
 
 		Task task = client.getTaskById(taskId);
-		assertTaskPrimary(task, "ctr", TaskStatus.ERROR, taskId);
+		assertTaskPrimary(task, "ctr", TaskStatus.ERROR, taskId, true, true);
 	}
 
-    static void assertTask(Task task, String name, TaskStatus status, boolean isPrimary, String primaryId, String parentId, String... parents) {
+    static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, Boolean isPrimary, String... parents) {
         assertEquals(name, task.getName());
         assertEquals(status, task.getStatus());
-        assertEquals(isPrimary, task.isPrimary());
+        assertNotNull(task.getStartTime());
+        if (shouldHaveEndTime){
+            assertNotNull(task.getEndTime());
+        }
+        else{
+            assertNull(task.getEndTime());
+        }
+
+		if (shouldBeComplete) {
+			assertNotNull(task.getDuration());
+		} else {
+			assertNull(task.getDuration());
+		}
+
+		if (isPrimary == null){
+            assertNull(task.isPrimary());
+        }
+        else {
+            assertEquals(isPrimary, task.isPrimary());
+        }
         assertEquals(primaryId, task.getPrimaryId());
         assertEquals(parentId, task.getParentId());
 
         List<String> parentsPath = task.getParentsPath();
-        if (parentId == null){
+        if (parentId == null || (parents.length == 0)){
             assertNull(parentsPath);
         }
         else {
@@ -440,7 +459,11 @@ public class TimberLogTest {
         }
     }
 
-    static void assertTaskPrimary(Task task, String name, TaskStatus status, String taskId) {
-        assertTask(task, name, status, true, taskId, null);
+    static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
+        assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status, true);
     }
+
+	static void assertTaskCorrupted(Task task, String name, TaskStatus status, boolean shouldHaveEndTime) {
+		assertTask(task, name, shouldHaveEndTime, false, null, null, status, null);
+	}
 }
