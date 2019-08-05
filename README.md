@@ -28,7 +28,7 @@ It's rarely enough just to know that something happened and simple logging just 
 
 Timbermill does.
 
-Every task in Timbermill points to a parent task and automatically keeps important text from it:
+Every task in Timbermill points to a parent task and automatically keeps important information from it:
 * Complete path of tasks leading to this task.
 * Important properties from its ancestors.
 * More!
@@ -41,12 +41,45 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * Java project (1.8+)
 * Add dependency to maven
 
-
-         <dependency>
-             <groupId>com.datorama</groupId>
-             <artifactId>timbermill-client</artifactId>
-             <version>2.0.4</version>
-         </dependency>
+    
+         <dependencies>
+             <dependency>
+                 <groupId>com.datorama</groupId>
+                 <artifactId>timbermill-client</artifactId>
+                 <version>2.0.4</version>
+             </dependency>
+             ...
+         </dependencies>
+         
+         <build>
+         		<plugins>
+         			<plugin>
+         				<groupId>org.codehaus.mojo</groupId>
+         				<artifactId>aspectj-maven-plugin</artifactId>
+         				<version>1.11</version>
+         				<configuration>
+         					<showWeaveInfo>true</showWeaveInfo>
+         					<complianceLevel>1.8</complianceLevel>
+         					<aspectLibraries>
+         						<aspectLibrary>
+         							<groupId>com.datorama.oss</groupId>
+         							<artifactId>timbermill-client</artifactId>
+         						</aspectLibrary>
+         					</aspectLibraries>
+         				</configuration>
+         				<executions>
+         					<execution>
+         						<phase>process-sources</phase>
+         						<goals>
+         							<goal>compile</goal>
+         							<goal>test-compile</goal>
+         						</goals>
+         					</execution>
+         				</executions>
+         			</plugin>
+         			...
+         		</plugins>
+         	</build>
 
 
 #### How to use Timbermill
@@ -59,10 +92,9 @@ Timbermill is designed to be plug-and-play out-of-the-box.
         
         log();
         
-        TimberLogger.exit();
     }
 
-    //@TimberLog(name = "hello_world")
+    @TimberLog(name = "hello_world")
     public void log() {
         LogParams params = LogParams.create().string("foo", "bar").text("text", "This is a text!").metric("number", 42);
         TimberLogger.logParams(params);
@@ -74,10 +106,9 @@ Timbermill is designed to be plug-and-play out-of-the-box.
                  
  This code bootstraps Timbermill with a local default Elasticsearch cluster (http://localhost:9200). It will write one task of name `hello_world` with the above properties to elasticsearch.
  
- ![Alt text](hello1.png?raw=true "Kibana")
+ ![Alt text](hello.png?raw=true "Kibana")
  
- * The catch clouse is mandatory. If your code will throw an exception without a closing TimberLog method (success/error) being
-called, tasks in Timbermill could become corrupted.
+
 * A custom Elasticsearch URL (along with other [configurations](timbermill.configurations)) can be defined using `LocalOutputPipeConfig`.
 
 ```
