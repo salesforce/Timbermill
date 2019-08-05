@@ -45,7 +45,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
          <dependency>
              <groupId>com.datorama</groupId>
              <artifactId>timbermill-client</artifactId>
-             <version>2.0.0</version>
+             <version>2.0.4</version>
          </dependency>
 
 
@@ -62,7 +62,7 @@ Timbermill is designed to be plug-and-play out-of-the-box.
         TimberLogger.exit();
     }
 
-    @TimberLog(name = "hello_world")
+    //@TimberLog(name = "hello_world")
     public void log() {
         LogParams params = LogParams.create().string("foo", "bar").text("text", "This is a text!").metric("number", 42);
         TimberLogger.logParams(params);
