@@ -42,44 +42,44 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * Add dependency to maven
 
     
-         <dependencies>
-             <dependency>
-                 <groupId>com.datorama</groupId>
-                 <artifactId>timbermill-client</artifactId>
-                 <version>2.0.4</version>
-             </dependency>
-             ...
-         </dependencies>
+    <dependencies>
+        <dependency>
+             <groupId>com.datorama</groupId>
+             <artifactId>timbermill-client</artifactId>
+             <version>2.0.4</version>
+        </dependency>
+        ...
+    </dependencies>
          
-         <build>
-         		<plugins>
-         			<plugin>
-         				<groupId>org.codehaus.mojo</groupId>
-         				<artifactId>aspectj-maven-plugin</artifactId>
-         				<version>1.11</version>
-         				<configuration>
-         					<showWeaveInfo>true</showWeaveInfo>
-         					<complianceLevel>1.8</complianceLevel>
-         					<aspectLibraries>
-         						<aspectLibrary>
-         							<groupId>com.datorama.oss</groupId>
-         							<artifactId>timbermill-client</artifactId>
-         						</aspectLibrary>
-         					</aspectLibraries>
-         				</configuration>
-         				<executions>
-         					<execution>
-         						<phase>process-sources</phase>
-         						<goals>
-         							<goal>compile</goal>
-         							<goal>test-compile</goal>
-         						</goals>
-         					</execution>
-         				</executions>
-         			</plugin>
-         			...
-         		</plugins>
-         	</build>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>aspectj-maven-plugin</artifactId>
+                <version>1.11</version>
+                <configuration>
+                    <showWeaveInfo>true</showWeaveInfo>
+                    <complianceLevel>1.8</complianceLevel>
+                    <aspectLibraries>
+                        <aspectLibrary>
+                            <groupId>com.datorama.oss</groupId>
+                            <artifactId>timbermill-client</artifactId>
+                        </aspectLibrary>
+                    </aspectLibraries>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            ...
+        </plugins>
+    </build>
 
 
 #### How to use Timbermill
