@@ -133,19 +133,19 @@ public final class TimberLogger {
 	}
 
 	public static void main(String[] args) {
-		LocalOutputPipeConfig config = new LocalOutputPipeConfig.Builder().url("http://localhost:9200").env("local").build();
-		TimberLogger.bootstrap(new LocalOutputPipe(config));
-		methodToLog();
-		TimberLogger.exit();
+		TimberLogger.bootstrap();
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		log();
+
 	}
 
-	@TimberLog(name = "method_to_log")
-	public static void methodToLog() {
-		TimberLogger.logContext("key", "context");
-		TimberLogger.logText("key", "This is a text");
-		TimberLogger.logString("key", "string");
-		TimberLogger.logMetric("key", 2);
-		TimberLogger.logInfo("This is a regular log");
-		TimberLogger.logInfo("This is also a regular log");
+	@TimberLog(name = "hello_world")
+	public static void log() {
+		LogParams params = LogParams.create().string("foo", "bar").text("text", "This is a text!").metric("number", 42);
+		TimberLogger.logParams(params);
 	}
 }
