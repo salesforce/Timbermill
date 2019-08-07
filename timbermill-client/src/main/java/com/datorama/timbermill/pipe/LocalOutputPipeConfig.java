@@ -9,16 +9,15 @@ import static com.datorama.timbermill.TimberLogger.ENV;
 
 public class LocalOutputPipeConfig {
 
-    private final int daysBackToDelete;
+    private final int daysRotation;
     private final int defaultMaxChars;
     private final String elasticUrl;
     private final String plugingJson;
     private final Map<String, Integer> propertiesLengthMap;
-    private final int indexBulkSize;
     private final Map<String, String> staticParams;
     private int secondBetweenPolling;
     private String awsRegion;
-    private int maxEventsToDrainFromQueue;
+    private int indexBulkSize;
 
     private LocalOutputPipeConfig(Builder builder) {
         if (builder == null){
@@ -31,41 +30,36 @@ public class LocalOutputPipeConfig {
         plugingJson = builder.plugingJson;
         propertiesLengthMap = builder.propertiesLengthMap;
         defaultMaxChars = builder.defaultMaxChars;
-        indexBulkSize = builder.indexBulkSize;
-        daysBackToDelete = builder.daysBackToDelete;
+        daysRotation = builder.daysRotation;
         staticParams = builder.staticParams;
         secondBetweenPolling = builder.secondBetweenPolling;
         staticParams.put(ENV, builder.env);
         awsRegion = builder.awsRegion;
-        maxEventsToDrainFromQueue = builder.maxEventsToDrainFromQueue;
+        indexBulkSize = builder.indexBulkSize;
     }
 
-    int getDaysBackToDelete() {
-        return daysBackToDelete;
+    public int getDaysRotation() {
+        return daysRotation;
     }
 
-    int getDefaultMaxChars() {
+    public int getDefaultMaxChars() {
         return defaultMaxChars;
     }
 
-    String getElasticUrl() {
+    public String getElasticUrl() {
         return elasticUrl;
     }
 
-    String getEnv() {
+    public String getEnv() {
         return staticParams.get(ENV);
     }
 
-    String getPlugingJson() {
+    public String getPlugingJson() {
         return plugingJson;
     }
 
-    Map<String, Integer> getPropertiesLengthMap() {
+    public Map<String, Integer> getPropertiesLengthMap() {
         return propertiesLengthMap;
-    }
-
-    int getIndexBulkSize() {
-        return indexBulkSize;
     }
 
     int getSecondBetweenPolling() {
@@ -76,12 +70,12 @@ public class LocalOutputPipeConfig {
         return staticParams;
     }
 
-    String getAwsRegion() {
+    public String getAwsRegion() {
         return awsRegion;
     }
 
-    public int getMaxEventsToDrainFromQueue() {
-        return maxEventsToDrainFromQueue;
+    public int getIndexBulkSize() {
+        return indexBulkSize;
     }
 
     public static class Builder {
@@ -91,10 +85,9 @@ public class LocalOutputPipeConfig {
         private String plugingJson = "[]";
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
         private int defaultMaxChars = 1000000;
-        private int indexBulkSize = 1000;
-        private int daysBackToDelete = 0;
+        private int daysRotation = 0;
         private int secondBetweenPolling = 10;
-        private int maxEventsToDrainFromQueue = 1000;
+        private int indexBulkSize = 1000;
         private Map<String, String> staticParams = Maps.newHashMap();
 
         public Builder url(String elasticUrl) {
@@ -122,13 +115,8 @@ public class LocalOutputPipeConfig {
             return this;
         }
 
-        public Builder indexBulkSize(int indexBulkSize) {
-            this.indexBulkSize = indexBulkSize;
-            return this;
-        }
-
-        public Builder daysBackToDelete(int daysBackToDelete) {
-            this.daysBackToDelete = daysBackToDelete;
+        public Builder daysRotation(int daysRotation) {
+            this.daysRotation = daysRotation;
             return this;
         }
 
@@ -147,8 +135,8 @@ public class LocalOutputPipeConfig {
             return this;
         }
 
-        public Builder maxEventsToDrainFromQueue(int maxEventsToDrainFromQueue) {
-            this.maxEventsToDrainFromQueue = maxEventsToDrainFromQueue;
+        public Builder indexBulkSize(int indexBulkSize) {
+            this.indexBulkSize = indexBulkSize;
             return this;
         }
 

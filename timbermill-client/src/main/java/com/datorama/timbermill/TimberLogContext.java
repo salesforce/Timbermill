@@ -16,8 +16,4 @@ public class TimberLogContext implements AutoCloseable{
 			EventLogger.get().removeIdFromContext(ongoingTaskId);
 		}
 	}
-
-	public String getOngoingTaskId() {
-		return ongoingTaskId;
-	}
 }

@@ -102,7 +102,7 @@ public final class TimberLogger {
 		return spot(name, null);
 	}
 
-	private static String spot(String name, LogParams logParams) {
+	public static String spot(String name, LogParams logParams) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
@@ -113,7 +113,7 @@ public final class TimberLogger {
 		return spotError(name, null, t);
 	}
 
-	private static String spotError(String name, LogParams logParams, Throwable t) {
+	public static String spotError(String name, LogParams logParams, Throwable t) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}

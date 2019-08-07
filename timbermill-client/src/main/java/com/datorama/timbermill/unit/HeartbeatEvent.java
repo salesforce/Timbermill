@@ -17,7 +17,7 @@ public class HeartbeatEvent {
     private final Number outputBufferSize;
 
     public HeartbeatEvent(Event e) {
-        this.startTime = e.getTime();
+        this.startTime = e.getStartTime();
         this.name = e.getName();
 
         Map<String, String> context = e.getContext();

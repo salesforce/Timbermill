@@ -8,15 +8,16 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 
-public class TimbermillOutputPipe implements EventOutputPipe {
+public class TimbermillServerOutputPipe implements EventOutputPipe {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
 
-    ArrayBlockingQueue<Event> queue = new ArrayBlockingQueue<Event>(Integer.MAX_VALUE);
+    public TimbermillServerOutputPipe() {
+    }
 
     @Override
     public void send(Event e) {
-        queue.offer(e);
+
     }
 
     @Override
@@ -26,10 +27,6 @@ public class TimbermillOutputPipe implements EventOutputPipe {
     @Override
     public Map<String, String> getStaticParams() {
         return null;
-    }
-
-    public void start() {
-
     }
 
 }

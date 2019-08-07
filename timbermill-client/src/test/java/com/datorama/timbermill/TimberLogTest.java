@@ -28,7 +28,7 @@ public class TimberLogTest {
 	private static final String SPOT = "Spot";
 	private static final String TEST = "test";
 	private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000, 0, null);
+	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000,0, null);
 	private String childTaskId;
 	private String childOfChildTaskId;
 

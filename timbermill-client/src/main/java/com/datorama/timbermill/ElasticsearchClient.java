@@ -6,6 +6,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
@@ -49,18 +50,18 @@ public class ElasticsearchClient {
     private int daysBackToDelete;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
-    public ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
+    ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
         this.env = env;
         RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
-        if (awsRegion != null){
+        if (StringUtils.isEmpty(awsRegion)){
             AWS4Signer signer = new AWS4Signer();
             String serviceName = "es";
             signer.setServiceName(serviceName);
             signer.setRegionName(awsRegion);
             HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
-            builder.setHttpClientConfigCallback(hacb -> hacb.addInterceptorLast(interceptor));
+            builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
         client = new RestHighLevelClient(builder);
     }
@@ -134,7 +135,7 @@ public class ElasticsearchClient {
         }
     }
 
-    void close(){
+    public void close(){
         try {
             client.close();
         } catch (IOException e) {

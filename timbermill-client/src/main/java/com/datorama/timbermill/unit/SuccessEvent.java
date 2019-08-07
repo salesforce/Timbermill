@@ -4,6 +4,9 @@ import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 
 public class SuccessEvent extends Event {
+    public SuccessEvent() {
+    }
+
     public SuccessEvent(String taskId, @NotNull LogParams logParams) {
         super(taskId, null, logParams, null);
     }

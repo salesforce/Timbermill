@@ -1,11 +1,9 @@
 package com.datorama.timbermill.plugins;
 
 import com.datorama.timbermill.unit.Event;
-import com.datorama.timbermill.unit.Task;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 public abstract class TaskLogPlugin implements Serializable{
 
@@ -14,7 +12,7 @@ public abstract class TaskLogPlugin implements Serializable{
 	public TaskLogPlugin() {
 	}
 
-	public TaskLogPlugin(String name) {
+	TaskLogPlugin(String name) {
 		this.name = name;
 	}
 

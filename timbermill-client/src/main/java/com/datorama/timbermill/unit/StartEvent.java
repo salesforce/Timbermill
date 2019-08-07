@@ -3,6 +3,10 @@ package com.datorama.timbermill.unit;
 import javax.validation.constraints.NotNull;
 
 public class StartEvent extends Event {
+
+    public StartEvent() {
+    }
+
     public StartEvent(String taskId, String name, @NotNull LogParams logParams, String primaryId, String parentId) {
         super(taskId, name, logParams, parentId);
         if (primaryId == null){
@@ -12,6 +16,7 @@ public class StartEvent extends Event {
         }
     }
 
+    //Testing
     public StartEvent(String name, @NotNull LogParams logParams, String primaryId, String parentId) {
         this(null, name, logParams, primaryId, parentId);
     }

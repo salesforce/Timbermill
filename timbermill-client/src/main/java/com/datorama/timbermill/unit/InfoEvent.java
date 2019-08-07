@@ -3,6 +3,10 @@ package com.datorama.timbermill.unit;
 import javax.validation.constraints.NotNull;
 
 public class InfoEvent extends Event {
+
+    public InfoEvent() {
+    }
+
     public InfoEvent(String taskId, @NotNull LogParams logParams) {
         super(taskId, null, logParams, null);
     }

@@ -9,6 +9,32 @@
     <version>2.0.0</version>
     <packaging>jar</packaging>
 
+    <name>timbermill-client</name>
+    <description>A better logging service</description>
+    <url>https://github.com/datorama/Timbermill</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Eden Gal</name>
+            <email>egal@salesforce.com</email>
+            <organization>Datorama</organization>
+            <organizationUrl>http://www.datorama.com</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/datorama/Timbermill.git</connection>
+        <developerConnection>scm:git:ssh://github.com:datorama/Timbermill.git</developerConnection>
+        <url>https://github.com/datorama/Timbermill/tree/master</url>
+    </scm>
+
     <dependencies>
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
@@ -102,6 +128,19 @@
                         <goals>
                             <goal>compile</goal>
                             <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>2.8.2</version>
+                <executions>
+                    <execution>
+                        <id>default-deploy</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>deploy</goal>
                         </goals>
                     </execution>
                 </executions>

@@ -2,11 +2,13 @@ package com.datorama.timbermill;
 
 
 import com.datorama.timbermill.common.Constants;
+import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.plugins.PluginsConfig;
 import com.datorama.timbermill.plugins.TaskLogPlugin;
 import com.datorama.timbermill.unit.*;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.elasticsearch.ElasticsearchException;
@@ -15,8 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
 import static com.datorama.timbermill.common.Constants.GSON;
@@ -24,68 +24,37 @@ import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
-public class LocalTaskIndexer {
+public class TaskIndexer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
 
     private final ElasticsearchClient es;
-    private BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
-    private static final Logger LOG = LoggerFactory.getLogger(LocalTaskIndexer.class);
-    private Collection<TaskLogPlugin> logPlugins;
-    private Map<String, Integer> propertiesLengthMap;
-    private int defaultMaxChars;
-    private boolean keepRunning = true;
-    private boolean stoppedRunning = false;
-    private int maxEventsToDrainFromQueue;
+    private final Collection<TaskLogPlugin> logPlugins;
+    private final Map<String, Integer> propertiesLengthMap;
+    private final int defaultMaxChars;
 
-    public LocalTaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthMap, int defaultMaxChars, ElasticsearchClient es, int secondBetweenPolling, int maxEventsToDrainFromQueue) {
+    public TaskIndexer(LocalOutputPipeConfig config) {
+        logPlugins = PluginsConfig.initPluginsFromJson(config.getPlugingJson());
+        this.propertiesLengthMap = config.getPropertiesLengthMap();
+        this.defaultMaxChars = config.getDefaultMaxChars();
+        this.es = new ElasticsearchClient(config.getEnv(), config.getElasticUrl(), config.getIndexBulkSize(), config.getDaysRotation(), config.getAwsRegion());
+    }
+
+    public TaskIndexer(String pluginsJson, String propertiesLengthJson, int defaultMaxChars, String env, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
-        this.propertiesLengthMap = propertiesLengthMap;
+        this.propertiesLengthMap = new Gson().fromJson(propertiesLengthJson, Map.class);
         this.defaultMaxChars = defaultMaxChars;
-        this.maxEventsToDrainFromQueue = maxEventsToDrainFromQueue;
-        this.es = es;
-        new Thread(() -> {
-            indexMetadataTaskToTimbermill();
-            try {
-                while (keepRunning) {
-                    long l1 = System.currentTimeMillis();
-                    try {
-                        retrieveAndIndex();
-                    } catch (RuntimeException e) {
-                        LOG.error("Error was thrown from TaskIndexer:", e);
-                    } finally {
-                        long l2 = System.currentTimeMillis();
-                        long timeToSleep = (secondBetweenPolling * 1000) - (l2 - l1);
-                        Thread.sleep(Math.max(timeToSleep, 0));
-                    }
-                }
-                stoppedRunning = true;
-            }catch (InterruptedException ignore){
-                LOG.info("Timbermill server was interrupted, exiting");
-            }
-        }).start();
+        this.es = new ElasticsearchClient(env, elasticUrl, indexBulkSize, daysRotation, awsRegion);
     }
 
-    public void close() {
-        keepRunning = false;
-        while(!stoppedRunning){
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ignored) {
-
-            }
-        }
-        es.close();
-    }
-
-    private void retrieveAndIndex() {
+    public void retrieveAndIndex(List<Event> events) {
         LOG.info("------------------ Batch Start ------------------");
-        List<Event> events = new ArrayList<>();
-        eventsQueue.drainTo(events, maxEventsToDrainFromQueue);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
             HeartbeatEvent heartbeatEvent = new HeartbeatEvent(e);
-            this.es.indexMetaDataEvent(e.getTime(), GSON.toJson(heartbeatEvent));
+            this.es.indexMetaDataEvent(e.getStartTime(), GSON.toJson(heartbeatEvent));
         }
 
         List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
@@ -145,34 +114,25 @@ public class LocalTaskIndexer {
                 ParentProperties parentProperties = getParentProperties(previouslyIndexedTasks, events.stream().collect(groupingBy(e -> e.getTaskId())), parentId);
 
                 String primaryId = parentProperties.getPrimaryId();
-                if (primaryId == null && parentId == null){
-                    event.setPrimaryId(event.getTaskId());
+                event.setPrimaryId(primaryId);
+                for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
+                    event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
                 }
-                else {
-                    event.setPrimaryId(primaryId);
-                    for (Map.Entry<String, String> entry : parentProperties.getContex().entrySet()) {
-                        event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-                    }
 
-                    List<String> parentParentsPath = parentProperties.getParentPath();
-                    if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
-                        parentsPath.addAll(parentParentsPath);
-                    }
+                List<String> parentParentsPath = parentProperties.getParentPath();
+                if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
+                    parentsPath.addAll(parentParentsPath);
+                }
 
-                    String parentName = parentProperties.getParentName();
-                    if(parentName != null) {
-                        parentsPath.add(parentName);
-                    }
+                String parentName = parentProperties.getParentName();
+                if(parentName != null) {
+                    parentsPath.add(parentName);
                 }
             }
             if(!parentsPath.isEmpty()) {
                 event.setParentsPath(parentsPath);
             }
         }
-    }
-
-    public void addEvent(Event e) {
-        eventsQueue.add(e);
     }
 
     private long applyPlugins(List<Event> events) {
@@ -204,9 +164,9 @@ public class LocalTaskIndexer {
 
     private void trimAllStrings(List<Event> events) {
         events.forEach(e -> {
-            e.setStrings(getTrimmedLongValues(e.getStrings(), "string"));
-            e.setTexts(getTrimmedLongValues(e.getTexts(), "text"));
-            e.setContext(getTrimmedLongValues(e.getContext(), "ctx"));
+            e.setTrimmedStrings(getTrimmedLongValues(e.getStrings(), "string"));
+            e.setTrimmedTexts(getTrimmedLongValues(e.getTexts(), "text"));
+            e.setTrimmedContext(getTrimmedLongValues(e.getContext(), "ctx"));
         });
     }
 
@@ -303,10 +263,14 @@ public class LocalTaskIndexer {
         return new ParentProperties(primaryId, context, parentPath, parentName);
     }
 
-    private void indexMetadataTaskToTimbermill() {
+    public void indexStartupEvent() {
         ZonedDateTime time = ZonedDateTime.now();
         LocalStartupEvent localStartupEvent = new LocalStartupEvent(time);
         es.indexMetaDataEvent(time, GSON.toJson(localStartupEvent));
+    }
+
+    public void close() {
+        es.close();
     }
 
     private static class ParentProperties{
@@ -327,7 +291,7 @@ public class LocalTaskIndexer {
             return primaryId;
         }
 
-        Map<String, String> getContex() {
+        Map<String, String> getContext() {
             return context;
         }
 
