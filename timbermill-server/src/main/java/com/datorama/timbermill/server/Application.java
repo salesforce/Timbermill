@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionStage;
 @SpringBootApplication
 public class Application {
     private static final Logger log = LoggerFactory.getLogger(Application.class);
+    private static final int PORT = 8484;
     private static CompletionStage<ServerBinding> binding;
     private static ActorSystem system;
 
@@ -35,9 +36,9 @@ public class Application {
         Router router = context.getBean(Router.class);
         final Flow<HttpRequest, HttpResponse, NotUsed> flow = router.createRoute().flow(system, materializer);
         binding = http
-                .bindAndHandle(flow, ConnectHttp.toHost("0.0.0.0", 2227), materializer);
+                .bindAndHandle(flow, ConnectHttp.toHost("0.0.0.0", PORT), materializer);
 
-        log.info("Server online at http://localhost:2227/  Press RETURN to stop...");
+        log.info("Server online at http://localhost:" + PORT + "/");
     }
 
     @PreDestroy
