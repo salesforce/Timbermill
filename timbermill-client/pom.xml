@@ -6,7 +6,7 @@
 
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-client</artifactId>
-    <version>2.1.4</version>
+    <version>2.1.0</version>
     <packaging>jar</packaging>
     <name>timbermill-client</name>
     <description>A better logging service</description>
@@ -31,32 +31,6 @@
             <email>egal@salesforce.com</email>
             <organization>Salesforce</organization>
             <organizationUrl>http://www.salesforce.com</organizationUrl>
-        </developer>
-    </developers>
-
-    <scm>
-        <connection>scm:git:git://github.com/datorama/Timbermill.git</connection>
-        <developerConnection>scm:git:ssh://github.com:datorama/Timbermill.git</developerConnection>
-        <url>https://github.com/datorama/Timbermill/tree/master</url>
-    </scm>
-
-    <name>timbermill-client</name>
-    <description>A better logging service</description>
-    <url>https://github.com/datorama/Timbermill</url>
-
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <developers>
-        <developer>
-            <name>Eden Gal</name>
-            <email>egal@salesforce.com</email>
-            <organization>Datorama</organization>
-            <organizationUrl>http://www.datorama.com</organizationUrl>
         </developer>
     </developers>
 
@@ -124,6 +98,22 @@
             <artifactId>aws-request-signing-apache-interceptor</artifactId>
             <version>b3772780da</version>
         </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-actor_2.12</artifactId>
+            <version>2.5.23</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-http_2.12</artifactId>
+            <version>10.1.9</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-stream_2.12</artifactId>
+            <version>2.5.23</version>
+        </dependency>
+
     </dependencies>
 
     <repositories>

@@ -30,8 +30,8 @@ public class EventLoggerTest {
 
 	@BeforeClass
 	public static void init(){
-		mockPipe = new MockPipe(ImmutableMap.of(BOOTSTRAP, TEST));
-		EventLogger.bootstrap(mockPipe, false);
+		mockPipe = new MockPipe();
+		EventLogger.bootstrap(mockPipe, false, ImmutableMap.of(BOOTSTRAP, TEST), TEST);
 		el = EventLogger.get();
 	}
 

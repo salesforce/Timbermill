@@ -45,15 +45,13 @@ public class ElasticsearchClient {
     private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private final RestHighLevelClient client;
-    private String env;
     private int indexBulkSize;
     private int daysBackToDelete;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
-    ElasticsearchClient(String env, String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
+    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
-        this.env = env;
         RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
         if (StringUtils.isEmpty(awsRegion)){
             AWS4Signer signer = new AWS4Signer();
@@ -80,8 +78,8 @@ public class ElasticsearchClient {
         }
     }
 
-    void indexMetaDataEvent(ZonedDateTime time, String source) {
-        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, time);
+    void indexMetaDataEvent(ZonedDateTime time, String source, String env) {
+        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, env, time);
         try {
             deleteOldIndex(metadataIndex);
             IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE).source(source, XContentType.JSON);
@@ -125,8 +123,10 @@ public class ElasticsearchClient {
         if (daysBackToDelete < 1){
             return;
         }
-        String indexPrefix = currIndex.split("-")[0];
-        String oldIndex = getTaskIndexWithEnv(indexPrefix, ZonedDateTime.now().minusDays(daysBackToDelete));
+        String[] split = currIndex.split("-");
+        String indexPrefix = split[0];
+        String env = split[1];
+        String oldIndex = getTaskIndexWithEnv(indexPrefix, env, ZonedDateTime.now().minusDays(daysBackToDelete));
         GetIndexRequest existsRequest = new GetIndexRequest(oldIndex);
         boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
         if (exists) {
@@ -143,23 +143,24 @@ public class ElasticsearchClient {
         }
     }
 
-    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, int tryNum) {
+    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, int tryNum, String env) {
         BulkRequest request = new BulkRequest();
         int currBatch = 0;
         int i = 0;
-        String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, ZonedDateTime.now());
-        try {
-            deleteOldIndex(index);
-        } catch (IOException e) {
-            LOG.error("Could not delete index " + index, e);
-        }
-        //TODO not correct - Should be changed to Rollover
-
 
         List<UpdateRequest> requests = new ArrayList<>();
         Map<String, List<Event>> eventsMap = events.stream().collect(groupingBy(e -> e.getTaskId()));
         for (Map.Entry<String, List<Event>> eventsEntry : eventsMap.entrySet()) {
-            Task task = new Task(eventsEntry.getValue());
+            Task task = new Task(eventsEntry.getValue(), env);
+
+            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, env, ZonedDateTime.now());
+            try {
+                deleteOldIndex(index);
+            } catch (IOException e) {
+                LOG.error("Could not delete index " + index, e);
+            }
+            //TODO not correct - Should be changed to Rollover
+
             UpdateRequest updateRequest = task.getUpdateRequest(index, eventsEntry.getKey());
             requests.add(updateRequest);
         }
@@ -174,34 +175,34 @@ public class ElasticsearchClient {
                     BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
 
                     if (responses.hasFailures()) {
-                        retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, responses.buildFailureMessage());
+                        retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, responses.buildFailureMessage(), env);
                     }
                     LOG.info("Batch of {} tasks indexed successfully", currBatch);
                     currBatch = 0;
                     request = new BulkRequest();
                 }
             } catch (IOException e) {
-                retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, e.getMessage());
+                retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, e.getMessage(), env);
             }
         }
     }
 
-    private void retryUpdateWithSmallerBulkSizeOrFail(List<Event> events, int bulkSize, int tryNum, String errorMessage) {
+    private void retryUpdateWithSmallerBulkSizeOrFail(List<Event> events, int bulkSize, int tryNum, String errorMessage, String env) {
         if (tryNum == MAX_TRY_NUMBER) {
             throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
                     + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
         } else {
             int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
             LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
-            bulkIndexByBulkSize(events, smallerBulkSize, tryNum + 1);
+            bulkIndexByBulkSize(events, smallerBulkSize, tryNum + 1, env);
         }
     }
 
-    void index(List<Event> events) {
-        bulkIndexByBulkSize(events, indexBulkSize, 1);
+    void index(List<Event> events, String env) {
+        bulkIndexByBulkSize(events, indexBulkSize, 1, env);
     }
 
-    private String getTaskIndexWithEnv(String indexPrefix, ZonedDateTime startTime) {
+    private String getTaskIndexWithEnv(String indexPrefix, String env, ZonedDateTime startTime) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         return indexPrefix + '-' + env + '-' + startTime.format(dateTimeFormatter);
     }

@@ -2,13 +2,11 @@ package com.datorama.timbermill;
 
 
 import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.plugins.PluginsConfig;
 import com.datorama.timbermill.plugins.TaskLogPlugin;
 import com.datorama.timbermill.unit.*;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.elasticsearch.ElasticsearchException;
@@ -33,28 +31,21 @@ public class TaskIndexer {
     private final Map<String, Integer> propertiesLengthMap;
     private final int defaultMaxChars;
 
-    public TaskIndexer(LocalOutputPipeConfig config) {
-        logPlugins = PluginsConfig.initPluginsFromJson(config.getPlugingJson());
-        this.propertiesLengthMap = config.getPropertiesLengthMap();
-        this.defaultMaxChars = config.getDefaultMaxChars();
-        this.es = new ElasticsearchClient(config.getEnv(), config.getElasticUrl(), config.getIndexBulkSize(), config.getDaysRotation(), config.getAwsRegion());
-    }
-
-    public TaskIndexer(String pluginsJson, String propertiesLengthJson, int defaultMaxChars, String env, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize) {
+    public TaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthJson, int defaultMaxChars, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
-        this.propertiesLengthMap = new Gson().fromJson(propertiesLengthJson, Map.class);
+        this.propertiesLengthMap = propertiesLengthJson;
         this.defaultMaxChars = defaultMaxChars;
-        this.es = new ElasticsearchClient(env, elasticUrl, indexBulkSize, daysRotation, awsRegion);
+        this.es = new ElasticsearchClient(elasticUrl, indexBulkSize, daysRotation, awsRegion);
     }
 
-    public void retrieveAndIndex(List<Event> events) {
+    public void retrieveAndIndex(List<Event> events, String env) {
         LOG.info("------------------ Batch Start ------------------");
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
         List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         for (Event e: heartbeatEvents){
-            HeartbeatEvent heartbeatEvent = new HeartbeatEvent(e);
-            this.es.indexMetaDataEvent(e.getStartTime(), GSON.toJson(heartbeatEvent));
+            HeartbeatTask heartbeatTask = new HeartbeatTask(e);
+            this.es.indexMetaDataEvent(e.getTime(), GSON.toJson(heartbeatTask), env);
         }
 
         List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
@@ -87,17 +78,17 @@ public class TaskIndexer {
                 }
             }
 
-            long pluginsDuration = applyPlugins(timbermillEvents);
+            long pluginsDuration = applyPlugins(timbermillEvents, env);
 
             enrichEvents(timbermillEvents, previouslyIndexedTasks);
-            es.index(timbermillEvents);
+            es.index(timbermillEvents, env);
             if (!timbermillEvents.isEmpty()) {
                 LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
-                indexMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingParentEvents.size(), pluginsDuration);
+                indexMetadataTask(taskIndexerStartTime, timbermillEvents.size(), missingParentEvents.size(), pluginsDuration, env);
             }
             LOG.info("------------------ Batch End ------------------");
         } catch (ElasticsearchException e){
-            indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), previouslyIndexedTasks.size(), e);
+            indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), previouslyIndexedTasks.size(), e, env);
         }
     }
 
@@ -135,7 +126,7 @@ public class TaskIndexer {
         }
     }
 
-    private long applyPlugins(List<Event> events) {
+    private long applyPlugins(List<Event> events, String env) {
         long pluginsStart = System.currentTimeMillis();
         try {
             for (TaskLogPlugin plugin : logPlugins) {
@@ -153,7 +144,7 @@ public class TaskIndexer {
                 ZonedDateTime endTime = ZonedDateTime.now();
                 long duration = endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli();
                 PluginApplierEvent pluginApplierEvent = new PluginApplierEvent(startTime, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration);
-                es.indexMetaDataEvent(startTime, GSON.toJson(pluginApplierEvent));
+                es.indexMetaDataEvent(startTime, GSON.toJson(pluginApplierEvent), env);
             }
         } catch (Exception ex) {
             LOG.error("Error running plugins", ex);
@@ -194,21 +185,21 @@ public class TaskIndexer {
     }
 
     private void indexFailedMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount,
-                                         Integer fetchedAmount, Exception e) {
+                                         Integer fetchedAmount, Exception e, String env) {
         ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
         long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
         IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.ERROR, ExceptionUtils.getStackTrace(e), null);
-        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent));
+        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent), env);
     }
 
-    private void indexMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount, Integer fetchedAmount, long pluginsDuration) {
+    private void indexMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount, Integer fetchedAmount, long pluginsDuration, String env) {
 
         ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
         long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
         IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.SUCCESS, null, pluginsDuration);
-        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent));
+        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent), env);
     }
 
     private static Set<String> getMissingParentEvents(Collection<Event> events) {
@@ -261,12 +252,6 @@ public class TaskIndexer {
             }
         }
         return new ParentProperties(primaryId, context, parentPath, parentName);
-    }
-
-    public void indexStartupEvent() {
-        ZonedDateTime time = ZonedDateTime.now();
-        LocalStartupEvent localStartupEvent = new LocalStartupEvent(time);
-        es.indexMetaDataEvent(time, GSON.toJson(localStartupEvent));
     }
 
     public void close() {

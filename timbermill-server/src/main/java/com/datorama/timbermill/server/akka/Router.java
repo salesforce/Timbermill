@@ -6,7 +6,7 @@ import akka.http.javadsl.marshallers.jackson.Jackson;
 import akka.http.javadsl.server.AllDirectives;
 import akka.http.javadsl.server.Route;
 import com.datorama.timbermill.server.SpringExtension;
-import com.datorama.timbermill.unit.Event;
+import com.datorama.timbermill.unit.EventsWrapper;
 import org.springframework.stereotype.Component;
 
 import static akka.actor.ActorRef.noSender;
@@ -23,9 +23,9 @@ public class Router extends AllDirectives {
     public Route createRoute() {
         return concat(
                 post(() ->
-                        path("event", () ->
-                                entity(Jackson.unmarshaller(Event.class), event -> {
-                                    eventActor.tell(event, noSender());
+                        path("events", () ->
+                                entity(Jackson.unmarshaller(EventsWrapper.class), eventsWrapper -> {
+                                    eventActor.tell(eventsWrapper, noSender());
                                     return complete("Event handled");
                                 })))
         );

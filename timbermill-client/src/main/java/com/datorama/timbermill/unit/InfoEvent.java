@@ -1,5 +1,7 @@
 package com.datorama.timbermill.unit;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import javax.validation.constraints.NotNull;
 
 public class InfoEvent extends Event {
@@ -11,8 +13,9 @@ public class InfoEvent extends Event {
         super(taskId, null, logParams, null);
     }
 
+    @JsonIgnore
     @Override
-    public Task.TaskStatus getStatus(Task.TaskStatus status) {
+    public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
         if (status == null){
             return Task.TaskStatus.CORRUPTED;
         }

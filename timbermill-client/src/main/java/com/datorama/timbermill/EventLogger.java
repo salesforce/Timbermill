@@ -31,6 +31,7 @@ final class EventLogger {
 	private static Map<String, String> staticParams = Collections.emptyMap();
 	private static ThreadLocal<EventLogger> threadInstance = ThreadLocal.withInitial(() -> new EventLogger(new BlackHolePipe()));
 	private static boolean isBootstrapped;
+	private static String env;
 
 	/**
 	 * Instance fields
@@ -42,12 +43,12 @@ final class EventLogger {
 		this.eventOutputPipe = eventOutputPipe;
 	}
 
-	static void bootstrap(EventOutputPipe eventOutputPipe, boolean doHeartbeat) {
-		Map<String, String> staticParameters = eventOutputPipe.getStaticParams();
+	static void bootstrap(EventOutputPipe eventOutputPipe, boolean doHeartbeat, Map<String, String> staticParams, String environment) {
+		env = environment;
 		if (isBootstrapped) {
-			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParameters);
+			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParams);
 		} else {
-			LOG.info("Bootstrapping EventLogger with params ({})", eventOutputPipe, staticParameters);
+			LOG.info("Bootstrapping EventLogger with params ({})", eventOutputPipe, staticParams);
 			isBootstrapped = true;
 			BufferingOutputPipe bufferingOutputPipe = new BufferingOutputPipe(eventOutputPipe);
 			bufferingOutputPipe.start();
@@ -58,7 +59,7 @@ final class EventLogger {
 				ClientHeartbeater heartbeater = new ClientHeartbeater(statsCollector, bufferingOutputPipe);
 				heartbeater.start();
 			}
-			staticParams = new Builder<String, String>().putAll(staticParameters).build();
+			EventLogger.staticParams = new Builder<String, String>().putAll(staticParams).build();
 
 			threadInstance = ThreadLocal.withInitial(() -> new EventLogger(statsCollector));
 		}
@@ -263,6 +264,7 @@ final class EventLogger {
 	}
 
 	private String submitEvent(Event event) {
+		event.setEnv(env);
 		eventOutputPipe.send(event);
 		return event.getTaskId();
 	}

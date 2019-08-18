@@ -1,6 +1,5 @@
-package com.datorama.timbermill.server.akka;
+package com.datorama.timbermill.unit;
 
-import com.datorama.timbermill.unit.Event;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -8,12 +7,16 @@ import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
-public class EventsMessage {
+public class EventsWrapper {
+    private List<Event> events;
 
-    public EventsMessage() {
+    public EventsWrapper() {
     }
 
-    private List<Event> events;
+    public EventsWrapper(List<Event> events) {
+
+        this.events = events;
+    }
 
     public List<Event> getEvents() {
         return events;

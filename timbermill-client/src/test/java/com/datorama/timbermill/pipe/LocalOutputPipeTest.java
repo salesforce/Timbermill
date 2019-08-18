@@ -13,8 +13,7 @@ public class LocalOutputPipeTest {
 
     @Before
     public void setUp() {
-        LocalOutputPipeConfig config  = new LocalOutputPipeConfig.Builder().url("http://localhost:9200").build();
-        localOutputPipe = new LocalOutputPipe(config);
+        localOutputPipe  = new LocalOutputPipe.Builder().url("http://localhost:9200").build();
     }
 
     @Test

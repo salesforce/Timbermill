@@ -4,9 +4,8 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 
 import static com.datorama.timbermill.ClientHeartbeater.*;
-import static com.datorama.timbermill.TimberLogger.ENV;
 
-public class HeartbeatEvent {
+public class HeartbeatTask {
     private final ZonedDateTime startTime;
     private final String name;
     private final String env;
@@ -16,12 +15,12 @@ public class HeartbeatEvent {
     private final Number maxSubmitDuration;
     private final Number outputBufferSize;
 
-    public HeartbeatEvent(Event e) {
-        this.startTime = e.getStartTime();
+    public HeartbeatTask(Event e) {
+        this.startTime = e.getTime();
         this.name = e.getName();
 
         Map<String, String> context = e.getContext();
-        this.env = context.get(ENV);
+        this.env = e.getEnv();
         this.threadName = context.get("threadName");
 
         Map<String, Number> metrics = e.getMetrics();

@@ -1,5 +1,7 @@
 package com.datorama.timbermill.unit;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 
@@ -11,12 +13,14 @@ public class SuccessEvent extends Event {
         super(taskId, null, logParams, null);
     }
 
+    @JsonIgnore
     public ZonedDateTime getEndTime() {
         return time;
     }
 
+    @JsonIgnore
     @Override
-    public Task.TaskStatus getStatus(Task.TaskStatus status) {
+    public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
         if (status == Task.TaskStatus.UNTERMINATED){
             return Task.TaskStatus.SUCCESS;
         }

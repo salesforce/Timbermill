@@ -1,62 +1,41 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.annotation.TimberLog;
-import com.datorama.timbermill.pipe.LocalOutputPipe;
-import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.datorama.timbermill.TimberLogger.ENV;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
 
-public class TimberLogTest {
-	private static final String EVENT = "Event";
+public abstract class TimberLogTest {
+
+	static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
+	static ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, null);
+
+	static final String TEST = "test";
+	static final String EVENT = "Event";
+	static final String LOG_REGEX = "\\[\\w\\w\\w \\d+, \\d\\d\\d\\d \\d+:\\d\\d:\\d\\d \\w\\w] \\[INFO] - ";
+
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
-	private static final String TEST = "test";
-	private static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	private static ElasticsearchClient client = new ElasticsearchClient(TEST, HTTP_LOCALHOST_9200, 1000,0, null);
 	private String childTaskId;
 	private String childOfChildTaskId;
-
-	static final String LOG_REGEX = "\\[\\w\\w\\w \\d+, \\d\\d\\d\\d \\d+:\\d\\d:\\d\\d \\w\\w] \\[INFO] - ";
-
-	@BeforeClass
-	public static void init() {
-		Map<String, Integer> map = new HashMap<>();
-		map.put("text.sql1", 10000);
-		map.put("string.sql1", 10000);
-		map.put("ctx.sql1", 10000);
-		map.put("text.sql2", 100);
-		map.put("string.sql2", 100);
-		map.put("ctx.sql2", 100);
-
-        LocalOutputPipeConfig config = new LocalOutputPipeConfig.Builder().env(TEST).url(HTTP_LOCALHOST_9200).defaultMaxChars(1000).propertiesLengthMap(map).secondBetweenPolling(1)
-				.pluginJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]")
-                .build();
-		TimberLogger.bootstrap(new LocalOutputPipe(config));
-	}
 
 	@AfterClass
 	public static void kill() {
 		TimberLogger.exit();
 	}
 
-	@Test
-	public void testSimpleTaskIndexerJob() throws InterruptedException {
+	protected void testSimpleTaskIndexerJob() throws InterruptedException {
 		String str1 = "str1";
 		String str2 = "str2";
 		String metric1 = "metric1";
@@ -73,7 +52,7 @@ public class TimberLogTest {
 		Task task = client.getTaskById(taskId);
 
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
-		assertEquals(TEST, task.getCtx().get(ENV));
+		assertEquals(TEST, task.getEnv());
 		assertTrue(task.getDuration() > 1000);
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
@@ -104,8 +83,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testSwitchCasePlugin() {
+	protected void testSwitchCasePlugin() {
 
 		String taskId = testSwitchCasePluginLog();
 
@@ -125,8 +103,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testSimpleTaskWithTrimmer() {
+	protected void testSimpleTaskWithTrimmer() {
 
 		StringBuilder sb = new StringBuilder();
 
@@ -145,7 +122,7 @@ public class TimberLogTest {
 		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
 		Map<String, String> context = task.getCtx();
-		assertEquals(10000,strings.get("sql1").length());
+		assertEquals(10000, strings.get("sql1").length());
 		assertEquals(100, strings.get("sql2").length());
 		assertEquals(1000, strings.get("sql3").length());
 		assertEquals(10000, texts.get("sql1").length());
@@ -170,8 +147,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testSpotWithParent(){
+	protected void testSpotWithParent(){
 		String context = "context";
 		String str = "str";
 
@@ -180,7 +156,7 @@ public class TimberLogTest {
 
 		String taskId1 = stringStringPair.getLeft();
 		String taskId2 = stringStringPair.getRight();
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1) != null)
+		Awaitility.await().atMost(300, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1) != null)
 				&& (client.getTaskById(taskId1).getStatus() == TaskStatus.SUCCESS));
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1) != null)
 				&& (client.getTaskById(taskId1).getStatus() == TaskStatus.SUCCESS));
@@ -221,8 +197,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testSimpleTasksFromDifferentThreadsIndexerJob(){
+	protected void testSimpleTasksFromDifferentThreadsIndexerJob(){
 
 		String context1 = "context1";
 		String context2 = "context2";
@@ -309,8 +284,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob() {
+	protected void testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob() {
 		final String[] taskId = new String[1];
 		Thread thread = new Thread(() -> {
 			try (TimberLogContext ignored = new TimberLogContext("bla")) {
@@ -335,8 +309,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testComplexTaskIndexerWithErrorTask() {
+	protected void testComplexTaskIndexerWithErrorTask() {
 
 		String parentId = testComplexTaskIndexerWithErrorTaskTimberLog3();
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(parentId) != null)
@@ -376,8 +349,7 @@ public class TimberLogTest {
 		throw FAIL;
 	}
 
-	@Test
-	public void testTaskWithNullString() {
+	protected void testTaskWithNullString() {
 
 		String taskId = testTaskWithNullStringTimberLog();
 		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
@@ -393,8 +365,7 @@ public class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@Test
-	public void testOverConstructor() {
+	protected void testOverConstructor() {
 
 		TimberLogTestClass timberLogTestClass = new TimberLogTestClass();
 		String taskId = timberLogTestClass.getTaskId();
@@ -405,8 +376,7 @@ public class TimberLogTest {
 		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId, true, true);
 	}
 
-	@Test
-	public void testOverConstructorException() {
+	protected void testOverConstructorException() {
 		String[] taskArr = new String[1];
 		try {
 			new TimberLogTestClass(taskArr);

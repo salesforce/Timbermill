@@ -1,10 +1,13 @@
 package com.datorama.timbermill.unit;
 
 import com.datorama.timbermill.common.ZonedDateTimeJacksonDeserializer;
+import com.datorama.timbermill.common.ZonedDateTimeJacksonSerializer;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
@@ -16,15 +19,20 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
-		@JsonSubTypes.Type(value = StartEvent.class, name = "StartEvent")
+		@JsonSubTypes.Type(value = StartEvent.class, name = "StartEvent"),
+		@JsonSubTypes.Type(value = InfoEvent.class, name = "InfoEvent"),
+		@JsonSubTypes.Type(value = SuccessEvent.class, name = "SuccessEvent"),
+		@JsonSubTypes.Type(value = ErrorEvent.class, name = "ErrorEvent"),
+		@JsonSubTypes.Type(value = SpotEvent.class, name = "SpotEvent")
 }
 )
 public abstract class Event{
 
-	private static final String DELIMETER = "___";
+	private static final String DELIMITER = "___";
 	private static final int MAX_CHARS = 1000000; //TODO move to configuration
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
+	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
 	protected ZonedDateTime time;
 
 	String primaryId;
@@ -37,6 +45,7 @@ public abstract class Event{
 	private Map<String, Number> metrics;
 	private List<String> logs;
 	private List<String> parentsPath;
+	private String env;
 
 	public Event() {
 	}
@@ -136,7 +145,7 @@ public abstract class Event{
 		this.parentsPath = parentsPath;
 	}
 
-	public ZonedDateTime getStartTime() {
+	public ZonedDateTime getTime() {
 		return time;
 	}
 
@@ -144,19 +153,30 @@ public abstract class Event{
 		this.time = time;
 	}
 
+	@JsonIgnore
 	public ZonedDateTime getEndTime() {
 		return null;
 	}
 
-	public abstract Task.TaskStatus getStatus(Task.TaskStatus status);
+    @Override
+    public String toString() {
+        return "Event{" +
+                "id='" + taskId + '\'' +
+                '}';
+    }
 
+    @JsonIgnore
+	public abstract Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status);
+
+	@JsonIgnore
     public boolean isStartEvent(){
 		return false;
 	}
 
+	@JsonIgnore
 	public String getNameFromId() {
 		if (name == null){
-			String[] split = taskId.split(DELIMETER);
+			String[] split = taskId.split(DELIMITER);
 			if (split.length == 0){
 				return null;
 			}
@@ -172,7 +192,7 @@ public abstract class Event{
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return name + DELIMETER + uuid;
+		return name + DELIMITER + uuid;
 	}
 
 	public void setTrimmedStrings(@NotNull Map<String, String> strings) {
@@ -199,5 +219,13 @@ public abstract class Event{
 	private String getTrimmedString(String string) {
 		int stringLength = Math.min(string.length(), MAX_CHARS);
 		return string.substring(0, stringLength);
+	}
+
+	public String getEnv() {
+		return env;
+	}
+
+	public void setEnv(String env) {
+		this.env = env;
 	}
 }

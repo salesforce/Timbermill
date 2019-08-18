@@ -16,6 +16,9 @@ import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
 
 public class Task {
+
+	private String env;
+
 	private String name;
 	private TaskStatus status;
 	private String parentId;
@@ -34,12 +37,13 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(List<Event> groupedEvents) {
+	public Task(List<Event> groupedEvents, String env) {
+		this.env = env;
 		for (Event e : groupedEvents) {
 			String name = e.getNameFromId();
 			String parentId = e.getParentId();
 			String primaryId = e.getPrimaryId();
-			ZonedDateTime startTime = e.getStartTime();
+			ZonedDateTime startTime = e.getTime();
 			ZonedDateTime endTime = e.getEndTime();
 			List<String> parentsPath = e.getParentsPath();
 
@@ -72,7 +76,7 @@ public class Task {
 				setEndTime(endTime);
 			}
 
-			status = e.getStatus(this.status);
+			status = e.getStatusFromExistingStatus(this.status);
 
 			if (this.parentsPath == null){
 				this.parentsPath = parentsPath;
@@ -230,6 +234,14 @@ public class Task {
 	public void setMeta(TaskMetaData meta) {
         this.meta = meta;
     }
+
+	public String getEnv() {
+		return env;
+	}
+
+	public void setEnv(String env) {
+		this.env = env;
+	}
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);

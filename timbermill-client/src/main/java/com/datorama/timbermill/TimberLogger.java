@@ -1,14 +1,13 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.pipe.EventOutputPipe;
-import com.datorama.timbermill.pipe.LocalOutputPipe;
-import com.datorama.timbermill.pipe.LocalOutputPipeConfig;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
+import com.google.common.collect.Maps;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import javax.validation.constraints.NotNull;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
@@ -16,20 +15,21 @@ import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
 public final class TimberLogger {
 
-	public static final String ENV = "env";
+	private static final String DEFAULT = "default";
 
 	private TimberLogger() {
 	}
 
-	public static void bootstrap() {
-		LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder();
-		LocalOutputPipeConfig config = builder.url("http://localhost:9200").build();
-		LocalOutputPipe localOutputPipe = new LocalOutputPipe(config);
-		bootstrap(localOutputPipe);
+	public static void bootstrap(EventOutputPipe pipe) {
+		bootstrap(pipe, Maps.newHashMap(), DEFAULT);
 	}
 
-	public static void bootstrap(EventOutputPipe pipe) {
-		EventLogger.bootstrap(pipe, true);
+	public static void bootstrap(EventOutputPipe pipe, String env) {
+		bootstrap(pipe, Maps.newHashMap(), env);
+	}
+
+	public static void bootstrap(EventOutputPipe pipe, Map<String, String> staticParams, String env) {
+		EventLogger.bootstrap(pipe, true, staticParams, env);
 	}
 
     public static void exit() {
@@ -130,22 +130,5 @@ public final class TimberLogger {
 
 	public static <T,R> Function<T,R> wrapFunctional(Function<T, R> function){
 		return EventLogger.get().wrapFunction(function);
-	}
-
-	public static void main(String[] args) {
-		TimberLogger.bootstrap();
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		log();
-
-	}
-
-	@TimberLog(name = "hello_world")
-	public static void log() {
-		LogParams params = LogParams.create().string("foo", "bar").text("text", "This is a text!").metric("number", 42);
-		TimberLogger.logParams(params);
 	}
 }
