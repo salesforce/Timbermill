@@ -20,14 +20,14 @@ import javax.annotation.PreDestroy;
 import java.util.concurrent.CompletionStage;
 
 @SpringBootApplication
-public class Application {
-    private static final Logger log = LoggerFactory.getLogger(Application.class);
+public class TimbermillApplication {
+    private static final Logger log = LoggerFactory.getLogger(TimbermillApplication.class);
     private static final int PORT = 8484;
     private static CompletionStage<ServerBinding> binding;
     private static ActorSystem system;
 
     public static void main(String[] args) {
-        ApplicationContext context = SpringApplication.run(Application.class, args);
+        ApplicationContext context = SpringApplication.run(TimbermillApplication.class, args);
         system = context.getBean(ActorSystem.class);
 
         final Http http = Http.get(system);

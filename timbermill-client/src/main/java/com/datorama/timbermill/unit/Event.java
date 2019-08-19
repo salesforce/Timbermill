@@ -13,7 +13,6 @@ import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -29,7 +28,6 @@ import java.util.UUID;
 public abstract class Event{
 
 	private static final String DELIMITER = "___";
-	private static final int MAX_CHARS = 1000000; //TODO move to configuration
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
@@ -193,32 +191,6 @@ public abstract class Event{
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
 		return name + DELIMITER + uuid;
-	}
-
-	public void setTrimmedStrings(@NotNull Map<String, String> strings) {
-		for (Entry<String, String> entry : strings.entrySet()){
-			String trimmedString = getTrimmedString(entry.getValue());
-			this.strings.put(entry.getKey(), trimmedString); // Preventing ultra big strings
-		}
-	}
-
-	public void setTrimmedContext(@NotNull Map<String, String> context) {
-		for (Entry<String, String> entry : context.entrySet()){
-			String trimmedString = getTrimmedString(entry.getValue());
-			this.context.put(entry.getKey(), trimmedString); // Preventing ultra big strings
-		}
-	}
-
-	public void setTrimmedTexts(@NotNull Map<String, String> text) {
-		for (Entry<String, String> entry : text.entrySet()){
-			String trimmedString = getTrimmedString(entry.getValue());
-			this.texts.put(entry.getKey(), trimmedString); // Preventing ultra big strings
-		}
-	}
-
-	private String getTrimmedString(String string) {
-		int stringLength = Math.min(string.length(), MAX_CHARS);
-		return string.substring(0, stringLength);
 	}
 
 	public String getEnv() {

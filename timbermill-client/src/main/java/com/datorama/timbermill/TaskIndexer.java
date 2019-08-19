@@ -25,6 +25,9 @@ import static java.util.stream.Collectors.toList;
 public class TaskIndexer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
+    public static final String TEXT = "text";
+    public static final String STRING = "string";
+    public static final String CTX = "ctx";
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
@@ -155,9 +158,9 @@ public class TaskIndexer {
 
     private void trimAllStrings(List<Event> events) {
         events.forEach(e -> {
-            e.setTrimmedStrings(getTrimmedLongValues(e.getStrings(), "string"));
-            e.setTrimmedTexts(getTrimmedLongValues(e.getTexts(), "text"));
-            e.setTrimmedContext(getTrimmedLongValues(e.getContext(), "ctx"));
+            e.setStrings(getTrimmedLongValues(e.getStrings(), STRING));
+            e.setTexts(getTrimmedLongValues(e.getTexts(), TEXT));
+            e.setContext(getTrimmedLongValues(e.getContext(), CTX));
         });
     }
 

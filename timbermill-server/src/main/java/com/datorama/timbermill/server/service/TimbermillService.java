@@ -45,13 +45,15 @@ public class TimbermillService {
 				while (keepRunning) {
 					try {
 						List<Event> events = new ArrayList<>();
-                        eventsQueue.drainTo(events);
-                        Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
-                        for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
-                            String env = eventsPerEnv.getKey();
-                            List<Event> currentEvents = eventsPerEnv.getValue();
-                            taskIndexer.retrieveAndIndex(currentEvents, env);
-                        }
+                        if (!eventsQueue.isEmpty()) {
+							eventsQueue.drainTo(events);
+							Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
+							for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
+								String env = eventsPerEnv.getKey();
+								List<Event> currentEvents = eventsPerEnv.getValue();
+								taskIndexer.retrieveAndIndex(currentEvents, env);
+							}
+						}
 						Thread.sleep(indexBulkSleepCycle);
 					} catch (RuntimeException | InterruptedException e) {
 						LOG.error("Error was thrown from TaskIndexer:", e);
