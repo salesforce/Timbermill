@@ -27,6 +27,7 @@ public class TimbermillService {
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
+	private long terminationTimeout;
 
 	@Autowired
 	public TimbermillService(@Value("${index.bulk.size:10000}") Integer indexBulkSize,
@@ -35,8 +36,10 @@ public class TimbermillService {
 							 @Value("${days.rotation:90}") Integer daysRotation,
 							 @Value("${plugins.json:[]}") String pluginsJson,
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
-							 @Value("${default.max.chars:100000}") int defaultMaxChars) throws IOException {
+							 @Value("${default.max.chars:100000}") int defaultMaxChars,
+							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds) throws IOException {
 
+		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
 		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize);
 
@@ -64,13 +67,22 @@ public class TimbermillService {
 	public void tearDown(){
 		LOG.info("Gracefully shutting down Timbermill Server.");
 		keepRunning = false;
-		while(!stoppedRunning){ // TODO add second threshold for complete killing
+		long currentTimeMillis = System.currentTimeMillis();
+		while(!stoppedRunning && !reachTerminationTimeout(currentTimeMillis)){
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(3000);
 			} catch (InterruptedException ignored) {}
 		}
 		taskIndexer.close();
-		LOG.info("Timbermill Server was shut down.");
+		LOG.info("Timbermill server was shut down.");
+	}
+
+	private boolean reachTerminationTimeout(long starTime) {
+		boolean reachTerminationTimeout = System.currentTimeMillis() - starTime > terminationTimeout;
+		if (reachTerminationTimeout){
+			LOG.warn("Timbermill couldn't gracefully shutdown in {} seconds, was killed with {} events in internal buffer", terminationTimeout / 1000, eventsQueue.size());
+		}
+		return reachTerminationTimeout;
 	}
 
 	public void handleEvent(List<Event> events){
