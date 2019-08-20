@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
 
+import static com.datorama.timbermill.unit.Task.*;
+
 public class StartEvent extends Event {
 
     public StartEvent() {
@@ -26,11 +28,26 @@ public class StartEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-        if (status == Task.TaskStatus.CORRUPTED_SUCCESS){
+        if (status == TaskStatus.UNTERMINATED){
+            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == Task.TaskStatus.PARTIAL_SUCCESS){
             return Task.TaskStatus.SUCCESS;
         }
-        else if (status == Task.TaskStatus.CORRUPTED_ERROR){
+        else if (status == Task.TaskStatus.SUCCESS){
+            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == Task.TaskStatus.PARTIAL_ERROR){
             return Task.TaskStatus.ERROR;
+        }
+        else if (status == TaskStatus.ERROR){
+            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == TaskStatus.CORRUPTED){
+            return Task.TaskStatus.CORRUPTED;
         }
         else {
             return Task.TaskStatus.UNTERMINATED;

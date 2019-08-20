@@ -9,8 +9,11 @@ import org.junit.AfterClass;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import static com.datorama.timbermill.EventLogger.STACK_TRACE;
+import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
 
@@ -35,6 +38,15 @@ public abstract class TimberLogTest {
 		TimberLogger.exit();
 	}
 
+	static void waitForEvents(String taskId, TaskStatus status) {
+		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
+		waitForCallable(callable);
+	}
+
+	static void waitForCallable(Callable<Boolean> callable) {
+		Awaitility.await().atMost(20, TimeUnit.SECONDS).pollInterval(2, TimeUnit.SECONDS).until(callable);
+	}
+
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {
 		String str1 = "str1";
 		String str2 = "str2";
@@ -47,8 +59,7 @@ public abstract class TimberLogTest {
 		String log2 = "log2";
 		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2);
 
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
@@ -87,8 +98,7 @@ public abstract class TimberLogTest {
 
 		String taskId = testSwitchCasePluginLog();
 
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 
         assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId, true, true);
@@ -113,8 +123,7 @@ public abstract class TimberLogTest {
 		String hugeString = sb.toString();
 
 		String taskId = testSimpleTaskWithTrimmer1(hugeString);
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 
@@ -156,22 +165,19 @@ public abstract class TimberLogTest {
 
 		String taskId1 = stringStringPair.getLeft();
 		String taskId2 = stringStringPair.getRight();
-		Awaitility.await().atMost(300, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1) != null)
-				&& (client.getTaskById(taskId1).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId1) != null)
-				&& (client.getTaskById(taskId1).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskIdSpot[0]) != null)
-				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId1, TaskStatus.SUCCESS);
+		waitForEvents(taskId2, TaskStatus.SUCCESS);
+		waitForEvents(taskIdSpot[0], TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId1);
         assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1, true, true);
 
 		Task spot = client.getTaskById(taskIdSpot[0]);
-		assertTask(spot, SPOT, true, true, taskId1, taskId1, TaskStatus.SUCCESS, false, EVENT);
+		assertTask(spot, SPOT, true, true, taskId1, taskId1, TaskStatus.SUCCESS, EVENT);
 		assertEquals(context, spot.getCtx().get(context));
 
         Task child = client.getTaskById(taskId2);
-        assertTask(child, EVENT + '2', true, true, taskId1, taskId1, TaskStatus.SUCCESS, false, EVENT);
+        assertTask(child, EVENT + '2', true, true, taskId1, taskId1, TaskStatus.SUCCESS, EVENT);
         assertEquals(context, child.getCtx().get(context));
 	}
 
@@ -209,14 +215,10 @@ public abstract class TimberLogTest {
 		String taskIdSpot = tasks[3];
 
 
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId2) != null)
-				&& (client.getTaskById(taskId2).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId3) != null)
-				&& (client.getTaskById(taskId3).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskIdSpot) != null)
-				&& (client.getTaskById(taskIdSpot).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForEvents(taskId2, TaskStatus.SUCCESS);
+		waitForEvents(taskId3, TaskStatus.SUCCESS);
+		waitForEvents(taskIdSpot, TaskStatus.SUCCESS);
 
 
 		Task task = client.getTaskById(taskId);
@@ -224,17 +226,17 @@ public abstract class TimberLogTest {
         assertEquals(context1, task.getCtx().get(context1));
 
         Task task2 = client.getTaskById(taskId2);
-        assertTask(task2, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
+        assertTask(task2, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
         assertEquals(context1, task2.getCtx().get(context1));
         assertEquals(context2, task2.getCtx().get(context2));
 
 		Task task3 = client.getTaskById(taskId3);
-        assertTask(task3, EVENT + '3', true, true, taskId, taskId2, TaskStatus.SUCCESS, false, EVENT, EVENT + '2');
+        assertTask(task3, EVENT + '3', true, true, taskId, taskId2, TaskStatus.SUCCESS, EVENT, EVENT + '2');
 		assertEquals(context1, task3.getCtx().get(context1));
 		assertEquals(context2, task3.getCtx().get(context2));
 
 		Task spot = client.getTaskById(taskIdSpot);
-		assertTask(spot, SPOT, true, true, taskId, taskId, TaskStatus.SUCCESS, false, EVENT);
+		assertTask(spot, SPOT, true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
 		assertEquals(context1, spot.getCtx().get(context1));
 	}
 
@@ -296,12 +298,10 @@ public abstract class TimberLogTest {
 		while(thread.isAlive()){}
 
 
-
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId[0]) != null)
-				&& (client.getTaskById(taskId[0]).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId[0], TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId[0]);
-		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS, false);
+		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS);
 	}
 
 	@TimberLog(name = EVENT)
@@ -312,10 +312,9 @@ public abstract class TimberLogTest {
 	protected void testComplexTaskIndexerWithErrorTask() {
 
 		String parentId = testComplexTaskIndexerWithErrorTaskTimberLog3();
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(parentId) != null)
-				&& (client.getTaskById(parentId).getStatus() == TaskStatus.SUCCESS));
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(childTaskId) != null);
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> client.getTaskById(childOfChildTaskId) != null);
+		waitForEvents(parentId, TaskStatus.SUCCESS);
+		waitForEvents(childTaskId, TaskStatus.ERROR);
+		waitForEvents(childOfChildTaskId, TaskStatus.ERROR);
 
 		Task taskParent = client.getTaskById(parentId);
 		Task taskChild = client.getTaskById(childTaskId);
@@ -323,9 +322,9 @@ public abstract class TimberLogTest {
 
 		assertTaskPrimary(taskParent, EVENT, TaskStatus.SUCCESS, parentId, true, true);
 
-		assertTask(taskChild, EVENT_CHILD, true, true, parentId, parentId, TaskStatus.ERROR, false, EVENT);
+		assertTask(taskChild, EVENT_CHILD, true, true, parentId, parentId, TaskStatus.ERROR, EVENT);
 
-		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, true, true, parentId, childTaskId, TaskStatus.ERROR, false, EVENT, EVENT_CHILD);
+		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, true, true, parentId, childTaskId, TaskStatus.ERROR, EVENT, EVENT_CHILD);
 	}
 
 	@TimberLog(name = EVENT)
@@ -352,8 +351,7 @@ public abstract class TimberLogTest {
 	protected void testTaskWithNullString() {
 
 		String taskId = testTaskWithNullStringTimberLog();
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
@@ -369,8 +367,7 @@ public abstract class TimberLogTest {
 
 		TimberLogTestClass timberLogTestClass = new TimberLogTestClass();
 		String taskId = timberLogTestClass.getTaskId();
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.SUCCESS));
+		waitForEvents(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId, true, true);
@@ -383,14 +380,26 @@ public abstract class TimberLogTest {
 		} catch (Exception ignored) {
 		}
 		String taskId = taskArr[0];
-		Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(2000, TimeUnit.MILLISECONDS).until(() -> (client.getTaskById(taskId) != null)
-				&& (client.getTaskById(taskId).getStatus() == TaskStatus.ERROR));
+		waitForEvents(taskId, TaskStatus.ERROR);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, "ctr", TaskStatus.ERROR, taskId, true, true);
 	}
 
-    static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, Boolean isPrimary, String... parents) {
+	protected void testCorruptedInfoOnly() {
+		String bla1 = "bla1";
+		String bla2 = "bla2";
+		String taskId = TimberLogger.logText(bla1, bla2);
+		waitForEvents(taskId, TaskStatus.CORRUPTED);
+
+		Task task = client.getTaskById(taskId);
+		assertEquals(LOG_WITHOUT_CONTEXT, task.getName());
+		Map<String, String> text = task.getText();
+		assertNotNull(text.get(STACK_TRACE));
+		assertEquals(bla2, text.get(bla1));
+	}
+
+    static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
         assertEquals(name, task.getName());
         assertEquals(status, task.getStatus());
         assertNotNull(task.getStartTime());
@@ -406,13 +415,6 @@ public abstract class TimberLogTest {
 		} else {
 			assertNull(task.getDuration());
 		}
-
-		if (isPrimary == null){
-            assertNull(task.isPrimary());
-        }
-        else {
-            assertEquals(isPrimary, task.isPrimary());
-        }
         assertEquals(primaryId, task.getPrimaryId());
         assertEquals(parentId, task.getParentId());
 
@@ -430,10 +432,10 @@ public abstract class TimberLogTest {
     }
 
     static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
-        assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status, true);
+        assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status);
     }
 
 	static void assertTaskCorrupted(Task task, String name, TaskStatus status, boolean shouldHaveEndTime) {
-		assertTask(task, name, shouldHaveEndTime, false, null, null, status, null);
+		assertTask(task, name, shouldHaveEndTime, false, null, null, status);
 	}
 }

@@ -74,4 +74,9 @@ public class TimberLogLocalTest extends TimberLogTest{
     public void testOverConstructorException() {
        super.testOverConstructorException();
     }
+
+    @Test
+    public void testCorruptedInfoOnly() {
+        super.testCorruptedInfoOnly();
+    }
 }

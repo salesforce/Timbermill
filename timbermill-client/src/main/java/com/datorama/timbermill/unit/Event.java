@@ -27,7 +27,7 @@ import java.util.UUID;
 )
 public abstract class Event{
 
-	private static final String DELIMITER = "___";
+	public static final String DELIMITER = "___";
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)

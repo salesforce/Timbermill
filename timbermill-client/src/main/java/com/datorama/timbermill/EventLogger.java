@@ -22,10 +22,11 @@ import java.util.function.Function;
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
 final class EventLogger {
-    private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
+	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
     private static final String THREAD_NAME = "threadName";
+	public static final String STACK_TRACE = "stackTrace";
 
-    /**
+	/**
 	 * Factory related fields
 	 */
 	private static Map<String, String> staticParams = Collections.emptyMap();
@@ -105,7 +106,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED_SUCCESS);
+				e = getCorruptedEvent(logParams);
 			} else {
 				e = new SuccessEvent(taskIdStack.pop(), logParams);
 			}
@@ -132,7 +133,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED_ERROR);
+				e = getCorruptedEvent(logParams);
 			} else {
 				e = new ErrorEvent(taskIdStack.pop(), logParams);
 			}
@@ -212,7 +213,7 @@ final class EventLogger {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams, Task.TaskStatus.CORRUPTED);
+				e = getCorruptedEvent(logParams);
 			} else {
 				e = new InfoEvent(taskIdStack.peek(), logParams);
 			}
@@ -247,10 +248,10 @@ final class EventLogger {
 		logParams.context(staticParams);
 	}
 
-	private Event getCorruptedEvent(@NotNull LogParams logParams, Task.TaskStatus status) {
+	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		String stackTrace = getStackTraceString();
-		logParams.text("stackTrace", stackTrace);
-		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, status);
+		logParams.text(STACK_TRACE, stackTrace);
+		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED);
 	}
 
 	private static String getStackTraceString() {

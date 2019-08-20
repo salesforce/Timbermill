@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +43,8 @@ public class TimbermillService {
 		new Thread(() -> {
 				while (keepRunning) {
 					try {
-						List<Event> events = new ArrayList<>();
-                        if (!eventsQueue.isEmpty()) {
+                        while(!eventsQueue.isEmpty()) {
+							List<Event> events = new ArrayList<>();
 							eventsQueue.drainTo(events);
 							Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
 							for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
@@ -53,8 +52,8 @@ public class TimbermillService {
 								List<Event> currentEvents = eventsPerEnv.getValue();
 								taskIndexer.retrieveAndIndex(currentEvents, env);
 							}
+							Thread.sleep(indexBulkSleepCycle);
 						}
-						Thread.sleep(indexBulkSleepCycle);
 					} catch (RuntimeException | InterruptedException e) {
 						LOG.error("Error was thrown from TaskIndexer:", e);
 					}
@@ -63,17 +62,16 @@ public class TimbermillService {
 		}).start();
 	}
 
-	@PreDestroy
 	public void tearDown(){
 		LOG.info("Gracefully shutting down Timbermill Server.");
 		keepRunning = false;
-		while(!stoppedRunning){
+		while(!stoppedRunning){ // TODO add second treshold for complete killing
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException ignored) {}
 		}
 		taskIndexer.close();
-		LOG.info("Timbermill Server is shut down.");
+		LOG.info("Timbermill Server was shut down.");
 	}
 
 	public void handleEvent(List<Event> events){

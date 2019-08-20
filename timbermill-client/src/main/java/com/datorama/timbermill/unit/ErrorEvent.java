@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 
+import static com.datorama.timbermill.unit.Task.ALREADY_CLOSED;
+import static com.datorama.timbermill.unit.Task.CORRUPTED_REASON;
+
 public class ErrorEvent extends Event {
     public ErrorEvent() {
     }
@@ -23,11 +26,27 @@ public class ErrorEvent extends Event {
         if (status == Task.TaskStatus.UNTERMINATED){
             return Task.TaskStatus.ERROR;
         }
+        else if (status == Task.TaskStatus.PARTIAL_SUCCESS){
+            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == Task.TaskStatus.SUCCESS){
+            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == Task.TaskStatus.PARTIAL_ERROR){
+            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return Task.TaskStatus.CORRUPTED;
+        }
+        else if (status == Task.TaskStatus.ERROR){
+            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return Task.TaskStatus.CORRUPTED;
+        }
         else if (status == Task.TaskStatus.CORRUPTED){
-            return Task.TaskStatus.CORRUPTED_ERROR;
+            return Task.TaskStatus.CORRUPTED;
         }
         else {
-            return Task.TaskStatus.CORRUPTED_ERROR;
+            return Task.TaskStatus.PARTIAL_ERROR;
         }
     }
 

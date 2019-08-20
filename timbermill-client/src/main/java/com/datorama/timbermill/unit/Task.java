@@ -17,12 +17,14 @@ import static com.datorama.timbermill.common.Constants.TYPE;
 
 public class Task {
 
+	public static final String ALREADY_STARTED = "ALREADY_STARTED";
+	public static final String ALREADY_CLOSED = "ALREADY_CLOSED";
+	public static final String CORRUPTED_REASON = "corruptedReason";
 	private String env;
 
 	private String name;
 	private TaskStatus status;
 	private String parentId;
-	private Boolean primary;
 	private String primaryId;
 	private List<String> parentsPath;
 
@@ -51,7 +53,7 @@ public class Task {
 				this.name = name;
 			}
 			else if (name != null && !this.name.equals(name)){
-				throw new RuntimeException("Timbermill events with same id must have same name" + this.name + " !=" + name);
+				throw new RuntimeException("Timbermill events with same id must have same name " + this.name + " !=" + name);
 			}
 
 			if (this.parentId == null){
@@ -100,22 +102,12 @@ public class Task {
 		}
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
-		if (isComplete()){
+		if (isComplete(startTime, endTime)){
 			setDuration(endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli());
 		}
-
-
-		if (isNotCorrupted()) {
-			primary = parentId == null;
-		}
-
 	}
 
-	private boolean isNotCorrupted() {
-		return status == TaskStatus.UNTERMINATED || isComplete();
-	}
-
-	private boolean isComplete() {
+	private boolean isComplete(ZonedDateTime startTime, ZonedDateTime endTime) {
 		return status == TaskStatus.SUCCESS || status == TaskStatus.ERROR;
 	}
 
@@ -149,14 +141,6 @@ public class Task {
 
 	public void setPrimaryId(String primaryId) {
 		this.primaryId = primaryId;
-	}
-
-	public Boolean isPrimary() {
-		return primary;
-	}
-
-	public void setPrimary(Boolean primary) {
-		this.primary = primary;
 	}
 
 	public ZonedDateTime getStartTime() {
@@ -245,9 +229,6 @@ public class Task {
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);
-		if (ctx.isEmpty()){
-			ctx = null;
-		}
 		if (string.isEmpty()){
 			string = null;
 		}
@@ -276,7 +257,6 @@ public class Task {
 		params.put("id", taskId);
 		params.put("parentId", parentId);
 		params.put("primaryId", primaryId);
-		params.put("primary", primary);
 		params.put("contx", ctx);
 		params.put("string", string);
 		params.put("text", text);
@@ -287,58 +267,68 @@ public class Task {
 
 		String scriptStr = "        if (ctx._source.status.equals( \"SUCCESS\" ) || ctx._source.status.equals( \"ERROR\" )){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already closed task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
 				"            }\n" +
 				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
 				"        }\n" +
 				"        else if (ctx._source.status.equals( \"UNTERMINATED\")){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
 				"            }\n" +
 				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
 				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
 				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status =  \"SUCCESS\" ;\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
 				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status = \"ERROR\";\n" +
 				"            }\n" +
 				"        }\n" +
-				"        else if (ctx._source.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
+				"        else if (ctx._source.status.equals( \"PARTIAL_SUCCESS\")){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
+				"            if (params.status.equals( \"UNTERMINATED\")){\n" +
 				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
 				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;\n" +
 				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
 				"                ctx._source.status =  \"SUCCESS\" ;\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
 				"        }\n" +
-				"        else if (ctx._source.status.equals( \"CORRUPTED_ERROR\")){\n" +
+				"        else if (ctx._source.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
 				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
 				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
@@ -346,14 +336,16 @@ public class Task {
 				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
 				"                ctx._source.status =  \"ERROR\" ;\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
 				"        }\n" +
-				"        else {\n" +
+				"        else {\n" + //Info only
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
 				"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
@@ -364,11 +356,11 @@ public class Task {
 				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
 				"                ctx._source.status = params.status;\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status = params.status;\n" +
 				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status = params.status;\n" +
 				"            }\n" +
@@ -437,8 +429,9 @@ public class Task {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		CORRUPTED_SUCCESS,
-		CORRUPTED_ERROR,
+		PARTIAL_SUCCESS,
+		PARTIAL_ERROR,
+		PARTIAL_INFO_ONLY,
 		CORRUPTED
 	}
 }
