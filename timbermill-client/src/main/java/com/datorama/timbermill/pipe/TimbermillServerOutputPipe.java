@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -48,21 +49,12 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         thread = new Thread(() -> {
             do {
                 try {
-
                     List<Event> eventsToSend = createEventsToSend();
                     if (eventsToSend != null) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
-                        HttpURLConnection httpCon = (HttpURLConnection) timbermillServerUrl.openConnection();
-                        httpCon.setRequestMethod("POST");
-                        httpCon.setRequestProperty("content-type", "application/json");
-                        httpCon.setDoOutput(true);
-                        ObjectMapper om = new ObjectMapper();
-                        ObjectWriter ow = om.writerFor(om.getTypeFactory().constructType(EventsWrapper.class));
-                        String eventsStr = ow.writeValueAsString(eventsWrapper);
-                        OutputStream os = httpCon.getOutputStream();
-                        os.write(eventsStr.getBytes());
-                        os.flush();
-                        os.close();
+                        HttpURLConnection httpCon = getHttpURLConnection();
+                        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
+                        sendEventsOverConnection(httpCon, eventsWrapperBytes);
                         int responseCode = httpCon.getResponseCode();
                         if (responseCode != 200){
                             LOG.warn("Request to timbermill return status {}, Message: {}", responseCode, httpCon.getResponseMessage());
@@ -77,6 +69,28 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } while (buffer.size() > 0);
         });
         thread.start();
+    }
+
+    private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
+        OutputStream os = httpCon.getOutputStream();
+        os.write(eventsWrapperBytes);
+        os.flush();
+        os.close();
+    }
+
+    private byte[] getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
+        ObjectMapper om = new ObjectMapper();
+        ObjectWriter ow = om.writerFor(om.getTypeFactory().constructType(EventsWrapper.class));
+        String eventsWrapperString = ow.writeValueAsString(eventsWrapper);
+        return eventsWrapperString.getBytes();
+    }
+
+    private HttpURLConnection getHttpURLConnection() throws IOException {
+        HttpURLConnection httpCon = (HttpURLConnection) timbermillServerUrl.openConnection();
+        httpCon.setRequestMethod("POST");
+        httpCon.setRequestProperty("content-type", "application/json");
+        httpCon.setDoOutput(true);
+        return httpCon;
     }
 
     private List<Event> createEventsToSend() throws JsonProcessingException {
