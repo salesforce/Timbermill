@@ -2,7 +2,7 @@ package com.datorama.timbermill;
 
 public class TimberLogContext implements AutoCloseable{
 
-	private String ongoingTaskId;
+	private final String ongoingTaskId;
 
 	TimberLogContext(String ongoingTaskId) {
 		this.ongoingTaskId = ongoingTaskId;

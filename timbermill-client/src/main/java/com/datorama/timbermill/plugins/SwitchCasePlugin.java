@@ -8,13 +8,10 @@ import java.util.List;
 public class SwitchCasePlugin extends TaskLogPlugin {
 
 	private static final long serialVersionUID = 1154980374224187763L;
-	private TaskMatcher taskMatcher;
-
-	private String searchField;
-
-	private String outputAttribute;
-
-	private List<CaseRule> switchCase;
+	private final TaskMatcher taskMatcher;
+	private final String searchField;
+	private final String outputAttribute;
+	private final List<CaseRule> switchCase;
 
 	public SwitchCasePlugin(String name, TaskMatcher taskMatcher, String searchField, String outputAttribute, List<CaseRule> switchCase) {
 		super(name);

@@ -65,7 +65,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                         os.close();
                         int responseCode = httpCon.getResponseCode();
                         if (responseCode != 200){
-                            LOG.warn("Resquest to timbermill return status {}, Message: {}", responseCode, httpCon.getResponseMessage());
+                            LOG.warn("Request to timbermill return status {}, Message: {}", responseCode, httpCon.getResponseMessage());
                         }
                         else{
                             LOG.debug("{} were sent to Timbermill server", eventsToSend.size());

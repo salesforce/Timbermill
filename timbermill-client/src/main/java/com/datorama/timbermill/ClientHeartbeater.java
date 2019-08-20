@@ -15,9 +15,9 @@ public class ClientHeartbeater {
 	public static final String MAX_SUBMIT_DURATION = "maxSubmitDuration";
 	public static final String OUTPUT_BUFFER_SIZE = "outputBufferSize";
 
-	private StatisticsCollectorOutputPipe statsCollector;
+	private final StatisticsCollectorOutputPipe statsCollector;
 
-	private BufferingOutputPipe bop;
+	private final BufferingOutputPipe bop;
 
 	ClientHeartbeater(StatisticsCollectorOutputPipe statsCollector, BufferingOutputPipe bop) {
 		this.statsCollector = statsCollector;

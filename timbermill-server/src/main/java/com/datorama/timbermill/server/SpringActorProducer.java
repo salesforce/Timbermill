@@ -3,7 +3,7 @@ package com.datorama.timbermill.server;
 import akka.actor.*;
 import org.springframework.context.*;
 
-public class SpringActorProducer implements IndirectActorProducer {
+class SpringActorProducer implements IndirectActorProducer {
     private final ApplicationContext applicationContext;
     private final String actorBeanName;
 

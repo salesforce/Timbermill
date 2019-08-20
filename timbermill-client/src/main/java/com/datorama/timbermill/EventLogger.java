@@ -24,7 +24,7 @@ import static com.datorama.timbermill.common.Constants.EXCEPTION;
 final class EventLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
     private static final String THREAD_NAME = "threadName";
-	public static final String STACK_TRACE = "stackTrace";
+	static final String STACK_TRACE = "stackTrace";
 
 	/**
 	 * Factory related fields
@@ -38,7 +38,7 @@ final class EventLogger {
 	 * Instance fields
 	 */
 	private Stack<String> taskIdStack = new Stack<>();
-	private EventOutputPipe eventOutputPipe;
+	private final EventOutputPipe eventOutputPipe;
 
 	private EventLogger(EventOutputPipe eventOutputPipe) {
 		this.eventOutputPipe = eventOutputPipe;

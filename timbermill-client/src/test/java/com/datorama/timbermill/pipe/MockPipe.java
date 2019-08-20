@@ -9,11 +9,7 @@ import java.util.List;
 public class MockPipe implements EventOutputPipe{
 
 
-    private List<Event> collectedEvents;
-
-    public MockPipe() {
-        collectedEvents = Collections.synchronizedList(new ArrayList<>());
-    }
+    private final List<Event> collectedEvents = Collections.synchronizedList(new ArrayList<>());
 
     @Override
     public void send(Event e) {

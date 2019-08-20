@@ -25,9 +25,9 @@ import static java.util.stream.Collectors.toList;
 public class TaskIndexer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
-    public static final String TEXT = "text";
-    public static final String STRING = "string";
-    public static final String CTX = "ctx";
+    private static final String TEXT = "text";
+    private static final String STRING = "string";
+    private static final String CTX = "ctx";
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
@@ -266,7 +266,7 @@ public class TaskIndexer {
         private final String primaryId;
         private final Map<String, String> context;
         private final List<String> parentPath;
-        private String parentName;
+        private final String parentName;
 
         ParentProperties(String primaryId, Map<String, String> context, List<String> parentPath, String parentName) {
             this.primaryId = primaryId;

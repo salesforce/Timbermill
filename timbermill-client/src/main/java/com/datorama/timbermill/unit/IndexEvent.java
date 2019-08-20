@@ -12,7 +12,7 @@ public class IndexEvent {
     private final long indexerDuration;
     private final Task.TaskStatus status;
     private final String exception;
-    private Long pluginsDuration;
+    private final Long pluginsDuration;
     public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, long indexerDuration, Task.TaskStatus status, String exception, Long pluginsDuration) {
         this.eventsAmount = eventsAmount;
         this.fetchedAmount = fetchedAmount;

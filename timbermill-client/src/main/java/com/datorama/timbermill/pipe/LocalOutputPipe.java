@@ -16,9 +16,10 @@ import java.util.stream.Collectors;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
+    private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
+    
     private TaskIndexer taskIndexer;
     private boolean keepRunning = true;
-    private BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
     private boolean stoppedRunning = false;
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
@@ -30,14 +31,18 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        taskIndexer = new TaskIndexer(builder.plugingJson, builder.propertiesLengthMap,
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.propertiesLengthMap,
                 builder.defaultMaxChars, builder.elasticUrl, builder.daysRotation, builder.awsRegion,
                 builder.indexBulkSize);
-        new Thread(() -> {
-            try {
-                while (keepRunning) {
-                    long l1 = System.currentTimeMillis();
-                    try {
+
+        getWorkingThread().start();
+    }
+
+    private Thread getWorkingThread() {
+        return new Thread(() -> {
+            while (keepRunning) {
+                while(!eventsQueue.isEmpty()) {
+                    try{
                         List<Event> events = new ArrayList<>();
                         eventsQueue.drainTo(events);
                         Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
@@ -48,17 +53,11 @@ public class LocalOutputPipe implements EventOutputPipe {
                         }
                     } catch (RuntimeException e) {
                         LOG.error("Error was thrown from TaskIndexer:", e);
-                    } finally {
-                        long l2 = System.currentTimeMillis();
-                        long timeToSleep = (builder.secondBetweenPolling * 1000) - (l2 - l1);
-                        Thread.sleep(Math.max(timeToSleep, 0));
                     }
                 }
-                stoppedRunning = true;
-            }catch (InterruptedException ignore){
-                LOG.info("Timbermill server was interrupted, exiting");
             }
-        }).start();
+            stoppedRunning = true;
+        });
     }
 
     @Override
@@ -80,11 +79,10 @@ public class LocalOutputPipe implements EventOutputPipe {
     public static class Builder {
         private String awsRegion;
         private String elasticUrl = null;
-        private String plugingJson = "[]";
+        private String pluginsJson = "[]";
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
         private int defaultMaxChars = 1000000;
         private int daysRotation = 0;
-        private int secondBetweenPolling = 1;
         private int indexBulkSize = 1000;
 
         public LocalOutputPipe.Builder url(String elasticUrl) {
@@ -92,8 +90,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public LocalOutputPipe.Builder pluginJson(String plugingJson) {
-            this.plugingJson = plugingJson;
+        public LocalOutputPipe.Builder pluginsJson(String pluginsJson) {
+            this.pluginsJson = pluginsJson;
             return this;
         }
 
@@ -109,11 +107,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public LocalOutputPipe.Builder daysRotation(int daysRotation) {
             this.daysRotation = daysRotation;
-            return this;
-        }
-
-        public LocalOutputPipe.Builder secondBetweenPolling(int secondBetweenPolling) {
-            this.secondBetweenPolling = secondBetweenPolling;
             return this;
         }
 

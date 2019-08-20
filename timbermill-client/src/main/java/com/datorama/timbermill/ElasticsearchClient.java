@@ -40,13 +40,13 @@ import static com.datorama.timbermill.common.Constants.*;
 import static java.util.stream.Collectors.groupingBy;
 
 
-public class ElasticsearchClient {
+class ElasticsearchClient {
 
     private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private final RestHighLevelClient client;
-    private int indexBulkSize;
-    private int daysBackToDelete;
+    private final int indexBulkSize;
+    private final int daysBackToDelete;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
     ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {

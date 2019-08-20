@@ -6,13 +6,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 
-	private EventOutputPipe delegate;
-
-	private AtomicLong eventsAmount = new AtomicLong(0);
-
-	private AtomicLong totalSubmitDuration = new AtomicLong(0);
-
-	private AtomicLong maxSubmitDuration = new AtomicLong(0);
+	private final EventOutputPipe delegate;
+	private final AtomicLong eventsAmount = new AtomicLong(0);
+	private final AtomicLong totalSubmitDuration = new AtomicLong(0);
+	private final AtomicLong maxSubmitDuration = new AtomicLong(0);
 
 	public StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
 		this.delegate = delegate;

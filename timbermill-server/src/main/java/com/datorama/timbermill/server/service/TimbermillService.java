@@ -23,8 +23,8 @@ public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 	private final TaskIndexer taskIndexer;
+	private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(10000000);
 
-	private BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(10000000);
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 
@@ -35,37 +35,36 @@ public class TimbermillService {
 							 @Value("${days.rotation:90}") Integer daysRotation,
 							 @Value("${plugins.json:[]}") String pluginsJson,
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
-							 @Value("${default.max.chars:100000}") int defaultMaxChars, @Value("${index.bulk.sleep.cycle:1000}") long indexBulkSleepCycle) throws IOException {
+							 @Value("${default.max.chars:100000}") int defaultMaxChars) throws IOException {
 
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
 		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize);
 
 		new Thread(() -> {
-				while (keepRunning) {
-					try {
-                        while(!eventsQueue.isEmpty()) {
-							List<Event> events = new ArrayList<>();
-							eventsQueue.drainTo(events);
-							Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
-							for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
-								String env = eventsPerEnv.getKey();
-								List<Event> currentEvents = eventsPerEnv.getValue();
-								taskIndexer.retrieveAndIndex(currentEvents, env);
-							}
-							Thread.sleep(indexBulkSleepCycle);
+			while (keepRunning) {
+				while(!eventsQueue.isEmpty()) {
+					try{
+						List<Event> events = new ArrayList<>();
+						eventsQueue.drainTo(events);
+						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
+						for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
+							String env = eventsPerEnv.getKey();
+							List<Event> currentEvents = eventsPerEnv.getValue();
+							taskIndexer.retrieveAndIndex(currentEvents, env);
 						}
-					} catch (RuntimeException | InterruptedException e) {
+					} catch (RuntimeException e) {
 						LOG.error("Error was thrown from TaskIndexer:", e);
 					}
-                }
-				stoppedRunning = true;
+				}
+			}
+			stoppedRunning = true;
 		}).start();
 	}
 
 	public void tearDown(){
 		LOG.info("Gracefully shutting down Timbermill Server.");
 		keepRunning = false;
-		while(!stoppedRunning){ // TODO add second treshold for complete killing
+		while(!stoppedRunning){ // TODO add second threshold for complete killing
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException ignored) {}
