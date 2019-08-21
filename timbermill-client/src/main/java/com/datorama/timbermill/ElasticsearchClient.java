@@ -7,7 +7,6 @@ import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
 import org.elasticsearch.ElasticsearchException;
@@ -78,17 +77,6 @@ class ElasticsearchClient {
         }
     }
 
-    void indexMetaDataEvent(ZonedDateTime time, String source, String env) {
-        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, env, time);
-        try {
-            deleteOldIndex(metadataIndex);
-            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE).source(source, XContentType.JSON);
-            client.index(indexRequest, RequestOptions.DEFAULT);
-        } catch (IOException e) {
-            LOG.error("Couldn't index metadata event with source {} to elasticsearch cluster: {}" , source, ExceptionUtils.getStackTrace(e));
-        }
-    }
-
     Task getTaskById(String taskId) {
         HashSet<String> taskIds = new HashSet<>();
         taskIds.add(taskId);
@@ -132,6 +120,22 @@ class ElasticsearchClient {
         if (exists) {
             DeleteIndexRequest request = new DeleteIndexRequest(oldIndex);
             client.indices().delete(request, RequestOptions.DEFAULT);
+        }
+    }
+
+    public void indexMetaDataEvents(String env, String...metadataEvents) {
+        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, env, ZonedDateTime.now());
+
+        BulkRequest bulkRequest = new BulkRequest();
+        for (String metadataEvent : metadataEvents) {
+            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE).source(metadataEvent, XContentType.JSON);
+            bulkRequest.add(indexRequest);
+        }
+        try {
+            deleteOldIndex(metadataIndex);
+            client.bulk(bulkRequest, RequestOptions.DEFAULT);
+        } catch (IOException e){
+            LOG.error("Couldn't index metadata event with events " + metadataEvents.toString() + " to elasticsearch cluster.", e);
         }
     }
 

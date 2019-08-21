@@ -45,15 +45,15 @@ public class TaskIndexer {
         LOG.info("------------------ Batch Start ------------------");
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
-        List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
-        for (Event e: heartbeatEvents){
-            HeartbeatTask heartbeatTask = new HeartbeatTask(e);
-            this.es.indexMetaDataEvent(e.getTime(), GSON.toJson(heartbeatTask), env);
-        }
 
+        List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
         List<Event> timbermillEvents = events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
 
-        LOG.info("{} events retrieved from pipe", timbermillEvents.size());
+        if (!heartbeatEvents.isEmpty()) {
+            indexHeartbeatEvents(env, heartbeatEvents);
+        }
+
+        LOG.info("{} events to handle in current batch", timbermillEvents.size());
         Set<String> missingParentEvents = getMissingParentEvents(timbermillEvents);
 
         Map<String, Task> previouslyIndexedTasks = new HashMap<>();
@@ -93,6 +93,11 @@ public class TaskIndexer {
         } catch (ElasticsearchException e){
             indexFailedMetadataTask(taskIndexerStartTime, timbermillEvents.size(), previouslyIndexedTasks.size(), e, env);
         }
+    }
+
+    private void indexHeartbeatEvents(String env, List<Event> heartbeatEvents) {
+        List<String> heartbeatTasks = heartbeatEvents.stream().map(event -> GSON.toJson(new HeartbeatTask(event))).collect(toList());
+        this.es.indexMetaDataEvents(env, heartbeatTasks.toArray(new String[heartbeatTasks.size()]));
     }
 
     private void enrichEvents(List<Event> events, Map<String, Task> previouslyIndexedTasks) {
@@ -147,7 +152,7 @@ public class TaskIndexer {
                 ZonedDateTime endTime = ZonedDateTime.now();
                 long duration = endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli();
                 PluginApplierEvent pluginApplierEvent = new PluginApplierEvent(startTime, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration);
-                es.indexMetaDataEvent(startTime, GSON.toJson(pluginApplierEvent), env);
+                es.indexMetaDataEvents(env, GSON.toJson(pluginApplierEvent));
             }
         } catch (Exception ex) {
             LOG.error("Error running plugins", ex);
@@ -193,7 +198,7 @@ public class TaskIndexer {
         long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
         IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.ERROR, ExceptionUtils.getStackTrace(e), null);
-        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent), env);
+        es.indexMetaDataEvents(env, GSON.toJson(indexEvent));
     }
 
     private void indexMetadataTask(ZonedDateTime taskIndexerStartTime, Integer eventsAmount, Integer fetchedAmount, long pluginsDuration, String env) {
@@ -202,7 +207,7 @@ public class TaskIndexer {
         long duration = taskIndexerEndTime.toInstant().toEpochMilli() - taskIndexerStartTime.toInstant().toEpochMilli();
 
         IndexEvent indexEvent = new IndexEvent(eventsAmount, fetchedAmount, taskIndexerStartTime, taskIndexerEndTime, duration, TaskStatus.SUCCESS, null, pluginsDuration);
-        es.indexMetaDataEvent(taskIndexerStartTime, GSON.toJson(indexEvent), env);
+        es.indexMetaDataEvents(env, GSON.toJson(indexEvent));
     }
 
     private static Set<String> getMissingParentEvents(Collection<Event> events) {

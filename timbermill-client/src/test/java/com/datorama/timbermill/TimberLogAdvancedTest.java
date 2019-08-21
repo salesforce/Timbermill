@@ -789,12 +789,14 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForEvents(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_STARTED);
+        assertCorrupted(task, null);
     }
 
     private void assertCorrupted(Task task, String reason) {
         assertEquals(TaskStatus.CORRUPTED, task.getStatus());
-        assertEquals(reason, task.getCtx().get(CORRUPTED_REASON));
+        if (reason != null) {
+            assertEquals(reason, task.getCtx().get(CORRUPTED_REASON));
+        }
     }
 
     void testIncorrectTaskStartSuccessStart(boolean withUpdate) throws InterruptedException {
@@ -804,7 +806,6 @@ public class TimberLogAdvancedTest {
             Thread.sleep(3000);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
-        TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForEvents(taskId, TaskStatus.CORRUPTED);
 

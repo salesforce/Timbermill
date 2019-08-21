@@ -6,17 +6,18 @@ import java.util.Map;
 import static com.datorama.timbermill.ClientHeartbeater.*;
 
 public class HeartbeatTask {
-    private final ZonedDateTime startTime;
+    private TaskMetaData meta = new TaskMetaData();
+
     private final String name;
+
     private final String env;
     private final String threadName;
     private final Number submitAmount;
     private final Number avgSubmitDuration;
     private final Number maxSubmitDuration;
     private final Number outputBufferSize;
-
     public HeartbeatTask(Event e) {
-        this.startTime = e.getTime();
+        this.meta.setTaskBegin(e.getTime());
         this.name = e.getName();
 
         Map<String, String> context = e.getContext();
@@ -30,8 +31,8 @@ public class HeartbeatTask {
         this.outputBufferSize = metrics.get(OUTPUT_BUFFER_SIZE);
     }
 
-    public ZonedDateTime getStartTime() {
-        return startTime;
+    public TaskMetaData getMeta() {
+        return meta;
     }
 
     public String getName() {

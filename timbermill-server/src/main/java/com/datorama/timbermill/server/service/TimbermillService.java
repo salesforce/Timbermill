@@ -55,7 +55,8 @@ public class TimbermillService {
 							List<Event> currentEvents = eventsPerEnv.getValue();
 							taskIndexer.retrieveAndIndex(currentEvents, env);
 						}
-					} catch (RuntimeException e) {
+						Thread.sleep(2000);
+					} catch (RuntimeException | InterruptedException e) {
 						LOG.error("Error was thrown from TaskIndexer:", e);
 					}
 				}

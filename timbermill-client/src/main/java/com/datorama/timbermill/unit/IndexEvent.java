@@ -7,23 +7,23 @@ public class IndexEvent {
 
     private final Integer eventsAmount;
     private final Integer fetchedAmount;
-    private final ZonedDateTime startTime;
-    private final ZonedDateTime endTime;
-    private final long indexerDuration;
+
+    private TaskMetaData meta = new TaskMetaData();
+
     private final Task.TaskStatus status;
     private final String exception;
     private final Long pluginsDuration;
     public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, long indexerDuration, Task.TaskStatus status, String exception, Long pluginsDuration) {
         this.eventsAmount = eventsAmount;
         this.fetchedAmount = fetchedAmount;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.indexerDuration = indexerDuration;
         this.status = status;
         this.exception = exception;
         this.pluginsDuration = pluginsDuration;
-    }
 
+        meta.setTaskBegin(startTime);
+        meta.setTaskEnd(endTime);
+        meta.setDuration(indexerDuration);
+    }
     public String getName() {
         return name;
     }
@@ -36,18 +36,6 @@ public class IndexEvent {
         return fetchedAmount;
     }
 
-    public ZonedDateTime getStartTime() {
-        return startTime;
-    }
-
-    public ZonedDateTime getEndTime() {
-        return endTime;
-    }
-
-    public long getIndexerDuration() {
-        return indexerDuration;
-    }
-
     public Task.TaskStatus getStatus() {
         return status;
     }
@@ -58,5 +46,9 @@ public class IndexEvent {
 
     public Long getPluginsDuration() {
         return pluginsDuration;
+    }
+
+    public TaskMetaData getMeta() {
+        return meta;
     }
 }

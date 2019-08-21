@@ -268,7 +268,7 @@ public class Task {
 		String scriptStr = "        if (ctx._source.status.equals( \"SUCCESS\" ) || ctx._source.status.equals( \"ERROR\" )){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
 				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
 				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
 				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
@@ -281,6 +281,9 @@ public class Task {
 				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"            }\n" +
 				"        }\n" +
 				"        else if (ctx._source.status.equals( \"UNTERMINATED\")){\n" +
@@ -304,6 +307,9 @@ public class Task {
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status = \"ERROR\";\n" +
 				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
 				"        }\n" +
 				"        else if (ctx._source.status.equals( \"PARTIAL_SUCCESS\")){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
@@ -323,6 +329,9 @@ public class Task {
 				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"            }\n" +
 				"        }\n" +
 				"        else if (ctx._source.status.equals( \"PARTIAL_ERROR\")){\n" +
@@ -344,8 +353,11 @@ public class Task {
 				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
 				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
 				"        }\n" +
-				"        else {\n" + //Info only
+				"        else if (ctx._source.status.equals( \"PARTIAL_INFO_ONLY\")){\n" +
 				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
 				"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
@@ -363,6 +375,26 @@ public class Task {
 				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
 				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
 				"                ctx._source.status = params.status;\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        else {\n" + //Corrupted
+				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
+				"            }\n" +
+				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
+				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
 				"            }\n" +
 				"        }\n" +
 				"\n" +
