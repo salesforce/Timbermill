@@ -29,6 +29,9 @@ public final class TimberLogger {
 	}
 
 	public static void bootstrap(EventOutputPipe pipe, Map<String, String> staticParams, String env) {
+		if (env == null){
+			env = DEFAULT;
+		}
 		EventLogger.bootstrap(pipe, true, staticParams, env);
 	}
 

@@ -34,11 +34,11 @@ public class TaskIndexer {
     private final Map<String, Integer> propertiesLengthMap;
     private final int defaultMaxChars;
 
-    public TaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthJson, int defaultMaxChars, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize) {
+    public TaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthJson, int defaultMaxChars, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize, int indexingThreads) {
         logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.propertiesLengthMap = propertiesLengthJson;
         this.defaultMaxChars = defaultMaxChars;
-        this.es = new ElasticsearchClient(elasticUrl, indexBulkSize, daysRotation, awsRegion);
+        this.es = new ElasticsearchClient(elasticUrl, indexBulkSize, daysRotation, awsRegion, indexingThreads);
     }
 
     public void retrieveAndIndex(List<Event> events, String env) {

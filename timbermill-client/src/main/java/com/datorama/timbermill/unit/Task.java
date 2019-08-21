@@ -14,6 +14,7 @@ import java.util.Map;
 
 import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
+import static com.datorama.timbermill.unit.Task.TaskStatus.*;
 
 public class Task {
 
@@ -102,13 +103,13 @@ public class Task {
 		}
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
-		if (isComplete(startTime, endTime)){
+		if (isComplete()){
 			setDuration(endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli());
 		}
 	}
 
-	private boolean isComplete(ZonedDateTime startTime, ZonedDateTime endTime) {
-		return status == TaskStatus.SUCCESS || status == TaskStatus.ERROR;
+	private boolean isComplete() {
+		return status == SUCCESS || status == ERROR;
 	}
 
 	public String getName() {
@@ -265,192 +266,169 @@ public class Task {
 		params.put("parentsPath", parentsPath);
 		params.put("status", status);
 
-		String scriptStr = "        if (ctx._source.status.equals( \"SUCCESS\" ) || ctx._source.status.equals( \"ERROR\" )){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"UNTERMINATED\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status =  \"SUCCESS\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = \"ERROR\";\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status =  \"SUCCESS\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status =  \"ERROR\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"PARTIAL_INFO_ONLY\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else {\n" + //Corrupted
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_SUCCESS\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"PARTIAL_ERROR\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED\")){\n" +
-				"                ctx._source.status =  \"CORRUPTED\" ;\n" +
-				"            }\n" +
-				"        }\n" +
-				"\n" +
-				"        if (params.contx != null) {\n" +
-				"            if (ctx._source.ctx == null) {\n" +
-				"                ctx._source.ctx = params.contx;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.ctx.putAll(params.contx);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.string != null) {\n" +
-				"            if (ctx._source.string == null) {\n" +
-				"                ctx._source.string = params.string;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.string.putAll(params.string);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.text != null) {\n" +
-				"            if (ctx._source.text == null) {\n" +
-				"                ctx._source.text = params.text;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.text.putAll(params.text);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.metric != null) {\n" +
-				"            if (ctx._source.metric == null) {\n" +
-				"                ctx._source.metric = params.metric;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.metric.putAll(params.metric);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.logi != null) {\n" +
-				"            if (ctx._source.log == null) {\n" +
-				"                ctx._source.log = params.logi;\n" +
-				"            } else {\n" +
-				"                ctx._source.log += '\n' + params.logi;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.name != null) {\n" +
-				"            ctx._source.name = params.name;\n" +
-				"        }\n" +
-				"        if (params.parentId != null) {\n" +
-				"            ctx._source.parentId = params.parentId;\n" +
-				"        }\n" +
-				"        if (params.primaryId != null) {\n" +
-				"            ctx._source.primaryId = params.primaryId;\n" +
-				"        }\n" +
-				"        if (params.primary != null && ctx._source.primary == null) {\n" +
-				"            ctx._source.primary = params.primary;\n" +
-				"        }\n" +
-				"        if (params.parentsPath != null) {\n" +
-				"            ctx._source.parentsPath = params.parentsPath;\n" +
+		String scriptStr =
+				"        if (params.status.equals( \"" + CORRUPTED + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"        }" +
+				"        else if (ctx._source.status.equals( \"" + SUCCESS + "\" ) || ctx._source.status.equals( \"" + ERROR + "\" )){" +
+				"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"        }" +
+				"        else if (ctx._source.status.equals( \"" + UNTERMINATED + "\")){" +
+				"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;" +
+				"                ctx._source.meta.taskEnd = params.taskEnd;" +
+				"                ctx._source.status =  \"" + SUCCESS + "\" ;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;" +
+				"                ctx._source.meta.taskEnd = params.taskEnd;" +
+				"                ctx._source.status = \"" + ERROR + "\";" +
+				"            }" +
+				"        }" +
+				"        else if (ctx._source.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;" +
+				"                ctx._source.meta.taskBegin = params.taskBegin;" +
+				"                ctx._source.status =  \"" + SUCCESS + "\" ;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"        }" +
+				"        else if (ctx._source.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;" +
+				"                ctx._source.meta.taskBegin = params.taskBegin;" +
+				"                ctx._source.status =  \"" + ERROR + "\" ;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+				"            }" +
+				"            else if (params.status.equals( \"" + CORRUPTED + "\")){" +
+				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"            }" +
+				"        }" +
+				"        else if (ctx._source.status.equals( \"" + PARTIAL_INFO_ONLY + "\")){" +
+				"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+				"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;" +
+				"                ctx._source.meta.taskEnd = params.taskEnd;" +
+				"                ctx._source.meta.taskBegin = params.taskBegin;" +
+				"                ctx._source.status = params.status;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+				"                ctx._source.meta.taskBegin = params.taskBegin;" +
+				"                ctx._source.status = params.status;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+				"                ctx._source.meta.taskEnd = params.taskEnd;" +
+				"                ctx._source.status = params.status;" +
+				"            }" +
+				"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+				"                ctx._source.meta.taskEnd = params.taskEnd;" +
+				"                ctx._source.status = params.status;" +
+				"            }" +
+				"        }" +
+				"        else {" + //Corrupted
+				"            ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+				"        }" +
+				"        if (params.contx != null) {" +
+				"            if (ctx._source.ctx == null) {" +
+				"                ctx._source.ctx = params.contx;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.ctx.putAll(params.contx);" +
+				"            }" +
+				"        }" +
+				"        if (params.string != null) {" +
+				"            if (ctx._source.string == null) {" +
+				"                ctx._source.string = params.string;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.string.putAll(params.string);" +
+				"            }" +
+				"        }" +
+				"        if (params.text != null) {" +
+				"            if (ctx._source.text == null) {" +
+				"                ctx._source.text = params.text;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.text.putAll(params.text);" +
+				"            }" +
+				"        }" +
+				"        if (params.metric != null) {" +
+				"            if (ctx._source.metric == null) {" +
+				"                ctx._source.metric = params.metric;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.metric.putAll(params.metric);" +
+				"            }" +
+				"        }" +
+				"        if (params.logi != null) {" +
+				"            if (ctx._source.log == null) {" +
+				"                ctx._source.log = params.logi;" +
+				"            } else {" +
+				"                ctx._source.log += '\n' + params.logi;" +
+				"            }" +
+				"        }" +
+				"        if (params.name != null) {" +
+				"            ctx._source.name = params.name;" +
+				"        }" +
+				"        if (params.parentId != null) {" +
+				"            ctx._source.parentId = params.parentId;" +
+				"        }" +
+				"        if (params.primaryId != null) {" +
+				"            ctx._source.primaryId = params.primaryId;" +
+				"        }" +
+				"        if (params.primary != null && ctx._source.primary == null) {" +
+				"            ctx._source.primary = params.primary;" +
+				"        }" +
+				"        if (params.parentsPath != null) {" +
+				"            ctx._source.parentsPath = params.parentsPath;" +
 				"        }";
 		Script script = new Script(ScriptType.INLINE, "painless", scriptStr, params);
 		updateRequest.script(script);

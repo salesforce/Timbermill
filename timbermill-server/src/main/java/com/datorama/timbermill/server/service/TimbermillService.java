@@ -30,23 +30,24 @@ public class TimbermillService {
 	private long terminationTimeout;
 
 	@Autowired
-	public TimbermillService(@Value("${index.bulk.size:10000}") Integer indexBulkSize,
+	public TimbermillService(@Value("${index.bulk.size:2097152}") Integer indexBulkSize,
 							 @Value("${elasticsearch.url:http://localhost:9200}") String elasticUrl,
 							 @Value("${elasticsearch.aws.region:}") String awsRegion,
 							 @Value("${days.rotation:90}") Integer daysRotation,
 							 @Value("${plugins.json:[]}") String pluginsJson,
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
 							 @Value("${default.max.chars:100000}") int defaultMaxChars,
-							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds) throws IOException {
+							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds,
+							 @Value("${indexing.threads:1}") int indexingThreads) throws IOException {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
-		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize);
+		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize, indexingThreads);
 
-		new Thread(() -> {
+		Runnable eventsHandler = () -> {
 			while (keepRunning) {
-				while(!eventsQueue.isEmpty()) {
-					try{
+				while (!eventsQueue.isEmpty()) {
+					try {
 						List<Event> events = new ArrayList<>();
 						eventsQueue.drainTo(events);
 						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
@@ -62,7 +63,9 @@ public class TimbermillService {
 				}
 			}
 			stoppedRunning = true;
-		}).start();
+		};
+
+		new Thread(eventsHandler).start();
 	}
 
 	public void tearDown(){

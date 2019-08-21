@@ -33,7 +33,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.propertiesLengthMap,
                 builder.defaultMaxChars, builder.elasticUrl, builder.daysRotation, builder.awsRegion,
-                builder.indexBulkSize);
+                builder.indexBulkSize, builder.indexingThreads);
 
         getWorkingThread().start();
     }
@@ -84,7 +84,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
         private int defaultMaxChars = 1000000;
         private int daysRotation = 0;
-        private int indexBulkSize = 1000;
+        private int indexBulkSize = 2097152;
+        public int indexingThreads = 1;
 
         public LocalOutputPipe.Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -118,6 +119,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public LocalOutputPipe.Builder indexBulkSize(int indexBulkSize) {
             this.indexBulkSize = indexBulkSize;
+            return this;
+        }
+
+        public LocalOutputPipe.Builder indexingThreads(int indexingThreads) {
+            this.indexingThreads = indexingThreads;
             return this;
         }
 

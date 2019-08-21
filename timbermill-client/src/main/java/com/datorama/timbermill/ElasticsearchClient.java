@@ -34,6 +34,10 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static com.datorama.timbermill.common.Constants.*;
 import static java.util.stream.Collectors.groupingBy;
@@ -41,16 +45,21 @@ import static java.util.stream.Collectors.groupingBy;
 
 class ElasticsearchClient {
 
-    private static final int MAX_TRY_NUMBER = 3;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final int daysBackToDelete;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
-    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion) {
+    private final ExecutorService executorService;
+
+    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion, int indexingThreads) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
+        if (indexingThreads < 1) {
+            indexingThreads = 1;
+        }
+        this.executorService = Executors.newFixedThreadPool(indexingThreads);
         RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
         if (StringUtils.isEmpty(awsRegion)){
             AWS4Signer signer = new AWS4Signer();
@@ -147,10 +156,9 @@ class ElasticsearchClient {
         }
     }
 
-    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, int tryNum, String env) {
+    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, String env) {
         BulkRequest request = new BulkRequest();
         int currBatch = 0;
-        int i = 0;
 
         List<UpdateRequest> requests = new ArrayList<>();
         Map<String, List<Event>> eventsMap = events.stream().collect(groupingBy(e -> e.getTaskId()));
@@ -169,41 +177,49 @@ class ElasticsearchClient {
             requests.add(updateRequest);
         }
 
+        int currentSize = 0;
+        List<Future> futures = new ArrayList<>();
         for (UpdateRequest updateRequest : requests) {
-            i++;
-            currBatch++;
-
             request.add(updateRequest);
-            try{
-                if (((i % bulkSize) == 0) || (i == requests.size())) {
-                    BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
+            currentSize += request.estimatedSizeInBytes();
 
-                    if (responses.hasFailures()) {
-                        retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, responses.buildFailureMessage(), env);
-                    }
-                    LOG.info("Batch of {} tasks indexed successfully", currBatch);
-                    currBatch = 0;
-                    request = new BulkRequest();
-                }
-            } catch (IOException e) {
-                retryUpdateWithSmallerBulkSizeOrFail(events, bulkSize, tryNum, e.getMessage(), env);
+            if (currentSize > bulkSize) {
+                BulkRequest finalRequest = request;
+                futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
+                LOG.info("Batch of {} tasks indexed successfully", currBatch);
+                currentSize = 0;
+                request = new BulkRequest();
+            }
+        }
+        if (!request.requests().isEmpty()) {
+            BulkRequest finalRequest = request;
+            futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
+        }
+
+        for (Future future : futures) {
+            try {
+                future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOG.error("A error was thrown while indexing a batch", e);
             }
         }
     }
 
-    private void retryUpdateWithSmallerBulkSizeOrFail(List<Event> events, int bulkSize, int tryNum, String errorMessage, String env) {
-        if (tryNum == MAX_TRY_NUMBER) {
-            throw new ElasticsearchException("Couldn't bulk index tasks to elasticsearch cluster after {} tries,"
-                    + "Exiting. Error: {}", MAX_TRY_NUMBER, errorMessage);
-        } else {
-            int smallerBulkSize = (int) Math.ceil((double) bulkSize / 2);
-            LOG.warn("Try #{} for indexing failed (with bulk size {}). Will try with smaller batch size of {}. Cause: {}", tryNum, bulkSize, smallerBulkSize, errorMessage);
-            bulkIndexByBulkSize(events, smallerBulkSize, tryNum + 1, env);
+    private void sendBulkRequest(BulkRequest request){
+        try {
+            BulkResponse responses = null;
+            responses = client.bulk(request, RequestOptions.DEFAULT);
+            if (responses.hasFailures()) {
+                LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
+            }
+        } catch (IOException e) {
+            LOG.error("Couldn't bulk index tasks to elasticsearch cluster.", e);
         }
+
     }
 
     void index(List<Event> events, String env) {
-        bulkIndexByBulkSize(events, indexBulkSize, 1, env);
+        bulkIndexByBulkSize(events, indexBulkSize, env);
     }
 
     private String getTaskIndexWithEnv(String indexPrefix, String env, ZonedDateTime startTime) {
