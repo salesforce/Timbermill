@@ -9,8 +9,13 @@ import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -21,7 +26,6 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.IdsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -53,7 +57,7 @@ class ElasticsearchClient {
 
     private final ExecutorService executorService;
 
-    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion, int indexingThreads) {
+    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion, int indexingThreads, String elasticUser, String elasticPassword) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
         if (indexingThreads < 1) {
@@ -61,7 +65,7 @@ class ElasticsearchClient {
         }
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
-        if (StringUtils.isEmpty(awsRegion)){
+        if (!StringUtils.isEmpty(awsRegion)){
             AWS4Signer signer = new AWS4Signer();
             String serviceName = "es";
             signer.setServiceName(serviceName);
@@ -69,6 +73,14 @@ class ElasticsearchClient {
             HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
             builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
+
+        if (elasticUser != null){
+            final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticUser, elasticPassword));
+            builder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
+                    .setDefaultCredentialsProvider(credentialsProvider));
+        }
+
         client = new RestHighLevelClient(builder);
     }
 
@@ -124,7 +136,7 @@ class ElasticsearchClient {
         String indexPrefix = split[0];
         String env = split[1];
         String oldIndex = getTaskIndexWithEnv(indexPrefix, env, ZonedDateTime.now().minusDays(daysBackToDelete));
-        GetIndexRequest existsRequest = new GetIndexRequest(oldIndex);
+        GetIndexRequest existsRequest = new GetIndexRequest().indices(oldIndex);
         boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
         if (exists) {
             DeleteIndexRequest request = new DeleteIndexRequest(oldIndex);
