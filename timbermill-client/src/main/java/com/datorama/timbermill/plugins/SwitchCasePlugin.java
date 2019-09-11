@@ -12,9 +12,9 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	private final TaskMatcher taskMatcher;
 	private final String searchField;
 	private final String outputAttribute;
-	private final List<CaseRule> switchCase;
+	private final Collection<CaseRule> switchCase;
 
-	public SwitchCasePlugin(String name, TaskMatcher taskMatcher, String searchField, String outputAttribute, List<CaseRule> switchCase) {
+	public SwitchCasePlugin(String name, TaskMatcher taskMatcher, String searchField, String outputAttribute, Collection<CaseRule> switchCase) {
 		super(name);
 		this.taskMatcher = taskMatcher;
 		this.searchField = searchField;
@@ -43,13 +43,13 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	public static class CaseRule implements Serializable{
 		private static final long serialVersionUID = 642071029855386301L;
 
-		private List<String> match;
+		private Collection<String> match;
 		private String output;
 
 		public CaseRule() {
 		}
 
-		public CaseRule(List<String> match, String output) {
+		public CaseRule(Collection<String> match, String output) {
 			this.match = match;
 			this.output = output;
 		}

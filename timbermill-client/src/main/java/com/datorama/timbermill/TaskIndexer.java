@@ -46,22 +46,37 @@ public class TaskIndexer {
         cache = CacheBuilder.newBuilder().maximumSize(maximumCacheSize).expireAfterAccess(maximumCacheMinutesHold, TimeUnit.MINUTES).build();
     }
 
-    public void retrieveAndIndex(List<Event> events, String env) {
+    public void retrieveAndIndex(Collection<Event> events, String env) {
         LOG.info("------------------ Batch Start ------------------");
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         trimAllStrings(events);
 
-        handleHeartBeatEvents(events, env);
 
-        Collection<Event> timbermillEvents = getTimbermillEvents(events);
+        Collection<Event> heartbeatEvents = new HashSet<>();
+        Collection<Event> timbermillEvents = new LinkedHashSet<>();
+        Collection<String> startEventsIds = new HashSet<>();
+
+        events.forEach(e -> {
+            if (e.getName() != null && e.getName().equals(Constants.HEARTBEAT_TASK)){
+                heartbeatEvents.add(e);
+            }
+            else{
+                timbermillEvents.add(e);
+                if (e.isStartEvent()){
+                    startEventsIds.add(e.getTaskId());
+                }
+            }
+        });
+
+        if (!heartbeatEvents.isEmpty()) {
+            indexHeartbeatEvents(env, heartbeatEvents);
+        }
+
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
             Map<String, Task> previouslyIndexedParentTasks = new HashMap<>();
             try {
-                Collection<Event> startEvents = timbermillEvents.stream().filter(e -> e.isStartEvent()).collect(toSet());
-                Collection<String> startEventsIds = startEvents.stream().map(e -> e.getTaskId()).collect(toSet());
-
                 Set<String> missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
                 if (!missingParentTaskIds.isEmpty()) {
                     previouslyIndexedParentTasks = this.es.fetchIndexedTasks(missingParentTaskIds);
@@ -97,8 +112,7 @@ public class TaskIndexer {
 
     private Map<String, Task> getEnrichedTasksFromEvents(String env, Collection<Event> timbermillEvents, Map<String, Task> previouslyIndexedParentTasks) {
         Map<String, List<Event>> eventsMap = timbermillEvents.stream().collect(groupingBy(e -> e.getTaskId()));
-        Collection<Event> startEvents = timbermillEvents.stream().filter(event -> event.isStartEvent()).collect(toSet());
-        enrichEvents(startEvents, eventsMap, previouslyIndexedParentTasks);
+        enrichEvents(timbermillEvents, eventsMap, previouslyIndexedParentTasks);
         return getTasksFromEvents(env, eventsMap);
     }
 
@@ -111,21 +125,6 @@ public class TaskIndexer {
         });
         String joinString = StringUtils.join(notFoundEvents, ",");
         LOG.warn("{} missing events were not retrieved from elasticsearch. Events that were added to orphans queue [{}]", notFoundEvents.size(), joinString);
-    }
-
-    private void handleHeartBeatEvents(List<Event> events, String env) {
-        List<Event> heartbeatEvents = events.stream().filter(e -> (e.getName() != null) && e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
-        if (!heartbeatEvents.isEmpty()) {
-            indexHeartbeatEvents(env, heartbeatEvents);
-        }
-    }
-
-    private List<Event> getTimbermillEvents(List<Event> events) {
-//        Set<Event> timbermillEventsSet = new LinkedHashSet<>();
-//        events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).forEach(e -> timbermillEventsSet.add(e));
-//        return timbermillEventsSet;
-
-        return events.stream().filter(e -> (e.getName() == null) || !e.getName().equals(Constants.HEARTBEAT_TASK)).collect(toList());
     }
 
     private void cleanAdoptedTask(Task t) {
@@ -142,11 +141,12 @@ public class TaskIndexer {
     }
 
     private Collection<Event> getAdoptedOrphans(Collection<String> startEventsId) {
-        Set<Event> adoptedOrphans = new HashSet<>();
+        Collection<Event> adoptedOrphans = new HashSet<>();
         ConcurrentMap<String, Event> cacheMap = cache.asMap();
         for (Map.Entry<String, Event> cacheEntry : cacheMap.entrySet()) {
             Event adoptedOrphan = cacheEntry.getValue();
-            if (startEventsId.contains(adoptedOrphan.getParentId())){
+            String orphansParentId = adoptedOrphan.getParentId();
+            if (startEventsId.contains(orphansParentId)){
                 adoptedOrphans.add(adoptedOrphan);
                 cache.invalidate(cacheEntry.getKey());
             }
@@ -164,13 +164,13 @@ public class TaskIndexer {
         return tasksMap;
     }
 
-    private void indexHeartbeatEvents(String env, List<Event> heartbeatEvents) {
+    private void indexHeartbeatEvents(String env, Collection<Event> heartbeatEvents) {
         String[] metadataEvents = heartbeatEvents.stream().map(event -> GSON.toJson(new HeartbeatTask(event))).toArray(String[]::new);
         this.es.indexMetaDataEvents(env, metadataEvents);
     }
 
-    private void enrichEvents(Collection<Event> startEvents, Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks) {
-        Collection<DefaultMutableTreeNode> roots = getTreesRoots(startEvents);
+    private void enrichEvents(Collection<Event> timbermillEvents, Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks) {
+        Collection<DefaultMutableTreeNode> roots = getTreesRoots(timbermillEvents);
 
         /*
          * Compute origins and down merge parameters from parent
@@ -198,7 +198,7 @@ public class TaskIndexer {
                 event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
             }
 
-            List<String> parentParentsPath = parentProperties.getParentPath();
+            Collection<String> parentParentsPath = parentProperties.getParentPath();
             if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
                 parentsPath.addAll(parentParentsPath);
             }
@@ -213,20 +213,30 @@ public class TaskIndexer {
         }
     }
 
-    private Collection<DefaultMutableTreeNode> getTreesRoots(Collection<Event> startEvents) {
-        Map<String, DefaultMutableTreeNode> nodesMap = new HashMap<>();
-        for (Event startEvent : startEvents) {
-            nodesMap.put(startEvent.getTaskId(), new DefaultMutableTreeNode(startEvent));
-        }
-        Set<DefaultMutableTreeNode> roots = new HashSet<>();
-        for (Event startEvent : startEvents) {
-            DefaultMutableTreeNode parentNode = nodesMap.get(startEvent.getParentId());
-            if (startEvent.getParentId() != null && parentNode != null) {
-                DefaultMutableTreeNode childNode = nodesMap.get(startEvent.getTaskId());
-                parentNode.add(childNode);
+    private Collection<DefaultMutableTreeNode> getTreesRoots(Collection<Event> timbermillEvents) {
+        Map<String, Event> nodesMap = new HashMap<>();
+        for (Event timbermillEvent : timbermillEvents) {
+            if (timbermillEvent.isStartEvent()) {
+                nodesMap.put(timbermillEvent.getTaskId(), timbermillEvent);
             }
         }
-        for (DefaultMutableTreeNode node : nodesMap.values()) {
+        Collection<DefaultMutableTreeNode> nodes = new HashSet<>();
+        for (Event startEvent : nodesMap.values()) {
+            Event child = nodesMap.get(startEvent.getTaskId());
+            DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(child);
+            nodes.add(childNode);
+
+            if (startEvent.getParentId() != null) {
+                Event parent = nodesMap.get(startEvent.getParentId());
+                if (parent != null) {
+                    DefaultMutableTreeNode parentNode = new DefaultMutableTreeNode(parent);
+                    parentNode.add(childNode);
+                }
+            }
+        }
+
+        Collection<DefaultMutableTreeNode> roots = new HashSet<>();
+        for (DefaultMutableTreeNode node : nodes) {
             roots.add((DefaultMutableTreeNode) node.getRoot());
         }
         return roots;
@@ -260,7 +270,7 @@ public class TaskIndexer {
         return pluginsEnd - pluginsStart;
     }
 
-    private void trimAllStrings(List<Event> events) {
+    private void trimAllStrings(Collection<Event> events) {
         events.forEach(e -> {
             e.setStrings(getTrimmedLongValues(e.getStrings(), STRING));
             e.setTexts(getTrimmedLongValues(e.getTexts(), TEXT));
@@ -313,14 +323,15 @@ public class TaskIndexer {
 
         return timbermillEvents.stream()
                 .filter(e -> e.getParentId() != null && !startEventsIds.contains(e.getParentId()))
-                .map(e -> e.getParentId()).collect(toSet());
+                .map(e -> e.getParentId())
+                .collect(toSet());
     }
 
-    private static ParentProperties getParentProperties(Task indexedTask, List<Event> previousEvents) {
+    private static ParentProperties getParentProperties(Task indexedTask, Collection<Event> previousEvents) {
 
         Map<String, String> context = Maps.newHashMap();
         String primaryId = null;
-        List<String> parentPath = null;
+        Collection<String> parentPath = null;
         String parentName = null;
         if (indexedTask != null){
             primaryId = indexedTask.getPrimaryId();
@@ -340,7 +351,7 @@ public class TaskIndexer {
                     context.putAll(previousContext);
 
                 }
-                List<String> previousPath = previousEvent.getParentsPath();
+                Collection<String> previousPath = previousEvent.getParentsPath();
                 if (previousPath != null){
                     parentPath = previousPath;
                 }
@@ -362,10 +373,10 @@ public class TaskIndexer {
 
         private final String primaryId;
         private final Map<String, String> context;
-        private final List<String> parentPath;
+        private final Collection<String> parentPath;
         private final String parentName;
 
-        ParentProperties(String primaryId, Map<String, String> context, List<String> parentPath, String parentName) {
+        ParentProperties(String primaryId, Map<String, String> context, Collection<String> parentPath, String parentName) {
             this.primaryId = primaryId;
             this.context = context;
             this.parentPath = parentPath;
@@ -380,7 +391,7 @@ public class TaskIndexer {
             return context;
         }
 
-        List<String> getParentPath() {
+        Collection<String> getParentPath() {
             return parentPath;
         }
 

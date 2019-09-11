@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -52,12 +53,12 @@ public class TimbermillService {
 			while (keepRunning) {
 				while (!eventsQueue.isEmpty()) {
 					try {
-						List<Event> events = new ArrayList<>();
+						Collection<Event> events = new ArrayList<>();
 						eventsQueue.drainTo(events);
 						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
 						for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 							String env = eventsPerEnv.getKey();
-							List<Event> currentEvents = eventsPerEnv.getValue();
+							Collection<Event> currentEvents = eventsPerEnv.getValue();
 							taskIndexer.retrieveAndIndex(currentEvents, env);
 						}
 						Thread.sleep(2000);
@@ -93,7 +94,7 @@ public class TimbermillService {
 		return reachTerminationTimeout;
 	}
 
-	public void handleEvent(List<Event> events){
+	public void handleEvent(Collection<Event> events){
 		eventsQueue.addAll(events);
 	}
 }

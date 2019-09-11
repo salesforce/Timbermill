@@ -8,6 +8,7 @@ import com.datorama.timbermill.unit.EventsWrapper;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 
 @Component
@@ -25,7 +26,7 @@ public class EventActor extends AbstractActor {
     public Receive createReceive() {
         return ReceiveBuilder.create()
                 .match(EventsWrapper.class, eventsWrapper -> {
-                    List<Event> events = eventsWrapper.getEvents();
+                    Collection<Event> events = eventsWrapper.getEvents();
                     timbermillService.handleEvent(events);
                     getSender().tell("Event handled", self());
                 })

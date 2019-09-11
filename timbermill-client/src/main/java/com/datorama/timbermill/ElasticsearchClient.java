@@ -97,7 +97,7 @@ class ElasticsearchClient {
     }
 
     Task getTaskById(String taskId) {
-        HashSet<String> taskIds = new HashSet<>();
+        Collection<String> taskIds = new HashSet<>();
         taskIds.add(taskId);
         SearchResponse response = getTasksByIds(taskIds);
         if (response.getHits().getHits().length == 1){
@@ -182,7 +182,7 @@ class ElasticsearchClient {
         BulkRequest request = new BulkRequest();
         int currBatch = 0;
 
-        List<UpdateRequest> requests = new ArrayList<>();
+        Collection<UpdateRequest> requests = new ArrayList<>();
         for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
             Task task = taskEntry.getValue();
 
@@ -199,7 +199,7 @@ class ElasticsearchClient {
         }
 
         int currentSize = 0;
-        List<Future> futures = new ArrayList<>();
+        Collection<Future> futures = new ArrayList<>();
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
             currentSize += request.estimatedSizeInBytes();

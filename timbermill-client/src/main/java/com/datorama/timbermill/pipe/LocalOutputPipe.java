@@ -6,10 +6,7 @@ import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
@@ -43,12 +40,12 @@ public class LocalOutputPipe implements EventOutputPipe {
             while (keepRunning) {
                 while(!eventsQueue.isEmpty()) {
                     try{
-                        List<Event> events = new ArrayList<>();
+                        Collection<Event> events = new ArrayList<>();
                         eventsQueue.drainTo(events);
                         Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
                         for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
                             String env = eventsPerEnv.getKey();
-                            List<Event> currentEvents = eventsPerEnv.getValue();
+                            Collection<Event> currentEvents = eventsPerEnv.getValue();
                             taskIndexer.retrieveAndIndex(currentEvents, env);
                         }
                         Thread.sleep(2000);
