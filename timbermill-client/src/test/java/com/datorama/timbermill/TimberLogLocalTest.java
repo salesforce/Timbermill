@@ -79,4 +79,10 @@ public class TimberLogLocalTest extends TimberLogTest{
     public void testCorruptedInfoOnly() {
         super.testCorruptedInfoOnly();
     }
+
+    @Test
+    public void testOrphan() {
+        super.testOrphan();
+    }
+
 }

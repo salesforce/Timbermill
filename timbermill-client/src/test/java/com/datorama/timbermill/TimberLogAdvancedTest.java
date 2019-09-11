@@ -15,6 +15,9 @@ import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
 
+    public static final String ORPHAN = "orphan";
+    private static final String ORPHAN_PARENT = "orphan_parent";
+
     @AfterClass
     public static void kill() {
         TimberLogger.exit();
@@ -966,5 +969,36 @@ public class TimberLogAdvancedTest {
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_STARTED);
+    }
+
+    public void testOrphanIncorrectOrder() {
+        String taskId = Event.generateTaskId(ORPHAN);
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        TimberLoggerAdvanced.success(taskId);
+        TimberLoggerAdvanced.start(taskId, ORPHAN, parentTaskId, LogParams.create());
+
+        TimberLogTest.waitForEvents(taskId, TaskStatus.SUCCESS);
+        Task task = client.getTaskById(taskId);
+        assertTrue(task.isOrphan());
+    }
+
+    public void testOrphanWithAdoption() {
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
+        TimberLoggerAdvanced.success(taskId);
+        TimberLogTest.waitForEvents(taskId, TaskStatus.SUCCESS);
+
+        String ctx = "ctx";
+        TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
+        TimberLoggerAdvanced.success(parentTaskId);
+
+        TimberLogTest.waitForEvents(parentTaskId, TaskStatus.SUCCESS);
+        Task task = client.getTaskById(taskId);
+        assertFalse(task.isOrphan());
+        assertEquals(parentTaskId, task.getParentId());
+        assertEquals(parentTaskId, task.getPrimaryId());
+        assertEquals(1, task.getParentsPath().size());
+        assertEquals(ORPHAN_PARENT, task.getParentsPath().get(0));
+        assertEquals(ctx, task.getCtx().get(ctx));
     }
 }

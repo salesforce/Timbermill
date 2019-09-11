@@ -66,4 +66,9 @@ public class TimberLogServerTest extends TimberLogTest{
     public void testCorruptedInfoOnly() {
         super.testCorruptedInfoOnly();
     }
+
+    @Test
+    public void testOrphan() {
+        super.testOrphan();
+    }
 }

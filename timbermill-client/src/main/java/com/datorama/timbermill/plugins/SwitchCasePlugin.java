@@ -3,6 +3,7 @@ package com.datorama.timbermill.plugins;
 import com.datorama.timbermill.unit.Event;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 
 public class SwitchCasePlugin extends TaskLogPlugin {
@@ -22,7 +23,7 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	}
 
 	@Override
-	public void apply(List<Event> events) {
+	public void apply(Collection<Event> events) {
 		events.stream()
 			.filter(e -> e.getTexts().containsKey(searchField))
 			.filter(e -> taskMatcher.matches(e))

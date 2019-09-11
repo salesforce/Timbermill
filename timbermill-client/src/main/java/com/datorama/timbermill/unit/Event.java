@@ -44,6 +44,7 @@ public abstract class Event{
 	private List<String> logs;
 	private List<String> parentsPath;
 	private String env;
+	private Boolean orphan;
 
 	public Event() {
 	}
@@ -199,5 +200,13 @@ public abstract class Event{
 
 	public void setEnv(String env) {
 		this.env = env;
+	}
+
+	public Boolean isOrphan() {
+		return orphan;
+	}
+
+    public void setOrphan(Boolean orphan) {
+		this.orphan = orphan;
 	}
 }

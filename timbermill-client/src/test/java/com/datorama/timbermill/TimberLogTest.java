@@ -398,7 +398,20 @@ public abstract class TimberLogTest {
 		assertEquals(bla2, text.get(bla1));
 	}
 
-    static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
+	protected void testOrphan(){
+		String taskId = testOrphanTimberLog();
+		waitForEvents(taskId, TaskStatus.SUCCESS);
+		Task task = client.getTaskById(taskId);
+		assertTrue(task.isOrphan());
+	}
+
+	private String testOrphanTimberLog() {
+		String taskId = TimberLogger.start("testOrphan", "testOrphanParent", LogParams.create());
+		TimberLogger.success();
+		return taskId;
+	}
+
+	static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
         assertEquals(name, task.getName());
         assertEquals(status, task.getStatus());
         assertNotNull(task.getStartTime());

@@ -36,6 +36,7 @@ public class Task {
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
 	private String log;
+	private Boolean orphan;
 
 	public Task() {
 	}
@@ -100,12 +101,16 @@ public class Task {
 					log = StringUtils.join(e.getLogs(), '\n');
 				}
 			}
+			if (e.isOrphan() != null) {
+				orphan = e.isOrphan();
+			}
 		}
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
 		if (isComplete()){
 			setDuration(endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli());
 		}
+
 	}
 
 	private boolean isComplete() {
@@ -228,15 +233,23 @@ public class Task {
 		this.env = env;
 	}
 
+	public Boolean isOrphan() {
+		return orphan;
+	}
+
+	public void setOrphan(Boolean orphan) {
+		this.orphan = orphan;
+	}
+
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);
-		if (string.isEmpty()){
+		if (string != null && string.isEmpty()){
 			string = null;
 		}
-		if (text.isEmpty()){
+		if (text != null && text.isEmpty()){
 			text = null;
 		}
-		if (metric.isEmpty()){
+		if (metric != null && metric.isEmpty()){
 			metric = null;
 		}
 		if (StringUtils.isEmpty(log)){
@@ -255,7 +268,6 @@ public class Task {
 			params.put("taskEndMillis", getEndTime().toInstant().toEpochMilli());
 		}
 		params.put("name", name);
-		params.put("id", taskId);
 		params.put("parentId", parentId);
 		params.put("primaryId", primaryId);
 		params.put("contx", ctx);
@@ -265,9 +277,15 @@ public class Task {
 		params.put("logi", log);
 		params.put("parentsPath", parentsPath);
 		params.put("status", status);
+		if (orphan != null){
+			params.put("orphan", orphan);
+		}
 
 		String scriptStr =
-				"        if (params.status.equals( \"" + CORRUPTED + "\")){" +
+				"        if (params.orphan != null && !params.orphan) {" +
+				"            ctx._source.orphan = false;" +
+				"        }" +
+				"        else if (params.status.equals( \"" + CORRUPTED + "\")){" +
 				"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
 				"        }" +
 				"        else if (ctx._source.status.equals( \"" + SUCCESS + "\" ) || ctx._source.status.equals( \"" + ERROR + "\" )){" +
@@ -429,6 +447,9 @@ public class Task {
 				"        }" +
 				"        if (params.parentsPath != null) {" +
 				"            ctx._source.parentsPath = params.parentsPath;" +
+				"        }" +
+				"        if (params.orphan != null && params.orphan) {" +
+				"            ctx._source.orphan = true;" +
 				"        }";
 		Script script = new Script(ScriptType.INLINE, "painless", scriptStr, params);
 		updateRequest.script(script);

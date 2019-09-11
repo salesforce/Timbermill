@@ -4,7 +4,6 @@ import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
-import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.Task;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
@@ -44,7 +43,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static com.datorama.timbermill.common.Constants.*;
-import static java.util.stream.Collectors.groupingBy;
 
 
 class ElasticsearchClient {
@@ -84,12 +82,12 @@ class ElasticsearchClient {
         client = new RestHighLevelClient(builder);
     }
 
-    Map<String, Task> fetchIndexedTasks(Set<String> eventsToFetch) {
-        if (eventsToFetch.isEmpty()) {
+    Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
+        if (tasksToFetch.isEmpty()) {
             return Collections.emptyMap();
         } else {
             HashMap<String, Task> retMap = new HashMap<>();
-            SearchResponse response = getTasksByIds(eventsToFetch);
+            SearchResponse response = getTasksByIds(tasksToFetch);
             for (SearchHit hit : response.getHits()) {
                 Task task = GSON.fromJson(hit.getSourceAsString(), Task.class);
                 retMap.put(hit.getId(), task);
@@ -168,16 +166,27 @@ class ElasticsearchClient {
         }
     }
 
-    private void bulkIndexByBulkSize(List<Event> events, int bulkSize, String env) {
+    private void sendBulkRequest(BulkRequest request){
+        try {
+            BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
+            if (responses.hasFailures()) {
+                LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
+            }
+        } catch (IOException e) {
+            LOG.error("Couldn't bulk index tasks to elasticsearch cluster.", e);
+        }
+
+    }
+
+    void index(Map<String, Task> tasksMap) {
         BulkRequest request = new BulkRequest();
         int currBatch = 0;
 
         List<UpdateRequest> requests = new ArrayList<>();
-        Map<String, List<Event>> eventsMap = events.stream().collect(groupingBy(e -> e.getTaskId()));
-        for (Map.Entry<String, List<Event>> eventsEntry : eventsMap.entrySet()) {
-            Task task = new Task(eventsEntry.getValue(), env);
+        for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
+            Task task = taskEntry.getValue();
 
-            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, env, ZonedDateTime.now());
+            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, task.getEnv(), ZonedDateTime.now());
             try {
                 deleteOldIndex(index);
             } catch (IOException e) {
@@ -185,7 +194,7 @@ class ElasticsearchClient {
             }
             //TODO not correct - Should be changed to Rollover
 
-            UpdateRequest updateRequest = task.getUpdateRequest(index, eventsEntry.getKey());
+            UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
             requests.add(updateRequest);
         }
 
@@ -195,7 +204,7 @@ class ElasticsearchClient {
             request.add(updateRequest);
             currentSize += request.estimatedSizeInBytes();
 
-            if (currentSize > bulkSize) {
+            if (currentSize > indexBulkSize) {
                 BulkRequest finalRequest = request;
                 futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
                 LOG.info("Batch of {} tasks indexed successfully", currBatch);
@@ -215,23 +224,6 @@ class ElasticsearchClient {
                 LOG.error("A error was thrown while indexing a batch", e);
             }
         }
-    }
-
-    private void sendBulkRequest(BulkRequest request){
-        try {
-            BulkResponse responses = null;
-            responses = client.bulk(request, RequestOptions.DEFAULT);
-            if (responses.hasFailures()) {
-                LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
-            }
-        } catch (IOException e) {
-            LOG.error("Couldn't bulk index tasks to elasticsearch cluster.", e);
-        }
-
-    }
-
-    void index(List<Event> events, String env) {
-        bulkIndexByBulkSize(events, indexBulkSize, env);
     }
 
     private String getTaskIndexWithEnv(String indexPrefix, String env, ZonedDateTime startTime) {
