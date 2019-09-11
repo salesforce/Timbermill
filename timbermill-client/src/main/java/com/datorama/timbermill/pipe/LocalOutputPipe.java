@@ -33,7 +33,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.propertiesLengthMap,
                 builder.defaultMaxChars, builder.elasticUrl, builder.daysRotation, builder.awsRegion,
-                builder.indexBulkSize, builder.indexingThreads, builder.elasticUser, builder.elasticPassword);
+                builder.indexBulkSize, builder.indexingThreads, builder.elasticUser, builder.elasticPassword, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes);
 
         getWorkingThread().start();
     }
@@ -79,6 +79,8 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public static class Builder {
 
+        private int maxCacheHoldTimeMinutes = 60;
+        private int maxCacheSize = 10000;
         private String elasticUrl = null;
         private String pluginsJson = "[]";
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
@@ -137,6 +139,16 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public LocalOutputPipe.Builder elasticPassword(String elasticPassword) {
             this.elasticPassword = elasticPassword;
+            return this;
+        }
+
+        public LocalOutputPipe.Builder maxCacheSize(int maxCacheSize) {
+            this.maxCacheSize = maxCacheSize;
+            return this;
+        }
+
+        public LocalOutputPipe.Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
+            this.maxCacheHoldTimeMinutes = maxCacheHoldTimeMinutes;
             return this;
         }
 

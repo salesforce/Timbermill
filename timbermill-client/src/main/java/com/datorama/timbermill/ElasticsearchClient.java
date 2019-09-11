@@ -82,7 +82,7 @@ class ElasticsearchClient {
         client = new RestHighLevelClient(builder);
     }
 
-    Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
+    Map<String, Task> fetchIndexedTasks(Collection<String> tasksToFetch) {
         if (tasksToFetch.isEmpty()) {
             return Collections.emptyMap();
         } else {
@@ -109,7 +109,7 @@ class ElasticsearchClient {
         }
     }
 
-    private SearchResponse getTasksByIds(Set<String> taskIds) {
+    private SearchResponse getTasksByIds(Collection<String> taskIds) {
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
@@ -142,7 +142,7 @@ class ElasticsearchClient {
         }
     }
 
-    public void indexMetaDataEvents(String env, String...metadataEvents) {
+    void indexMetaDataEvents(String env, String... metadataEvents) {
         String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, env, ZonedDateTime.now());
 
         BulkRequest bulkRequest = new BulkRequest();
@@ -154,7 +154,7 @@ class ElasticsearchClient {
             deleteOldIndex(metadataIndex);
             client.bulk(bulkRequest, RequestOptions.DEFAULT);
         } catch (IOException e){
-            LOG.error("Couldn't index metadata event with events " + metadataEvents.toString() + " to elasticsearch cluster.", e);
+            LOG.error("Couldn't index metadata event with events " + Arrays.toString(metadataEvents) + " to elasticsearch cluster.", e);
         }
     }
 

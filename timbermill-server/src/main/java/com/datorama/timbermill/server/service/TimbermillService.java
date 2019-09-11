@@ -40,11 +40,13 @@ public class TimbermillService {
 							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds,
 							 @Value("${indexing.threads:1}") int indexingThreads,
 							 @Value("${elasticsearch.user:}") String elasticUser,
-							 @Value("${elasticsearch.password:}") String elasticPassword) throws IOException {
+							 @Value("${elasticsearch.password:}") String elasticPassword,
+							 @Value("${cache.max.size:10000}") int maximumCacheSize,
+							 @Value("${cache.max.hold.time.minutes:6}") int maximumCacheMinutesHold) throws IOException {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
-		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize, indexingThreads, elasticUser, elasticPassword);
+		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize, indexingThreads, elasticUser, elasticPassword, maximumCacheSize, maximumCacheMinutesHold);
 
 		Runnable eventsHandler = () -> {
 			while (keepRunning) {
