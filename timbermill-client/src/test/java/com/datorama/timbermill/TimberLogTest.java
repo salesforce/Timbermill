@@ -23,7 +23,7 @@ public abstract class TimberLogTest {
 	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, null, 1, null, null);
 	static final String TEST = "test";
 	static final String EVENT = "Event";
-	static final String LOG_REGEX = "\\[\\w\\w\\w \\d+, \\d\\d\\d\\d \\d+:\\d\\d:\\d\\d \\w\\w] \\[INFO] - ";
+	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
 
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";

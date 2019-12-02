@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.datorama.timbermill.TaskIndexer.getTimesDuration;
 import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
 import static com.datorama.timbermill.unit.Task.TaskStatus.*;
@@ -108,7 +109,8 @@ public class Task {
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
 		if (isComplete()){
-			setDuration(endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli());
+			long duration = getTimesDuration(startTime, endTime);
+			setDuration(duration);
 		}
 
 	}

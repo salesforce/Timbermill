@@ -2,6 +2,8 @@ package com.datorama.timbermill.unit;
 
 import java.time.ZonedDateTime;
 
+import static com.datorama.timbermill.TaskIndexer.getTimesDuration;
+
 public class IndexEvent {
     private final String name = "timbermill_index";
 
@@ -13,7 +15,8 @@ public class IndexEvent {
     private final Task.TaskStatus status;
     private final String exception;
     private final Long pluginsDuration;
-    public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, long indexerDuration, Task.TaskStatus status, String exception, Long pluginsDuration) {
+
+    private IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, Task.TaskStatus status, String exception, Long pluginsDuration) {
         this.eventsAmount = eventsAmount;
         this.fetchedAmount = fetchedAmount;
         this.status = status;
@@ -22,8 +25,18 @@ public class IndexEvent {
 
         meta.setTaskBegin(startTime);
         meta.setTaskEnd(endTime);
+        long indexerDuration = getTimesDuration(startTime, endTime);
         meta.setDuration(indexerDuration);
     }
+
+    public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, Long pluginsDuration) {
+        this(eventsAmount, fetchedAmount, startTime, endTime, Task.TaskStatus.SUCCESS, null, pluginsDuration);
+    }
+
+    public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, String exception, Long pluginsDuration) {
+        this(eventsAmount, fetchedAmount, startTime, endTime, Task.TaskStatus.ERROR, exception, pluginsDuration);
+    }
+
     public String getName() {
         return name;
     }

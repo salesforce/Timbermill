@@ -234,4 +234,9 @@ public class TimberLogAdvancedServerTest extends TimberLogAdvancedTest {
     public void testOrphanWithAdoption(){
         super.testOrphanWithAdoption();
     }
+
+	@Test
+	public void testComplexOrphanWithAdoption(){
+		super.testComplexOrphanWithAdoption();
+	}
 }
