@@ -14,12 +14,15 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
+    private static final int TWO_MB = 2097152;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private URL timbermillServerUrl;
-    private List<Event> buffer;
+    private LinkedBlockingQueue<Event> buffer;
     private Thread thread;
     private int maxEventsBatchSize;
     private long maxSecondsBeforeBatchTimeout;
@@ -39,15 +42,12 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
         maxEventsBatchSize = builder.maxEventsBatchSize;
         maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
-        buffer = Collections.synchronizedList(new LinkedList<>());
-    }
-
-    private void startThread() {
+        buffer = new LinkedBlockingQueue<>();
         thread = new Thread(() -> {
             do {
                 try {
-                    List<Event> eventsToSend = createEventsToSend();
-                    if (eventsToSend != null) {
+                    List<Event> eventsToSend = getEventsToSend();
+                    if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
                         HttpURLConnection httpCon = getHttpURLConnection();
                         byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
@@ -63,9 +63,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                 } catch (Exception e) {
                     LOG.error("Error sending events to Timbermill server" ,e);
                 }
-            } while (buffer.size() > 0);
+            } while (true);
         });
-        thread.start();
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
@@ -90,31 +89,27 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         return httpCon;
     }
 
-    private List<Event> createEventsToSend() throws JsonProcessingException {
+    private List<Event> getEventsToSend() throws JsonProcessingException{
         long startBatchTime = System.currentTimeMillis();
         List<Event> eventsToSend = new ArrayList<>();
-        int currentBatchSize = 0;
-        if(!buffer.isEmpty()) {
-            Event event = buffer.remove(0);
-            currentBatchSize += getEventSize(event);
-            eventsToSend.add(event);
-
-            while(!buffer.isEmpty() && currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
-                int eventSize = getEventSize(buffer.get(0));
-                if(currentBatchSize + eventSize <= this.maxEventsBatchSize) {
-                    event = buffer.remove(0);
-                    eventsToSend.add(event);
-                    currentBatchSize += eventSize;
-                }
-                else {
-                    break;
-                }
+        try {
+            int currentBatchSize = addEventFromBufferToList(eventsToSend);
+            while(currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
+                currentBatchSize  += addEventFromBufferToList(eventsToSend);
             }
-        }
-        else {
-            return null;
+        } catch (InterruptedException e) {
+            // If blocking queue poll timed out send current batch
         }
         return eventsToSend;
+    }
+
+    private int addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException, JsonProcessingException {
+        Event event = buffer.poll(maxSecondsBeforeBatchTimeout, TimeUnit.SECONDS);
+        if (event == null){
+            return 0;
+        }
+        eventsToSend.add(event);
+        return getEventSize(event);
     }
 
     private boolean isExceededMaxTimeToWait(long startBatchTime) {
@@ -131,8 +126,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     public void send(Event e) {
         synchronized(this) {
             this.buffer.add(e);
-            if (this.thread == null || !this.thread.isAlive()) {
-                this.startThread();
+            if (!this.thread.isAlive()) {
+                thread.start();
             }
         }
     }
@@ -143,7 +138,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
 
     public static class Builder {
         private String timbermillServerUrl;
-        private int maxEventsBatchSize = 2097152; // 2mb
+        private int maxEventsBatchSize = TWO_MB;
         private long maxSecondsBeforeBatchTimeout = 3;
 
 

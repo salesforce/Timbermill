@@ -20,7 +20,7 @@ import static org.junit.Assert.*;
 public abstract class TimberLogTest {
 
 	static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, null, 1, null, null);
+	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, 1, null, null, null);
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -198,8 +198,17 @@ public abstract class TimberLogTest {
 			}
 		});
 		thread.start();
-		while(thread.isAlive()){}
+		while(thread.isAlive()){
+			waits();
+		}
 		return TimberLogger.getCurrentTaskId();
+	}
+
+	private void waits() {
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException ignored) {
+		}
 	}
 
 	protected void testSimpleTasksFromDifferentThreadsIndexerJob(){
@@ -268,10 +277,8 @@ public abstract class TimberLogTest {
 			}
 		});
 		thread2.start();
-		while(thread1.isAlive()){
-		}
-		while(thread2.isAlive()){
-		}
+		while(thread1.isAlive()){waits();}
+		while(thread2.isAlive()){waits();}
 		return tasks;
 	}
 
@@ -294,8 +301,7 @@ public abstract class TimberLogTest {
 
 		});
 		thread.start();
-		while(thread.isAlive()){}
-
+		while(thread.isAlive()){waits();}
 
 		waitForEvents(taskId[0], TaskStatus.SUCCESS);
 

@@ -39,12 +39,13 @@ public class TaskIndexer {
     private final int defaultMaxChars;
     private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
 
-    public TaskIndexer(String pluginsJson, Map<String, Integer> propertiesLengthJson, int defaultMaxChars, String elasticUrl, int daysRotation, String awsRegion, int indexBulkSize, int indexingThreads, String elasticUser, String elasticPassword, int maximumCacheSize, int maximumCacheMinutesHold) {
-        logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
-        this.propertiesLengthMap = propertiesLengthJson;
-        this.defaultMaxChars = defaultMaxChars;
-        this.es = new ElasticsearchClient(elasticUrl, indexBulkSize, daysRotation, awsRegion, indexingThreads, elasticUser, elasticPassword);
-        parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(maximumCacheSize).expireAfterAccess(maximumCacheMinutesHold, TimeUnit.MINUTES).build();
+    public TaskIndexer(ElasticsearchParams elasticsearchParams) {
+        logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
+        this.propertiesLengthMap = elasticsearchParams.getPropertiesLengthJson();
+        this.defaultMaxChars = elasticsearchParams.getDefaultMaxChars();
+        this.es = new ElasticsearchClient(elasticsearchParams.getElasticUrl(), elasticsearchParams.getIndexBulkSize(), elasticsearchParams.getDaysRotation(), elasticsearchParams.getIndexingThreads(),
+                elasticsearchParams.getAwsRegion(), elasticsearchParams.getElasticUser(), elasticsearchParams.getElasticPassword());
+        parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {

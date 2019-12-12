@@ -1,5 +1,6 @@
 package com.datorama.timbermill.pipe;
 
+import com.datorama.timbermill.ElasticsearchParams;
 import com.datorama.timbermill.TaskIndexer;
 import com.datorama.timbermill.unit.Event;
 import org.elasticsearch.ElasticsearchException;
@@ -13,7 +14,9 @@ import java.util.stream.Collectors;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
-    private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(1000000);
+    private static final int EVENT_QUEUE_CAPACITY = 1000000;
+    private static final int THREAD_SLEEP = 2000;
+    private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     
     private TaskIndexer taskIndexer;
     private boolean keepRunning = true;
@@ -28,34 +31,39 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.propertiesLengthMap,
-                builder.defaultMaxChars, builder.elasticUrl, builder.daysRotation, builder.awsRegion,
-                builder.indexBulkSize, builder.indexingThreads, builder.elasticUser, builder.elasticPassword, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes);
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.elasticUrl, builder.defaultMaxChars, builder.daysRotation, builder.awsRegion, builder.indexingThreads,
+                builder.elasticUser, builder.elasticPassword,
+                builder.indexBulkSize, builder.pluginsJson, builder.propertiesLengthMap,
+                builder.maxCacheSize, builder.maxCacheHoldTimeMinutes);
+        taskIndexer = new TaskIndexer(elasticsearchParams);
 
-        getWorkingThread().start();
+        startWorkingThread();
     }
 
-    private Thread getWorkingThread() {
-        return new Thread(() -> {
+    private void startWorkingThread() {
+        Runnable eventsHandler = () -> {
+            LOG.info("Timbermill has started");
             while (keepRunning) {
-                while(!eventsQueue.isEmpty()) {
-                    try{
+                while (!eventsQueue.isEmpty()) {
+                    try {
                         Collection<Event> events = new ArrayList<>();
                         eventsQueue.drainTo(events);
-                        Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
+                        Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
                         for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
                             String env = eventsPerEnv.getKey();
                             Collection<Event> currentEvents = eventsPerEnv.getValue();
                             taskIndexer.retrieveAndIndex(currentEvents, env);
                         }
-                        Thread.sleep(2000);
+                        Thread.sleep(THREAD_SLEEP);
                     } catch (RuntimeException | InterruptedException e) {
                         LOG.error("Error was thrown from TaskIndexer:", e);
                     }
                 }
             }
             stoppedRunning = true;
-        });
+        };
+        Thread workingThread = new Thread(eventsHandler);
+        workingThread.start();
     }
 
     @Override
@@ -64,14 +72,16 @@ public class LocalOutputPipe implements EventOutputPipe {
     }
 
     public void close() {
+        LOG.info("Gracefully shutting down Timbermill Server.");
         taskIndexer.close();
         keepRunning = false;
         while(!stoppedRunning){
             try {
-                Thread.sleep(1000);
+                Thread.sleep(THREAD_SLEEP);
             } catch (InterruptedException ignored) {
             }
         }
+        LOG.info("Timbermill server was shut down.");
     }
 
     public static class Builder {
@@ -85,66 +95,66 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int daysRotation = 0;
         private int indexBulkSize = 2097152;
         private int indexingThreads = 1;
-        private String elasticUser;
-        private String awsRegion;
-        private String elasticPassword;
+        private String elasticUser = null;
+        private String awsRegion = null;
+        private String elasticPassword = null;
 
-        public LocalOutputPipe.Builder url(String elasticUrl) {
+        public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
             return this;
         }
 
-        public LocalOutputPipe.Builder pluginsJson(String pluginsJson) {
+        public Builder pluginsJson(String pluginsJson) {
             this.pluginsJson = pluginsJson;
             return this;
         }
 
-        public LocalOutputPipe.Builder propertiesLengthMap(Map<String, Integer> propertiesLengthMap) {
+        public Builder propertiesLengthMap(Map<String, Integer> propertiesLengthMap) {
             this.propertiesLengthMap = propertiesLengthMap;
             return this;
         }
 
-        public LocalOutputPipe.Builder defaultMaxChars(int defaultMaxChars) {
+        public Builder defaultMaxChars(int defaultMaxChars) {
             this.defaultMaxChars = defaultMaxChars;
             return this;
         }
 
-        public LocalOutputPipe.Builder daysRotation(int daysRotation) {
+        public Builder daysRotation(int daysRotation) {
             this.daysRotation = daysRotation;
             return this;
         }
 
-        public LocalOutputPipe.Builder awsRegion(String awsRegion) {
+        public Builder awsRegion(String awsRegion) {
             this.awsRegion = awsRegion;
             return this;
         }
 
-        public LocalOutputPipe.Builder indexBulkSize(int indexBulkSize) {
+        public Builder indexBulkSize(int indexBulkSize) {
             this.indexBulkSize = indexBulkSize;
             return this;
         }
 
-        public LocalOutputPipe.Builder indexingThreads(int indexingThreads) {
+        public Builder indexingThreads(int indexingThreads) {
             this.indexingThreads = indexingThreads;
             return this;
         }
 
-        public LocalOutputPipe.Builder elasticUser(String elasticUser) {
+        public Builder elasticUser(String elasticUser) {
             this.elasticUser = elasticUser;
             return this;
         }
 
-        public LocalOutputPipe.Builder elasticPassword(String elasticPassword) {
+        public Builder elasticPassword(String elasticPassword) {
             this.elasticPassword = elasticPassword;
             return this;
         }
 
-        public LocalOutputPipe.Builder maxCacheSize(int maxCacheSize) {
+        public Builder maxCacheSize(int maxCacheSize) {
             this.maxCacheSize = maxCacheSize;
             return this;
         }
 
-        public LocalOutputPipe.Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
+        public Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
             this.maxCacheHoldTimeMinutes = maxCacheHoldTimeMinutes;
             return this;
         }

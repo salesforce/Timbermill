@@ -48,6 +48,7 @@ import static com.datorama.timbermill.common.Constants.*;
 class ElasticsearchClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
+    private static final String INDEX_DELIMITER = "-";
     private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final int daysBackToDelete;
@@ -55,7 +56,7 @@ class ElasticsearchClient {
 
     private final ExecutorService executorService;
 
-    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, String awsRegion, int indexingThreads, String elasticUser, String elasticPassword) {
+    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword) {
         this.indexBulkSize = indexBulkSize;
         this.daysBackToDelete = daysBackToDelete;
         if (indexingThreads < 1) {
@@ -64,6 +65,7 @@ class ElasticsearchClient {
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
         if (!StringUtils.isEmpty(awsRegion)){
+            LOG.info("Trying to connect to AWS Elasticsearch");
             AWS4Signer signer = new AWS4Signer();
             String serviceName = "es";
             signer.setServiceName(serviceName);
@@ -73,6 +75,7 @@ class ElasticsearchClient {
         }
 
         if (elasticUser != null){
+            LOG.info("Connection to Elasticsearch using user {}", elasticUser);
             final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticUser, elasticPassword));
             builder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
@@ -126,13 +129,10 @@ class ElasticsearchClient {
         }
     }
 
-    private void deleteOldIndex(String currIndex) throws IOException {
+    private void deleteOldIndex(String indexPrefix, String env) throws IOException {
         if (daysBackToDelete < 1){
             return;
         }
-        String[] split = currIndex.split("-");
-        String indexPrefix = split[0];
-        String env = split[1];
         String oldIndex = getTaskIndexWithEnv(indexPrefix, env, ZonedDateTime.now().minusDays(daysBackToDelete));
         GetIndexRequest existsRequest = new GetIndexRequest().indices(oldIndex);
         boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
@@ -151,7 +151,7 @@ class ElasticsearchClient {
             bulkRequest.add(indexRequest);
         }
         try {
-            deleteOldIndex(metadataIndex);
+            deleteOldIndex(TIMBERMILL_INDEX_METADATA_PREFIX, env);
             client.bulk(bulkRequest, RequestOptions.DEFAULT);
         } catch (IOException e){
             LOG.error("Couldn't index metadata event with events " + Arrays.toString(metadataEvents) + " to elasticsearch cluster.", e);
@@ -168,9 +168,14 @@ class ElasticsearchClient {
 
     private void sendBulkRequest(BulkRequest request){
         try {
+            int numberOfActions = request.numberOfActions();
+            LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
             BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
             if (responses.hasFailures()) {
                 LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
+            }
+            else{
+                LOG.info("Batch of {} requests finished successfully. Took: {} seconds.", numberOfActions, responses.getTook().seconds());
             }
         } catch (IOException e) {
             LOG.error("Couldn't bulk index tasks to elasticsearch cluster.", e);
@@ -179,27 +184,23 @@ class ElasticsearchClient {
     }
 
     void index(Map<String, Task> tasksMap) {
-        BulkRequest request = new BulkRequest();
-        int currBatch = 0;
+        BulkRequest bulkRequest = new BulkRequest();
 
-        Collection<UpdateRequest> requests = new ArrayList<>();
-        for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
-            Task task = taskEntry.getValue();
+        Collection<UpdateRequest> updateRequests = createUpdateRequests(tasksMap);
+        Collection<Future> futuresRequests = createFuturesRequests(bulkRequest, updateRequests);
 
-            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, task.getEnv(), ZonedDateTime.now());
+        for (Future futureRequest : futuresRequests) {
             try {
-                deleteOldIndex(index);
-            } catch (IOException e) {
-                LOG.error("Could not delete index " + index, e);
+                futureRequest.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOG.error("A error was thrown while indexing a batch", e);
             }
-            //TODO not correct - Should be changed to Rollover
-
-            UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
-            requests.add(updateRequest);
         }
+    }
 
-        int currentSize = 0;
+    private Collection<Future> createFuturesRequests(BulkRequest request, Collection<UpdateRequest> requests) {
         Collection<Future> futures = new ArrayList<>();
+        int currentSize = 0;
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
             currentSize += request.estimatedSizeInBytes();
@@ -207,7 +208,6 @@ class ElasticsearchClient {
             if (currentSize > indexBulkSize) {
                 BulkRequest finalRequest = request;
                 futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
-                LOG.info("Batch of {} tasks indexed successfully", currBatch);
                 currentSize = 0;
                 request = new BulkRequest();
             }
@@ -216,18 +216,31 @@ class ElasticsearchClient {
             BulkRequest finalRequest = request;
             futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
         }
+        return futures;
+    }
 
-        for (Future future : futures) {
+    private Collection<UpdateRequest> createUpdateRequests(Map<String, Task> tasksMap) {
+        Collection<UpdateRequest> requests = new ArrayList<>();
+        for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
+            Task task = taskEntry.getValue();
+
+            String env = task.getEnv();
+            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, env, ZonedDateTime.now());
             try {
-                future.get();
-            } catch (InterruptedException | ExecutionException e) {
-                LOG.error("A error was thrown while indexing a batch", e);
+                deleteOldIndex(TIMBERMILL_INDEX_PREFIX, env);
+            } catch (IOException e) {
+                LOG.error("Could not delete index " + index, e);
             }
+            //TODO not correct - Should be changed to Rollover
+
+            UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
+            requests.add(updateRequest);
         }
+        return requests;
     }
 
     private String getTaskIndexWithEnv(String indexPrefix, String env, ZonedDateTime startTime) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        return indexPrefix + '-' + env + '-' + startTime.format(dateTimeFormatter);
+        return indexPrefix + INDEX_DELIMITER + env + INDEX_DELIMITER + startTime.format(dateTimeFormatter);
     }
 }

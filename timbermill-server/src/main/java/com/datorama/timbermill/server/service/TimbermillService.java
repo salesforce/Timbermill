@@ -1,5 +1,6 @@
 package com.datorama.timbermill.server.service;
 
+import com.datorama.timbermill.ElasticsearchParams;
 import com.datorama.timbermill.TaskIndexer;
 import com.datorama.timbermill.unit.Event;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,8 +24,10 @@ import java.util.stream.Collectors;
 public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
+	private static final int THREAD_SLEEP = 2000;
 	private final TaskIndexer taskIndexer;
-	private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(10000000);
+	private static final int EVENT_QUEUE_CAPACITY = 10000000;
+	private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
@@ -47,21 +50,28 @@ public class TimbermillService {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
-		taskIndexer = new TaskIndexer(pluginsJson, propertiesLengthJsonMap, defaultMaxChars, elasticUrl, daysRotation, awsRegion, indexBulkSize, indexingThreads, elasticUser, elasticPassword, maximumCacheSize, maximumCacheMinutesHold);
+		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(elasticUrl, defaultMaxChars, daysRotation, awsRegion, indexingThreads, elasticUser, elasticPassword, indexBulkSize,
+				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold);
+		taskIndexer = new TaskIndexer(elasticsearchParams);
 
+		startWorkingThread();
+	}
+
+	private void startWorkingThread() {
 		Runnable eventsHandler = () -> {
+			LOG.info("Timbermill has started");
 			while (keepRunning) {
 				while (!eventsQueue.isEmpty()) {
 					try {
 						Collection<Event> events = new ArrayList<>();
 						eventsQueue.drainTo(events);
-						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(event -> event.getEnv()));
+						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 						for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 							String env = eventsPerEnv.getKey();
 							Collection<Event> currentEvents = eventsPerEnv.getValue();
 							taskIndexer.retrieveAndIndex(currentEvents, env);
 						}
-						Thread.sleep(2000);
+						Thread.sleep(THREAD_SLEEP);
 					} catch (RuntimeException | InterruptedException e) {
 						LOG.error("Error was thrown from TaskIndexer:", e);
 					}
@@ -70,7 +80,8 @@ public class TimbermillService {
 			stoppedRunning = true;
 		};
 
-		new Thread(eventsHandler).start();
+		Thread workingThread = new Thread(eventsHandler);
+		workingThread.start();
 	}
 
 	public void tearDown(){
@@ -79,7 +90,7 @@ public class TimbermillService {
 		long currentTimeMillis = System.currentTimeMillis();
 		while(!stoppedRunning && !reachTerminationTimeout(currentTimeMillis)){
 			try {
-				Thread.sleep(3000);
+				Thread.sleep(THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
 		taskIndexer.close();
