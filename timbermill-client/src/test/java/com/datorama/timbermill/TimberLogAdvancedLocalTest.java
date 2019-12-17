@@ -224,19 +224,4 @@ public class TimberLogAdvancedLocalTest extends TimberLogAdvancedTest {
     public void testIncorrectTaskStartErrorStartWithUpdate() throws InterruptedException {
         super.testIncorrectTaskStartErrorStart(true);
     }
-
-    @Test
-    public void testOrphanIncorrectOrder() {
-        super.testOrphanIncorrectOrder();
-    }
-
-    @Test
-    public void testOrphanWithAdoption(){
-        super.testOrphanWithAdoption();
-    }
-
-    @Test
-    public void testComplexOrphanWithAdoption(){
-        super.testComplexOrphanWithAdoption();
-    }
 }

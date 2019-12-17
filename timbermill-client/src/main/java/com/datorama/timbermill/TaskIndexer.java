@@ -76,6 +76,7 @@ public class TaskIndexer {
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
+            timbermillEvents.forEach(e -> LOG.error("{} -> {}", e.getTaskId(), e.getClass()));
             IndexEvent indexEvent = handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents, startEventsIds);
             es.indexMetaDataEvents(env, GSON.toJson(indexEvent));
         }
@@ -155,14 +156,20 @@ public class TaskIndexer {
         if (orphansEvents != null && (event.isOrphan() == null || !event.isOrphan())){
             parentIdTORootOrphansEventsCache.invalidate(taskId);
             for (Event orphanEvent : orphansEvents) {
-                orphanEvent.setOrphan(false);
                 if (!eventsMap.containsKey(event.getTaskId())){
 					eventsMap.put(event.getTaskId(), Lists.newArrayList(event));
 				}
+                String orphanId = orphanEvent.getTaskId();
+                if (eventsMap.containsKey(orphanId)){
+                    eventsMap.get(orphanId).add(orphanEvent);
+                }
+                else{
+                    List<Event> eventsList = new LinkedList<>();
+                    eventsList.add(orphanEvent);
+                    eventsMap.put(orphanId, eventsList);
+                }
                 enrichEvent(eventsMap, previouslyIndexedTasks, orphanEvent);
-                List<Event> eventsList = new ArrayList<>();
-                eventsList.add(orphanEvent);
-                eventsMap.put(orphanEvent.getTaskId(), eventsList);
+
             }
         }
     }
@@ -172,16 +179,17 @@ public class TaskIndexer {
         String parentId = event.getParentId();
         if (parentId != null) {
 
-            if (isOrphan(previouslyIndexedTasks, event.getParentId(), event)){
+            if (isOrphan(previouslyIndexedTasks, event.getParentId(), event, eventsMap)){
                 event.setOrphan(true);
                 Queue<Event> eventList = parentIdTORootOrphansEventsCache.getIfPresent(event.getParentId());
 
+                Event orphanEvent = new AdoptedEvent(event);
                 if (eventList == null) {
                     eventList = new LinkedBlockingQueue<>();
-                    eventList.add(event);
+                    eventList.add(orphanEvent);
                     parentIdTORootOrphansEventsCache.put(event.getParentId(), eventList);
                 } else {
-                    eventList.add(event);
+                    eventList.add(orphanEvent);
                 }
             }
             else {
@@ -212,7 +220,7 @@ public class TaskIndexer {
         updateAdoptedOrphans(event, eventsMap, previouslyIndexedTasks);
     }
 
-    private boolean isOrphan(Map<String, Task> previouslyIndexedTasks, String parentId, Event event) {
+    private boolean isOrphan(Map<String, Task> previouslyIndexedTasks, String parentId, Event event, Map<String, List<Event>> eventsMap) {
         if (event.isOrphan() != null && !event.isOrphan()){
             return false;
         }
@@ -220,7 +228,13 @@ public class TaskIndexer {
             if (parentIdTORootOrphansEventsCache.getIfPresent(parentId) != null){
                 return true;
             }
-            else if (previouslyIndexedTasks.containsKey(parentId)) {
+            else if(eventsMap.containsKey(parentId)){
+                if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof AdoptedEvent)){
+                    return false;
+                }
+            }
+
+            if (previouslyIndexedTasks.containsKey(parentId)) {
                 Boolean isOrphan = previouslyIndexedTasks.get(parentId).isOrphan();
                 return isOrphan != null && isOrphan;
             }
