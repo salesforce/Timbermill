@@ -3,20 +3,18 @@ package com.datorama.timbermill.plugins;
 import com.datorama.timbermill.unit.Event;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 
 public class SwitchCasePlugin extends TaskLogPlugin {
 
 	private static final long serialVersionUID = 1154980374224187763L;
-	private TaskMatcher taskMatcher;
+	private final TaskMatcher taskMatcher;
+	private final String searchField;
+	private final String outputAttribute;
+	private final Collection<CaseRule> switchCase;
 
-	private String searchField;
-
-	private String outputAttribute;
-
-	private List<CaseRule> switchCase;
-
-	public SwitchCasePlugin(String name, TaskMatcher taskMatcher, String searchField, String outputAttribute, List<CaseRule> switchCase) {
+	public SwitchCasePlugin(String name, TaskMatcher taskMatcher, String searchField, String outputAttribute, Collection<CaseRule> switchCase) {
 		super(name);
 		this.taskMatcher = taskMatcher;
 		this.searchField = searchField;
@@ -25,7 +23,7 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	}
 
 	@Override
-	public void apply(List<Event> events) {
+	public void apply(Collection<Event> events) {
 		events.stream()
 			.filter(e -> e.getTexts().containsKey(searchField))
 			.filter(e -> taskMatcher.matches(e))
@@ -45,13 +43,13 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	public static class CaseRule implements Serializable{
 		private static final long serialVersionUID = 642071029855386301L;
 
-		private List<String> match;
+		private Collection<String> match;
 		private String output;
 
 		public CaseRule() {
 		}
 
-		public CaseRule(List<String> match, String output) {
+		public CaseRule(Collection<String> match, String output) {
 			this.match = match;
 			this.output = output;
 		}

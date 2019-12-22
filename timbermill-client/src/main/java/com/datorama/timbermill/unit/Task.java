@@ -12,14 +12,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.datorama.timbermill.TaskIndexer.getTimesDuration;
 import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
+import static com.datorama.timbermill.unit.Task.TaskStatus.*;
 
 public class Task {
+
+	public static final String ALREADY_STARTED = "ALREADY_STARTED";
+	public static final String ALREADY_CLOSED = "ALREADY_CLOSED";
+	public static final String CORRUPTED_REASON = "corruptedReason";
+	private String env;
+
 	private String name;
 	private TaskStatus status;
 	private String parentId;
-	private Boolean primary;
 	private String primaryId;
 	private List<String> parentsPath;
 
@@ -30,89 +37,100 @@ public class Task {
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
 	private String log;
+	private Boolean orphan;
 
 	public Task() {
 	}
 
-	public Task(List<Event> groupedEvents) {
+	public Task(List<Event> groupedEvents, String env) {
+		this.env = env;
 		for (Event e : groupedEvents) {
-			String name = e.getNameFromId();
-			String parentId = e.getParentId();
+			if (!(e instanceof AdoptedEvent)){
+				String name = e.getNameFromId();
+				String parentId = e.getParentId();
+
+				ZonedDateTime startTime = e.getTime();
+				ZonedDateTime endTime = e.getEndTime();
+
+				if (this.name == null){
+					this.name = name;
+				}
+				else if (name != null && !this.name.equals(name)){
+					throw new RuntimeException("Timbermill events with same id must have same name " + this.name + " !=" + name);
+				}
+
+				if (this.parentId == null){
+					this.parentId = parentId;
+				}
+				else if (parentId != null && !this.parentId.equals(parentId)){
+					throw new RuntimeException("Timbermill events with same id must have same parentId" + this.parentId + " !=" + parentId);
+				}
+
+				if (getStartTime() == null){
+					setStartTime(startTime);
+				}
+
+				if (getEndTime() == null){
+					setEndTime(endTime);
+				}
+
+				status = e.getStatusFromExistingStatus(this.status);
+
+				if (e.getStrings() != null && !e.getStrings().isEmpty()) {
+					string.putAll(e.getStrings());
+				}
+				if (e.getTexts() != null && !e.getTexts().isEmpty()) {
+					text.putAll(e.getTexts());
+				}
+				if (e.getTexts() != null && !e.getMetrics().isEmpty()) {
+					metric.putAll(e.getMetrics());
+				}
+
+				if (e.getLogs() != null && !e.getLogs().isEmpty()) {
+					if (log != null) {
+						log += '\n' + StringUtils.join(e.getLogs(), '\n');
+					} else {
+						log = StringUtils.join(e.getLogs(), '\n');
+					}
+				}
+			}
 			String primaryId = e.getPrimaryId();
-			ZonedDateTime startTime = e.getStartTime();
-			ZonedDateTime endTime = e.getEndTime();
-			List<String> parentsPath = e.getParentsPath();
-
-			if (this.name == null){
-				this.name = name;
-			}
-			else if (name != null && !this.name.equals(name)){
-				throw new RuntimeException("Timbermill events with same id must have same name" + this.name + " !=" + name);
-			}
-
-			if (this.parentId == null){
-				this.parentId = parentId;
-			}
-			else if (parentId != null && !this.parentId.equals(parentId)){
-				throw new RuntimeException("Timbermill events with same id must have same parentId" + this.parentId + " !=" + parentId);
-			}
-
 			if (this.primaryId == null){
 				this.primaryId = primaryId;
 			}
 			else if (primaryId != null && !this.primaryId.equals(primaryId)){
 				throw new RuntimeException("Timbermill events with same id must have same primaryId" + this.primaryId + " !=" + primaryId);
 			}
-
-			if (getStartTime() == null){
-				setStartTime(startTime);
-			}
-
-			if (getEndTime() == null){
-				setEndTime(endTime);
-			}
-
-			status = e.getStatus(this.status);
-
+			List<String> parentsPath = e.getParentsPath();
 			if (this.parentsPath == null){
 				this.parentsPath = parentsPath;
 			}
-			else if (this.parentsPath.equals(parentsPath)){
-				throw new RuntimeException("Timbermill events with same id must have same parentsPath" + this.parentsPath + " !=" + parentsPath);
-			}
-
-			ctx.putAll(e.getContext());
-			string.putAll(e.getStrings());
-			text.putAll(e.getTexts());
-			metric.putAll(e.getMetrics());
-
-			if (!e.getLogs().isEmpty()) {
-				if (log != null) {
-					log += '\n' + StringUtils.join(e.getLogs(), '\n');
-				} else {
-					log = StringUtils.join(e.getLogs(), '\n');
+			else{
+				if (e instanceof AdoptedEvent){
+					this.parentsPath = parentsPath;
 				}
+				else if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
+					throw new RuntimeException("Timbermill events with same id must have same parentsPath" + this.parentsPath + " !=" + parentsPath);
+				}
+			}
+			if (e.getContext() != null && !e.getContext().isEmpty()) {
+				ctx.putAll(e.getContext());
+			}
+			if (e.isOrphan() != null && (orphan == null || orphan)) {
+				orphan = e.isOrphan();
 			}
 		}
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
 		if (isComplete()){
-			setDuration(endTime.toInstant().toEpochMilli() - startTime.toInstant().toEpochMilli());
+			long duration = getTimesDuration(startTime, endTime);
+			setDuration(duration);
 		}
 
-
-		if (isNotCorrupted()) {
-			primary = parentId == null;
-		}
-
-	}
-
-	private boolean isNotCorrupted() {
-		return status == TaskStatus.UNTERMINATED || isComplete();
 	}
 
 	private boolean isComplete() {
-		return status == TaskStatus.SUCCESS || status == TaskStatus.ERROR;
+		return status == SUCCESS || status == ERROR;
 	}
 
 	public String getName() {
@@ -145,14 +163,6 @@ public class Task {
 
 	public void setPrimaryId(String primaryId) {
 		this.primaryId = primaryId;
-	}
-
-	public Boolean isPrimary() {
-		return primary;
-	}
-
-	public void setPrimary(Boolean primary) {
-		this.primary = primary;
 	}
 
 	public ZonedDateTime getStartTime() {
@@ -231,18 +241,31 @@ public class Task {
         this.meta = meta;
     }
 
+	public String getEnv() {
+		return env;
+	}
+
+	public void setEnv(String env) {
+		this.env = env;
+	}
+
+	public Boolean isOrphan() {
+		return orphan;
+	}
+
+	public void setOrphan(Boolean orphan) {
+		this.orphan = orphan;
+	}
+
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, TYPE, taskId);
-		if (ctx.isEmpty()){
-			ctx = null;
-		}
-		if (string.isEmpty()){
+		if (string != null && string.isEmpty()){
 			string = null;
 		}
-		if (text.isEmpty()){
+		if (text != null && text.isEmpty()){
 			text = null;
 		}
-		if (metric.isEmpty()){
+		if (metric != null && metric.isEmpty()){
 			metric = null;
 		}
 		if (StringUtils.isEmpty(log)){
@@ -261,10 +284,8 @@ public class Task {
 			params.put("taskEndMillis", getEndTime().toInstant().toEpochMilli());
 		}
 		params.put("name", name);
-		params.put("id", taskId);
 		params.put("parentId", parentId);
 		params.put("primaryId", primaryId);
-		params.put("primary", primary);
 		params.put("contx", ctx);
 		params.put("string", string);
 		params.put("text", text);
@@ -272,149 +293,181 @@ public class Task {
 		params.put("logi", log);
 		params.put("parentsPath", parentsPath);
 		params.put("status", status);
+		if (orphan != null){
+			params.put("orphan", orphan);
+		}
 
-		String scriptStr = "        if (ctx._source.status.equals( \"SUCCESS\" ) || ctx._source.status.equals( \"ERROR\" )){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already closed task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"UNTERMINATED\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                throw new Exception(\"Already started task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status =  \"SUCCESS\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = \"ERROR\";\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status =  \"SUCCESS\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else if (ctx._source.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();\n" +
-				"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status =  \"ERROR\" ;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                throw new Exception(\"Already ended task \"+  params.id);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        else {\n" +
-				"            if(params.status.equals( \"SUCCESS\" ) || params.status.equals( \"ERROR\" )){\n" +
-				"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"UNTERMINATED\")){\n" +
-				"                ctx._source.meta.taskBegin = params.taskBegin;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_SUCCESS\")){\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"            else if (params.status.equals( \"CORRUPTED_ERROR\")){\n" +
-				"                ctx._source.meta.taskEnd = params.taskEnd;\n" +
-				"                ctx._source.status = params.status;\n" +
-				"            }\n" +
-				"        }\n" +
-				"\n" +
-				"        if (params.contx != null) {\n" +
-				"            if (ctx._source.ctx == null) {\n" +
-				"                ctx._source.ctx = params.contx;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.ctx.putAll(params.contx);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.string != null) {\n" +
-				"            if (ctx._source.string == null) {\n" +
-				"                ctx._source.string = params.string;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.string.putAll(params.string);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.text != null) {\n" +
-				"            if (ctx._source.text == null) {\n" +
-				"                ctx._source.text = params.text;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.text.putAll(params.text);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.metric != null) {\n" +
-				"            if (ctx._source.metric == null) {\n" +
-				"                ctx._source.metric = params.metric;\n" +
-				"            }\n" +
-				"            else {\n" +
-				"                ctx._source.metric.putAll(params.metric);\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.logi != null) {\n" +
-				"            if (ctx._source.log == null) {\n" +
-				"                ctx._source.log = params.logi;\n" +
-				"            } else {\n" +
-				"                ctx._source.log += '\n' + params.logi;\n" +
-				"            }\n" +
-				"        }\n" +
-				"        if (params.name != null) {\n" +
-				"            ctx._source.name = params.name;\n" +
-				"        }\n" +
-				"        if (params.parentId != null) {\n" +
-				"            ctx._source.parentId = params.parentId;\n" +
-				"        }\n" +
-				"        if (params.primaryId != null) {\n" +
-				"            ctx._source.primaryId = params.primaryId;\n" +
-				"        }\n" +
-				"        if (params.primary != null && ctx._source.primary == null) {\n" +
-				"            ctx._source.primary = params.primary;\n" +
-				"        }\n" +
-				"        if (params.parentsPath != null) {\n" +
-				"            ctx._source.parentsPath = params.parentsPath;\n" +
+		String scriptStr =
+				"        if (params.orphan != null && !params.orphan) {" +
+				"            ctx._source.orphan = false;" +
+				"        }" +
+				"        else if (params.status != null){" + //Don't change status, only update fields
+					"        if (params.status.equals( \"" + CORRUPTED + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"        }" +
+					"        if (ctx._source.status.equals( \"" + SUCCESS + "\" ) || ctx._source.status.equals( \"" + ERROR + "\" )){" +
+					"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"        }" +
+					"        else if (ctx._source.status.equals( \"" + UNTERMINATED + "\")){" +
+					"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_STARTED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+					"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;" +
+					"                ctx._source.meta.taskEnd = params.taskEnd;" +
+					"                ctx._source.status =  \"" + SUCCESS + "\" ;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"                long taskBegin = ZonedDateTime.parse(ctx._source.meta.taskBegin, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+					"                ctx._source.meta.duration = params.taskEndMillis - taskBegin;" +
+					"                ctx._source.meta.taskEnd = params.taskEnd;" +
+					"                ctx._source.status = \"" + ERROR + "\";" +
+					"            }" +
+					"        }" +
+					"        else if (ctx._source.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+					"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+					"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;" +
+					"                ctx._source.meta.taskBegin = params.taskBegin;" +
+					"                ctx._source.status =  \"" + SUCCESS + "\" ;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"        }" +
+					"        else if (ctx._source.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+					"                long taskEnd = ZonedDateTime.parse(ctx._source.meta.taskEnd, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant().toEpochMilli();" +
+					"                ctx._source.meta.duration = taskEnd - params.taskBeginMillis;" +
+					"                ctx._source.meta.taskBegin = params.taskBegin;" +
+					"                ctx._source.status =  \"" + ERROR + "\" ;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"                ctx._source.ctx.put(\"" + CORRUPTED_REASON + "\",\"" + ALREADY_CLOSED + "\");" +
+					"            }" +
+					"            else if (params.status.equals( \"" + CORRUPTED + "\")){" +
+					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"            }" +
+					"        }" +
+					"        else if (ctx._source.status.equals( \"" + PARTIAL_INFO_ONLY + "\")){" +
+					"            if(params.status.equals( \"" + SUCCESS + "\" ) || params.status.equals( \"" + ERROR + "\" )){" +
+					"                ctx._source.meta.duration = params.taskEndMillis - params.taskBeginMillis;" +
+					"                ctx._source.meta.taskEnd = params.taskEnd;" +
+					"                ctx._source.meta.taskBegin = params.taskBegin;" +
+					"                ctx._source.status = params.status;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + UNTERMINATED + "\")){" +
+					"                ctx._source.meta.taskBegin = params.taskBegin;" +
+					"                ctx._source.status = params.status;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_SUCCESS + "\")){" +
+					"                ctx._source.meta.taskEnd = params.taskEnd;" +
+					"                ctx._source.status = params.status;" +
+					"            }" +
+					"            else if (params.status.equals( \"" + PARTIAL_ERROR + "\")){" +
+					"                ctx._source.meta.taskEnd = params.taskEnd;" +
+					"                ctx._source.status = params.status;" +
+					"            }" +
+					"        }" +
+					"        else {" + //Corrupted
+					"            ctx._source.status =  \"" + CORRUPTED + "\" ;" +
+					"        }" +
+				"        }" +
+				"        if (params.contx != null) {" +
+				"            if (ctx._source.ctx == null) {" +
+				"                ctx._source.ctx = params.contx;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.ctx.putAll(params.contx);" +
+				"            }" +
+				"        }" +
+				"        if (params.string != null) {" +
+				"            if (ctx._source.string == null) {" +
+				"                ctx._source.string = params.string;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.string.putAll(params.string);" +
+				"            }" +
+				"        }" +
+				"        if (params.text != null) {" +
+				"            if (ctx._source.text == null) {" +
+				"                ctx._source.text = params.text;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.text.putAll(params.text);" +
+				"            }" +
+				"        }" +
+				"        if (params.metric != null) {" +
+				"            if (ctx._source.metric == null) {" +
+				"                ctx._source.metric = params.metric;" +
+				"            }" +
+				"            else {" +
+				"                ctx._source.metric.putAll(params.metric);" +
+				"            }" +
+				"        }" +
+				"        if (params.logi != null) {" +
+				"            if (ctx._source.log == null) {" +
+				"                ctx._source.log = params.logi;" +
+				"            } else {" +
+				"                ctx._source.log += '\n' + params.logi;" +
+				"            }" +
+				"        }" +
+				"        if (params.name != null) {" +
+				"            ctx._source.name = params.name;" +
+				"        }" +
+				"        if (params.parentId != null) {" +
+				"            ctx._source.parentId = params.parentId;" +
+				"        }" +
+				"        if (params.primaryId != null) {" +
+				"            ctx._source.primaryId = params.primaryId;" +
+				"        }" +
+				"        if (params.primary != null && ctx._source.primary == null) {" +
+				"            ctx._source.primary = params.primary;" +
+				"        }" +
+				"        if (params.parentsPath != null) {" +
+				"            ctx._source.parentsPath = params.parentsPath;" +
+				"        }" +
+				"        if (params.orphan != null && params.orphan) {" +
+				"            ctx._source.orphan = true;" +
 				"        }";
 		Script script = new Script(ScriptType.INLINE, "painless", scriptStr, params);
 		updateRequest.script(script);
@@ -425,8 +478,10 @@ public class Task {
 		UNTERMINATED,
 		SUCCESS,
 		ERROR,
-		CORRUPTED_SUCCESS,
-		CORRUPTED_ERROR,
+		PARTIAL_SUCCESS,
+		PARTIAL_ERROR,
+		PARTIAL_INFO_ONLY,
+		ADOPTED,
 		CORRUPTED
 	}
 }

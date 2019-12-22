@@ -11,5 +11,6 @@
 
     <modules>
         <module>timbermill-client</module>
+        <module>timbermill-server</module>
     </modules>
 </project>

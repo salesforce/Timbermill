@@ -8,7 +8,7 @@ Timbermill collects all events sent to it, processes them, and sends them to you
 #### Task-based, Context-Aware, cool. What's that?
 
 ##### Task-based:
-Timbermill logs aren't just lines of text, they are `Tasks`.
+Timbermill logs are not just lines of text, they are `Tasks`.
 
 
 `Task` characteristics:
@@ -46,7 +46,7 @@ Every task in Timbermill points to a parent task and automatically keeps importa
             <dependency>
                  <groupId>com.datorama</groupId>
                  <artifactId>timbermill-client</artifactId>
-                 <version>2.0.4</version>
+                 <version>2.1.0</version>
             </dependency>
             ...
         </dependencies>
@@ -119,5 +119,5 @@ TimberLog.bootstrap(config);
 
 #### What can I do next?
  
- Get familiar with our [wiki](timbermill.wiki) so you get a better sense on how to properlly use Timbermill.
+ Get familiar with our [wiki](timbermill.wiki) so you get a better sense on how to properly use Timbermill.
  

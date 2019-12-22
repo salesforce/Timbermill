@@ -21,3 +21,11 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+*.iml
+*.asc
+/.idea/$PRODUCT_WORKSPACE_FILE$
+/.idea/.gitignore
+/timbermill-server/src/main/resources/application.properties
+/timbermill-server/target/
+/timbermill-client/target/*
+/.idea/*

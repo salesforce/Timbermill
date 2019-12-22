@@ -11,6 +11,26 @@ import java.util.Map;
 
 public class LogParams {
 
+	public void setStrings(Map<String, String> strings) {
+		this.strings = strings;
+	}
+
+	public void setTexts(Map<String, String> texts) {
+		this.texts = texts;
+	}
+
+	public void setMetrics(Map<String, Number> metrics) {
+		this.metrics = metrics;
+	}
+
+	public void setContext(Map<String, String> context) {
+		this.context = context;
+	}
+
+	public void setLogs(List<String> logs) {
+		this.logs = logs;
+	}
+
 	private Map<String, String> strings = Maps.newHashMap();
 	private Map<String, String> texts = Maps.newHashMap();
 	private Map<String, Number> metrics = Maps.newHashMap();
@@ -20,6 +40,9 @@ public class LogParams {
 
 	public static LogParams create() {
 		return new LogParams();
+	}
+
+	public LogParams() {
 	}
 
 	public LogParams logInfo(String s) {
@@ -82,23 +105,23 @@ public class LogParams {
         return this;
     }
 
-    Map<String, String> getStrings() {
+    public Map<String, String> getStrings() {
 		return strings;
 	}
 
-	Map<String, Number> getMetrics() {
+	public Map<String, Number> getMetrics() {
 		return metrics;
 	}
 
-	Map<String, String> getTexts() {
+	public Map<String, String> getTexts() {
 		return texts;
 	}
 
-    Map<String, String> getContext() {
+    public Map<String, String> getContext() {
         return context;
     }
 
-	List<String> getLogs() {
+	public List<String> getLogs() {
 		return logs;
 	}
 }

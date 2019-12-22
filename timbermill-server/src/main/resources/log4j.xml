@@ -8,6 +8,10 @@
         </layout>
     </appender>
 
+    <category name="org.elasticsearch.client">
+        <priority value="ERROR"/>
+    </category>
+
     <root>
         <level value="INFO" />
         <appender-ref ref="CA" />

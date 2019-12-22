@@ -4,7 +4,6 @@ import com.datorama.timbermill.unit.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -63,11 +62,6 @@ public class BufferingOutputPipe implements EventOutputPipe {
 	@Override
 	public void close() {
 		eventOutputPipe.close();
-	}
-
-	@Override
-	public Map<String, String> getStaticParams() {
-		return eventOutputPipe.getStaticParams();
 	}
 
 	public int getCurrentBufferSize() {
