@@ -20,7 +20,8 @@ import static org.junit.Assert.*;
 public abstract class TimberLogTest {
 
 	static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, 1, null, null, null);
+	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
+			7, 100, 1000000000, "0 0/1 * 1/1 * ? *");
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";

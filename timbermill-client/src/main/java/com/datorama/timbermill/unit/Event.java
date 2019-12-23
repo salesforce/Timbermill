@@ -45,6 +45,7 @@ public abstract class Event{
 	private List<String> parentsPath;
 	private String env;
 	private Boolean orphan;
+	protected ZonedDateTime dateToDelete;
 
 	public Event() {
 	}
@@ -165,7 +166,9 @@ public abstract class Event{
     }
 
     @JsonIgnore
-	public abstract Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status);
+	public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
+		return null;
+	}
 
 	@JsonIgnore
     public boolean isStartEvent(){
@@ -208,5 +211,13 @@ public abstract class Event{
 
     public void setOrphan(Boolean orphan) {
 		this.orphan = orphan;
+	}
+
+	public void setDateToDelete(ZonedDateTime dateToDelete) {
+		this.dateToDelete = dateToDelete;
+	}
+
+	ZonedDateTime getDateToDelete(long daysRotation) {
+		return null;
 	}
 }

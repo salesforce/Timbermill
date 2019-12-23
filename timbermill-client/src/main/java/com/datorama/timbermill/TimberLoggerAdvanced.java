@@ -1,5 +1,7 @@
 package com.datorama.timbermill;
 
+import java.time.ZonedDateTime;
+
 import com.datorama.timbermill.unit.LogParams;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -24,6 +26,26 @@ public class TimberLoggerAdvanced {
 
     public static String start(String name, String parentTaskId, LogParams logParams) {
         return start(null, name, parentTaskId, logParams);
+    }
+
+    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+        return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, null);
+    }
+
+    public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
+        return startWithDateToDelete(name, LogParams.create(), dateToDelete);
+    }
+
+    public static String startWithDateToDelete(String name, LogParams logParams, ZonedDateTime dateToDelete) {
+        return startWithDateToDelete(name, null, logParams, dateToDelete);
+    }
+
+    public static String startWithDateToDelete(String name, String parentTaskId, ZonedDateTime dateToDelete) {
+        return startWithDateToDelete(name, parentTaskId, LogParams.create(), dateToDelete);
+    }
+
+    public static String startWithDateToDelete(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+        return EventLogger.get().startEvent(null, name, parentTaskId, logParams, true, dateToDelete);
     }
 
     //For testing only
@@ -62,8 +84,6 @@ public class TimberLoggerAdvanced {
         EventLogger.get().endWithError(t, ongoingTaskId, logParams);
     }
 
-    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
-        return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true);
-    }
+
 
 }

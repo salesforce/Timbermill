@@ -1,5 +1,6 @@
 package com.datorama.timbermill.unit;
 
+import com.datorama.timbermill.common.TimbermillUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
@@ -45,5 +46,11 @@ public class SpotEvent extends Event {
     @Override
     public boolean isStartEvent(){
         return true;
+    }
+
+    @JsonIgnore
+    @Override
+    ZonedDateTime getDateToDelete(long defaultDaysRotation) {
+        return TimbermillUtils.getDateToDeleteWithDefault(defaultDaysRotation, this.dateToDelete);
     }
 }

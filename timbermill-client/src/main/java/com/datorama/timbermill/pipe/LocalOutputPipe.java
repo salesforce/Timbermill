@@ -1,7 +1,9 @@
 package com.datorama.timbermill.pipe;
 
+import com.datorama.timbermill.ElasticsearchClient;
 import com.datorama.timbermill.ElasticsearchParams;
 import com.datorama.timbermill.TaskIndexer;
+import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Event;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
@@ -31,14 +33,15 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.elasticUrl, builder.defaultMaxChars, builder.daysRotation, builder.awsRegion, builder.indexingThreads,
-                builder.elasticUser, builder.elasticPassword,
-                builder.indexBulkSize, builder.pluginsJson, builder.propertiesLengthMap,
-                builder.maxCacheSize, builder.maxCacheHoldTimeMinutes);
-        taskIndexer = new TaskIndexer(elasticsearchParams);
-
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.defaultMaxChars, builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation);
+        ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.deletionCronExp);
+        taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
         startWorkingThread();
     }
+
+
 
     private void startWorkingThread() {
         Runnable eventsHandler = () -> {
@@ -92,12 +95,18 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String pluginsJson = "[]";
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
         private int defaultMaxChars = 1000000;
-        private int daysRotation = 0;
+        private int daysRotation = 90;
         private int indexBulkSize = 2097152;
         private int indexingThreads = 1;
         private String elasticUser = null;
         private String awsRegion = null;
         private String elasticPassword = null;
+        private int numberOfShards = 10;
+        private int numberOfReplicas = 1;
+        private long maxIndexAge = 7;
+        private long maxIndexSizeInGB = 100;
+        private long maxIndexDocs = 1000000000;
+        private String deletionCronExp = "0 0 0 1/1 * ? *";
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -156,6 +165,36 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
             this.maxCacheHoldTimeMinutes = maxCacheHoldTimeMinutes;
+            return this;
+        }
+
+        public Builder numberOfShards(int numberOfShards) {
+            this.numberOfShards = numberOfShards;
+            return this;
+        }
+
+        public Builder numberOfReplicas(int numberOfReplicas) {
+            this.numberOfReplicas = numberOfReplicas;
+            return this;
+        }
+
+        public Builder maxIndexAge(long maxIndexAge) {
+            this.maxIndexAge = maxIndexAge;
+            return this;
+        }
+
+        public Builder maxIndexSizeInGB(long maxIndexSizeInGB) {
+            this.maxIndexSizeInGB = maxIndexSizeInGB;
+            return this;
+        }
+
+        public Builder maxIndexDocs(long maxIndexDocs) {
+            this.maxIndexDocs = maxIndexDocs;
+            return this;
+        }
+
+        public Builder deletionCronExp(String deletionCronExp) {
+            this.deletionCronExp = deletionCronExp;
             return this;
         }
 

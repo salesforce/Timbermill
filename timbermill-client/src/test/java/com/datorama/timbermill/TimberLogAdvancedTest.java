@@ -6,6 +6,7 @@ import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 import org.junit.AfterClass;
 
+import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -14,9 +15,6 @@ import static com.datorama.timbermill.unit.Task.*;
 import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
-
-    public static final String ORPHAN = "orphan";
-    private static final String ORPHAN_PARENT = "orphan_parent";
 
     @AfterClass
     public static void kill() {
@@ -731,7 +729,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String ongoingTaskId = TimberLoggerAdvanced.start(ongoingTaskName);
+        String ongoingTaskId = TimberLoggerAdvanced.startWithDateToDelete(ongoingTaskName, ZonedDateTime.now().minusDays(1));
 
         new Thread(() -> {
             try (TimberLogContext ignored = new TimberLogContext(ongoingTaskId)) {

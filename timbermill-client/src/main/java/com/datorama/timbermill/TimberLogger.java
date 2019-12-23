@@ -7,6 +7,8 @@ import com.google.common.collect.Maps;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import javax.validation.constraints.NotNull;
+
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -58,7 +60,22 @@ public final class TimberLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		return EventLogger.get().startEvent(name, parentTaskId, logParams);
+		return EventLogger.get().startEvent(name, parentTaskId, logParams, null);
+	}
+
+	public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
+		return startWithDateToDelete(name, null, null, dateToDelete);
+	}
+
+	public static String startWithDateToDelete(String name, LogParams logParams, ZonedDateTime dateToDelete) {
+		return startWithDateToDelete(name, null, logParams, dateToDelete);
+	}
+
+	public static String startWithDateToDelete(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
+		return EventLogger.get().startEvent(name, parentTaskId, logParams, dateToDelete);
 	}
 
 	public static String success() {

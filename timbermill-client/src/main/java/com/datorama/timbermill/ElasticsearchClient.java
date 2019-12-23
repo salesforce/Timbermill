@@ -1,10 +1,9 @@
 package com.datorama.timbermill;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
-import com.datorama.timbermill.unit.Task;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.*;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
@@ -13,8 +12,8 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
+import org.elasticsearch.action.admin.indices.alias.Alias;
+import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -25,40 +24,57 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.PutIndexTemplateRequest;
+import org.elasticsearch.client.indices.rollover.RolloverRequest;
+import org.elasticsearch.client.indices.rollover.RolloverResponse;
+import org.elasticsearch.common.unit.ByteSizeUnit;
+import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.IdsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.quartz.*;
+import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import com.amazonaws.auth.AWS4Signer;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
+import com.datorama.timbermill.common.TimbermillUtils;
+import com.datorama.timbermill.cron.ExpiredTasksDeletionJob;
+import com.datorama.timbermill.unit.Task;
 
 import static com.datorama.timbermill.common.Constants.*;
+import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
 
-
-class ElasticsearchClient {
+public class ElasticsearchClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
-    private static final String INDEX_DELIMITER = "-";
+    public static final String CLIENT = "client";
     private final RestHighLevelClient client;
     private final int indexBulkSize;
-    private final int daysBackToDelete;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
     private final ExecutorService executorService;
+    private long maxIndexAge;
+    private long maxIndexSizeInGB;
+    private long maxIndexDocs;
+    private String deletionCronExp;
 
-    ElasticsearchClient(String elasticUrl, int indexBulkSize, int daysBackToDelete, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword) {
+    public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
+            long maxIndexSizeInGB, long maxIndexDocs, String deletionCronExp) {
         this.indexBulkSize = indexBulkSize;
-        this.daysBackToDelete = daysBackToDelete;
+        this.maxIndexAge = maxIndexAge;
+        this.maxIndexSizeInGB = maxIndexSizeInGB;
+        this.maxIndexDocs = maxIndexDocs;
+        this.deletionCronExp = deletionCronExp;
         if (indexingThreads < 1) {
             indexingThreads = 1;
         }
@@ -129,21 +145,9 @@ class ElasticsearchClient {
         }
     }
 
-    private void deleteOldIndex(String indexPrefix, String env) throws IOException {
-        if (daysBackToDelete < 1){
-            return;
-        }
-        String oldIndex = getTaskIndexWithEnv(indexPrefix, env, ZonedDateTime.now().minusDays(daysBackToDelete));
-        GetIndexRequest existsRequest = new GetIndexRequest().indices(oldIndex);
-        boolean exists = client.indices().exists(existsRequest, RequestOptions.DEFAULT);
-        if (exists) {
-            DeleteIndexRequest request = new DeleteIndexRequest(oldIndex);
-            client.indices().delete(request, RequestOptions.DEFAULT);
-        }
-    }
+    void indexMetaDataTasks(String env, String... metadataEvents) {
 
-    void indexMetaDataEvents(String env, String... metadataEvents) {
-        String metadataIndex = getTaskIndexWithEnv(TIMBERMILL_INDEX_METADATA_PREFIX, env, ZonedDateTime.now());
+        String metadataIndex = TimbermillUtils.getTimbermillIndexAlias(env);
 
         BulkRequest bulkRequest = new BulkRequest();
         for (String metadataEvent : metadataEvents) {
@@ -151,10 +155,11 @@ class ElasticsearchClient {
             bulkRequest.add(indexRequest);
         }
         try {
-            deleteOldIndex(TIMBERMILL_INDEX_METADATA_PREFIX, env);
             client.bulk(bulkRequest, RequestOptions.DEFAULT);
         } catch (IOException e){
             LOG.error("Couldn't index metadata event with events " + Arrays.toString(metadataEvents) + " to elasticsearch cluster.", e);
+        } catch (IllegalStateException e) {
+            LOG.warn("Could not index metadata, elasicsearch client was closed.");
         }
     }
 
@@ -183,10 +188,10 @@ class ElasticsearchClient {
 
     }
 
-    void index(Map<String, Task> tasksMap) {
+    void index(Map<String, Task> tasksMap, String env) {
+        String timbermillAlias = createTimbermillAlias(env);
         BulkRequest bulkRequest = new BulkRequest();
-
-        Collection<UpdateRequest> updateRequests = createUpdateRequests(tasksMap);
+        Collection<UpdateRequest> updateRequests = createUpdateRequests(tasksMap, env);
         Collection<Future> futuresRequests = createFuturesRequests(bulkRequest, updateRequests);
 
         for (Future futureRequest : futuresRequests) {
@@ -195,6 +200,22 @@ class ElasticsearchClient {
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("A error was thrown while indexing a batch", e);
             }
+        }
+        rolloverIndex(timbermillAlias);
+    }
+
+    private void rolloverIndex(String timbermillAlias) {
+        RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
+        rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
+        rolloverRequest.addMaxIndexSizeCondition(new ByteSizeValue(maxIndexSizeInGB, ByteSizeUnit.GB));
+        rolloverRequest.addMaxIndexDocsCondition(maxIndexDocs);
+        try {
+            RolloverResponse rolloverResponse = client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT);
+            if (rolloverResponse.isRolledOver()){
+                LOG.info("Index {} rolled over, new index is [{}]", rolloverResponse.getOldIndex(), rolloverResponse.getNewIndex());
+            }
+        } catch (IOException e) {
+            LOG.error("An error occurred while rollovered index " + timbermillAlias, e);
         }
     }
 
@@ -206,41 +227,116 @@ class ElasticsearchClient {
             currentSize += request.estimatedSizeInBytes();
 
             if (currentSize > indexBulkSize) {
-                BulkRequest finalRequest = request;
-                futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
+                addRequestToFutures(request, futures);
                 currentSize = 0;
                 request = new BulkRequest();
             }
         }
         if (!request.requests().isEmpty()) {
-            BulkRequest finalRequest = request;
-            futures.add(executorService.submit(() -> sendBulkRequest(finalRequest)));
+            addRequestToFutures(request, futures);
         }
         return futures;
     }
 
-    private Collection<UpdateRequest> createUpdateRequests(Map<String, Task> tasksMap) {
+    private void addRequestToFutures(BulkRequest request, Collection<Future> futures) {
+        Future<?> future = executorService.submit(() -> sendBulkRequest(request));
+        futures.add(future);
+    }
+
+    private Collection<UpdateRequest> createUpdateRequests(Map<String, Task> tasksMap, String env) {
         Collection<UpdateRequest> requests = new ArrayList<>();
         for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
             Task task = taskEntry.getValue();
 
-            String env = task.getEnv();
-            String index = getTaskIndexWithEnv(TIMBERMILL_INDEX_PREFIX, env, ZonedDateTime.now());
-            try {
-                deleteOldIndex(TIMBERMILL_INDEX_PREFIX, env);
-            } catch (IOException e) {
-                LOG.error("Could not delete index " + index, e);
-            }
-            //TODO not correct - Should be changed to Rollover
-
+            String index = TimbermillUtils.getTimbermillIndexAlias(env);
             UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
             requests.add(updateRequest);
         }
         return requests;
     }
 
-    private String getTaskIndexWithEnv(String indexPrefix, String env, ZonedDateTime startTime) {
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        return indexPrefix + INDEX_DELIMITER + env + INDEX_DELIMITER + startTime.format(dateTimeFormatter);
+    public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas) { //todo fix
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
+        request.source("{\n"
+                + "  \"index_patterns\": [\n"
+                + "    \"timbermill*\"\n"
+                + "  ],\n"
+                + " \"settings\": {\n"
+                + "        \"index\": {\n"
+                + "            \"number_of_shards\": 2,\n"
+                + "            \"number_of_replicas\": 1\n"
+                + "        }\n"
+                + "    },\n"
+                + "    \"mappings\": {\n"
+                + "        \"tweets\": {\n"
+                + "            \"_source\": {\n"
+                + "                \"enabled\": true\n"
+                + "            },          \n"
+                + "            \"properties\": {\n"
+                + "                \"_id\": {\n"
+                + "                    \"type\": \"string\"\n"
+                + "                },\n"
+                + "                \"user\": {\n"
+                + "                    \"type\": \"nested\",\n"
+                + "                    \"name\": {\n"
+                + "                        \"type\": \"string\"\n"
+                + "                    }\n"
+                + "                }\n"
+                + "            }\n"
+                + "        }\n"
+                + "    }\n"
+                + "}"
+                + "}", XContentType.JSON);
+        try {
+            client.indices().putTemplate(request, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            LOG.error("An error occurred when creating Timbermill template", e);
+        }
     }
+
+    private String createTimbermillAlias(String env) {
+        boolean exists;
+        String timbermillAlias = TimbermillUtils.getTimbermillIndexAlias(env);
+        try {
+            GetAliasesRequest requestWithAlias = new GetAliasesRequest(timbermillAlias);
+            exists = client.indices().existsAlias(requestWithAlias, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+           exists = false;
+        }
+        if (!exists){
+            CreateIndexRequest request = new CreateIndexRequest(timbermillAlias + "-000001");
+            Alias alias = new Alias(timbermillAlias);
+            request.alias(alias);
+            try {
+                client.indices().create(request, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed creating initail timbermill index.", e);
+            }
+        }
+        return timbermillAlias;
+    }
+
+    public void runDeletionTaskCron() {
+        try {
+            SchedulerFactory sf = new StdSchedulerFactory();
+            Scheduler sched = sf.getScheduler();
+            JobDataMap jobDataMap = new JobDataMap();
+            jobDataMap.put(CLIENT, client);
+            JobDetail job = newJob(ExpiredTasksDeletionJob.class)
+                    .withIdentity("job1", "group1").usingJobData(jobDataMap)
+                    .build();
+
+            CronTrigger trigger = newTrigger()
+                    .withIdentity("trigger1", "group1")
+                    .withSchedule(cronSchedule(deletionCronExp))
+                    .build();
+
+            sched.scheduleJob(job, trigger);
+            sched.start();
+        } catch (SchedulerException e) {
+            LOG.error("Error occurred while expired tasks", e);
+        }
+
+    }
+
 }

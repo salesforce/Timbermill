@@ -6,32 +6,22 @@ public class ElasticsearchParams {
 	private final String pluginsJson;
 	private final Map<String, Integer> propertiesLengthJson;
 	private final int defaultMaxChars;
-	private final String elasticUrl;
-	private final int daysRotation;
-	private final String awsRegion;
-	private final int indexBulkSize;
-	private final int indexingThreads;
-	private final String elasticUser;
-	private final String elasticPassword;
 	private final int maximumCacheSize;
 	private final int maximumCacheMinutesHold;
+	private int numberOfShards;
+	private int numberOfReplicas;
+	private int daysRotation;
 
-	public ElasticsearchParams(String elasticUrl, int defaultMaxChars, int daysRotation, String awsRegion, int indexingThreads, String elasticUser, String elasticPassword, int indexBulkSize,
-			String pluginsJson,
-			Map<String, Integer> propertiesLengthJson,
-			int maximumCacheSize, int maximumCacheMinutesHold) {
+	public ElasticsearchParams(int defaultMaxChars, String pluginsJson, Map<String, Integer> propertiesLengthJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
+			int numberOfReplicas, int daysRotation) {
 		this.pluginsJson = pluginsJson;
 		this.propertiesLengthJson = propertiesLengthJson;
 		this.defaultMaxChars = defaultMaxChars;
-		this.elasticUrl = elasticUrl;
-		this.daysRotation = daysRotation;
-		this.awsRegion = awsRegion;
-		this.indexBulkSize = indexBulkSize;
-		this.indexingThreads = indexingThreads;
-		this.elasticUser = elasticUser;
-		this.elasticPassword = elasticPassword;
 		this.maximumCacheSize = maximumCacheSize;
 		this.maximumCacheMinutesHold = maximumCacheMinutesHold;
+		this.numberOfShards = numberOfShards;
+		this.numberOfReplicas = numberOfReplicas;
+		this.daysRotation = daysRotation;
 	}
 
 	String getPluginsJson() {
@@ -46,39 +36,23 @@ public class ElasticsearchParams {
 		return defaultMaxChars;
 	}
 
-	String getElasticUrl() {
-		return elasticUrl;
-	}
-
-	int getDaysRotation() {
-		return daysRotation;
-	}
-
-	String getAwsRegion() {
-		return awsRegion;
-	}
-
-	int getIndexBulkSize() {
-		return indexBulkSize;
-	}
-
-	int getIndexingThreads() {
-		return indexingThreads;
-	}
-
-	String getElasticUser() {
-		return elasticUser;
-	}
-
-	String getElasticPassword() {
-		return elasticPassword;
-	}
-
 	int getMaximumCacheSize() {
 		return maximumCacheSize;
 	}
 
 	int getMaximumCacheMinutesHold() {
 		return maximumCacheMinutesHold;
+	}
+
+	public int getNumberOfShards() {
+		return numberOfShards;
+	}
+
+	public int getNumberOfReplicas() {
+		return numberOfReplicas;
+	}
+
+	public int getDaysRotation() {
+		return daysRotation;
 	}
 }

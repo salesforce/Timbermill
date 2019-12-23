@@ -1,7 +1,9 @@
 package com.datorama.timbermill.server.service;
 
+import com.datorama.timbermill.ElasticsearchClient;
 import com.datorama.timbermill.ElasticsearchParams;
 import com.datorama.timbermill.TaskIndexer;
+import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Event;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -25,7 +27,7 @@ public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 	private static final int THREAD_SLEEP = 2000;
-	private final TaskIndexer taskIndexer;
+	private TaskIndexer taskIndexer;
 	private static final int EVENT_QUEUE_CAPACITY = 10000000;
 	private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
 
@@ -46,14 +48,21 @@ public class TimbermillService {
 							 @Value("${elasticsearch.user:}") String elasticUser,
 							 @Value("${elasticsearch.password:}") String elasticPassword,
 							 @Value("${cache.max.size:10000}") int maximumCacheSize,
+							 @Value("${elasticsearch.number.of.shards:10}") int numberOfShards,
+							 @Value("${elasticsearch.number.of.replicas:1}") int numberOfReplicas,
+							 @Value("${elasticsearch.index.max.age:7}") long maxIndexAge,
+							 @Value("${elasticsearch.index.max.gb.size:100}") long maxIndexSizeInGB,
+							 @Value("${elasticsearch.index.max.docs:1000000000}") long maxIndexDocs,
+							 @Value("${deletion.cron.expression:1/1 0 0 1/1 * ? *}") String deletionCronExp,
 							 @Value("${cache.max.hold.time.minutes:6}") int maximumCacheMinutesHold) throws IOException {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
-		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(elasticUrl, defaultMaxChars, daysRotation, awsRegion, indexingThreads, elasticUser, elasticPassword, indexBulkSize,
-				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold);
-		taskIndexer = new TaskIndexer(elasticsearchParams);
-
+		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(defaultMaxChars,
+				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation);
+		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
+				deletionCronExp);
+		taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
 		startWorkingThread();
 	}
 

@@ -6,8 +6,9 @@ class TaskMetaData {
     private ZonedDateTime taskBegin;
     private ZonedDateTime taskEnd;
     private Long duration;
+	private ZonedDateTime dateToDelete;
 
-    ZonedDateTime getTaskBegin() {
+	ZonedDateTime getTaskBegin() {
         return taskBegin;
     }
 
@@ -30,4 +31,12 @@ class TaskMetaData {
     Long getDuration() {
         return duration;
     }
+
+	ZonedDateTime getDateToDelete() {
+		return dateToDelete;
+	}
+
+	void setDateToDelete(ZonedDateTime dateToDelete) {
+		this.dateToDelete = dateToDelete;
+	}
 }
