@@ -870,7 +870,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessStartSuccess(boolean withUpdate) throws InterruptedException {
-        String id = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String id = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(id);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -885,7 +885,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -899,7 +899,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -913,7 +913,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorStartSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -928,7 +928,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -942,7 +942,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);

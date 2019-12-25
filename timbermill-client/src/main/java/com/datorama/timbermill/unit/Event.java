@@ -27,7 +27,7 @@ import java.util.UUID;
 )
 public abstract class Event{
 
-	public static final String DELIMITER = "___";
+	public static final String EVENT_ID_DELIMITER = "___";
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
@@ -166,9 +166,7 @@ public abstract class Event{
     }
 
     @JsonIgnore
-	public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-		return null;
-	}
+	public abstract Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status);
 
 	@JsonIgnore
     public boolean isStartEvent(){
@@ -178,7 +176,7 @@ public abstract class Event{
 	@JsonIgnore
 	public String getNameFromId() {
 		if (name == null){
-			String[] split = taskId.split(DELIMITER);
+			String[] split = taskId.split(EVENT_ID_DELIMITER);
 			if (split.length == 0){
 				return null;
 			}
@@ -194,7 +192,7 @@ public abstract class Event{
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return name + DELIMITER + uuid;
+		return name + EVENT_ID_DELIMITER + uuid;
 	}
 
 	public String getEnv() {

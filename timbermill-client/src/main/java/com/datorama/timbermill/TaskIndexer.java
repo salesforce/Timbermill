@@ -91,7 +91,9 @@ public class TaskIndexer {
 
             Map<String, Task> tasksMap = createEnrichedTasks(timbermillEvents, previouslyIndexedParentTasks);
 
-            es.index(tasksMap, env);
+            String index = es.createTimbermillAlias(env);
+            es.index(tasksMap, index);
+            es.rolloverIndex(index);
             LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
 
             return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);

@@ -1,6 +1,7 @@
 package com.datorama.timbermill.unit;
 
 import java.time.ZonedDateTime;
+import java.util.Map;
 
 import com.datorama.timbermill.common.TimbermillUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -31,29 +32,33 @@ public class StartEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
+        return getTaskStatus(status, getContext());
+    }
+
+    public static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> context) {
         if (status == TaskStatus.UNTERMINATED){
-            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
-            return Task.TaskStatus.CORRUPTED;
+            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            return TaskStatus.CORRUPTED;
         }
-        else if (status == Task.TaskStatus.PARTIAL_SUCCESS){
-            return Task.TaskStatus.SUCCESS;
+        else if (status == TaskStatus.PARTIAL_SUCCESS){
+            return TaskStatus.SUCCESS;
         }
-        else if (status == Task.TaskStatus.SUCCESS){
-            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
-            return Task.TaskStatus.CORRUPTED;
+        else if (status == TaskStatus.SUCCESS){
+            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            return TaskStatus.CORRUPTED;
         }
-        else if (status == Task.TaskStatus.PARTIAL_ERROR){
-            return Task.TaskStatus.ERROR;
+        else if (status == TaskStatus.PARTIAL_ERROR){
+            return TaskStatus.ERROR;
         }
         else if (status == TaskStatus.ERROR){
-            getContext().put(CORRUPTED_REASON, ALREADY_STARTED);
-            return Task.TaskStatus.CORRUPTED;
+            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.CORRUPTED){
-            return Task.TaskStatus.CORRUPTED;
+            return TaskStatus.CORRUPTED;
         }
         else {
-            return Task.TaskStatus.UNTERMINATED;
+            return TaskStatus.UNTERMINATED;
         }
     }
 

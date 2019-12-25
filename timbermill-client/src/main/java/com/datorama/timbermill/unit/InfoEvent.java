@@ -16,6 +16,10 @@ public class InfoEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
+        return getTaskStatus(status);
+    }
+
+    public static Task.TaskStatus getTaskStatus(Task.TaskStatus status) {
         if (status == Task.TaskStatus.UNTERMINATED){
             return Task.TaskStatus.UNTERMINATED;
         }

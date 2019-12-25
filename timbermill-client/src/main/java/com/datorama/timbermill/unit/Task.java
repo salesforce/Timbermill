@@ -42,8 +42,8 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(List<Event> groupedEvents, long daysRotation) {
-		for (Event e : groupedEvents) {
+	public Task(List<Event> events, long daysRotation) {
+		for (Event e : events) {
 			if (!(e instanceof AdoptedEvent)){
 				String env = e.getEnv();
 				if (this.env == null || this.env.equals(env)) {
@@ -503,7 +503,6 @@ public class Task {
 		PARTIAL_SUCCESS,
 		PARTIAL_ERROR,
 		PARTIAL_INFO_ONLY,
-		ADOPTED,
 		CORRUPTED
 	}
 }

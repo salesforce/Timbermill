@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
+import java.util.Map;
 
 import static com.datorama.timbermill.unit.Task.*;
 
@@ -23,27 +24,31 @@ public class SuccessEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-        if (status == Task.TaskStatus.UNTERMINATED){
-            return Task.TaskStatus.SUCCESS;
+        return getTaskStatus(status, getContext());
+    }
+
+    public static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> context) {
+        if (status == TaskStatus.UNTERMINATED){
+            return TaskStatus.SUCCESS;
         }
-        else if (status == Task.TaskStatus.PARTIAL_SUCCESS){
-            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
-            return Task.TaskStatus.CORRUPTED;
+        else if (status == TaskStatus.PARTIAL_SUCCESS){
+            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return TaskStatus.CORRUPTED;
         }
-        else if (status == Task.TaskStatus.SUCCESS){
-            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
-            return Task.TaskStatus.CORRUPTED;
+        else if (status == TaskStatus.SUCCESS){
+            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return TaskStatus.CORRUPTED;
         }
-        else if (status == Task.TaskStatus.PARTIAL_ERROR){
-            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
-            return Task.TaskStatus.CORRUPTED;
+        else if (status == TaskStatus.PARTIAL_ERROR){
+            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.ERROR){
-            getContext().put(CORRUPTED_REASON, ALREADY_CLOSED);
-            return Task.TaskStatus.CORRUPTED;
+            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.CORRUPTED){
-            return Task.TaskStatus.CORRUPTED;
+            return TaskStatus.CORRUPTED;
         }
         else {
             return TaskStatus.PARTIAL_SUCCESS;

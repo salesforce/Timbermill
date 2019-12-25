@@ -12,12 +12,12 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.stream.Collectors;
+
+import static com.datorama.timbermill.common.TimbermillUtils.THREAD_SLEEP;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
     private static final int EVENT_QUEUE_CAPACITY = 1000000;
-    private static final int THREAD_SLEEP = 2000;
     private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     
     private TaskIndexer taskIndexer;
@@ -34,37 +34,24 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.defaultMaxChars, builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation);
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.deletionCronExp);
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs);
         taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
-        startWorkingThread();
+        startWorkingThread(es);
     }
 
 
 
-    private void startWorkingThread() {
+    private void startWorkingThread(ElasticsearchClient es) {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                while (!eventsQueue.isEmpty()) {
-                    try {
-                        Collection<Event> events = new ArrayList<>();
-                        eventsQueue.drainTo(events);
-                        Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
-                        for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
-                            String env = eventsPerEnv.getKey();
-                            Collection<Event> currentEvents = eventsPerEnv.getValue();
-                            taskIndexer.retrieveAndIndex(currentEvents, env);
-                        }
-                        Thread.sleep(THREAD_SLEEP);
-                    } catch (RuntimeException | InterruptedException e) {
-                        LOG.error("Error was thrown from TaskIndexer:", e);
-                    }
-                }
+                TimbermillUtils.drainAndIndex(eventsQueue, taskIndexer, es);
             }
             stoppedRunning = true;
         };
+
         Thread workingThread = new Thread(eventsHandler);
         workingThread.start();
     }
@@ -106,7 +93,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexAge = 7;
         private long maxIndexSizeInGB = 100;
         private long maxIndexDocs = 1000000000;
-        private String deletionCronExp = "0 0 0 1/1 * ? *";
+        private String deletionCronExp = "0 0 12 1/1 * ? *";
+        private String mergingCronExp = "0 0 0/1 1/1 * ? *";
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -195,6 +183,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder deletionCronExp(String deletionCronExp) {
             this.deletionCronExp = deletionCronExp;
+            return this;
+        }
+
+        public Builder mergingCronExp(String mergingCronExp) {
+            this.mergingCronExp = mergingCronExp;
             return this;
         }
 

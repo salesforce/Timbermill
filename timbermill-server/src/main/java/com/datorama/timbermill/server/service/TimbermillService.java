@@ -13,14 +13,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.stream.Collectors;
-
 
 @Service
 public class TimbermillService {
@@ -53,38 +49,24 @@ public class TimbermillService {
 							 @Value("${elasticsearch.index.max.age:7}") long maxIndexAge,
 							 @Value("${elasticsearch.index.max.gb.size:100}") long maxIndexSizeInGB,
 							 @Value("${elasticsearch.index.max.docs:1000000000}") long maxIndexDocs,
-							 @Value("${deletion.cron.expression:1/1 0 0 1/1 * ? *}") String deletionCronExp,
+							 @Value("${deletion.cron.expression:0 0 12 1/1 * ? *}") String deletionCronExp,
+							 @Value("${merging.cron.expression:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 							 @Value("${cache.max.hold.time.minutes:6}") int maximumCacheMinutesHold) throws IOException {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(defaultMaxChars,
-				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation);
-		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
-				deletionCronExp);
+				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp);
+		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs);
 		taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
-		startWorkingThread();
+		startWorkingThread(es);
 	}
 
-	private void startWorkingThread() {
+	private void startWorkingThread(ElasticsearchClient es) {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				while (!eventsQueue.isEmpty()) {
-					try {
-						Collection<Event> events = new ArrayList<>();
-						eventsQueue.drainTo(events);
-						Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
-						for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
-							String env = eventsPerEnv.getKey();
-							Collection<Event> currentEvents = eventsPerEnv.getValue();
-							taskIndexer.retrieveAndIndex(currentEvents, env);
-						}
-						Thread.sleep(THREAD_SLEEP);
-					} catch (RuntimeException | InterruptedException e) {
-						LOG.error("Error was thrown from TaskIndexer:", e);
-					}
-				}
+				TimbermillUtils.drainAndIndex(eventsQueue, taskIndexer, es);
 			}
 			stoppedRunning = true;
 		};

@@ -11,9 +11,11 @@ public class ElasticsearchParams {
 	private int numberOfShards;
 	private int numberOfReplicas;
 	private int daysRotation;
+	private String deletionCronExp;
+	private String mergingCronExp;
 
 	public ElasticsearchParams(int defaultMaxChars, String pluginsJson, Map<String, Integer> propertiesLengthJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
-			int numberOfReplicas, int daysRotation) {
+			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp) {
 		this.pluginsJson = pluginsJson;
 		this.propertiesLengthJson = propertiesLengthJson;
 		this.defaultMaxChars = defaultMaxChars;
@@ -22,6 +24,8 @@ public class ElasticsearchParams {
 		this.numberOfShards = numberOfShards;
 		this.numberOfReplicas = numberOfReplicas;
 		this.daysRotation = daysRotation;
+		this.deletionCronExp = deletionCronExp;
+		this.mergingCronExp = mergingCronExp;
 	}
 
 	String getPluginsJson() {
@@ -54,5 +58,13 @@ public class ElasticsearchParams {
 
 	public int getDaysRotation() {
 		return daysRotation;
+	}
+
+	public String getDeletionCronExp() {
+		return deletionCronExp;
+	}
+
+	public String getMergingCronExp() {
+		return mergingCronExp;
 	}
 }
