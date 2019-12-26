@@ -38,13 +38,14 @@ public class TaskIndexer {
     private final Map<String, Integer> propertiesLengthMap;
     private final int defaultMaxChars;
     private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
+    private long daysRotation;
 
-    public TaskIndexer(ElasticsearchParams elasticsearchParams) {
-        logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
+    public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
+        this.daysRotation = elasticsearchParams.getDaysRotation() < 0 ? 1 : elasticsearchParams.getDaysRotation();
+        this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.propertiesLengthMap = elasticsearchParams.getPropertiesLengthJson();
         this.defaultMaxChars = elasticsearchParams.getDefaultMaxChars();
-        this.es = new ElasticsearchClient(elasticsearchParams.getElasticUrl(), elasticsearchParams.getIndexBulkSize(), elasticsearchParams.getDaysRotation(), elasticsearchParams.getIndexingThreads(),
-                elasticsearchParams.getAwsRegion(), elasticsearchParams.getElasticUser(), elasticsearchParams.getElasticPassword());
+        this.es = es;
         parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
     }
 
@@ -76,29 +77,29 @@ public class TaskIndexer {
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
-            timbermillEvents.forEach(e -> LOG.error("{} -> {}", e.getTaskId(), e.getClass()));
             IndexEvent indexEvent = handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents, startEventsIds);
-            es.indexMetaDataEvents(env, GSON.toJson(indexEvent));
+            es.indexMetaDataTasks(env, GSON.toJson(indexEvent));
         }
         LOG.info("------------------ Batch End ------------------");
     }
 
     private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
         Map<String, Task> previouslyIndexedParentTasks = new HashMap<>();
-        long pluginsDuration = 0L;
         try {
             previouslyIndexedParentTasks = fetchPreviouslyIndexedParentTasks(timbermillEvents, startEventsIds);
-            pluginsDuration = applyPlugins(timbermillEvents, env);
+            applyPlugins(timbermillEvents, env);
 
-            Map<String, Task> tasksMap = createEnrichedTasks(env, timbermillEvents, previouslyIndexedParentTasks);
+            Map<String, Task> tasksMap = createEnrichedTasks(timbermillEvents, previouslyIndexedParentTasks);
 
-            es.index(tasksMap);
+            String index = es.createTimbermillAlias(env);
+            es.index(tasksMap, index);
+            es.rolloverIndex(index);
             LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
 
-            return new IndexEvent(timbermillEvents.size(), previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), pluginsDuration);
+            return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
         } catch (Throwable t) {
             LOG.error("Error while handling Timbermill events", t);
-            return new IndexEvent(timbermillEvents.size(),  previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), ExceptionUtils.getStackTrace(t), pluginsDuration);
+            return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), ExceptionUtils.getStackTrace(t), timbermillEvents.size(), daysRotation);
         }
     }
 
@@ -115,25 +116,25 @@ public class TaskIndexer {
         return previouslyIndexedParentTasks;
     }
 
-    private Map<String, Task> createEnrichedTasks(String env, Collection<Event> timbermillEvents, Map<String, Task> previouslyIndexedParentTasks) {
+    private Map<String, Task> createEnrichedTasks(Collection<Event> timbermillEvents, Map<String, Task> previouslyIndexedParentTasks) {
         Map<String, List<Event>> eventsMap = timbermillEvents.stream().collect(groupingBy(Event::getTaskId));
         Collection<DefaultMutableTreeNode> roots = getTreesRoots(timbermillEvents);
         enrichEvents(roots, eventsMap, previouslyIndexedParentTasks);
-        return getTasksFromEvents(env, eventsMap);
+        return getTasksFromEvents(eventsMap);
     }
 
-    private Map<String, Task> getTasksFromEvents(String env, Map<String, List<Event>> eventsMap) {
+    private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
-            Task task = new Task(eventEntry.getValue(), env);
+            Task task = new Task(eventEntry.getValue(), daysRotation);
             tasksMap.put(eventEntry.getKey(), task);
         }
         return tasksMap;
     }
 
     private void indexHeartbeatEvents(String env, Collection<Event> heartbeatEvents) {
-        String[] metadataEvents = heartbeatEvents.stream().map(event -> GSON.toJson(new HeartbeatTask(event))).toArray(String[]::new);
-        this.es.indexMetaDataEvents(env, metadataEvents);
+        String[] metadataEvents = heartbeatEvents.stream().map(event -> GSON.toJson(new HeartbeatTask(event, daysRotation))).toArray(String[]::new);
+        this.es.indexMetaDataTasks(env, metadataEvents);
     }
 
     private void enrichEvents(Collection<DefaultMutableTreeNode> roots, Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks) {
@@ -275,8 +276,7 @@ public class TaskIndexer {
     }
 
 
-    private long applyPlugins(Collection<Event> events, String env) {
-        long pluginsStart = System.currentTimeMillis();
+    private void applyPlugins(Collection<Event> events, String env) {
         try {
             for (TaskLogPlugin plugin : logPlugins) {
                 ZonedDateTime startTime = ZonedDateTime.now();
@@ -292,14 +292,12 @@ public class TaskIndexer {
                 }
                 ZonedDateTime endTime = ZonedDateTime.now();
                 long duration = getTimesDuration(startTime, endTime);
-                PluginApplierEvent pluginApplierEvent = new PluginApplierEvent(startTime, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration);
-                es.indexMetaDataEvents(env, GSON.toJson(pluginApplierEvent));
+                PluginApplierTask pluginApplierTask = new PluginApplierTask(env, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration, startTime, daysRotation);
+                es.indexMetaDataTasks(env, GSON.toJson(pluginApplierTask));
             }
         } catch (Exception ex) {
             LOG.error("Error running plugins", ex);
         }
-        long pluginsEnd = System.currentTimeMillis();
-        return pluginsEnd - pluginsStart;
     }
 
     private void trimAllStrings(Collection<Event> events) {

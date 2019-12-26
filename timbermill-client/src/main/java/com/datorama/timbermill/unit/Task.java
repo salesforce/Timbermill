@@ -42,10 +42,16 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(List<Event> groupedEvents, String env) {
-		this.env = env;
-		for (Event e : groupedEvents) {
+	public Task(List<Event> events, long daysRotation) {
+		for (Event e : events) {
 			if (!(e instanceof AdoptedEvent)){
+				String env = e.getEnv();
+				if (this.env == null || this.env.equals(env)) {
+					this.env = env;
+				}
+				else{
+					throw new RuntimeException("Timbermill events with same id must have same env " + this.env + " !=" + env);
+				}
 				String name = e.getNameFromId();
 				String parentId = e.getParentId();
 
@@ -73,6 +79,9 @@ public class Task {
 				if (getEndTime() == null){
 					setEndTime(endTime);
 				}
+
+				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
+				this.setDateToDelete(dateToDelete);
 
 				status = e.getStatusFromExistingStatus(this.status);
 
@@ -126,7 +135,6 @@ public class Task {
 			long duration = getTimesDuration(startTime, endTime);
 			setDuration(duration);
 		}
-
 	}
 
 	private boolean isComplete() {
@@ -179,6 +187,14 @@ public class Task {
 
 	public void setEndTime(ZonedDateTime endTime) {
 		meta.setTaskEnd(endTime);
+	}
+
+	public ZonedDateTime getDateToDelete() {
+		return meta.getDateToDelete();
+	}
+
+	public void setDateToDelete(ZonedDateTime dateToDelete) {
+		meta.setDateToDelete(dateToDelete);
 	}
 
 	public Long getDuration() {
@@ -283,6 +299,9 @@ public class Task {
 			params.put("taskEnd", getEndTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
 			params.put("taskEndMillis", getEndTime().toInstant().toEpochMilli());
 		}
+		if (getDateToDelete() != null) {
+			params.put("dateToDelete", getDateToDelete().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+		}
 		params.put("name", name);
 		params.put("parentId", parentId);
 		params.put("primaryId", primaryId);
@@ -301,7 +320,10 @@ public class Task {
 				"        if (params.orphan != null && !params.orphan) {" +
 				"            ctx._source.orphan = false;" +
 				"        }" +
-				"        else if (params.status != null){" + //Don't change status, only update fields
+				"        if (params.dateToDelete != null) {" +
+				"            ctx._source.meta.dateToDelete = params.dateToDelete;" +
+				"        }" +
+				"        if (params.status != null){" + //Don't change status, only update fields
 					"        if (params.status.equals( \"" + CORRUPTED + "\")){" +
 					"                ctx._source.status =  \"" + CORRUPTED + "\" ;" +
 					"        }" +
@@ -481,7 +503,6 @@ public class Task {
 		PARTIAL_SUCCESS,
 		PARTIAL_ERROR,
 		PARTIAL_INFO_ONLY,
-		ADOPTED,
 		CORRUPTED
 	}
 }

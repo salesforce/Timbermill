@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.validation.constraints.NotNull;
+
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -49,7 +51,7 @@ final class EventLogger {
 		if (isBootstrapped) {
 			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParams);
 		} else {
-			LOG.info("Bootstrapping EventLogger with params ({})", eventOutputPipe, staticParams);
+			LOG.info("Bootstrapping EventLogger with params ({})", staticParams);
 			isBootstrapped = true;
 			BufferingOutputPipe bufferingOutputPipe = new BufferingOutputPipe(eventOutputPipe);
 			bufferingOutputPipe.start();
@@ -76,20 +78,22 @@ final class EventLogger {
 	}
 
 
-	/*
-	 * Maps are never null
-	 */
-	String startEvent(String name, @NotNull LogParams logParams) {
-		return startEvent(null, name, null ,logParams, false);
+	String startEvent(String name, LogParams logParams) {
+		return startEvent(null, name, null ,logParams, false, null);
 	}
 
-	String startEvent(String name, String parentTaskId, LogParams logParams) {
-		return startEvent(null, name, parentTaskId ,logParams, false);
+	String startEvent(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+		return startEvent(null, name, parentTaskId ,logParams, false, dateToDelete);
 	}
 
-	String startEvent(String taskId, String name, String parentTaskId, LogParams logParams, boolean isOngoingTask) {
-		addStaticParams(logParams);
-		Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name);
+	String startEvent(String taskId, String name, String parentTaskId, LogParams logParams, boolean isOngoingTask, ZonedDateTime dateToDelete) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
+		else{
+			addStaticParams(logParams);
+		}
+		Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name, dateToDelete);
 		return submitEvent(event);
 	}
 
@@ -118,15 +122,18 @@ final class EventLogger {
 	}
 
 	String endWithError(Throwable t) {
-		return endWithError(t, null, LogParams.create());
+		return endWithError(t, null, null);
 	}
 
-    String endWithError(Throwable t, String ongoingTaskId, @NotNull LogParams logParams) {
+    String endWithError(Throwable t, String ongoingTaskId, LogParams logParams) {
         Event event = createErrorEvent(t, ongoingTaskId, logParams);
         return submitEvent(event);
     }
 
-	private Event createErrorEvent(Throwable t, String ongoingTaskId, @NotNull LogParams logParams) {
+	private Event createErrorEvent(Throwable t, String ongoingTaskId, LogParams logParams) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
 		if (t != null) {
 			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
 		}
@@ -144,16 +151,19 @@ final class EventLogger {
 		return e;
 	}
 
-	String spotEvent(String name, @NotNull LogParams logParams, Task.TaskStatus status) {
-		Event event = createSpotEvent(name, logParams, status);
+	String spotEvent(String name, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+		Event event = createSpotEvent(name, logParams, status, dateToDelete);
 		return submitEvent(event);
 	}
 
-	String logParams(@NotNull LogParams logParams) {
+	String logParams(LogParams logParams) {
 		return logParams(logParams, null);
 	}
 
-	public String logParams(@NotNull LogParams logParams, String ongoingTaskId) {
+	public String logParams(LogParams logParams, String ongoingTaskId) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
 		Event event = createInfoEvent(logParams, ongoingTaskId);
 		return submitEvent(event);
 	}
@@ -195,7 +205,7 @@ final class EventLogger {
 		}
 	}
 
-	private Event createStartEvent(String taskId, @NotNull LogParams logParams, String parentTaskId, boolean isOngoingTask, String name) {
+	private Event createStartEvent(String taskId, LogParams logParams, String parentTaskId, boolean isOngoingTask, String name, ZonedDateTime dateToDelete) {
 		PrimaryParentIdPair primaryParentIdPair;
 		Event event;
 		if (!isOngoingTask) {
@@ -206,10 +216,21 @@ final class EventLogger {
 		else{
 			event = new StartEvent(taskId, name, logParams, null, parentTaskId);
 		}
+		setDateToDelete(dateToDelete, event);
 		return event;
 	}
 
-	private Event createInfoEvent(@NotNull LogParams logParams, String ongoingTaskId) {
+	private void setDateToDelete(ZonedDateTime dateToDelete, Event event) {
+		if (dateToDelete != null){
+			ZonedDateTime now = ZonedDateTime.now();
+			if (dateToDelete.isBefore(now)){
+				dateToDelete = now;
+			}
+			event.setDateToDelete(dateToDelete);
+		}
+	}
+
+	private Event createInfoEvent(LogParams logParams, String ongoingTaskId) {
 		Event e;
 		if (ongoingTaskId == null) {
 			if (taskIdStack.empty()) {
@@ -224,10 +245,17 @@ final class EventLogger {
 		return e;
 	}
 
-	private Event createSpotEvent(String name, @NotNull LogParams logParams, Task.TaskStatus status) {
-		addStaticParams(logParams);
+	private Event createSpotEvent(String name, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
+		else {
+			addStaticParams(logParams);
+		}
 		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(null);
-		return new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status);
+		SpotEvent spotEvent = new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status);
+		setDateToDelete(dateToDelete, spotEvent);
+		return spotEvent;
 	}
 
 	private PrimaryParentIdPair getPrimaryParentIdPair(String parentTaskId) {
@@ -250,8 +278,11 @@ final class EventLogger {
 
 	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		String stackTrace = getStackTraceString();
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
 		logParams.text(STACK_TRACE, stackTrace);
-		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED);
+		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED, null);
 	}
 
 	private static String getStackTraceString() {
@@ -270,7 +301,7 @@ final class EventLogger {
 		return event.getTaskId();
 	}
 
-	private class PrimaryParentIdPair {
+	private static class PrimaryParentIdPair {
 		private final String primaryId;
 
 		private final String parentId;

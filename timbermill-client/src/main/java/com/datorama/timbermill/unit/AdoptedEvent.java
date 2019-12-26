@@ -11,6 +11,6 @@ public class AdoptedEvent extends Event {
 	}
 
 	@Override public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-		return Task.TaskStatus.ADOPTED;
+		return null;
 	}
 }

@@ -6,6 +6,7 @@ import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 import org.junit.AfterClass;
 
+import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -14,9 +15,6 @@ import static com.datorama.timbermill.unit.Task.*;
 import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
-
-    public static final String ORPHAN = "orphan";
-    private static final String ORPHAN_PARENT = "orphan_parent";
 
     @AfterClass
     public static void kill() {
@@ -731,7 +729,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String ongoingTaskId = TimberLoggerAdvanced.start(ongoingTaskName);
+        String ongoingTaskId = TimberLoggerAdvanced.startWithDateToDelete(ongoingTaskName, ZonedDateTime.now().minusDays(1));
 
         new Thread(() -> {
             try (TimberLogContext ignored = new TimberLogContext(ongoingTaskId)) {
@@ -872,7 +870,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessStartSuccess(boolean withUpdate) throws InterruptedException {
-        String id = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String id = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(id);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -887,7 +885,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -901,7 +899,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -915,7 +913,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorStartSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -930,7 +928,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -944,7 +942,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);

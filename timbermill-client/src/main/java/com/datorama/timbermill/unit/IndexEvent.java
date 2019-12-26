@@ -1,67 +1,37 @@
 package com.datorama.timbermill.unit;
 
 import java.time.ZonedDateTime;
+import java.util.Map;
+
+import com.datorama.timbermill.common.TimbermillUtils;
 
 import static com.datorama.timbermill.TaskIndexer.getTimesDuration;
+import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
-public class IndexEvent {
-    private final String name = "timbermill_index";
+public class IndexEvent extends Task{
 
-    private final Integer eventsAmount;
-    private final Integer fetchedAmount;
-
-    private TaskMetaData meta = new TaskMetaData();
-
-    private final Task.TaskStatus status;
-    private final String exception;
-    private final Long pluginsDuration;
-
-    private IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, Task.TaskStatus status, String exception, Long pluginsDuration) {
-        this.eventsAmount = eventsAmount;
-        this.fetchedAmount = fetchedAmount;
-        this.status = status;
-        this.exception = exception;
-        this.pluginsDuration = pluginsDuration;
-
-        meta.setTaskBegin(startTime);
-        meta.setTaskEnd(endTime);
+    private IndexEvent(String env, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, TaskStatus status, Integer eventsAmount, String exception, long defaultDaysRotation) {
+        setName("metadata_timbermill_index");
+        setEnv(env);
+        Map<String, Number> metric = getMetric();
+        metric.put("eventsAmount", eventsAmount);
+        metric.put("fetchedAmount", fetchedAmount);
+        setStatus(status);
+        if (exception != null){
+            getText().put(EXCEPTION, exception);
+        }
+        setStartTime(startTime);
+        setEndTime(endTime);
         long indexerDuration = getTimesDuration(startTime, endTime);
-        meta.setDuration(indexerDuration);
+        setDuration(indexerDuration);
+        setDateToDelete(TimbermillUtils.getDefaultDateToDelete(defaultDaysRotation));
     }
 
-    public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, Long pluginsDuration) {
-        this(eventsAmount, fetchedAmount, startTime, endTime, Task.TaskStatus.SUCCESS, null, pluginsDuration);
+    public IndexEvent(String env, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, Integer eventsAmount, long defaultDaysRotation) {
+        this(env, fetchedAmount, startTime, endTime, TaskStatus.SUCCESS, eventsAmount, null, defaultDaysRotation);
     }
 
-    public IndexEvent(Integer eventsAmount, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, String exception, Long pluginsDuration) {
-        this(eventsAmount, fetchedAmount, startTime, endTime, Task.TaskStatus.ERROR, exception, pluginsDuration);
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Integer getEventsAmount() {
-        return eventsAmount;
-    }
-
-    public Integer getFetchedAmount() {
-        return fetchedAmount;
-    }
-
-    public Task.TaskStatus getStatus() {
-        return status;
-    }
-
-    public String getException() {
-        return exception;
-    }
-
-    public Long getPluginsDuration() {
-        return pluginsDuration;
-    }
-
-    public TaskMetaData getMeta() {
-        return meta;
+    public IndexEvent(String env, Integer fetchedAmount, ZonedDateTime startTime, ZonedDateTime endTime, String exception, Integer eventsAmount, long defaultDaysRotation) {
+        this(env, fetchedAmount, startTime, endTime, TaskStatus.ERROR, eventsAmount, exception, defaultDaysRotation);
     }
 }

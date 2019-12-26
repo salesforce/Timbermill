@@ -33,7 +33,7 @@ public class ClientHeartbeater {
 				if (bop != null) {
 					logParams.metric(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
 				}
-				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, logParams, Task.TaskStatus.SUCCESS);
+				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, logParams, Task.TaskStatus.SUCCESS, null);
 				try {
 					Thread.sleep(TIME_TO_SLEEP);
 				} catch (InterruptedException e) {

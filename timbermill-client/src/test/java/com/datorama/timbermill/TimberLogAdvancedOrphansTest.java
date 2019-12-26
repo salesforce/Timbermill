@@ -12,9 +12,9 @@ import static org.junit.Assert.*;
 
 public class TimberLogAdvancedOrphansTest {
 
-    public static final String ORPHAN = "orphan";
+    private static final String ORPHAN = "orphan";
     private static final String ORPHAN_PARENT = "orphan_parent";
-    public static final String CTX = "ctx";
+    private static final String CTX = "ctx";
 
     @AfterClass
     public static void kill() {
@@ -320,7 +320,7 @@ public class TimberLogAdvancedOrphansTest {
         assertEquals(CTX + "7", task7.getCtx().get(CTX +"7"));
     }
 
-    public void testInOrderComplexOrphanWithAdoption1() {
+    public void testOrphanWithAdoptionDifferentBatches() {
         String orphan1TaskId = Event.generateTaskId(ORPHAN +"1");
         TimberLoggerAdvanced.start(orphan1TaskId, ORPHAN +"1", null, LogParams.create().context(CTX + "1", CTX + "1"));
         TimberLogTest.waitForEvents(orphan1TaskId, TaskStatus.UNTERMINATED);

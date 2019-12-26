@@ -19,8 +19,9 @@ import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
-	static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000,0, 1, null, null, null);
+	public static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
+	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
+			7, 100, 1000000000);
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -37,8 +38,13 @@ public abstract class TimberLogTest {
 		TimberLogger.exit();
 	}
 
-	static void waitForEvents(String taskId, TaskStatus status) {
+	public static void waitForEvents(String taskId, TaskStatus status) {
 		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
+		waitForCallable(callable);
+	}
+
+	public static void waitForEvents(String taskId, int tasksAmounts) {
+		Callable<Boolean> callable = () -> (client.getTasksById(taskId) != null) && (client.getTasksById(taskId).size() == tasksAmounts);
 		waitForCallable(callable);
 	}
 
@@ -63,7 +69,7 @@ public abstract class TimberLogTest {
 
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 		assertEquals(TEST, task.getEnv());
-		assertTrue(task.getDuration() > 1000);
+		assertTrue(task.getDuration() >= 1000);
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
