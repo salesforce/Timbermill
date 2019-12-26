@@ -115,7 +115,7 @@ public class EventLoggerTest {
 	@Test
 	public void testSpotEvent(){
 		String startId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
-		el.spotEvent("Testing", EMPTY_LOG_PARAMS, Task.TaskStatus.SUCCESS);
+		el.spotEvent("Testing", EMPTY_LOG_PARAMS, Task.TaskStatus.SUCCESS, null);
 		el.successEvent();
 		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 3);
 		List<Event> filteredEvents = mockPipe.getCollectedEvents();

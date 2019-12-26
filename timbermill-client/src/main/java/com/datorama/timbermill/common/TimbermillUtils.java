@@ -32,7 +32,7 @@ public class TimbermillUtils {
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
-		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas());
+		// es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas()); todo fix
 		runDeletionTaskCron(elasticsearchParams.getDeletionCronExp(), es);
 		return new TaskIndexer(elasticsearchParams, es);
 	}

@@ -61,6 +61,8 @@ public class ElasticsearchClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
+    private static final String STATUS_KEYWORD = "status.keyword";
+    private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
     private final RestHighLevelClient client;
     private final int indexBulkSize;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
@@ -247,23 +249,30 @@ public class ElasticsearchClient {
                 currentIndex = rolloverResponse.getNewIndex();
                 oldIndex = rolloverResponse.getOldIndex();
 
-                new Thread(() -> handlePartialTasks(timbermillAlias)).start();
+                new Thread(this::moveTasksFromOldToNewIndex).start();
             }
         } catch (IOException e) {
             LOG.error("An error occurred while rollovered index " + timbermillAlias, e);
         }
     }
 
-        private void handlePartialTasks(String index){
-            try {
-                Map<String, Task> previousIndexPartialTasks = getIndexPartialTasks(oldIndex);
-                if (!previousIndexPartialTasks.isEmpty()) {
-                    index(previousIndexPartialTasks, index);
-                }
-            } catch (IOException e) {
-                LOG.error("Couldn't handle migrate partial tasks from previous index after rollover", e);
+    private void moveTasksFromOldToNewIndex(){
+        try {
+            Map<String, Task> previousIndexPartialTasks = getIndexPartialTasks(oldIndex);
+            if (!previousIndexPartialTasks.isEmpty()) {
+                indexAndDeleteTasks(previousIndexPartialTasks);
             }
+        } catch (IOException e){
+            LOG.error("Error while moving tasks from old index [{}] to new index [{}]", oldIndex, currentIndex);
         }
+    }
+
+    public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks) {
+        LOG.info("About to migrate partial tasks from old index [{}] to new index [{}]", oldIndex, currentIndex);
+        index(previousIndexPartialTasks, currentIndex);
+        deleteTasksFromIndex(previousIndexPartialTasks, oldIndex);
+        LOG.info("Succesfully migrated {} tasks to new index [{}]", previousIndexPartialTasks.size(), currentIndex);
+    }
 
     private Collection<Future> createFuturesRequests(BulkRequest request, Collection<UpdateRequest> requests) {
         Collection<Future> futures = new ArrayList<>();
@@ -398,7 +407,7 @@ public class ElasticsearchClient {
         SearchRequest searchRequest = new SearchRequest(index);
         searchRequest.scroll(scroll);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        QueryBuilder query = new TermsQueryBuilder("status.keyword", Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
+        QueryBuilder query = new TermsQueryBuilder(STATUS_KEYWORD, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(10000);
         searchRequest.source(searchSourceBuilder);
@@ -456,7 +465,7 @@ public class ElasticsearchClient {
         metric.putAll(newMetrics);
     }
 
-    public void deleteTasksFromIndex(String index, Map<String, Task> idToTaskMap) {
+    private void deleteTasksFromIndex(Map<String, Task> idToTaskMap, String index) {
         LOG.info("About to delete tasks from  index [{}]", index);
         IdsQueryBuilder idsQuery = new IdsQueryBuilder();
         for (String id : idToTaskMap.keySet()) {
@@ -474,7 +483,7 @@ public class ElasticsearchClient {
     private void deleteByQuery(String index, QueryBuilder query) {
         DeleteByQueryRequest request = new DeleteByQueryRequest(index).setQuery(query);
         RequestOptions.Builder builder = RequestOptions.DEFAULT.toBuilder();
-        builder.addHeader("wait_for_completion", "false");
+        builder.addHeader(WAIT_FOR_COMPLETION, "false");
         RequestOptions options = builder.build();
         try {
             BulkByScrollResponse bulkByScrollResponse = client.deleteByQuery(request, options);

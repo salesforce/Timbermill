@@ -24,8 +24,8 @@ public class TasksMergerJobs implements Job {
 		String previousIndex = client.getOldIndex();
 		if (indexExists(previousIndex)){
 			try {
-				int mergedAmount = migrateOldPartialTaskToNewIndex(currentIndex, previousIndex);
-				LOG.info("Finished merging partial tasks, successfully merged {} tasks", mergedAmount);
+				migrateOldPartialTaskToNewIndex(currentIndex, previousIndex);
+				LOG.info("Finished merging partial tasks.");
 			} catch (IOException e) {
 				LOG.error("Could not merge partial tasks in indices [{}] [{}]", previousIndex, currentIndex);
 			}
@@ -39,11 +39,9 @@ public class TasksMergerJobs implements Job {
 		return index != null;
 	}
 
-	private int migrateOldPartialTaskToNewIndex(String currentIndex, String previousIndex) throws IOException {
+	private void migrateOldPartialTaskToNewIndex(String currentIndex, String previousIndex) throws IOException {
 		Map<String, Task> currentIndexPartialTasks = client.getIndexPartialTasks(currentIndex);
 		Map<String, Task> previousIndexMatchingTasks = client.fetchTasksByIdsFromIndex(previousIndex, currentIndexPartialTasks.keySet());
-		client.index(previousIndexMatchingTasks, currentIndex);
-		client.deleteTasksFromIndex(previousIndex, previousIndexMatchingTasks);
-		return previousIndexMatchingTasks.size();
+		client.indexAndDeleteTasks(previousIndexMatchingTasks);
 	}
 }
