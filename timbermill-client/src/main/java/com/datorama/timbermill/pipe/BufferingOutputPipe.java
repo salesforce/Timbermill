@@ -12,7 +12,7 @@ public class BufferingOutputPipe implements EventOutputPipe {
 	private final EventOutputPipe eventOutputPipe;
 	private final BlockingQueue<Event> buffer;
 
-	private static final int WARNING_BUFFER_SIZE = 100000;
+	private static final int WARNING_BUFFER_SIZE = 300000;
 	private static final int MAX_BUFFER_SIZE = 2000000;
 	private static final int SLEEP_ON_ERROR_MILLIS = 10000;
 	private static final Logger LOG = LoggerFactory.getLogger(BufferingOutputPipe.class);

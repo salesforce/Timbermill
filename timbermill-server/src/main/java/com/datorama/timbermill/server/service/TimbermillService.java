@@ -32,7 +32,7 @@ public class TimbermillService {
 	private long terminationTimeout;
 
 	@Autowired
-	public TimbermillService(@Value("${index.bulk.size:2097152}") Integer indexBulkSize,
+	public TimbermillService(@Value("${index.bulk.size:93520}") Integer indexBulkSize,
 							 @Value("${elasticsearch.url:http://localhost:9200}") String elasticUrl,
 							 @Value("${elasticsearch.aws.region:}") String awsRegion,
 							 @Value("${days.rotation:90}") Integer daysRotation,
@@ -40,7 +40,7 @@ public class TimbermillService {
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
 							 @Value("${default.max.chars:100000}") int defaultMaxChars,
 							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds,
-							 @Value("${indexing.threads:1}") int indexingThreads,
+							 @Value("${indexing.threads:10}") int indexingThreads,
 							 @Value("${elasticsearch.user:}") String elasticUser,
 							 @Value("${elasticsearch.password:}") String elasticPassword,
 							 @Value("${cache.max.size:10000}") int maximumCacheSize,

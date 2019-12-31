@@ -34,4 +34,9 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
     public void testOrphanWithAdoptionDifferentBatches(){
         super.testOrphanWithAdoptionDifferentBatches();
     }
+
+    @Test
+    public void testStringOfOrphans(){
+        super.testStringOfOrphans();
+    }
 }
