@@ -28,6 +28,7 @@ import java.util.UUID;
 public abstract class Event{
 
 	public static final String EVENT_ID_DELIMITER = "___";
+	private static final String OLD_EVENT_ID_DELIMITER = "_";
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
@@ -177,12 +178,10 @@ public abstract class Event{
 	public String getNameFromId() {
 		if (name == null){
 			String[] split = taskId.split(EVENT_ID_DELIMITER);
-			if (split.length == 0){
-				return null;
+			if (split.length == 1){
+				split = taskId.split(OLD_EVENT_ID_DELIMITER);
 			}
-			else {
-				return split[0];
-			}
+			return split[0];
 		}
 		else{
 			return name;
