@@ -1,10 +1,11 @@
-package com.datorama.timbermill.pipe;
+package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.unit.Event;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class StatisticsCollectorOutputPipe implements EventOutputPipe {
+class StatisticsCollectorOutputPipe implements EventOutputPipe {
 
 	private final EventOutputPipe delegate;
 	private final AtomicLong eventsAmount = new AtomicLong(0);

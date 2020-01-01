@@ -1,17 +1,16 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.pipe.EventOutputPipe;
-import com.datorama.timbermill.unit.LogParams;
-import com.datorama.timbermill.unit.Task;
-import com.google.common.collect.Maps;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-
-import javax.validation.constraints.NotNull;
-
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+
+import com.datorama.timbermill.pipe.EventOutputPipe;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
+import com.google.common.collect.Maps;
 
 import static com.datorama.timbermill.common.Constants.EXCEPTION;
 
@@ -57,7 +56,11 @@ public final class TimberLogger {
 	}
 
 	public static String start(String name, String parentTaskId, LogParams logParams) {
-		return startWithDateToDelete(name, parentTaskId, logParams, null);
+		return start(null, name, parentTaskId, logParams);
+	}
+
+	public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+		return startWithDateToDelete(taskId, name, parentTaskId, logParams, null);
 	}
 
 	public static String startWithDaysToKeep(String name, int daysToKeep) {
@@ -69,7 +72,11 @@ public final class TimberLogger {
 	}
 
 	public static String startWithDaysToKeep(String name, String parentTaskId, LogParams logParams, int daysToKeep) {
-		return startWithDateToDelete(name, parentTaskId, logParams, createDateToDelete(daysToKeep));
+		return startWithDaysToKeep(null, name, parentTaskId, logParams, daysToKeep);
+	}
+
+	public static String startWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+		return startWithDateToDelete(taskId, name, parentTaskId, logParams, createDateToDelete(daysToKeep));
 	}
 
 	public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
@@ -81,7 +88,11 @@ public final class TimberLogger {
 	}
 
 	public static String startWithDateToDelete(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
-		return EventLogger.get().startEvent(name, parentTaskId, logParams, dateToDelete);
+		return startWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
+	}
+
+	public static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+		return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, false, dateToDelete);
 	}
 
 	public static String success() {
@@ -129,7 +140,15 @@ public final class TimberLogger {
 	}
 
 	public static String spot(String name, LogParams logParams) {
-		return spotWithDateToDelete(name, logParams, null);
+		return spot(name, null, logParams);
+	}
+
+	public static String spot(String name, String parentTaskId, LogParams logParams) {
+		return spot(null, name, parentTaskId, logParams);
+	}
+
+	public static String spot(String taskId, String name, String parentTaskId, LogParams logParams) {
+		return spotWithDateToDelete(taskId, name, parentTaskId, logParams, null);
 	}
 
 	public static String spotWithDaysToKeep(String name, int daysToKeep) {
@@ -137,7 +156,15 @@ public final class TimberLogger {
 	}
 
 	public static String spotWithDaysToKeep(String name, LogParams logParams, int daysToKeep) {
-		return spotWithDateToDelete(name, logParams, createDateToDelete(daysToKeep));
+		return spotWithDaysToKeep(name, null, logParams, daysToKeep);
+	}
+
+	public static String spotWithDaysToKeep(String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+		return spotWithDaysToKeep(null, name, parentTaskId, logParams, daysToKeep);
+	}
+
+	public static String spotWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+		return spotWithDateToDelete(taskId, name, parentTaskId, logParams, createDateToDelete(daysToKeep));
 	}
 
 	public static String spotWithDateToDelete(String name, ZonedDateTime dateToDelete) {
@@ -145,7 +172,15 @@ public final class TimberLogger {
 	}
 
 	public static String spotWithDateToDelete(String name, LogParams logParams, ZonedDateTime dateToDelete) {
-		return EventLogger.get().spotEvent(name, logParams, Task.TaskStatus.SUCCESS, dateToDelete);
+		return spotWithDateToDelete(name, null, logParams, dateToDelete);
+	}
+
+	public static String spotWithDateToDelete(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+		return spotWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
+	}
+
+	public static String spotWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+		return EventLogger.get().spotEvent(taskId, name, parentTaskId, logParams, Task.TaskStatus.SUCCESS, dateToDelete);
 	}
 
 	public static String spotError(String name, Throwable t) {
@@ -153,7 +188,11 @@ public final class TimberLogger {
 	}
 
 	public static String spotError(String name, LogParams logParams, Throwable t) {
-		return spotErrorWithDateToDelete(name, logParams, t, null);
+		return spotError(name, null, logParams, t);
+	}
+
+	public static String spotError(String name, String parentTaskId, LogParams logParams, Throwable t) {
+		return spotErrorWithDateToDelete(name, parentTaskId, logParams, t, null);
 	}
 
 	public static String spotErrorWithDaysToKeep(String name, Throwable t, int daysToKeep) {
@@ -161,7 +200,11 @@ public final class TimberLogger {
 	}
 
 	public static String spotErrorWithDaysToKeep(String name, LogParams logParams, Throwable t, int daysToKeep) {
-		return spotErrorWithDateToDelete(name, logParams, t, createDateToDelete(daysToKeep));
+		return spotErrorWithDaysToKeep(name, null, logParams, t, daysToKeep);
+	}
+
+	public static String spotErrorWithDaysToKeep(String name, String parentTaskId, LogParams logParams, Throwable t, int daysToKeep) {
+		return spotErrorWithDateToDelete(name, parentTaskId, logParams, t, createDateToDelete(daysToKeep));
 	}
 
 	public static String spotErrorWithDateToDelete(String name, Throwable t, ZonedDateTime dateToDelete ) {
@@ -169,13 +212,17 @@ public final class TimberLogger {
 	}
 
 	public static String spotErrorWithDateToDelete(String name, LogParams logParams, Throwable t, ZonedDateTime dateToDelete) {
+		return spotErrorWithDateToDelete(name, null, logParams, t, dateToDelete);
+	}
+
+	private static String spotErrorWithDateToDelete(String name, String parentTaskId, LogParams logParams, Throwable t, ZonedDateTime dateToDelete) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
 		if (t != null) {
 			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
 		}
-		return EventLogger.get().spotEvent(name, logParams, Task.TaskStatus.ERROR, dateToDelete);
+		return EventLogger.get().spotEvent(null, name, parentTaskId, logParams, Task.TaskStatus.ERROR, dateToDelete);
 	}
 
 	public static <T> Callable<T> wrapCallable(Callable<T> callable) {

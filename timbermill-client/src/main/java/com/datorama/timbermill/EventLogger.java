@@ -1,10 +1,7 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.pipe.BlackHolePipe;
-import com.datorama.timbermill.pipe.BufferingOutputPipe;
 import com.datorama.timbermill.pipe.EventOutputPipe;
-import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
 import com.datorama.timbermill.unit.*;
 import com.google.common.collect.ImmutableMap.Builder;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -151,8 +148,8 @@ final class EventLogger {
 		return e;
 	}
 
-	String spotEvent(String name, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
-		Event event = createSpotEvent(name, logParams, status, dateToDelete);
+	public String spotEvent(String taskId, String name, String parentTaskId, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+		Event event = createSpotEvent(taskId, name, logParams, status, dateToDelete, parentTaskId);
 		return submitEvent(event);
 	}
 
@@ -245,15 +242,15 @@ final class EventLogger {
 		return e;
 	}
 
-	private Event createSpotEvent(String name, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+	private Event createSpotEvent(String taskId, String name, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete, String parentTaskId) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
 		else {
 			addStaticParams(logParams);
 		}
-		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(null);
-		SpotEvent spotEvent = new SpotEvent(name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status);
+		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(parentTaskId);
+		SpotEvent spotEvent = new SpotEvent(taskId, name, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status, logParams);
 		setDateToDelete(dateToDelete, spotEvent);
 		return spotEvent;
 	}
@@ -282,7 +279,7 @@ final class EventLogger {
 			logParams = LogParams.create();
 		}
 		logParams.text(STACK_TRACE, stackTrace);
-		return createSpotEvent(Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED, null);
+		return createSpotEvent(null, Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED, null, null);
 	}
 
 	private static String getStackTraceString() {

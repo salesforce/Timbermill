@@ -13,10 +13,10 @@ public class SpotEvent extends Event {
     public SpotEvent() {
     }
 
-    public SpotEvent(String name, @NotNull LogParams logParams, String primaryId, String parentId, Task.TaskStatus status) {
-        super(null, name, logParams, parentId);
+    public SpotEvent(String taskId, String name, String primaryId, String parentId, Task.TaskStatus status, @NotNull LogParams logParams) {
+        super(taskId, name, logParams, parentId);
         if (primaryId == null){
-            this.primaryId = taskId;
+            this.primaryId = this.taskId;
         } else {
             this.primaryId = primaryId;
         }

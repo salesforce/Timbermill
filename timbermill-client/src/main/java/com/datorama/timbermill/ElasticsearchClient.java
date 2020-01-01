@@ -149,7 +149,7 @@ public class ElasticsearchClient {
         }
     }
 
-    List<Task> getTasksById(String taskId) {
+    public List<Task> getTasksById(String taskId) {
         Collection<String> taskIds = new HashSet<>();
         taskIds.add(taskId);
         SearchResponse response = getTasksByIds(taskIds);
@@ -346,6 +346,8 @@ public class ElasticsearchClient {
 //        } catch (IOException e) {
 //            LOG.error("An error occurred when creating Timbermill template", e);
 //        }
+
+        //todo put stores script
     }
 
     String createTimbermillAlias(String env) {

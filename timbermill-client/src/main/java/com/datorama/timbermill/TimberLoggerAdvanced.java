@@ -28,7 +28,7 @@ public class TimberLoggerAdvanced {
         return start(null, name, parentTaskId, logParams);
     }
 
-    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+    public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
         return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, null);
     }
 

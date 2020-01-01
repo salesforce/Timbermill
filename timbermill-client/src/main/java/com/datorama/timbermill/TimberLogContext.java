@@ -4,7 +4,7 @@ public class TimberLogContext implements AutoCloseable{
 
 	private final String ongoingTaskId;
 
-	TimberLogContext(String ongoingTaskId) {
+	public TimberLogContext(String ongoingTaskId) {
 		this.ongoingTaskId = ongoingTaskId;
 		if (ongoingTaskId != null) {
 			EventLogger.get().addIdToContext(ongoingTaskId);
@@ -15,5 +15,9 @@ public class TimberLogContext implements AutoCloseable{
 		if (ongoingTaskId != null) {
 			EventLogger.get().removeIdFromContext(ongoingTaskId);
 		}
+	}
+
+	public String getOngoingTaskId() {
+		return ongoingTaskId;
 	}
 }

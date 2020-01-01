@@ -80,12 +80,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.UNTERMINATED);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.UNTERMINATED);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.SUCCESS);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -126,12 +126,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.UNTERMINATED);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.UNTERMINATED);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.SUCCESS);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -174,12 +174,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.PARTIAL_SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.PARTIAL_SUCCESS);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.SUCCESS);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -218,12 +218,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.UNTERMINATED);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.UNTERMINATED);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.ERROR);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -264,12 +264,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.UNTERMINATED);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.UNTERMINATED);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.ERROR);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -312,12 +312,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.PARTIAL_ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.PARTIAL_ERROR);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.ERROR);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -358,12 +358,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.SUCCESS);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.SUCCESS);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.SUCCESS);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);
@@ -408,12 +408,12 @@ public class TasksMergerJobsTest {
 
 
 		client.index(oldTasks, client.getOldIndex());
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.ERROR);
 		client.index(newTasks, client.getCurrentIndex());
-		TimberLogTest.waitForEvents(id, 2);
+		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
-		TimberLogTest.waitForEvents(id, Task.TaskStatus.ERROR);
+		TimberLogTest.waitForTask(id, Task.TaskStatus.ERROR);
 		Task task = client.getTaskById(id);
 
 		assertNotNull(task);

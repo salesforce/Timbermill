@@ -1,8 +1,9 @@
-package com.datorama.timbermill.pipe;
+package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.unit.Event;
 
-public class BlackHolePipe implements EventOutputPipe {
+class BlackHolePipe implements EventOutputPipe {
 
 	@Override public void send(Event e) {
 		//Do nothing

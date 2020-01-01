@@ -38,12 +38,12 @@ public abstract class TimberLogTest {
 		TimberLogger.exit();
 	}
 
-	public static void waitForEvents(String taskId, TaskStatus status) {
+	public static void waitForTask(String taskId, TaskStatus status) {
 		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
 		waitForCallable(callable);
 	}
 
-	public static void waitForEvents(String taskId, int tasksAmounts) {
+	public static void waitForTasks(String taskId, int tasksAmounts) {
 		Callable<Boolean> callable = () -> (client.getTasksById(taskId) != null) && (client.getTasksById(taskId).size() == tasksAmounts);
 		waitForCallable(callable);
 	}
@@ -64,11 +64,12 @@ public abstract class TimberLogTest {
 		String log2 = "log2";
 		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2);
 
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 		assertEquals(TEST, task.getEnv());
+		assertNotNull(task.getDateToDelete());
 		assertTrue(task.getDuration() >= 1000);
 		Map<String, String> strings = task.getString();
 		Map<String, Number> metrics = task.getMetric();
@@ -103,7 +104,7 @@ public abstract class TimberLogTest {
 
 		String taskId = testSwitchCasePluginLog();
 
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 
         assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId, true, true);
@@ -128,7 +129,7 @@ public abstract class TimberLogTest {
 		String hugeString = sb.toString();
 
 		String taskId = testSimpleTaskWithTrimmer1(hugeString);
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 
@@ -170,9 +171,9 @@ public abstract class TimberLogTest {
 
 		String taskId1 = stringStringPair.getLeft();
 		String taskId2 = stringStringPair.getRight();
-		waitForEvents(taskId1, TaskStatus.SUCCESS);
-		waitForEvents(taskId2, TaskStatus.SUCCESS);
-		waitForEvents(taskIdSpot[0], TaskStatus.SUCCESS);
+		waitForTask(taskId1, TaskStatus.SUCCESS);
+		waitForTask(taskId2, TaskStatus.SUCCESS);
+		waitForTask(taskIdSpot[0], TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId1);
         assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1, true, true);
@@ -229,10 +230,10 @@ public abstract class TimberLogTest {
 		String taskIdSpot = tasks[3];
 
 
-		waitForEvents(taskId, TaskStatus.SUCCESS);
-		waitForEvents(taskId2, TaskStatus.SUCCESS);
-		waitForEvents(taskId3, TaskStatus.SUCCESS);
-		waitForEvents(taskIdSpot, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId2, TaskStatus.SUCCESS);
+		waitForTask(taskId3, TaskStatus.SUCCESS);
+		waitForTask(taskIdSpot, TaskStatus.SUCCESS);
 
 
 		Task task = client.getTaskById(taskId);
@@ -309,7 +310,7 @@ public abstract class TimberLogTest {
 		thread.start();
 		while(thread.isAlive()){waits();}
 
-		waitForEvents(taskId[0], TaskStatus.SUCCESS);
+		waitForTask(taskId[0], TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId[0]);
 		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS);
@@ -323,9 +324,9 @@ public abstract class TimberLogTest {
 	protected void testComplexTaskIndexerWithErrorTask() {
 
 		String parentId = testComplexTaskIndexerWithErrorTaskTimberLog3();
-		waitForEvents(parentId, TaskStatus.SUCCESS);
-		waitForEvents(childTaskId, TaskStatus.ERROR);
-		waitForEvents(childOfChildTaskId, TaskStatus.ERROR);
+		waitForTask(parentId, TaskStatus.SUCCESS);
+		waitForTask(childTaskId, TaskStatus.ERROR);
+		waitForTask(childOfChildTaskId, TaskStatus.ERROR);
 
 		Task taskParent = client.getTaskById(parentId);
 		Task taskChild = client.getTaskById(childTaskId);
@@ -362,7 +363,7 @@ public abstract class TimberLogTest {
 	protected void testTaskWithNullString() {
 
 		String taskId = testTaskWithNullStringTimberLog();
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
@@ -378,7 +379,7 @@ public abstract class TimberLogTest {
 
 		TimberLogTestClass timberLogTestClass = new TimberLogTestClass();
 		String taskId = timberLogTestClass.getTaskId();
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, "ctr", TaskStatus.SUCCESS, taskId, true, true);
@@ -391,7 +392,7 @@ public abstract class TimberLogTest {
 		} catch (Exception ignored) {
 		}
 		String taskId = taskArr[0];
-		waitForEvents(taskId, TaskStatus.ERROR);
+		waitForTask(taskId, TaskStatus.ERROR);
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, "ctr", TaskStatus.ERROR, taskId, true, true);
@@ -401,7 +402,7 @@ public abstract class TimberLogTest {
 		String bla1 = "bla1";
 		String bla2 = "bla2";
 		String taskId = TimberLogger.logText(bla1, bla2);
-		waitForEvents(taskId, TaskStatus.CORRUPTED);
+		waitForTask(taskId, TaskStatus.CORRUPTED);
 
 		Task task = client.getTaskById(taskId);
 		assertEquals(LOG_WITHOUT_CONTEXT, task.getName());
@@ -412,7 +413,7 @@ public abstract class TimberLogTest {
 
 	protected void testOrphan(){
 		String taskId = testOrphanTimberLog();
-		waitForEvents(taskId, TaskStatus.SUCCESS);
+		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 		assertTrue(task.isOrphan());
 	}
