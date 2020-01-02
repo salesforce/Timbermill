@@ -141,7 +141,7 @@ public class ElasticsearchClient {
         return tasksByIds.get(taskId);
     }
 
-    List<Task> getMultipleTasksByIds(String taskId) {
+    public List<Task> getMultipleTasksByIds(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
         try {
             Map<String, List<Task>> map = runScrollQuery(null, idsQueryBuilder);
@@ -345,6 +345,8 @@ public class ElasticsearchClient {
 //        } catch (IOException e) {
 //            LOG.error("An error occurred when creating Timbermill template", e);
 //        }
+
+        //todo put stores script
     }
 
     String createTimbermillAlias(String env) {

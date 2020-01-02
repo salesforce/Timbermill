@@ -1,5 +1,6 @@
-package com.datorama.timbermill.pipe;
+package com.datorama.timbermill;
 
+import com.datorama.timbermill.pipe.EventOutputPipe;
 import com.datorama.timbermill.unit.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

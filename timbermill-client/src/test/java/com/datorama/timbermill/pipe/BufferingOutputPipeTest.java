@@ -1,5 +1,6 @@
 package com.datorama.timbermill.pipe;
 
+import com.datorama.timbermill.BufferingOutputPipe;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.StartEvent;

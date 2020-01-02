@@ -28,7 +28,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(taskId);
         TimberLoggerAdvanced.start(taskId, ORPHAN, parentTaskId, LogParams.create());
 
-        TimberLogTest.waitForEvent(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
         Task task = client.getTaskById(taskId);
         assertTrue(task.isOrphan());
     }
@@ -37,13 +37,13 @@ public class TimberLogAdvancedOrphansTest {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
         TimberLoggerAdvanced.success(taskId);
-        TimberLogTest.waitForEvent(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
 
         String ctx = CTX;
         TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
         TimberLoggerAdvanced.success(parentTaskId);
 
-        TimberLogTest.waitForEvent(parentTaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(parentTaskId, TaskStatus.SUCCESS);
         Task task = client.getTaskById(taskId);
         assertFalse(task.isOrphan());
         assertEquals(parentTaskId, task.getParentId());
@@ -65,8 +65,8 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.logParams(orphan42TaskId, LogParams.create().context(ctx + "42", ctx + "42"));
         TimberLoggerAdvanced.success(orphan42TaskId);
 
-        TimberLogTest.waitForEvent(orphan41TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan42TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan41TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan42TaskId, TaskStatus.SUCCESS);
         Task task41 = client.getTaskById(orphan41TaskId);
         Task task42 = client.getTaskById(orphan42TaskId);
 
@@ -84,7 +84,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan3TaskId, ORPHAN +"3", orphan2TaskId, LogParams.create().context(ctx + "3", ctx + "3"));
         TimberLoggerAdvanced.success(orphan3TaskId);
 
-        TimberLogTest.waitForEvent(orphan3TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan3TaskId, TaskStatus.SUCCESS);
         Task task3 = client.getTaskById(orphan3TaskId);
 
         assertTrue(task3.isOrphan());
@@ -95,12 +95,12 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan1TaskId, ORPHAN +"1", null, LogParams.create().context(ctx + "1", ctx + "1"));
         TimberLoggerAdvanced.success(orphan1TaskId);
 
-        TimberLogTest.waitForEvent(orphan1TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan1TaskId, TaskStatus.SUCCESS);
 
         TimberLoggerAdvanced.start(orphan2TaskId, ORPHAN +"2", orphan1TaskId, LogParams.create().context(ctx + "2", ctx + "2"));
         TimberLoggerAdvanced.success(orphan2TaskId);
 
-        TimberLogTest.waitForEvent(orphan2TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
 
         Task task1 = client.getTaskById(orphan1TaskId);
         Task task2 = client.getTaskById(orphan2TaskId);
@@ -182,10 +182,10 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan7TaskId, ORPHAN +"7", orphan6TaskId, LogParams.create().context(CTX + "7", CTX + "7"));
         TimberLoggerAdvanced.success(orphan7TaskId);
 
-        TimberLogTest.waitForEvent(orphan1TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan3TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan5TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan7TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan1TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan3TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan5TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan7TaskId, TaskStatus.SUCCESS);
 
 
         Task task1 = client.getTaskById(orphan1TaskId);
@@ -224,9 +224,9 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan6TaskId, ORPHAN +"6", orphan5TaskId, LogParams.create().context(CTX + "6", CTX + "6"));
         TimberLoggerAdvanced.success(orphan6TaskId);
 
-        TimberLogTest.waitForEvent(orphan2TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan4TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan6TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan4TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan6TaskId, TaskStatus.SUCCESS);
 
         task1 = client.getTaskById(orphan1TaskId);
         Task task2 = client.getTaskById(orphan2TaskId);
@@ -324,7 +324,7 @@ public class TimberLogAdvancedOrphansTest {
     public void testOrphanWithAdoptionDifferentBatches() {
         String orphan1TaskId = Event.generateTaskId(ORPHAN +"1");
         TimberLoggerAdvanced.start(orphan1TaskId, ORPHAN +"1", null, LogParams.create().context(CTX + "1", CTX + "1"));
-        TimberLogTest.waitForEvent(orphan1TaskId, TaskStatus.UNTERMINATED);
+        TimberLogTest.waitForTask(orphan1TaskId, TaskStatus.UNTERMINATED);
         TimberLoggerAdvanced.success(orphan1TaskId);
 
         String orphan2TaskId = Event.generateTaskId(ORPHAN +"2");
@@ -345,10 +345,10 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan7TaskId, ORPHAN +"7", orphan6TaskId, LogParams.create().context(CTX + "7", CTX + "7"));
         TimberLoggerAdvanced.success(orphan7TaskId);
 
-        TimberLogTest.waitForEvent(orphan1TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan3TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan5TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan7TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan1TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan3TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan5TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan7TaskId, TaskStatus.SUCCESS);
 
 
         Task task1 = client.getTaskById(orphan1TaskId);
@@ -381,7 +381,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan2TaskId, ORPHAN +"2", orphan1TaskId, LogParams.create().context(CTX + "2", CTX + "2"));
         TimberLoggerAdvanced.success(orphan2TaskId);
 
-        TimberLogTest.waitForEvent(orphan2TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
 
         TimberLoggerAdvanced.start(orphan4TaskId, ORPHAN +"4", orphan3TaskId, LogParams.create().context(CTX + "4", CTX + "4"));
         TimberLoggerAdvanced.success(orphan4TaskId);
@@ -389,8 +389,8 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.start(orphan6TaskId, ORPHAN +"6", orphan5TaskId, LogParams.create().context(CTX + "6", CTX + "6"));
         TimberLoggerAdvanced.success(orphan6TaskId);
 
-        TimberLogTest.waitForEvent(orphan4TaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForEvent(orphan6TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan4TaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(orphan6TaskId, TaskStatus.SUCCESS);
 
         task1 = client.getTaskById(orphan1TaskId);
         Task task2 = client.getTaskById(orphan2TaskId);

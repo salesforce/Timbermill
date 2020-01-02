@@ -52,7 +52,11 @@ public class Task {
 				else{
 					throw new RuntimeException("Timbermill events with same id must have same env " + this.env + " !=" + env);
 				}
-				String name = e.getNameFromId();
+				String name = e.getName();
+				if (name == null){
+					name = e.getNameFromId();
+				}
+
 				String parentId = e.getParentId();
 
 				ZonedDateTime startTime = e.getTime();
@@ -60,9 +64,6 @@ public class Task {
 
 				if (this.name == null){
 					this.name = name;
-				}
-				else if (name != null && !this.name.equals(name)){
-					throw new RuntimeException("Timbermill events with same id must have same name " + this.name + " !=" + name);
 				}
 
 				if (this.parentId == null){
@@ -81,7 +82,9 @@ public class Task {
 				}
 
 				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
-				this.setDateToDelete(dateToDelete);
+				if (dateToDelete != null) {
+					this.setDateToDelete(dateToDelete);
+				}
 
 				status = e.getStatusFromExistingStatus(this.status);
 

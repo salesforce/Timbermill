@@ -1,8 +1,6 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.pipe.BufferingOutputPipe;
-import com.datorama.timbermill.pipe.StatisticsCollectorOutputPipe;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
@@ -33,7 +31,7 @@ public class ClientHeartbeater {
 				if (bop != null) {
 					logParams.metric(OUTPUT_BUFFER_SIZE, bop.getCurrentBufferSize());
 				}
-				EventLogger.get().spotEvent(Constants.HEARTBEAT_TASK, logParams, Task.TaskStatus.SUCCESS, null);
+				EventLogger.get().spotEvent(null, Constants.HEARTBEAT_TASK, null, logParams, Task.TaskStatus.SUCCESS, null);
 				try {
 					Thread.sleep(TIME_TO_SLEEP);
 				} catch (InterruptedException e) {
