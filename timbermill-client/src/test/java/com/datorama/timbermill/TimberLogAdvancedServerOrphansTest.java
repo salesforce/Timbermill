@@ -29,4 +29,14 @@ public class TimberLogAdvancedServerOrphansTest extends TimberLogAdvancedOrphans
     public void testInOrderComplexOrphanWithAdoption(){
         super.testInOrderComplexOrphanWithAdoption();
     }
+
+	@Test
+	public void testOrphanWithAdoptionDifferentBatches(){
+		super.testOrphanWithAdoptionDifferentBatches();
+	}
+
+	@Test
+	public void testStringOfOrphans(){
+		super.testStringOfOrphans();
+	}
 }

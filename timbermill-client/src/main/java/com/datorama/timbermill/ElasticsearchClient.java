@@ -12,8 +12,10 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetResponse;
@@ -27,6 +29,8 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.core.CountRequest;
+import org.elasticsearch.client.core.CountResponse;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
@@ -126,66 +130,64 @@ public class ElasticsearchClient {
         if (tasksToFetch.isEmpty()) {
             return Collections.emptyMap();
         } else {
-            HashMap<String, Task> retMap = new HashMap<>();
-            SearchResponse response = getTasksByIds(tasksToFetch);
-            for (SearchHit hit : response.getHits()) {
-                Task task = GSON.fromJson(hit.getSourceAsString(), Task.class);
-                retMap.put(hit.getId(), task);
-            }
-            return retMap;
+            return getTasksByIds(tasksToFetch);
         }
     }
 
     public Task getTaskById(String taskId) {
         Collection<String> taskIds = new HashSet<>();
         taskIds.add(taskId);
-        SearchResponse response = getTasksByIds(taskIds);
-        if (response.getHits().getHits().length == 1){
-            String sourceAsString = response.getHits().getAt(0).getSourceAsString();
-            return GSON.fromJson(sourceAsString, Task.class);
-        }
-        else {
-            return null;
+        Map<String, Task> tasksByIds = getTasksByIds(taskIds);
+        return tasksByIds.get(taskId);
+    }
+
+    List<Task> getMultipleTasksByIds(String taskId) {
+        IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
+        try {
+            Map<String, List<Task>> map = runScrollQuery(null, idsQueryBuilder);
+            return map.get(taskId);
+        } catch (IOException e) {
+            LOG.error("Couldn't get Task {} from elasticsearch cluster", taskId);
+            throw new ElasticsearchException(e);
         }
     }
 
-    List<Task> getTasksById(String taskId) {
-        Collection<String> taskIds = new HashSet<>();
-        taskIds.add(taskId);
-        SearchResponse response = getTasksByIds(taskIds);
-        List<Task> retList = Lists.newArrayList();
-        for (SearchHit hit : response.getHits()) {
-            String sourceAsString = hit.getSourceAsString();
-            Task task = GSON.fromJson(sourceAsString, Task.class);
-            retList.add(task);
-        }
-        return retList;
-    }
-
-    private SearchResponse getTasksByIds(Collection<String> taskIds) {
-        SearchRequest searchRequest = new SearchRequest();
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    private Map<String, Task> getTasksByIds(Collection<String> taskIds) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
         for (String taskId : taskIds) {
             idsQueryBuilder.addIds(taskId);
         }
-        searchSourceBuilder.query(idsQueryBuilder);
-        searchRequest.source(searchSourceBuilder);
         try {
-            return client.search(searchRequest, RequestOptions.DEFAULT);
+            return getSingleTaskByIds(idsQueryBuilder, null);
         } catch (IOException e) {
             LOG.error("Couldn't get Tasks {} from elasticsearch cluster", taskIds);
             throw new ElasticsearchException(e);
         }
     }
 
+    private Map<String, Task> getSingleTaskByIds(QueryBuilder idsQueryBuilder, String index) throws IOException {
+        Map<String, Task> retMap = Maps.newHashMap();
+        Map<String, List<Task>> tasks = runScrollQuery(index, idsQueryBuilder);
+        for (Map.Entry<String, List<Task>> entry : tasks.entrySet()) {
+            List<Task> tasksList = entry.getValue();
+            String taskId = entry.getKey();
+            if (tasksList.size() == 1){
+                retMap.put(taskId, tasksList.get(0));
+            }
+            else {
+                LOG.warn("Fetched multiple tasks per id [{}] from Elasticsearch. Tasks: {}", taskId, tasksList);
+            }
+        }
+        return retMap;
+    }
+
     void indexMetaDataTasks(String env, String... metadataEvents) {
 
-        String metadataIndex = TimbermillUtils.getTimbermillIndexAlias(env);
+        String index = createTimbermillAlias(env);
 
         BulkRequest bulkRequest = new BulkRequest();
         for (String metadataEvent : metadataEvents) {
-            IndexRequest indexRequest = new IndexRequest(metadataIndex, TYPE).source(metadataEvent, XContentType.JSON);
+            IndexRequest indexRequest = new IndexRequest(index, TYPE).source(metadataEvent, XContentType.JSON);
             bulkRequest.add(indexRequest);
         }
         try {
@@ -214,24 +216,23 @@ public class ElasticsearchClient {
                 LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
             }
             else{
-                LOG.info("Batch of {} requests finished successfully. Took: {} seconds.", numberOfActions, responses.getTook().seconds());
+                LOG.info("Batch of {} requests finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
             }
-        } catch (IOException e) {
+        } catch (IOException | ElasticsearchStatusException e) {
             LOG.error("Couldn't bulk index tasks to elasticsearch cluster.", e);
         }
 
     }
 
     public void index(Map<String, Task> tasksMap, String index) {
-        BulkRequest bulkRequest = new BulkRequest();
         Collection<UpdateRequest> updateRequests = createUpdateRequests(tasksMap, index);
-        Collection<Future> futuresRequests = createFuturesRequests(bulkRequest, updateRequests);
+        Collection<Future> futuresRequests = createFuturesRequests(updateRequests);
 
         for (Future futureRequest : futuresRequests) {
             try {
                 futureRequest.get();
             } catch (InterruptedException | ExecutionException e) {
-                LOG.error("A error was thrown while indexing a batch", e);
+                LOG.error("An error was thrown while indexing a batch", e);
             }
         }
     }
@@ -274,16 +275,14 @@ public class ElasticsearchClient {
         LOG.info("Succesfully migrated {} tasks to new index [{}]", previousIndexPartialTasks.size(), currentIndex);
     }
 
-    private Collection<Future> createFuturesRequests(BulkRequest request, Collection<UpdateRequest> requests) {
+    private Collection<Future> createFuturesRequests(Collection<UpdateRequest> requests) {
+        BulkRequest request = new BulkRequest();
         Collection<Future> futures = new ArrayList<>();
-        int currentSize = 0;
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
-            currentSize += request.estimatedSizeInBytes();
 
-            if (currentSize > indexBulkSize) {
+            if (request.estimatedSizeInBytes() > indexBulkSize) {
                 addRequestToFutures(request, futures);
-                currentSize = 0;
                 request = new BulkRequest();
             }
         }
@@ -403,11 +402,21 @@ public class ElasticsearchClient {
     }
 
     public Map<String, Task> getIndexPartialTasks(String index) throws IOException {
+        QueryBuilder query = new TermsQueryBuilder(STATUS_KEYWORD, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
+        return getSingleTaskByIds(query, index);
+    }
+
+    private Map<String, List<Task>> runScrollQuery(String index, QueryBuilder query) throws IOException {
+        SearchRequest searchRequest;
+        if (index == null){
+            searchRequest = new SearchRequest();
+        }
+        else {
+            searchRequest = new SearchRequest(index);
+        }
         Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1L));
-        SearchRequest searchRequest = new SearchRequest(index);
         searchRequest.scroll(scroll);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        QueryBuilder query = new TermsQueryBuilder(STATUS_KEYWORD, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(10000);
         searchRequest.source(searchSourceBuilder);
@@ -416,7 +425,7 @@ public class ElasticsearchClient {
         String scrollId = searchResponse.getScrollId();
         SearchHit[] searchHits = searchResponse.getHits().getHits();
 
-        Map<String, Task> tasks = Maps.newHashMap();
+        Map<String, List<Task>> tasks = Maps.newHashMap();
 
         while (searchHits != null && searchHits.length > 0) {
             addHitsToMap(searchHits, tasks);
@@ -437,12 +446,18 @@ public class ElasticsearchClient {
         return tasks;
     }
 
-    private void addHitsToMap(SearchHit[] searchHits, Map<String, Task> tasks) {
+    private void addHitsToMap(SearchHit[] searchHits, Map<String, List<Task>> tasks) {
         for (SearchHit searchHit : searchHits) {
             String sourceAsString = searchHit.getSourceAsString();
             Task task = GSON.fromJson(sourceAsString, Task.class);
             fixMetrics(task);
-            tasks.put(searchHit.getId(), task);
+            String id = searchHit.getId();
+            if (!tasks.containsKey(id)){
+                tasks.put(id, Lists.newArrayList(task));
+            }
+            else{
+                tasks.get(id).add(task);
+            }
         }
     }
 
@@ -495,4 +510,12 @@ public class ElasticsearchClient {
         }
     }
 
+    public long countByName(String name, String env) throws IOException {
+        CountRequest countRequest = new CountRequest();
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.boolQuery().must(QueryBuilders.matchQuery("name", name)).must(QueryBuilders.matchQuery("env", env)));
+        countRequest.source(searchSourceBuilder);
+        CountResponse countResponse = client.count(countRequest, RequestOptions.DEFAULT);
+        return countResponse.getCount();
+    }
 }

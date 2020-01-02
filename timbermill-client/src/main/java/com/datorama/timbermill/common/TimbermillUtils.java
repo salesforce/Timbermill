@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
+import org.elasticsearch.common.Strings;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
@@ -26,14 +27,19 @@ import static org.quartz.TriggerBuilder.newTrigger;
 public class TimbermillUtils {
 	public static final String CLIENT = "client";
 	public static final int THREAD_SLEEP = 2000;
+	private static final int MAX_ELEMENTS = 100000;
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillUtils.class);
 	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-		mergingCronExp = elasticsearchParams.getMergingCronExp();
 		// es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas()); todo fix
-		runDeletionTaskCron(elasticsearchParams.getDeletionCronExp(), es);
+		mergingCronExp = elasticsearchParams.getMergingCronExp();
+
+		String deletionCronExp = elasticsearchParams.getDeletionCronExp();
+		if (!Strings.isEmpty(deletionCronExp)) {
+			runDeletionTaskCron(deletionCronExp, es);
+		}
 		return new TaskIndexer(elasticsearchParams, es);
 	}
 
@@ -41,22 +47,26 @@ public class TimbermillUtils {
 		while (!eventsQueue.isEmpty()) {
 			try {
 				Collection<Event> events = new ArrayList<>();
-				eventsQueue.drainTo(events);
+				eventsQueue.drainTo(events, MAX_ELEMENTS);
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();
 					if (!envsSet.contains(env)) {
 						envsSet.add(env);
-						runPartialMergingTasksCron(env, mergingCronExp, es);
+						runPartialMergingTasksCron(env, es);
 					}
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
 					taskIndexer.retrieveAndIndex(currentEvents, env);
 				}
-				Thread.sleep(THREAD_SLEEP);
-			} catch (RuntimeException | InterruptedException e) {
+			} catch (RuntimeException e) {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}
+		}
+		try {
+			Thread.sleep(THREAD_SLEEP);
+		} catch (InterruptedException e) {
+			LOG.error("Error was thrown from TaskIndexer:", e);
 		}
 	}
 	public static ZonedDateTime getDateToDeleteWithDefault(long defaultDaysRotation, ZonedDateTime dateToDelete) {
@@ -104,7 +114,7 @@ public class TimbermillUtils {
 
 	}
 
-	private static void runPartialMergingTasksCron(String env, String mergingCronExp, ElasticsearchClient es) {
+	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es) {
 		try {
 			final StdSchedulerFactory sf = new StdSchedulerFactory();
 			Scheduler scheduler = sf.getScheduler();

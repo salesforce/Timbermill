@@ -233,6 +233,10 @@ public class TaskIndexer {
                 if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof AdoptedEvent)){
                     return false;
                 }
+                if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof StartEvent)){
+                    Boolean isOrphan = event.isOrphan();
+                    return isOrphan != null && isOrphan;
+                }
             }
 
             if (previouslyIndexedTasks.containsKey(parentId)) {
