@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -180,6 +181,8 @@ public abstract class Event{
 			String[] split = taskId.split(EVENT_ID_DELIMITER);
 			if (split.length == 1){
 				split = taskId.split(OLD_EVENT_ID_DELIMITER);
+				String[] newSplit = Arrays.copyOf(split, split.length - 2);
+				return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
 			}
 			return split[0];
 		}

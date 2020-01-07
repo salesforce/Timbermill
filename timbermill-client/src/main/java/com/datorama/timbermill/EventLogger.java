@@ -84,12 +84,10 @@ final class EventLogger {
 	}
 
 	String startEvent(String taskId, String name, String parentTaskId, LogParams logParams, boolean isOngoingTask, ZonedDateTime dateToDelete) {
-		if (logParams == null){
+		if (logParams == null) {
 			logParams = LogParams.create();
 		}
-		else{
-			addStaticParams(logParams);
-		}
+		addStaticParams(logParams);
 		Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name, dateToDelete);
 		return submitEvent(event);
 	}
@@ -246,9 +244,7 @@ final class EventLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		else {
-			addStaticParams(logParams);
-		}
+		addStaticParams(logParams);
 		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(parentTaskId);
 		SpotEvent spotEvent = new SpotEvent(taskId, name, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status, logParams);
 		setDateToDelete(dateToDelete, spotEvent);
@@ -269,8 +265,8 @@ final class EventLogger {
 	}
 
 	private void addStaticParams(@NotNull LogParams logParams) {
-		logParams.context(THREAD_NAME, Thread.currentThread().getName());
-		logParams.context(staticParams);
+		logParams.string(THREAD_NAME, Thread.currentThread().getName());
+		logParams.string(staticParams);
 	}
 
 	private Event getCorruptedEvent(@NotNull LogParams logParams) {

@@ -55,7 +55,7 @@ public class TimbermillStressTest extends TimberLogTest{
     public void simpleStressTest() throws ExecutionException, InterruptedException, IOException {
         Runnable simpleRunnable = () -> {
             String taskId = runSimpleStress();
-            waitForEvent(taskId, Task.TaskStatus.SUCCESS);
+            waitForTask(taskId, Task.TaskStatus.SUCCESS);
         };
         runInParallel(simpleRunnable);
         assertEquals( numOfTasks * numOfThreads, client.countByName("simple_stress", env));
@@ -66,9 +66,9 @@ public class TimbermillStressTest extends TimberLogTest{
         Runnable advancedRunnable = () -> {
             List<String> tasksIds = createAdvanceTasks();
             String taskId = tasksIds.get(numOfTasks - 1);
-            waitForEvent(taskId, Task.TaskStatus.SUCCESS);
+            waitForTask(taskId, Task.TaskStatus.SUCCESS);
             String childTaskId = createChildrenTasks(tasksIds);
-            waitForEvent(childTaskId, Task.TaskStatus.SUCCESS);
+            waitForTask(childTaskId, Task.TaskStatus.SUCCESS);
             Task childTask = client.getTaskById(childTaskId);
             assertEquals(childTask.getCtx().get(CTX), childTask.getParentId());
         };
@@ -82,8 +82,8 @@ public class TimbermillStressTest extends TimberLogTest{
             Pair<String, String> parentOrphan = createOrphansStress();
             String parentTaskId = parentOrphan.getLeft();
             String orphanTaskId = parentOrphan.getRight();
-            waitForEvent(parentTaskId, Task.TaskStatus.SUCCESS);
-            waitForEvent(orphanTaskId, Task.TaskStatus.SUCCESS);
+            waitForTask(parentTaskId, Task.TaskStatus.SUCCESS);
+            waitForTask(orphanTaskId, Task.TaskStatus.SUCCESS);
             Task orphanTask = client.getTaskById(orphanTaskId);
             assertEquals(orphanTask.getCtx().get(CTX), orphanTask.getPrimaryId());
         };
@@ -98,8 +98,8 @@ public class TimbermillStressTest extends TimberLogTest{
             Pair<String, String> primaryOrphan = createStringOfOrphansStress();
             String primaryTaskId = primaryOrphan.getLeft();
             String orphanTaskId = primaryOrphan.getRight();
-            waitForEvent(primaryTaskId, Task.TaskStatus.SUCCESS);
-            waitForEvent(orphanTaskId, Task.TaskStatus.SUCCESS);
+            waitForTask(primaryTaskId, Task.TaskStatus.SUCCESS);
+            waitForTask(orphanTaskId, Task.TaskStatus.SUCCESS);
 
             Task orphanTask = client.getTaskById(orphanTaskId);
 
@@ -121,7 +121,7 @@ public class TimbermillStressTest extends TimberLogTest{
             if (parentTaskId == null) {
                 parentTaskId = Event.generateTaskId("orphan_string_stress");
                 taskId = TimberLoggerAdvanced.start("orphan_string_stress", parentTaskId);
-                waitForEvent(taskId, Task.TaskStatus.UNTERMINATED);
+                waitForTask(taskId, Task.TaskStatus.UNTERMINATED);
                 TimberLoggerAdvanced.success(taskId);
             }
             else{
