@@ -33,7 +33,7 @@ public class TimbermillUtils {
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-		// es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas()); todo fix
+		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas());
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
 
 		String deletionCronExp = elasticsearchParams.getDeletionCronExp();

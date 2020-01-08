@@ -44,7 +44,7 @@ public class TimbermillService {
 							 @Value("${elasticsearch.user:}") String elasticUser,
 							 @Value("${elasticsearch.password:}") String elasticPassword,
 							 @Value("${cache.max.size:10000}") int maximumCacheSize,
-							 @Value("${elasticsearch.number.of.shards:10}") int numberOfShards,
+							 @Value("${elasticsearch.number.of.shards:7}") int numberOfShards,
 							 @Value("${elasticsearch.number.of.replicas:1}") int numberOfReplicas,
 							 @Value("${number.of.tasks.merge.retries:3}") int numOfMergedTasksTries,
 							 @Value("${number.of.tasks.index.retries:3}") int numOfTasksIndexTries,

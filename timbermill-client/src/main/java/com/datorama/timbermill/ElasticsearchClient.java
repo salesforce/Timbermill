@@ -13,6 +13,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -34,6 +35,8 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
+import org.elasticsearch.common.bytes.BytesArray;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -62,11 +65,11 @@ import static com.datorama.timbermill.common.Constants.*;
 
 public class ElasticsearchClient {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
-    private static final String STATUS_KEYWORD = "status.keyword";
+    private static final String STATUS = "status.keyword"; //todo fix
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
-    private final RestHighLevelClient client;
+	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
 
@@ -354,45 +357,60 @@ public class ElasticsearchClient {
     }
 
     public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas) {
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
-        request.source("{\n"
-                + "  \"index_patterns\": [\n"
-                + "    \"timbermill*\"\n"
-                + "  ],\n"
-                + " \"settings\": {\n"
-                + "        \"index\": {\n"
-                + "            \"number_of_shards\": " + numberOfShards + ",\n"
-                + "            \"number_of_replicas\": " + numberOfReplicas + "\n"
-                + "        }\n"
-                + "    },\n"
-                + "    \"mappings\": {\n"
-                + "        \"tweets\": {\n"
-                + "            \"_source\": {\n"
-                + "                \"enabled\": true\n"
-                + "            },          \n"
-                + "            \"properties\": {\n"
-                + "                \"_id\": {\n"
-                + "                    \"type\": \"string\"\n"
-                + "                },\n"
-                + "                \"user\": {\n"
-                + "                    \"type\": \"nested\",\n"
-                + "                    \"name\": {\n"
-                + "                        \"type\": \"string\"\n"
-                + "                    }\n"
-                + "                }\n"
-                + "            }\n"
-                + "        }\n"
-                + "    }\n"
-                + "}"
-                + "}", XContentType.JSON);
-//        try { //todo fix
-//            client.indices().putTemplate(request, RequestOptions.DEFAULT);
-//        } catch (IOException e) {
-//            LOG.error("An error occurred when creating Timbermill template", e);
-//        }
+        PutIndexTemplateRequest putIndexTemplateRequest = new PutIndexTemplateRequest("timbermill-template");
+        putIndexTemplateRequest.patterns(Lists.newArrayList("timbermill*"));
+		Map<String, Object> jsonMap = new HashMap<>();
+		{
+			Map<String, Object> properties = new HashMap<>();
+			{
+				Map<String, Object> textsConfig = new HashMap<>();
+				textsConfig.put("type", "text");
+				properties.put("text.*", textsConfig);
 
-        //todo put stores script
-    }
+				Map<String, Object> stringsConfig = new HashMap<>();
+				stringsConfig.put("type", "keyword");
+				properties.put("string.*", stringsConfig);
+
+				Map<String, Object> ctxConfig = new HashMap<>();
+				ctxConfig.put("type", "keyword");
+				properties.put("ctx.*", ctxConfig);
+			}
+			jsonMap.put("properties", properties);
+		}
+		putIndexTemplateRequest.mapping(jsonMap);
+
+		Settings.Builder builder = Settings.builder();
+		if (numberOfShards > 0) {
+			builder.put("number_of_shards", numberOfShards);
+		}
+		if (numberOfReplicas > 0) {
+			builder.put("number_of_replicas", numberOfReplicas);
+		}
+		putIndexTemplateRequest.settings(builder);
+
+		try {
+			client.indices().putTemplate(putIndexTemplateRequest, RequestOptions.DEFAULT);
+		} catch (IOException e) {
+			LOG.error("An error occurred when creating Timbermill template", e);
+		}
+
+		PutStoredScriptRequest putStoredScriptRequest = new PutStoredScriptRequest();
+		putStoredScriptRequest.id("timbermill_script");
+
+
+		String content = "{\n"
+				+ "  \"script\": {\n"
+				+ "    \"lang\": \"painless\",\n"
+				+ "    \"source\": \"        " + SCRIPT
+				+ "  }\n"
+				+ "}";
+		putStoredScriptRequest.content(new BytesArray(content), XContentType.JSON);
+		try {
+			client.putScript(putStoredScriptRequest, RequestOptions.DEFAULT);
+		} catch (IOException e) {
+			LOG.error("An error occurred when creating timbermill's stored script", e);
+		}
+	}
 
     String createTimbermillAlias(String env) {
         boolean exists;
@@ -452,7 +470,7 @@ public class ElasticsearchClient {
     }
 
     public Map<String, Task> getIndexPartialTasks(String index) throws IOException {
-		TermsQueryBuilder query = new TermsQueryBuilder(STATUS_KEYWORD, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
+		TermsQueryBuilder query = new TermsQueryBuilder(STATUS, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED);
         return getSingleTaskByIds(query, index);
     }
 
