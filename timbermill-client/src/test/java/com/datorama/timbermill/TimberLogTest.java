@@ -1,16 +1,17 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.annotation.TimberLog;
-import com.datorama.timbermill.unit.LogParams;
-import com.datorama.timbermill.unit.Task;
-import org.apache.commons.lang3.tuple.Pair;
-import org.awaitility.Awaitility;
-import org.junit.AfterClass;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.awaitility.Awaitility;
+import org.junit.AfterClass;
+
+import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
 
 import static com.datorama.timbermill.EventLogger.STACK_TRACE;
 import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
@@ -21,7 +22,7 @@ public abstract class TimberLogTest {
 
 	public static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
 	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
-			7, 100, 1000000000);
+			7, 100, 1000000000, 3, 3);
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -162,7 +163,7 @@ public abstract class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	protected void testSpotWithParent(){
+	protected void testSpotWithParent() {
 		String context = "context";
 		String str = "str";
 
@@ -218,7 +219,7 @@ public abstract class TimberLogTest {
 		}
 	}
 
-	protected void testSimpleTasksFromDifferentThreadsIndexerJob(){
+	protected void testSimpleTasksFromDifferentThreadsIndexerJob() {
 
 		String context1 = "context1";
 		String context2 = "context2";
@@ -411,7 +412,7 @@ public abstract class TimberLogTest {
 		assertEquals(bla2, text.get(bla1));
 	}
 
-	protected void testOrphan(){
+	protected void testOrphan() {
 		String taskId = testOrphanTimberLog();
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);

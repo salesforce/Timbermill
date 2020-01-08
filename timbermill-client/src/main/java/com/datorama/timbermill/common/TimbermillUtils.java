@@ -46,6 +46,8 @@ public class TimbermillUtils {
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
 		while (!eventsQueue.isEmpty()) {
 			try {
+				es.retryFailedRequests();
+
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));

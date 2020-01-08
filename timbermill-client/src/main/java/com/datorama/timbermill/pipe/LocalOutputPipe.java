@@ -36,7 +36,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.defaultMaxChars, builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs);
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries);
         taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
@@ -76,6 +76,9 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public static class Builder {
 
+        //DEFAULTS
+        private int numOfTasksIndexTries = 3;
+        private int numOfMergedTasksTries = 3;
         private int maxCacheHoldTimeMinutes = 60;
         private int maxCacheSize = 10000;
         private String elasticUrl = null;
@@ -188,6 +191,15 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder mergingCronExp(String mergingCronExp) {
             this.mergingCronExp = mergingCronExp;
+            return this;
+        }
+
+        public Builder numOfMergedTasksTries(int numOfMergedTasksTries) {
+            this.numOfMergedTasksTries = numOfMergedTasksTries;
+            return this;
+        }
+        public Builder numOfTasksIndexTries(int numOfTasksIndexTries) {
+            this.numOfTasksIndexTries = numOfTasksIndexTries;
             return this;
         }
 

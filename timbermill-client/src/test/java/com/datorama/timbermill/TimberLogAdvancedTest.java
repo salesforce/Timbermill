@@ -1,14 +1,15 @@
 package com.datorama.timbermill;
 
+import java.time.ZonedDateTime;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+
+import org.junit.AfterClass;
+
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
-import org.junit.AfterClass;
-
-import java.time.ZonedDateTime;
-import java.util.UUID;
-import java.util.concurrent.Callable;
 
 import static com.datorama.timbermill.TimberLogTest.*;
 import static com.datorama.timbermill.unit.Task.*;

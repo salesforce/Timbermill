@@ -55,7 +55,7 @@ public class EventLoggerTest {
 		assertTrue(endEvent instanceof SuccessEvent);
 		assertEquals(startEvent.getTaskId(), startEvent.getPrimaryId());
 		assertNull(startEvent.getParentId());
-		assertEquals(TEST, startEvent.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, startEvent.getStrings().get(BOOTSTRAP));
 	}
 
 	@Test
@@ -93,8 +93,8 @@ public class EventLoggerTest {
 		assertTrue(parentEventEnd instanceof SuccessEvent);
 		assertTrue(childEventEnd instanceof SuccessEvent);
 		assertEquals(parentEventStart.getTaskId(), childEventStart.getParentId());
-		assertEquals(TEST, parentEventStart.getContext().get(BOOTSTRAP));
-		assertEquals(TEST, childEventStart.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, parentEventStart.getStrings().get(BOOTSTRAP));
+		assertEquals(TEST, childEventStart.getStrings().get(BOOTSTRAP));
 	}
 
 	@Test
@@ -136,7 +136,7 @@ public class EventLoggerTest {
 		assertEquals(1, events.size());
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
-		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}
 
@@ -150,7 +150,7 @@ public class EventLoggerTest {
 		assertEquals(1, events.size());
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
-		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 		assertTrue(event.getTexts().get(EXCEPTION).contains(exception.toString()));
 	}
@@ -167,7 +167,7 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getTexts().get(key));
-		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}
 
@@ -183,7 +183,7 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getStrings().get(key));
-		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}
 
@@ -199,7 +199,7 @@ public class EventLoggerTest {
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(1, event.getMetrics().get(key));
-		assertEquals(TEST, event.getContext().get(BOOTSTRAP));
+		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}
 

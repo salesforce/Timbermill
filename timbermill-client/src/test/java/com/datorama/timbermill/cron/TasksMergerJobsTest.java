@@ -26,7 +26,7 @@ import static org.junit.Assert.*;
 public class TasksMergerJobsTest {
 
 	private static final ElasticsearchClient client =  new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
-			7, 100, 1000000000);
+			7, 100, 1000000000, 3, 3);
 	private static final String CTX_1 = "ctx1";
 	private static final String CTX_2 = "ctx2";
 	private static final String CTX_3 = "ctx3";
