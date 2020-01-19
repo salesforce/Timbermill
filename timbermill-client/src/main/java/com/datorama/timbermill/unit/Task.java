@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.datorama.timbermill.common.Constants;
+
 import static com.datorama.timbermill.TaskIndexer.getTimesDuration;
 import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.common.Constants.TYPE;
@@ -319,7 +321,7 @@ public class Task {
 			params.put("orphan", orphan);
 		}
 
-		Script script = new Script(ScriptType.STORED, null, "timbermill-script", params);
+		Script script = new Script(ScriptType.STORED, null, Constants.TIMBERMILL_SCRIPT, params);
 		updateRequest.script(script);
 		return updateRequest;
 	}

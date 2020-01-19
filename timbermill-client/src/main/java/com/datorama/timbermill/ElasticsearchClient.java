@@ -67,7 +67,7 @@ public class ElasticsearchClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
-    private static final String STATUS_KEYWORD = "status.keyword";
+    private static final String STATUS = "status";
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
     private final RestHighLevelClient client;
     private final int indexBulkSize;
@@ -317,7 +317,7 @@ public class ElasticsearchClient {
 
 	public void puStoredScript() {
 		PutStoredScriptRequest request = new PutStoredScriptRequest();
-		request.id("id");
+		request.id(TIMBERMILL_SCRIPT);
 		String content = "{\n"
 				+ "  \"script\": {\n"
 				+ "    \"lang\": \"painless\",\n"
@@ -404,7 +404,7 @@ public class ElasticsearchClient {
     }
 
     public Map<String, Task> getIndexPartialTasks(String index) throws IOException {
-        QueryBuilder query = new TermsQueryBuilder(STATUS_KEYWORD, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
+        QueryBuilder query = new TermsQueryBuilder(STATUS, Task.TaskStatus.PARTIAL_ERROR, Task.TaskStatus.PARTIAL_INFO_ONLY, Task.TaskStatus.PARTIAL_SUCCESS, Task.TaskStatus.UNTERMINATED); //todo change keyword
         return getSingleTaskByIds(query, index);
     }
 
