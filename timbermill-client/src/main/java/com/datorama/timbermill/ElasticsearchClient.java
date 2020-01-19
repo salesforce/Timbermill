@@ -357,60 +357,43 @@ public class ElasticsearchClient {
     }
 
     public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas) {
-        PutIndexTemplateRequest putIndexTemplateRequest = new PutIndexTemplateRequest("timbermill-template");
-        putIndexTemplateRequest.patterns(Lists.newArrayList("timbermill*"));
-		Map<String, Object> jsonMap = new HashMap<>();
-		{
-			Map<String, Object> properties = new HashMap<>();
-			{
-				Map<String, Object> textsConfig = new HashMap<>();
-				textsConfig.put("type", "text");
-				properties.put("text.*", textsConfig);
+        putIndexTemplate(numberOfShards, numberOfReplicas);
+		puStoredScript();
+	}
 
-				Map<String, Object> stringsConfig = new HashMap<>();
-				stringsConfig.put("type", "keyword");
-				properties.put("string.*", stringsConfig);
-
-				Map<String, Object> ctxConfig = new HashMap<>();
-				ctxConfig.put("type", "keyword");
-				properties.put("ctx.*", ctxConfig);
-			}
-			jsonMap.put("properties", properties);
-		}
-		putIndexTemplateRequest.mapping(jsonMap);
-
-		Settings.Builder builder = Settings.builder();
-		if (numberOfShards > 0) {
-			builder.put("number_of_shards", numberOfShards);
-		}
-		if (numberOfReplicas > 0) {
-			builder.put("number_of_replicas", numberOfReplicas);
-		}
-		putIndexTemplateRequest.settings(builder);
-
-		try {
-			client.indices().putTemplate(putIndexTemplateRequest, RequestOptions.DEFAULT);
-		} catch (IOException e) {
-			LOG.error("An error occurred when creating Timbermill template", e);
-		}
-
-		PutStoredScriptRequest putStoredScriptRequest = new PutStoredScriptRequest();
-		putStoredScriptRequest.id("timbermill_script");
-
-
+	public void puStoredScript() {
+		PutStoredScriptRequest request = new PutStoredScriptRequest();
+		request.id("id");
 		String content = "{\n"
 				+ "  \"script\": {\n"
 				+ "    \"lang\": \"painless\",\n"
-				+ "    \"source\": \"        " + SCRIPT
+				+ "    \"source\": \"" + SCRIPT
 				+ "  }\n"
 				+ "}";
-		putStoredScriptRequest.content(new BytesArray(content), XContentType.JSON);
+		request.content(new BytesArray(content), XContentType.JSON);
 		try {
-			client.putScript(putStoredScriptRequest, RequestOptions.DEFAULT);
-		} catch (IOException e) {
-			LOG.error("An error occurred when creating timbermill's stored script", e);
+			client.putScript(request, RequestOptions.DEFAULT);
+		} catch (Exception e) {
+			LOG.error("An error occurred when storing Timbermill index script", e);
+			throw new ElasticsearchException(e);
 		}
 	}
+
+	private void putIndexTemplate(int numberOfShards, int numberOfReplicas) {
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
+
+        request.patterns(Lists.newArrayList("timbermill*"));
+        request.settings(Settings.builder()
+				.put("number_of_shards", numberOfShards)
+				.put("number_of_replicas", numberOfReplicas));
+		request.mapping(MAPPING, XContentType.JSON);
+        try {
+            client.indices().putTemplate(request, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            LOG.error("An error occurred when creating Timbermill template", e);
+            throw new ElasticsearchException(e);
+        }
+    }
 
     String createTimbermillAlias(String env) {
         boolean exists;
