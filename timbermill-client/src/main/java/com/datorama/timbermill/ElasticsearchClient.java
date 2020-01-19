@@ -13,9 +13,9 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.ElasticsearchStatusException;
+import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetResponse;
@@ -35,6 +35,8 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
+import org.elasticsearch.common.bytes.BytesArray;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -309,44 +311,42 @@ public class ElasticsearchClient {
     }
 
     public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas) {
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
-        request.source("{\n"
-                + "  \"index_patterns\": [\n"
-                + "    \"timbermill*\"\n"
-                + "  ],\n"
-                + " \"settings\": {\n"
-                + "        \"index\": {\n"
-                + "            \"number_of_shards\": " + numberOfShards + ",\n"
-                + "            \"number_of_replicas\": " + numberOfReplicas + "\n"
-                + "        }\n"
-                + "    },\n"
-                + "    \"mappings\": {\n"
-                + "        \"tweets\": {\n"
-                + "            \"_source\": {\n"
-                + "                \"enabled\": true\n"
-                + "            },          \n"
-                + "            \"properties\": {\n"
-                + "                \"_id\": {\n"
-                + "                    \"type\": \"string\"\n"
-                + "                },\n"
-                + "                \"user\": {\n"
-                + "                    \"type\": \"nested\",\n"
-                + "                    \"name\": {\n"
-                + "                        \"type\": \"string\"\n"
-                + "                    }\n"
-                + "                }\n"
-                + "            }\n"
-                + "        }\n"
-                + "    }\n"
-                + "}"
-                + "}", XContentType.JSON);
-//        try { //todo fix
-//            client.indices().putTemplate(request, RequestOptions.DEFAULT);
-//        } catch (IOException e) {
-//            LOG.error("An error occurred when creating Timbermill template", e);
-//        }
+        putIndexTemplate(numberOfShards, numberOfReplicas);
+		puStoredScript();
+	}
 
-        //todo put stores script
+	public void puStoredScript() {
+		PutStoredScriptRequest request = new PutStoredScriptRequest();
+		request.id("id");
+		String content = "{\n"
+				+ "  \"script\": {\n"
+				+ "    \"lang\": \"painless\",\n"
+				+ "    \"source\": \"" + SCRIPT
+				+ "  }\n"
+				+ "}";
+		request.content(new BytesArray(content), XContentType.JSON);
+		try {
+			client.putScript(request, RequestOptions.DEFAULT);
+		} catch (Exception e) {
+			LOG.error("An error occurred when storing Timbermill index script", e);
+			throw new ElasticsearchException(e);
+		}
+	}
+
+	private void putIndexTemplate(int numberOfShards, int numberOfReplicas) {
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
+
+        request.patterns(Lists.newArrayList("timbermill*"));
+        request.settings(Settings.builder()
+				.put("number_of_shards", numberOfShards)
+				.put("number_of_replicas", numberOfReplicas));
+		request.mapping(MAPPING, XContentType.JSON);
+        try {
+            client.indices().putTemplate(request, RequestOptions.DEFAULT);
+        } catch (IOException e) {
+            LOG.error("An error occurred when creating Timbermill template", e);
+            throw new ElasticsearchException(e);
+        }
     }
 
     String createTimbermillAlias(String env) {
