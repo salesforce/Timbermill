@@ -3,7 +3,7 @@ package com.datorama.timbermill;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TimberLogAdvancedServerOrphansTest extends TimberLogAdvancedOrphansTest{
+public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphansTest{
 
 	@BeforeClass
 	public static void init() {
