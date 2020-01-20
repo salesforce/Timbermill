@@ -255,6 +255,18 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M1</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/**StressTest.java</exclude>
+                        <exclude>**/**ServerTest.java</exclude>
+                    </excludes>
+                    <argLine>-Dfile.encoding=UTF8 -Duser.timezone=UTC </argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
