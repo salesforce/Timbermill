@@ -1,18 +1,21 @@
 package com.datorama.timbermill;
 
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipe;
+
+import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TimberLogServerTest extends TimberLogTest{
 
-    private static String timbermillUrl = "http://localhost:8484";
+    private static final String DEFAULT_TIMBERMILL_URL = "http://localhost:8484";
 
     @BeforeClass
     public static void init() {
-        try {
-            timbermillUrl = System.getenv("TIMBERMILL_URL");
-        } catch (Throwable ignored){}
+        String timbermillUrl = System.getenv("TIMBERMILL_URL");
+        if (StringUtils.isEmpty(timbermillUrl)){
+            timbermillUrl = DEFAULT_TIMBERMILL_URL;
+        }
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
         TimberLogger.bootstrap(pipe, TEST);
     }
