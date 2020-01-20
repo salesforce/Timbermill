@@ -30,6 +30,7 @@ public class TimbermillStressTest extends TimberLogTest{
     private static int numOfParents = 30;
     private static int numOfThreads = 10;
     private static int numOfTasks = 10;
+    private static String timbermillUrl = "http://localhost:8484";
 
     @BeforeClass
     public static void init() {
@@ -37,9 +38,10 @@ public class TimbermillStressTest extends TimberLogTest{
             numOfParents = Integer.parseInt(System.getenv("NUM_OF_PARENTS"));
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));
             numOfTasks = Integer.parseInt(System.getenv("NUM_OF_TASKS"));
+            timbermillUrl = System.getenv("TIMBERMILL_URL");
         } catch (Throwable ignored){}
         executorService = Executors.newFixedThreadPool(numOfThreads);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl("http://localhost:8484/events").build();
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
         env = TEST + System.currentTimeMillis();
         TimberLogger.bootstrap(pipe, env);
     }

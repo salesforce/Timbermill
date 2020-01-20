@@ -6,9 +6,14 @@ import org.junit.Test;
 
 public class TimberLogServerTest extends TimberLogTest{
 
+    private static String timbermillUrl = "http://localhost:8484";
+
     @BeforeClass
     public static void init() {
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl("http://localhost:8484/events").build();
+        try {
+            timbermillUrl = System.getenv("TIMBERMILL_URL");
+        } catch (Throwable ignored){}
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
         TimberLogger.bootstrap(pipe, TEST);
     }
 
