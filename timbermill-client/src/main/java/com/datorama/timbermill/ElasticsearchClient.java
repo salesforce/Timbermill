@@ -90,7 +90,9 @@ public class ElasticsearchClient {
             indexingThreads = 1;
         }
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
-        RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
+        HttpHost httpHost = HttpHost.create(elasticUrl);
+        LOG.info("Connecting to elasticsearch at url {}", httpHost);
+        RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
             LOG.info("Trying to connect to AWS Elasticsearch");
             AWS4Signer signer = new AWS4Signer();
