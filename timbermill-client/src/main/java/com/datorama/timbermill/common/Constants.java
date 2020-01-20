@@ -14,6 +14,7 @@ public final class Constants {
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill";
 	public static final String INDEX_DELIMITER = "-";
 	public static final String TYPE = "_doc";
+	public static final String TIMBERMILL_SCRIPT = "timbermill-script";
 	public static final String MAPPING = "   {\"dynamic_templates\": [\n"
 			+ "      {\n"
 			+ "        \"env\": {\n"

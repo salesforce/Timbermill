@@ -14,6 +14,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
+import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -67,7 +68,7 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
-    private static final String STATUS = "status.keyword"; //todo fix
+    private static final String STATUS = "status"; //todo fix
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
@@ -363,7 +364,7 @@ public class ElasticsearchClient {
 
 	public void puStoredScript() {
 		PutStoredScriptRequest request = new PutStoredScriptRequest();
-		request.id("id");
+		request.id(TIMBERMILL_SCRIPT);
 		String content = "{\n"
 				+ "  \"script\": {\n"
 				+ "    \"lang\": \"painless\",\n"
@@ -492,10 +493,10 @@ public class ElasticsearchClient {
         try {
 			ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 			boolean succeeded = clearScrollResponse.isSucceeded();
-			if (!succeeded) {
+			if (!succeeded){
 				LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
 			}
-		} catch (Throwable t){
+		} catch (Throwable e){
 			LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
 		}
         return tasks;
