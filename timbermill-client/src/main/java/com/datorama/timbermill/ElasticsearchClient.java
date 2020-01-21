@@ -61,7 +61,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.internal.LazilyParsedNumber;
 
-import sun.tools.java.Environment;
 import static com.datorama.timbermill.common.Constants.*;
 
 public class ElasticsearchClient {
