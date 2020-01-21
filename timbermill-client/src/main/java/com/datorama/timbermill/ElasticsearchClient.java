@@ -92,7 +92,7 @@ public class ElasticsearchClient {
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
-        LOG.info("$$$$" + System.getenv("elasticsearch.url"));
+        LOG.info("$$$$" + System.getenv("ELASTICSEARCH_URL"));
         RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
             LOG.info("Trying to connect to AWS Elasticsearch");
