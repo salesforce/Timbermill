@@ -61,6 +61,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.internal.LazilyParsedNumber;
 
+import sun.tools.java.Environment;
 import static com.datorama.timbermill.common.Constants.*;
 
 public class ElasticsearchClient {
@@ -92,6 +93,7 @@ public class ElasticsearchClient {
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
+        LOG.info("$$$$" + System.getenv("elasticsearch.url"));
         RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
             LOG.info("Trying to connect to AWS Elasticsearch");
