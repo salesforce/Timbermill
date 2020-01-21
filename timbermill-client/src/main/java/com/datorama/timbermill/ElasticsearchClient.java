@@ -91,7 +91,7 @@ public class ElasticsearchClient {
         }
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
-        LOG.info("Connecting to elasticsearch at url {}", httpHost);
+        LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
             LOG.info("Trying to connect to AWS Elasticsearch");
@@ -103,7 +103,7 @@ public class ElasticsearchClient {
             builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
 
-        if (elasticUser != null){
+        if (!StringUtils.isEmpty(elasticUser)){
             LOG.info("Connection to Elasticsearch using user {}", elasticUser);
             final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticUser, elasticPassword));
