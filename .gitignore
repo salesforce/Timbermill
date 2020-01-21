@@ -25,7 +25,6 @@ hs_err_pid*
 *.asc
 /.idea/$PRODUCT_WORKSPACE_FILE$
 /.idea/.gitignore
-/timbermill-server/src/main/resources/application.properties
 /timbermill-server/target/
 /timbermill-client/target/*
 /.idea/*
