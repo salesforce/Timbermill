@@ -5,6 +5,8 @@ import com.datorama.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+
+import org.apache.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +38,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             throw new RuntimeException("Must enclose the Timbermill server URL");
         }
         try {
-            timbermillServerUrl = new URL(builder.timbermillServerUrl);
+            HttpHost httpHost = HttpHost.create(builder.timbermillServerUrl);
+            timbermillServerUrl = new URL(httpHost.toURI());
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }

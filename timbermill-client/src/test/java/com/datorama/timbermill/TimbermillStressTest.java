@@ -8,12 +8,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
@@ -30,7 +32,6 @@ public class TimbermillStressTest extends TimberLogTest{
     private static int numOfParents = 30;
     private static int numOfThreads = 10;
     private static int numOfTasks = 10;
-    private static String timbermillUrl = "http://localhost:8484";
 
     @BeforeClass
     public static void init() {
@@ -38,8 +39,11 @@ public class TimbermillStressTest extends TimberLogTest{
             numOfParents = Integer.parseInt(System.getenv("NUM_OF_PARENTS"));
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));
             numOfTasks = Integer.parseInt(System.getenv("NUM_OF_TASKS"));
-            timbermillUrl = System.getenv("TIMBERMILL_URL");
         } catch (Throwable ignored){}
+        String timbermillUrl = System.getenv("TIMBERMILL_URL");
+        if (StringUtils.isEmpty(timbermillUrl)){
+            timbermillUrl = Constants.DEFAULT_TIMBERMILL_URL;
+        }
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
         env = TEST + System.currentTimeMillis();
