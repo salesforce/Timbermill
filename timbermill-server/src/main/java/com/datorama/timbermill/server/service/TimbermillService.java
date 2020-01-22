@@ -34,7 +34,7 @@ public class TimbermillService {
 	@Autowired
 	public TimbermillService(@Value("${index.bulk.size:93520}") Integer indexBulkSize,
 							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
-							 @Value("${elasticsearch.aws.region:}") String awsRegion,
+							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 							 @Value("${days.rotation:90}") Integer daysRotation,
 							 @Value("${plugins.json:[]}") String pluginsJson,
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
