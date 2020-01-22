@@ -1,7 +1,10 @@
 package com.datorama.timbermill;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
@@ -16,6 +19,16 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN = "orphan";
     private static final String ORPHAN_PARENT = "orphan_parent";
     private static final String CTX = "ctx";
+
+    @BeforeClass
+    public static void setUp(){
+        String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+        if (StringUtils.isEmpty(elasticUrl)){
+            elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
+        }
+        client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+                7, 100, 1000000000);
+    }
 
     @AfterClass
     public static void kill() {

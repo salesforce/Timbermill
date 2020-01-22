@@ -262,7 +262,6 @@
                 <configuration>
                     <excludes>
                         <exclude>**/**StressTest.java</exclude>
-                        <exclude>**/**ServerTest.java</exclude>
                     </excludes>
                     <argLine>-Dfile.encoding=UTF8 -Duser.timezone=UTC </argLine>
                 </configuration>
