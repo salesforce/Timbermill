@@ -44,6 +44,13 @@ public class TimbermillStressTest extends TimberLogTest{
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = Constants.DEFAULT_TIMBERMILL_URL;
         }
+
+        String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+        if (StringUtils.isEmpty(elasticUrl)){
+            elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
+        }
+        client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+                7, 100, 1000000000);
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
         env = TEST + System.currentTimeMillis();
