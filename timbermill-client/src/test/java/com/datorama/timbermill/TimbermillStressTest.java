@@ -17,6 +17,7 @@ import org.junit.Test;
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipe;
+import com.datorama.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
@@ -57,7 +58,7 @@ public class TimbermillStressTest extends TimberLogTest{
         client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
                 7, 100, 1000000000);
         executorService = Executors.newFixedThreadPool(numOfThreads);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl(timbermillUrl + "/events").build();
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).build();
         env = TEST + System.currentTimeMillis();
         TimberLogger.bootstrap(pipe, env);
     }

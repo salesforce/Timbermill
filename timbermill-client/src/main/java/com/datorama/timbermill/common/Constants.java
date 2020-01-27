@@ -8,6 +8,7 @@ import com.google.gson.GsonBuilder;
 public final class Constants {
 	public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
 
+	public static final int TWO_MB = 2097152;
 	public static final String DEFAULT_ELASTICSEARCH_URL = "http://localhost:9200";
 	public static final String DEFAULT_TIMBERMILL_URL = "http://localhost:8484";
 	public static final String LOG_WITHOUT_CONTEXT = "LogWithoutContext";

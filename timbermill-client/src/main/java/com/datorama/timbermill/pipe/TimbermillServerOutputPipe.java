@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
-    private static final int TWO_MB = 2097152;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private URL timbermillServerUrl;
     private LinkedBlockingQueue<Event> buffer;
@@ -33,13 +32,13 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private TimbermillServerOutputPipe() {
     }
 
-    private TimbermillServerOutputPipe(Builder builder){
+    TimbermillServerOutputPipe(TimbermillServerOutputPipeBuilder builder){
         if (builder.timbermillServerUrl == null){
             throw new RuntimeException("Must enclose the Timbermill server URL");
         }
         try {
             HttpHost httpHost = HttpHost.create(builder.timbermillServerUrl);
-            timbermillServerUrl = new URL(httpHost.toURI());
+            timbermillServerUrl = new URL(httpHost.toURI() + "/events");
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
@@ -139,30 +138,4 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     public void close() {
     }
 
-    public static class Builder {
-        private String timbermillServerUrl;
-        private int maxEventsBatchSize = TWO_MB;
-        private long maxSecondsBeforeBatchTimeout = 3;
-
-
-        public TimbermillServerOutputPipe.Builder timbermillServerUrl(String timbermillServerUrl) {
-            this.timbermillServerUrl = timbermillServerUrl;
-            return this;
-        }
-
-        public TimbermillServerOutputPipe.Builder maxEventsBatchSize(int maxEventsBatchSize) {
-            this.maxEventsBatchSize = maxEventsBatchSize;
-            return this;
-        }
-
-        public TimbermillServerOutputPipe.Builder maxSecondsBeforeBatchTimeout(long maxSecondsBeforeBatchTimeout) {
-            this.maxSecondsBeforeBatchTimeout = maxSecondsBeforeBatchTimeout;
-            return this;
-        }
-
-        public TimbermillServerOutputPipe build() {
-            return new TimbermillServerOutputPipe(this);
-        }
-
-    }
 }
