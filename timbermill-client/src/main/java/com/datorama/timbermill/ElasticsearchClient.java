@@ -54,7 +54,6 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Task;
 import com.google.common.collect.Lists;
@@ -145,7 +144,7 @@ public class ElasticsearchClient {
         return tasksByIds.get(taskId);
     }
 
-    public List<Task> getMultipleTasksByIds(String taskId) {
+    List<Task> getMultipleTasksByIds(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
         try {
             Map<String, List<Task>> map = runScrollQuery(null, idsQueryBuilder);
@@ -317,7 +316,7 @@ public class ElasticsearchClient {
 		puStoredScript();
 	}
 
-	public void puStoredScript() {
+	private void puStoredScript() {
 		PutStoredScriptRequest request = new PutStoredScriptRequest();
 		request.id(TIMBERMILL_SCRIPT);
 		String content = "{\n"
@@ -518,7 +517,7 @@ public class ElasticsearchClient {
         }
     }
 
-    public long countByName(String name, String env) throws IOException {
+    long countByName(String name, String env) throws IOException {
         CountRequest countRequest = new CountRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(QueryBuilders.boolQuery().must(QueryBuilders.matchQuery("name", name)).must(QueryBuilders.matchQuery("env", env)));

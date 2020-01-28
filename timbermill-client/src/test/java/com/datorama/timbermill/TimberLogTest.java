@@ -20,7 +20,7 @@ import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
-	static ElasticsearchClient client;
+	protected static ElasticsearchClient client;
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";

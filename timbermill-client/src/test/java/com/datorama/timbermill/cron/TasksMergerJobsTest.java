@@ -24,9 +24,8 @@ import com.google.common.collect.Lists;
 import static com.datorama.timbermill.common.TimbermillUtils.CLIENT;
 import static org.junit.Assert.*;
 
-public class TasksMergerJobsTest {
+public class TasksMergerJobsTest extends TimberLogTest{
 
-	private static ElasticsearchClient client;
 	private static final String CTX_1 = "ctx1";
 	private static final String CTX_2 = "ctx2";
 	private static final String CTX_3 = "ctx3";
