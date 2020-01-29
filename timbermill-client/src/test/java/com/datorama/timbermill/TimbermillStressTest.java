@@ -8,13 +8,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipe;
+import com.datorama.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
@@ -24,6 +29,7 @@ import static org.junit.Assert.*;
 
 public class TimbermillStressTest extends TimberLogTest{
 
+    private static final Logger LOG = LoggerFactory.getLogger(TimbermillStressTest.class);
     private static final String CTX = "ctx";
     private static ExecutorService executorService;
     private static String env;
@@ -38,8 +44,28 @@ public class TimbermillStressTest extends TimberLogTest{
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));
             numOfTasks = Integer.parseInt(System.getenv("NUM_OF_TASKS"));
         } catch (Throwable ignored){}
+
+        LOG.info("numOfParents = {}", numOfParents);
+        LOG.info("numOfThreads = {}", numOfThreads);
+        LOG.info("numOfTasks = {}", numOfTasks);
+        String timbermillUrl = System.getenv("TIMBERMILL_URL");
+        if (StringUtils.isEmpty(timbermillUrl)){
+            timbermillUrl = Constants.DEFAULT_TIMBERMILL_URL;
+        }
+
+        String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+        if (StringUtils.isEmpty(elasticUrl)){
+            elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
+        }
+
+        String awsRegion = System.getenv("ELASTICSEARCH_AWS_REGION");
+        if (StringUtils.isEmpty(awsRegion)){
+            awsRegion = null;
+        }
+        client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
+                7, 100, 1000000000);
         executorService = Executors.newFixedThreadPool(numOfThreads);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipe.Builder().timbermillServerUrl("http://localhost:8484/events").build();
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).build();
         env = TEST + System.currentTimeMillis();
         TimberLogger.bootstrap(pipe, env);
     }
@@ -53,6 +79,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
     @Test
     public void simpleStressTest() throws ExecutionException, InterruptedException, IOException {
+        LOG.info("Running test {}", "simpleStressTest");
         Runnable simpleRunnable = () -> {
             String taskId = runSimpleStress();
             waitForTask(taskId, Task.TaskStatus.SUCCESS);
@@ -63,6 +90,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
     @Test
     public void advanceStressTest() throws ExecutionException, InterruptedException, IOException {
+        LOG.info("Running test {}", "advanceStressTest");
         Runnable advancedRunnable = () -> {
             List<String> tasksIds = createAdvanceTasks();
             String taskId = tasksIds.get(numOfTasks - 1);
@@ -78,6 +106,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
     @Test
     public void orphansStressTest() throws ExecutionException, InterruptedException, IOException {
+        LOG.info("Running test {}", "orphansStressTest");
         Runnable orphansRunnable = () -> {
             Pair<String, String> parentOrphan = createOrphansStress();
             String parentTaskId = parentOrphan.getLeft();
@@ -94,6 +123,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
     @Test
     public void stringOfOrphansStressTest() throws ExecutionException, InterruptedException, IOException {
+        LOG.info("Running test {}", "stringOfOrphansStressTest");
         Runnable orphansStringsRunnable = () -> {
             Pair<String, String> primaryOrphan = createStringOfOrphansStress();
             String primaryTaskId = primaryOrphan.getLeft();

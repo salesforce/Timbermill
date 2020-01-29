@@ -7,15 +7,34 @@ import java.util.concurrent.Callable;
 import org.junit.AfterClass;
 
 import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
+
+import org.apache.commons.lang3.StringUtils;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+
+import java.time.ZonedDateTime;
+import java.util.UUID;
+import java.util.concurrent.Callable;
 
 import static com.datorama.timbermill.TimberLogTest.*;
 import static com.datorama.timbermill.unit.Task.*;
 import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
+
+    @BeforeClass
+    public static void setUp(){
+        String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+        if (StringUtils.isEmpty(elasticUrl)){
+            elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
+        }
+        client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+                7, 100, 1000000000);
+    }
 
     @AfterClass
     public static void kill() {

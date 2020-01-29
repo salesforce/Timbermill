@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.quartz.JobDataMap;
@@ -16,17 +17,15 @@ import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.timbermill.ElasticsearchClient;
 import com.datorama.timbermill.TimberLogTest;
+import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
-import static com.datorama.timbermill.TimberLogTest.HTTP_LOCALHOST_9200;
 import static com.datorama.timbermill.common.TimbermillUtils.CLIENT;
 import static org.junit.Assert.*;
 
-public class TasksMergerJobsTest {
+public class TasksMergerJobsTest extends TimberLogTest{
 
-	private static final ElasticsearchClient client =  new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
-			7, 100, 1000000000, 3, 3);
 	private static final String CTX_1 = "ctx1";
 	private static final String CTX_2 = "ctx2";
 	private static final String CTX_3 = "ctx3";
@@ -45,6 +44,11 @@ public class TasksMergerJobsTest {
 
 	@BeforeClass
 	public static void init() {
+		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+		if (StringUtils.isEmpty(elasticUrl)){
+			elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
+		}
+		client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000);
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

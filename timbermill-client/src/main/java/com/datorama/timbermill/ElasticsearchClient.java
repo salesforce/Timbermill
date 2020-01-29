@@ -55,7 +55,6 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Task;
 import com.google.common.collect.Lists;
@@ -95,7 +94,9 @@ public class ElasticsearchClient {
 		this.numOfMergedTasksTries = numOfMergedTasksTries;
 		this.numOfTasksIndexTries = numOfTasksIndexTries;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
-        RestClientBuilder builder = RestClient.builder(HttpHost.create(elasticUrl));
+        HttpHost httpHost = HttpHost.create(elasticUrl);
+        LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
+        RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
             LOG.info("Trying to connect to AWS Elasticsearch");
             AWS4Signer signer = new AWS4Signer();
@@ -106,7 +107,7 @@ public class ElasticsearchClient {
             builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
 
-        if (elasticUser != null){
+        if (!StringUtils.isEmpty(elasticUser)){
             LOG.info("Connection to Elasticsearch using user {}", elasticUser);
             final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticUser, elasticPassword));
@@ -362,7 +363,7 @@ public class ElasticsearchClient {
 		puStoredScript();
 	}
 
-	public void puStoredScript() {
+	private void puStoredScript() {
 		PutStoredScriptRequest request = new PutStoredScriptRequest();
 		request.id(TIMBERMILL_SCRIPT);
 		String content = "{\n"

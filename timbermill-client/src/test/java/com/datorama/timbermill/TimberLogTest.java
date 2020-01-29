@@ -13,6 +13,13 @@ import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
+import org.apache.commons.lang3.tuple.Pair;
+import org.awaitility.Awaitility;
+
+import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
+
 import static com.datorama.timbermill.EventLogger.STACK_TRACE;
 import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
@@ -20,9 +27,7 @@ import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
-	public static final String HTTP_LOCALHOST_9200 = "http://localhost:9200";
-	static final ElasticsearchClient client = new ElasticsearchClient(HTTP_LOCALHOST_9200, 1000, 1, null, null, null,
-			7, 100, 1000000000, 3, 3);
+	protected static ElasticsearchClient client;
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -34,12 +39,7 @@ public abstract class TimberLogTest {
 	private String childTaskId;
 	private String childOfChildTaskId;
 
-	@AfterClass
-	public static void kill() {
-		TimberLogger.exit();
-	}
-
-	public static void waitForTask(String taskId, TaskStatus status) {
+	public synchronized static void waitForTask(String taskId, TaskStatus status) {
 		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
 		waitForCallable(callable);
 	}
