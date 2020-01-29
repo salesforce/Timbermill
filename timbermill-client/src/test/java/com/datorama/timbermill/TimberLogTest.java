@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
-import org.junit.AfterClass;
 
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.unit.LogParams;
@@ -32,7 +31,7 @@ public abstract class TimberLogTest {
 	private String childTaskId;
 	private String childOfChildTaskId;
 
-	public static void waitForTask(String taskId, TaskStatus status) {
+	public synchronized static void waitForTask(String taskId, TaskStatus status) {
 		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
 		waitForCallable(callable);
 	}
