@@ -48,7 +48,7 @@ public class TasksMergerJobsTest extends TimberLogTest{
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
 		}
-		client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000);
+		client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3, 3);
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

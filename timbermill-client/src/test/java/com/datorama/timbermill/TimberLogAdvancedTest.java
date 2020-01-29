@@ -33,7 +33,7 @@ public class TimberLogAdvancedTest {
             elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000);
+                7, 100, 1000000000, 3 ,3);
     }
 
     @AfterClass
