@@ -1,27 +1,32 @@
 package com.datorama.timbermill.pipe;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpHost;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
-import org.apache.http.HttpHost;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
+    private static final int TWO_MB = 2097152;
+    private static final int HTTP_TIMEOUT = 2000;
+    private static final int MAX_RETRY = 3;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
+    private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
     private LinkedBlockingQueue<Event> buffer;
     private Thread thread;
@@ -51,22 +56,37 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                     List<Event> eventsToSend = getEventsToSend();
                     if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
-                        HttpURLConnection httpCon = getHttpURLConnection();
-                        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
-                        sendEventsOverConnection(httpCon, eventsWrapperBytes);
-                        int responseCode = httpCon.getResponseCode();
-                        if (responseCode != 200){
-                            LOG.warn("Request to timbermill return status {}, Message: {}", responseCode, httpCon.getResponseMessage());
-                        }
-                        else{
-                            LOG.debug("{} were sent to Timbermill server", eventsToSend.size());
-                        }
+                        sendEvents(eventsToSend, eventsWrapper);
                     }
                 } catch (Exception e) {
                     LOG.error("Error sending events to Timbermill server" ,e);
                 }
-            } while (true);
+            } while (keepRunning);
         });
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            keepRunning = false;
+            try {
+                thread.join();
+            } catch (InterruptedException ignored) {
+            }
+        }));
+    }
+
+    private void sendEvents(List<Event> eventsToSend, EventsWrapper eventsWrapper) throws IOException {
+        HttpURLConnection httpCon = getHttpURLConnection();
+        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
+        for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
+            sendEventsOverConnection(httpCon, eventsWrapperBytes);
+            int responseCode = httpCon.getResponseCode();
+            if (responseCode == 200) {
+                LOG.debug("{} were sent to Timbermill server", eventsToSend.size());
+                return;
+
+            } else {
+                LOG.warn("Request to timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+            }
+        }
+        LOG.error("Can't send events to timbermill, failed {} attempts." , MAX_RETRY);
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
@@ -84,11 +104,13 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private HttpURLConnection getHttpURLConnection() throws IOException {
-        HttpURLConnection httpCon = (HttpURLConnection) timbermillServerUrl.openConnection();
-        httpCon.setRequestMethod("POST");
-        httpCon.setRequestProperty("content-type", "application/json");
-        httpCon.setDoOutput(true);
-        return httpCon;
+        HttpURLConnection httpURLConnection = (HttpURLConnection) timbermillServerUrl.openConnection();
+        httpURLConnection.setRequestMethod("POST");
+        httpURLConnection.setRequestProperty("content-type", "application/json");
+        httpURLConnection.setDoOutput(true);
+        httpURLConnection.setConnectTimeout(HTTP_TIMEOUT);
+        httpURLConnection.setReadTimeout(HTTP_TIMEOUT);
+        return httpURLConnection;
     }
 
     private List<Event> getEventsToSend() throws JsonProcessingException{

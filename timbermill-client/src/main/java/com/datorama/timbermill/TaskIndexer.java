@@ -24,7 +24,6 @@ import com.google.common.collect.Maps;
 import static com.datorama.timbermill.common.Constants.GSON;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toSet;
 
 public class TaskIndexer {
 
@@ -84,23 +83,14 @@ public class TaskIndexer {
     }
 
     private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-        Map<String, Task> previouslyIndexedParentTasks = new HashMap<>();
-        try {
-            previouslyIndexedParentTasks = fetchPreviouslyIndexedParentTasks(timbermillEvents, startEventsIds);
-            applyPlugins(timbermillEvents, env);
-
-            Map<String, Task> tasksMap = createEnrichedTasks(timbermillEvents, previouslyIndexedParentTasks);
-
-            String index = es.createTimbermillAlias(env);
-            es.index(tasksMap, index);
-            es.rolloverIndex(index);
-            LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
-
-            return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
-        } catch (Throwable t) {
-            LOG.error("Error while handling Timbermill events", t);
-            return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), ExceptionUtils.getStackTrace(t), timbermillEvents.size(), daysRotation);
-        }
+        Map<String, Task> previouslyIndexedParentTasks = fetchPreviouslyIndexedParentTasks(timbermillEvents, startEventsIds);
+        applyPlugins(timbermillEvents, env);
+        Map<String, Task> tasksMap = createEnrichedTasks(timbermillEvents, previouslyIndexedParentTasks);
+        String index = es.createTimbermillAlias(env);
+        es.index(tasksMap, index);
+        es.rolloverIndex(index);
+        LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
+        return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
     }
 
     public static long getTimesDuration(ZonedDateTime taskIndexerStartTime, ZonedDateTime taskIndexerEndTime) {
@@ -108,12 +98,13 @@ public class TaskIndexer {
     }
 
     private Map<String, Task> fetchPreviouslyIndexedParentTasks(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-        Set<String> missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
-        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
-        if (!missingParentTaskIds.isEmpty()) {
-            previouslyIndexedParentTasks = this.es.fetchIndexedTasks(missingParentTaskIds);
+        String[] missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
+        try {
+            return this.es.fetchIndexedTasks(missingParentTaskIds);
+        } catch (Throwable t) {
+            LOG.error("Error fetching indexed tasks from Elasticsearch", t);
+            return Maps.newHashMap();
         }
-        return previouslyIndexedParentTasks;
     }
 
     private Map<String, Task> createEnrichedTasks(Collection<Event> timbermillEvents, Map<String, Task> previouslyIndexedParentTasks) {
@@ -299,8 +290,8 @@ public class TaskIndexer {
                 PluginApplierTask pluginApplierTask = new PluginApplierTask(env, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration, startTime, daysRotation);
                 es.indexMetaDataTasks(env, GSON.toJson(pluginApplierTask));
             }
-        } catch (Exception ex) {
-            LOG.error("Error running plugins", ex);
+        } catch (Throwable t) {
+            LOG.error("Error running plugins", t);
         }
     }
 
@@ -335,12 +326,11 @@ public class TaskIndexer {
         return value;
     }
 
-    private static Set<String> getMissingParentTaskIds(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
+    private static String[] getMissingParentTaskIds(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
 
         return timbermillEvents.stream()
                 .filter(e -> e.getParentId() != null && !startEventsIds.contains(e.getParentId()))
-                .map(Event::getParentId)
-                .collect(toSet());
+                .map(Event::getParentId).toArray(String[]::new);
     }
 
     private static ParentProperties getParentProperties(Task indexedTask, Collection<Event> previousEvents) {

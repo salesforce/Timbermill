@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import com.datorama.timbermill.ElasticsearchClient;
 import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Task;
+import com.google.common.collect.Maps;
 
 public class TasksMergerJobs implements Job {
 
@@ -18,20 +19,17 @@ public class TasksMergerJobs implements Job {
 	private ElasticsearchClient client;
 
 	@Override public void execute(JobExecutionContext context) {
-		LOG.info("About to merge partial tasks between indices");
 		client = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(TimbermillUtils.CLIENT);
 		String currentIndex = client.getCurrentIndex();
 		String previousIndex = client.getOldIndex();
 		if (indexExists(previousIndex)){
+			LOG.info("About to merge partial tasks between indices");
 			try {
-				migrateOldPartialTaskToNewIndex(currentIndex, previousIndex);
-				LOG.info("Finished merging partial tasks.");
+				int size = migrateOldPartialTaskToNewIndex(currentIndex, previousIndex);
+				LOG.info("Finished merging {} partial tasks.", size);
 			} catch (IOException e) {
-				LOG.error("Could not merge partial tasks in indices [{}] [{}]", previousIndex, currentIndex);
+				LOG.error("Could not merge partial tasks between indices [{}] [{}]", previousIndex, currentIndex);
 			}
-		}
-		else{
-			LOG.error("Old index doesn't exists, will not merge partial tasks");
 		}
 	}
 
@@ -39,9 +37,15 @@ public class TasksMergerJobs implements Job {
 		return index != null;
 	}
 
-	private void migrateOldPartialTaskToNewIndex(String currentIndex, String previousIndex) throws IOException {
+	private int migrateOldPartialTaskToNewIndex(String currentIndex, String previousIndex) throws IOException {
+		Map<String, Task> previousIndexMatchingTasks = Maps.newHashMap();
 		Map<String, Task> currentIndexPartialTasks = client.getIndexPartialTasks(currentIndex);
-		Map<String, Task> previousIndexMatchingTasks = client.fetchTasksByIdsFromIndex(previousIndex, currentIndexPartialTasks.keySet());
-		client.indexAndDeleteTasks(previousIndexMatchingTasks);
+		if (!currentIndexPartialTasks.isEmpty()) {
+			previousIndexMatchingTasks = client.fetchTasksByIdsFromIndex(previousIndex, currentIndexPartialTasks.keySet());
+			if (!previousIndexMatchingTasks.isEmpty()) {
+				client.indexAndDeleteTasks(previousIndexMatchingTasks);
+			}
+		}
+		return previousIndexMatchingTasks.size();
 	}
 }

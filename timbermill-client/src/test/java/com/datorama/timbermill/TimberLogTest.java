@@ -7,6 +7,14 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
+import org.junit.AfterClass;
+
+import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.unit.LogParams;
+import com.datorama.timbermill.unit.Task;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.awaitility.Awaitility;
 
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.unit.LogParams;
@@ -155,7 +163,7 @@ public abstract class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	protected void testSpotWithParent(){
+	protected void testSpotWithParent() {
 		String context = "context";
 		String str = "str";
 
@@ -211,7 +219,7 @@ public abstract class TimberLogTest {
 		}
 	}
 
-	protected void testSimpleTasksFromDifferentThreadsIndexerJob(){
+	protected void testSimpleTasksFromDifferentThreadsIndexerJob() {
 
 		String context1 = "context1";
 		String context2 = "context2";
@@ -404,7 +412,7 @@ public abstract class TimberLogTest {
 		assertEquals(bla2, text.get(bla1));
 	}
 
-	protected void testOrphan(){
+	protected void testOrphan() {
 		String taskId = testOrphanTimberLog();
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);

@@ -46,11 +46,11 @@ public class BufferingOutputPipe implements EventOutputPipe {
 
 	@Override
 	public void send(Event e) {
-		if (buffer.size() > WARNING_BUFFER_SIZE){
-			LOG.warn("buffer size is above {} it's {}",WARNING_BUFFER_SIZE, buffer.size());
-		}
 		if (buffer.size() >= MAX_BUFFER_SIZE) {
 			LOG.warn("Event {} was removed from the queue due to insufficient space", buffer.poll().getTaskId());
+		}
+		else if (buffer.size() > WARNING_BUFFER_SIZE){
+			LOG.warn("buffer size is above {} it's {}",WARNING_BUFFER_SIZE, buffer.size());
 		}
 		try {
 			buffer.add(e);
@@ -65,7 +65,7 @@ public class BufferingOutputPipe implements EventOutputPipe {
 		eventOutputPipe.close();
 	}
 
-	public int getCurrentBufferSize() {
+	int getCurrentBufferSize() {
 		return buffer.size();
 	}
 }

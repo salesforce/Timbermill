@@ -44,8 +44,10 @@ public class TimbermillService {
 							 @Value("${elasticsearch.user:}") String elasticUser,
 							 @Value("${elasticsearch.password:}") String elasticPassword,
 							 @Value("${cache.max.size:10000}") int maximumCacheSize,
-							 @Value("${elasticsearch.number.of.shards:10}") int numberOfShards,
+							 @Value("${elasticsearch.number.of.shards:7}") int numberOfShards,
 							 @Value("${elasticsearch.number.of.replicas:1}") int numberOfReplicas,
+							 @Value("${number.of.tasks.merge.retries:3}") int numOfMergedTasksTries,
+							 @Value("${number.of.tasks.index.retries:3}") int numOfTasksIndexTries,
 							 @Value("${elasticsearch.index.max.age:7}") long maxIndexAge,
 							 @Value("${elasticsearch.index.max.gb.size:100}") long maxIndexSizeInGB,
 							 @Value("${elasticsearch.index.max.docs:1000000000}") long maxIndexDocs,
@@ -57,7 +59,8 @@ public class TimbermillService {
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(defaultMaxChars,
 				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp);
-		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs);
+		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
+				numOfMergedTasksTries, numOfTasksIndexTries);
 		taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
 		startWorkingThread(es);
 	}

@@ -1,5 +1,11 @@
 package com.datorama.timbermill;
 
+import java.time.ZonedDateTime;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+
+import org.junit.AfterClass;
+
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.unit.Event;
@@ -27,7 +33,7 @@ public class TimberLogAdvancedTest {
             elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000);
+                7, 100, 1000000000, 3 ,3);
     }
 
     @AfterClass
