@@ -49,7 +49,7 @@ public class TimbermillUtils {
 				es.retryFailedRequests();
 
 				Collection<Event> events = new ArrayList<>();
-				eventsQueue.drainTo(events, MAX_ELEMENTS);
+				eventsQueue.drainTo(events);
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();

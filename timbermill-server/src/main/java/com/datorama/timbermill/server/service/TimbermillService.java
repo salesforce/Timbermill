@@ -32,7 +32,7 @@ public class TimbermillService {
 	private long terminationTimeout;
 
 	@Autowired
-	public TimbermillService(@Value("${INDEX_BULK_SIZE:10000000}") Integer indexBulkSize,
+	public TimbermillService(@Value("${INDEX_BULK_SIZE:1000000}") Integer indexBulkSize,
 							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 							 @Value("${days.rotation:90}") Integer daysRotation,
