@@ -96,7 +96,7 @@ public class Task {
 				if (e.getTexts() != null && !e.getTexts().isEmpty()) {
 					text.putAll(e.getTexts());
 				}
-				if (e.getTexts() != null && !e.getMetrics().isEmpty()) {
+				if (e.getMetrics() != null && !e.getMetrics().isEmpty()) {
 					metric.putAll(e.getMetrics());
 				}
 

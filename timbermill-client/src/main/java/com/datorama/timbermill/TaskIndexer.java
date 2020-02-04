@@ -305,10 +305,12 @@ public class TaskIndexer {
 
     private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String prefix) {
         Map<String, String> newMap = new HashMap<>();
-        for (Map.Entry<String, String> entry : oldMap.entrySet()){
-            String key = entry.getKey();
-            String value = trimIfNeededValue(prefix + "." + key, entry.getValue());
-            newMap.put(key, value);
+        if (oldMap != null) {
+            for (Map.Entry<String, String> entry : oldMap.entrySet()) {
+                String key = entry.getKey().replace(".", "_");
+                String value = trimIfNeededValue(prefix + "." + key, entry.getValue());
+                newMap.put(key, value);
+            }
         }
         return newMap;
     }
