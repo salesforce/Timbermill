@@ -1,22 +1,23 @@
 package com.datorama.timbermill.server.service;
 
-import com.datorama.timbermill.ElasticsearchClient;
-import com.datorama.timbermill.ElasticsearchParams;
-import com.datorama.timbermill.TaskIndexer;
-import com.datorama.timbermill.common.TimbermillUtils;
-import com.datorama.timbermill.unit.Event;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import com.datorama.timbermill.ElasticsearchClient;
+import com.datorama.timbermill.ElasticsearchParams;
+import com.datorama.timbermill.TaskIndexer;
+import com.datorama.timbermill.common.TimbermillUtils;
+import com.datorama.timbermill.unit.Event;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class TimbermillService {
@@ -25,14 +26,14 @@ public class TimbermillService {
 	private static final int THREAD_SLEEP = 2000;
 	private TaskIndexer taskIndexer;
 	private static final int EVENT_QUEUE_CAPACITY = 10000000;
-	private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+	private final BlockingQueue<Event> eventsQueue = new LinkedBlockingQueue<>(EVENT_QUEUE_CAPACITY);
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
 
 	@Autowired
-	public TimbermillService(@Value("${INDEX_BULK_SIZE:1000000}") Integer indexBulkSize,
+	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
 							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 							 @Value("${days.rotation:90}") Integer daysRotation,
