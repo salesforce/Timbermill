@@ -101,6 +101,10 @@ public class TimbermillService {
 	}
 
 	public void handleEvent(Collection<Event> events){
-		eventsQueue.addAll(events);
+		for (Event event : events) {
+			if(!this.eventsQueue.offer(event)){
+				LOG.warn("Event {} was removed from the queue due to insufficient space", event.getTaskId());
+			}
+		}
 	}
 }
