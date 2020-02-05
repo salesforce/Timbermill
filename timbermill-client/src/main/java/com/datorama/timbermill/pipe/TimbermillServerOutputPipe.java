@@ -8,7 +8,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -22,7 +21,6 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
-    private static final int TWO_MB = 2097152;
     private static final int HTTP_TIMEOUT = 2000;
     private static final int MAX_RETRY = 3;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
@@ -49,14 +47,14 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
         maxEventsBatchSize = builder.maxEventsBatchSize;
         maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
-        buffer = new LinkedBlockingQueue<>();
+        buffer = new LinkedBlockingQueue<>(builder.maxBufferSize);
         thread = new Thread(() -> {
             do {
                 try {
                     List<Event> eventsToSend = getEventsToSend();
                     if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
-                        sendEvents(eventsToSend, eventsWrapper);
+                        sendEvents(eventsWrapper);
                     }
                 } catch (Exception e) {
                     LOG.error("Error sending events to Timbermill server" ,e);
@@ -72,14 +70,14 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }));
     }
 
-    private void sendEvents(List<Event> eventsToSend, EventsWrapper eventsWrapper) throws IOException {
+    private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
         HttpURLConnection httpCon = getHttpURLConnection();
         byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
             sendEventsOverConnection(httpCon, eventsWrapperBytes);
             int responseCode = httpCon.getResponseCode();
             if (responseCode == 200) {
-                LOG.debug("{} were sent to Timbermill server", eventsToSend.size());
+                LOG.debug("{} were sent to Timbermill server", eventsWrapper.getEvents().size());
                 return;
 
             } else {
@@ -113,11 +111,11 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         return httpURLConnection;
     }
 
-    private List<Event> getEventsToSend() throws JsonProcessingException{
+    private List<Event> getEventsToSend() {
         long startBatchTime = System.currentTimeMillis();
         List<Event> eventsToSend = new ArrayList<>();
         try {
-            int currentBatchSize = addEventFromBufferToList(eventsToSend);
+            long currentBatchSize = addEventFromBufferToList(eventsToSend);
             while(currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
                 currentBatchSize  += addEventFromBufferToList(eventsToSend);
             }
@@ -127,37 +125,55 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         return eventsToSend;
     }
 
-    private int addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException, JsonProcessingException {
-        Event event = buffer.poll(maxSecondsBeforeBatchTimeout, TimeUnit.SECONDS);
+    private long addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException {
+        Event event = buffer.poll();
         if (event == null){
+            Thread.sleep(100);
             return 0;
         }
+        cleanEvent(event);
         eventsToSend.add(event);
-        return getEventSize(event);
+		return event.estimatedSize();
     }
 
-    private boolean isExceededMaxTimeToWait(long startBatchTime) {
+	private void cleanEvent(Event event) {
+		if (event.getStrings().isEmpty()){
+			event.setStrings(null);
+		}
+		if (event.getText().isEmpty()){
+			event.setText(null);
+		}
+		if (event.getContext().isEmpty()){
+			event.setContext(null);
+		}
+		if (event.getMetrics().isEmpty()){
+			event.setMetrics(null);
+		}
+		if (event.getLogs().isEmpty()){
+			event.setLogs(null);
+		}
+	}
+
+	private boolean isExceededMaxTimeToWait(long startBatchTime) {
         return System.currentTimeMillis() - startBatchTime > maxSecondsBeforeBatchTimeout * 1000;
-    }
-
-    private int getEventSize(Event event) throws JsonProcessingException {
-        ObjectMapper om = new ObjectMapper();
-        String eventStr = om.writeValueAsString(event);
-        return eventStr.getBytes().length;
     }
 
     @Override
     public void send(Event e) {
-        synchronized(this) {
-            this.buffer.add(e);
-            if (!this.thread.isAlive()) {
-                thread.start();
+        if(!this.buffer.offer(e)){
+            LOG.warn("Event {} was removed from the queue due to insufficient space", e.getTaskId());
+        }
+        if (!this.thread.isAlive()) {
+            synchronized (this) {
+                if (!this.thread.isAlive()) {
+                    thread.start();
+                }
             }
         }
     }
 
-    @Override
-    public void close() {
-    }
+	@Override public int getCurrentBufferSize() {
+		return buffer.size();
+	}
 
 }

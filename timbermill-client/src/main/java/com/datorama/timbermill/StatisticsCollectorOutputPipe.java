@@ -12,7 +12,7 @@ class StatisticsCollectorOutputPipe implements EventOutputPipe {
 	private final AtomicLong totalSubmitDuration = new AtomicLong(0);
 	private final AtomicLong maxSubmitDuration = new AtomicLong(0);
 
-	public StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
+	StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
 		this.delegate = delegate;
 	}
 
@@ -34,22 +34,21 @@ class StatisticsCollectorOutputPipe implements EventOutputPipe {
 		eventsAmount.incrementAndGet();
 	}
 
-	@Override
-	public void close(){
-		delegate.close();
+	@Override public int getCurrentBufferSize() {
+		return delegate.getCurrentBufferSize();
 	}
 
-	public void initCounters() {
+	void initCounters() {
 		eventsAmount.set(0);
 		totalSubmitDuration.set(0);
 		maxSubmitDuration.set(0);
 	}
 
-	public long getEventsAmount() {
+	long getEventsAmount() {
 		return eventsAmount.get();
 	}
 
-	public long getMaxSubmitDuration() {
+	long getMaxSubmitDuration() {
 		return maxSubmitDuration.get();
 	}
 
@@ -57,7 +56,7 @@ class StatisticsCollectorOutputPipe implements EventOutputPipe {
 		return totalSubmitDuration.get();
 	}
 
-	public double getAvgSubmitDuration() {
+	double getAvgSubmitDuration() {
 		if (getEventsAmount() > 0) {
 			return (double) getTotalSubmitDuration() / getEventsAmount();
 		} else {

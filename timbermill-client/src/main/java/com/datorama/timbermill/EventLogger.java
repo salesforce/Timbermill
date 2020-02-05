@@ -50,13 +50,10 @@ final class EventLogger {
 		} else {
 			LOG.info("Bootstrapping EventLogger with params ({})", staticParams);
 			isBootstrapped = true;
-			BufferingOutputPipe bufferingOutputPipe = new BufferingOutputPipe(eventOutputPipe);
-			bufferingOutputPipe.start();
-
-			StatisticsCollectorOutputPipe statsCollector = new StatisticsCollectorOutputPipe(bufferingOutputPipe);
+			StatisticsCollectorOutputPipe statsCollector = new StatisticsCollectorOutputPipe(eventOutputPipe);
 
 			if (doHeartbeat) {
-				ClientHeartbeater heartbeater = new ClientHeartbeater(statsCollector, bufferingOutputPipe);
+				ClientHeartbeater heartbeater = new ClientHeartbeater(statsCollector, eventOutputPipe);
 				heartbeater.start();
 			}
 			EventLogger.staticParams = new Builder<String, String>().putAll(staticParams).build();
@@ -66,7 +63,6 @@ final class EventLogger {
 	}
 
 	static void exit(){
-		threadInstance.get().eventOutputPipe.close();
 		isBootstrapped = false;
 	}
 
@@ -77,10 +73,6 @@ final class EventLogger {
 
 	String startEvent(String name, LogParams logParams) {
 		return startEvent(null, name, null ,logParams, false, null);
-	}
-
-	String startEvent(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
-		return startEvent(null, name, parentTaskId ,logParams, false, dateToDelete);
 	}
 
 	String startEvent(String taskId, String name, String parentTaskId, LogParams logParams, boolean isOngoingTask, ZonedDateTime dateToDelete) {
@@ -97,23 +89,11 @@ final class EventLogger {
 	}
 
 	String successEvent(String ongoingTaskId, LogParams logParams) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
 		Event event = createSuccessEvent(ongoingTaskId, logParams);
 		return submitEvent(event);
-	}
-
-	private Event createSuccessEvent(String ongoingTaskId, LogParams logParams) {
-		Event e;
-		if (ongoingTaskId == null) {
-			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams);
-			} else {
-				e = new SuccessEvent(taskIdStack.pop(), logParams);
-			}
-		}
-		else {
-			e = new SuccessEvent(ongoingTaskId, logParams);
-		}
-		return e;
 	}
 
 	String endWithError(Throwable t) {
@@ -121,32 +101,17 @@ final class EventLogger {
 	}
 
     String endWithError(Throwable t, String ongoingTaskId, LogParams logParams) {
-        Event event = createErrorEvent(t, ongoingTaskId, logParams);
-        return submitEvent(event);
-    }
-
-	private Event createErrorEvent(Throwable t, String ongoingTaskId, LogParams logParams) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		if (t != null) {
-			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
-		}
-		Event e;
-		if (ongoingTaskId == null) {
-			if (taskIdStack.empty()) {
-				e = getCorruptedEvent(logParams);
-			} else {
-				e = new ErrorEvent(taskIdStack.pop(), logParams);
-			}
-		}
-		else{
-			e = new ErrorEvent(ongoingTaskId, logParams);
-		}
-		return e;
-	}
+		Event event = createErrorEvent(t, ongoingTaskId, logParams);
+        return submitEvent(event);
+    }
 
-	public String spotEvent(String taskId, String name, String parentTaskId, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+	String spotEvent(String taskId, String name, String parentTaskId, LogParams logParams, Task.TaskStatus status, ZonedDateTime dateToDelete) {
+		if (logParams == null){
+			logParams = LogParams.create();
+		}
 		Event event = createSpotEvent(taskId, name, logParams, status, dateToDelete, parentTaskId);
 		return submitEvent(event);
 	}
@@ -155,7 +120,7 @@ final class EventLogger {
 		return logParams(logParams, null);
 	}
 
-	public String logParams(LogParams logParams, String ongoingTaskId) {
+	String logParams(LogParams logParams, String ongoingTaskId) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
@@ -215,14 +180,37 @@ final class EventLogger {
 		return event;
 	}
 
-	private void setDateToDelete(ZonedDateTime dateToDelete, Event event) {
-		if (dateToDelete != null){
-			ZonedDateTime now = ZonedDateTime.now();
-			if (dateToDelete.isBefore(now)){
-				dateToDelete = now;
+	private Event createSuccessEvent(String ongoingTaskId, LogParams logParams) {
+		Event e;
+		if (ongoingTaskId == null) {
+			if (taskIdStack.empty()) {
+				e = getCorruptedEvent(logParams);
+			} else {
+				e = new SuccessEvent(taskIdStack.pop(), logParams);
 			}
-			event.setDateToDelete(dateToDelete);
 		}
+		else {
+			e = new SuccessEvent(ongoingTaskId, logParams);
+		}
+		return e;
+	}
+
+	private Event createErrorEvent(Throwable t, String ongoingTaskId, LogParams logParams) {
+		if (t != null) {
+			logParams.text(EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+		}
+		Event e;
+		if (ongoingTaskId == null) {
+			if (taskIdStack.empty()) {
+				e = getCorruptedEvent(logParams);
+			} else {
+				e = new ErrorEvent(taskIdStack.pop(), logParams);
+			}
+		}
+		else{
+			e = new ErrorEvent(ongoingTaskId, logParams);
+		}
+		return e;
 	}
 
 	private Event createInfoEvent(LogParams logParams, String ongoingTaskId) {
@@ -251,6 +239,16 @@ final class EventLogger {
 		return spotEvent;
 	}
 
+	private void setDateToDelete(ZonedDateTime dateToDelete, Event event) {
+		if (dateToDelete != null){
+			ZonedDateTime now = ZonedDateTime.now();
+			if (dateToDelete.isBefore(now)){
+				dateToDelete = now;
+			}
+			event.setDateToDelete(dateToDelete);
+		}
+	}
+
 	private PrimaryParentIdPair getPrimaryParentIdPair(String parentTaskId) {
 		if (parentTaskId != null){
 			return new PrimaryParentIdPair(null, parentTaskId);
@@ -271,9 +269,6 @@ final class EventLogger {
 
 	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		String stackTrace = getStackTraceString();
-		if (logParams == null){
-			logParams = LogParams.create();
-		}
 		logParams.text(STACK_TRACE, stackTrace);
 		return createSpotEvent(null, Constants.LOG_WITHOUT_CONTEXT, logParams, Task.TaskStatus.CORRUPTED, null, null);
 	}

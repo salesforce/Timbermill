@@ -298,7 +298,7 @@ public class TaskIndexer {
     private void trimAllStrings(Collection<Event> events) {
         events.forEach(e -> {
             e.setStrings(getTrimmedLongValues(e.getStrings(), STRING));
-            e.setTexts(getTrimmedLongValues(e.getTexts(), TEXT));
+            e.setText(getTrimmedLongValues(e.getText(), TEXT));
             e.setContext(getTrimmedLongValues(e.getContext(), CTX));
         });
     }

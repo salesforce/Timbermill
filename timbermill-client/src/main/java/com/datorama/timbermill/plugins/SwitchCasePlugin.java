@@ -4,7 +4,6 @@ import com.datorama.timbermill.unit.Event;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
 
 public class SwitchCasePlugin extends TaskLogPlugin {
 
@@ -25,14 +24,14 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	@Override
 	public void apply(Collection<Event> events) {
 		events.stream()
-			.filter(e -> e.getTexts().containsKey(searchField))
+			.filter(e -> e.getText().containsKey(searchField))
 			.filter(e -> taskMatcher.matches(e))
-			.forEach(t -> {
-				String searchText = t.getTexts().get(searchField);
+			.forEach(e -> {
+				String searchText = e.getText().get(searchField);
 				if (searchText != null) {
 					for (CaseRule caseRule : switchCase) {
 						if (caseRule.matches(searchText)) {
-							t.getStrings().put(outputAttribute, caseRule.getOutput());
+							e.getStrings().put(outputAttribute, caseRule.getOutput());
 							break;
 						}
 					}

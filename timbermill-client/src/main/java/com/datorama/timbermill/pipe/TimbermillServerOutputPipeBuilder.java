@@ -6,6 +6,7 @@ public class TimbermillServerOutputPipeBuilder {
 	String timbermillServerUrl;
 	int maxEventsBatchSize = Constants.TWO_MB;
 	long maxSecondsBeforeBatchTimeout = 3;
+	int maxBufferSize = 200000;
 
 
 	public TimbermillServerOutputPipeBuilder timbermillServerUrl(String timbermillServerUrl) {
@@ -20,6 +21,11 @@ public class TimbermillServerOutputPipeBuilder {
 
 	public TimbermillServerOutputPipeBuilder maxSecondsBeforeBatchTimeout(long maxSecondsBeforeBatchTimeout) {
 		this.maxSecondsBeforeBatchTimeout = maxSecondsBeforeBatchTimeout;
+		return this;
+	}
+
+	public TimbermillServerOutputPipeBuilder maxBufferSize(int maxBufferSize) {
+		this.maxBufferSize = maxBufferSize;
 		return this;
 	}
 

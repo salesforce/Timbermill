@@ -1,20 +1,18 @@
 package com.datorama.timbermill.unit;
 
-import com.datorama.timbermill.common.ZonedDateTimeJacksonDeserializer;
-import com.datorama.timbermill.common.ZonedDateTimeJacksonSerializer;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-
-import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import javax.validation.constraints.NotNull;
+
+import com.datorama.timbermill.common.ZonedDateTimeJacksonDeserializer;
+import com.datorama.timbermill.common.ZonedDateTimeJacksonSerializer;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
@@ -31,22 +29,48 @@ public abstract class Event{
 	public static final String EVENT_ID_DELIMITER = "___";
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 
+	protected String taskId;
+
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
 	protected ZonedDateTime time;
 
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	String primaryId;
-	protected String taskId;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected String name;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private String parentId;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private Map<String, String> strings;
-	private Map<String, String> texts;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	private Map<String, String> text;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private Map<String, String> context;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private Map<String, Number> metrics;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private List<String> logs;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private List<String> parentsPath;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private String env;
+
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private Boolean orphan;
+
+	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
+	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected ZonedDateTime dateToDelete;
 
 	public Event() {
@@ -61,7 +85,7 @@ public abstract class Event{
 		this.time = ZonedDateTime.now();
 		this.name = name;
 		this.strings = logParams.getStrings();
-		this.texts = logParams.getTexts();
+		this.text = logParams.getTexts();
 		this.context = logParams.getContext();
 		this.metrics = logParams.getMetrics();
 		this.logs = logParams.getLogs();
@@ -115,12 +139,12 @@ public abstract class Event{
 		this.metrics = metrics;
 	}
 
-	public Map<String, String> getTexts() {
-		return texts;
+	public Map<String, String> getText() {
+		return text;
 	}
 
-	public void setTexts(Map<String, String> texts) {
-		this.texts = texts;
+	public void setText(Map<String, String> text) {
+		this.text = text;
 	}
 
 	public Map<String, String> getContext() {
@@ -191,6 +215,7 @@ public abstract class Event{
 		}
 	}
 
+	@JsonIgnore
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
@@ -219,5 +244,53 @@ public abstract class Event{
 
 	ZonedDateTime getDateToDelete(long daysRotation) {
 		return null;
+	}
+
+	@JsonIgnore
+	public long estimatedSize() {
+		int primaryIdLength = primaryId == null ? 0 : primaryId.length() +15; // "primaryId":"",
+		int taskIdLength = taskId == null ? 0 : taskId.length() + 12; // "taskId":"",
+		int nameLength = name == null ? 0 : name.length() + 10; // "name":"",
+		int parentIdLength = parentId == null ? 0 : parentId.length() + 14; // "parentId":"",
+		int envLength = env == null ? 0 : env.length() + 9; // "env":"",
+
+		int stringsSize = strings == null ? 0 : getStringMapSize(strings) + 13; // "strings":{},
+		int textsSize = text == null ? 0 : getStringMapSize(text) + 10; // "text":{},
+		int contextSize = context == null ? 0 : getStringMapSize(context) + 13; // "context":{},
+		int metricsSize = metrics == null ? 0 : getNumberMapSize(metrics)+ 13; // "metrics":{},
+		int logsSize = logs == null ? 0 : stringListSize(logs) + 10; // "logs":[],
+		int parentsPathSize = parentsPath == null ? 0 : stringListSize(parentsPath) + 14; // "parentPath":[],
+		int orphanSize = orphan == null ? 0 : 16; // "orphan":"true",
+		int dateToDeleteSize = dateToDelete == null ? 0 : 42; // "orphan":"true",
+		return 24 + // {"@type":"StartEvent", },
+				34 + // "time":"2020-02-03T16:40:03.898Z",
+				primaryIdLength + taskIdLength + nameLength + parentIdLength + envLength + stringsSize + textsSize + contextSize + metricsSize + logsSize + parentsPathSize + orphanSize + dateToDeleteSize;
+	}
+
+	@JsonIgnore
+	private int stringListSize(List<String> strings) {
+		int size = 0;
+		for (String string : strings) {
+			size += string.length() + 3; //"",
+		}
+		return size;
+	}
+
+	@JsonIgnore
+	private int getStringMapSize(Map<String, String> map) {
+		int size = 0;
+		for (Map.Entry<String, String> entry : map.entrySet()) {
+			size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
+		}
+		return size;
+	}
+
+	@JsonIgnore
+	private int getNumberMapSize(Map<String, Number> map) {
+		int size = 0;
+		for (Map.Entry<String, Number> entry : map.entrySet()) {
+			size += entry.getKey().length() + 4; // "":,
+		}
+		return size;
 	}
 }

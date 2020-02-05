@@ -17,8 +17,8 @@ import static com.datorama.timbermill.common.TimbermillUtils.THREAD_SLEEP;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
-    private static final int EVENT_QUEUE_CAPACITY = 1000000;
-    private final BlockingQueue<Event> eventsQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+    public static final int EVENT_QUEUE_CAPACITY = 1000000;
+    private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     
     private TaskIndexer taskIndexer;
     private boolean keepRunning = true;
@@ -47,7 +47,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                TimbermillUtils.drainAndIndex(eventsQueue, taskIndexer, es);
+                TimbermillUtils.drainAndIndex(buffer, taskIndexer, es);
             }
             stoppedRunning = true;
         };
@@ -58,7 +58,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event e){
-        eventsQueue.add(e);
+        buffer.add(e);
     }
 
     public void close() {
@@ -72,6 +72,10 @@ public class LocalOutputPipe implements EventOutputPipe {
             }
         }
         LOG.info("Timbermill server was shut down.");
+    }
+
+    @Override public int getCurrentBufferSize() {
+        return buffer.size();
     }
 
     public static class Builder {

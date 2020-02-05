@@ -69,7 +69,7 @@ public class EventLoggerTest {
 
 		Event endEvent = events.get(1);
 		assertTrue(endEvent instanceof ErrorEvent);
-		assertTrue(endEvent.getTexts().get(EXCEPTION).contains(exception.toString()));
+		assertTrue(endEvent.getText().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test
@@ -108,7 +108,7 @@ public class EventLoggerTest {
 		Event diagnosticEvent = events.get(1);
 		assertEquals(startId, diagnosticEvent.getTaskId());
 		assertTrue(diagnosticEvent instanceof InfoEvent);
-		assertEquals(TEST, diagnosticEvent.getTexts().get(PARAM));
+		assertEquals(TEST, diagnosticEvent.getText().get(PARAM));
 
 	}
 
@@ -152,7 +152,7 @@ public class EventLoggerTest {
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
-		assertTrue(event.getTexts().get(EXCEPTION).contains(exception.toString()));
+		assertTrue(event.getText().get(EXCEPTION).contains(exception.toString()));
 	}
 
 	@Test
@@ -166,7 +166,7 @@ public class EventLoggerTest {
 		assertEquals(1, events.size());
 		Event event = events.get(0);
 		assertEquals(Constants.LOG_WITHOUT_CONTEXT, event.getName());
-		assertEquals(value, event.getTexts().get(key));
+		assertEquals(value, event.getText().get(key));
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}

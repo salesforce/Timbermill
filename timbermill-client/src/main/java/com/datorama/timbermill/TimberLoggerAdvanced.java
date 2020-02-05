@@ -29,7 +29,7 @@ public class TimberLoggerAdvanced {
     }
 
     public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
-        return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, null);
+        return startWithDateToDelete(taskId, name, parentTaskId, logParams,null);
     }
 
     public static String startWithDaysToKeep(String name, int daysToKeep) {

@@ -96,11 +96,11 @@ public final class TimberLogger {
 	}
 
 	public static String success() {
-		return EventLogger.get().successEvent();
+		return EventLogger.get().successEvent(null, LogParams.create());
 	}
 
 	public static String error(Throwable t) {
-		return EventLogger.get().endWithError(t);
+		return EventLogger.get().endWithError(t, null, null);
 	}
 
 	public static String logParams(LogParams logParams) {

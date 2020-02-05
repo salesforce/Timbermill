@@ -9,9 +9,8 @@ class BlackHolePipe implements EventOutputPipe {
 		//Do nothing
 	}
 
-	@Override
-	public void close() {
-
+	@Override public int getCurrentBufferSize() {
+		return 0;
 	}
 
 }
