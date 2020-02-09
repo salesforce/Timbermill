@@ -33,9 +33,10 @@ public class TimbermillStressTest extends TimberLogTest{
     private static final String CTX = "ctx";
     private static ExecutorService executorService;
     private static String env;
-    private static int numOfParents = 30;
+    private static int numOfParents = 10;
     private static int numOfThreads = 10;
-    private static int numOfTasks = 10;
+    private static int numOfTasks = 100000;
+    private static int maxBufferSize = 20000000;
 
     @BeforeClass
     public static void init() {
@@ -43,11 +44,13 @@ public class TimbermillStressTest extends TimberLogTest{
             numOfParents = Integer.parseInt(System.getenv("NUM_OF_PARENTS"));
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));
             numOfTasks = Integer.parseInt(System.getenv("NUM_OF_TASKS"));
+            maxBufferSize = Integer.parseInt(System.getenv("MAX_BUFFER_SIZE"));
         } catch (Throwable ignored){}
 
         LOG.info("numOfParents = {}", numOfParents);
         LOG.info("numOfThreads = {}", numOfThreads);
         LOG.info("numOfTasks = {}", numOfTasks);
+        LOG.info("maxBufferSize = {}", maxBufferSize);
         String timbermillUrl = System.getenv("TIMBERMILL_URL");
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = Constants.DEFAULT_TIMBERMILL_URL;
@@ -65,7 +68,7 @@ public class TimbermillStressTest extends TimberLogTest{
         client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
                 7, 100, 1000000000, 3, 3);
         executorService = Executors.newFixedThreadPool(numOfThreads);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).build();
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();
         TimberLogger.bootstrap(pipe, env);
     }
@@ -151,17 +154,77 @@ public class TimbermillStressTest extends TimberLogTest{
             if (parentTaskId == null) {
                 parentTaskId = Event.generateTaskId("orphan_string_stress");
                 taskId = TimberLoggerAdvanced.start("orphan_string_stress", parentTaskId);
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text1", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text2", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text3", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text4", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text5", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text6", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text7", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text8", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text9", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text10", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text11", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text12", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text13", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text14", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text15", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text16", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text17", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text18", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text19", "TEXT"));
+                TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text20", "TEXT"));
                 waitForTask(taskId, Task.TaskStatus.UNTERMINATED);
                 TimberLoggerAdvanced.success(taskId);
             }
             else{
                 if(i + 1 == numOfParents){
                     TimberLoggerAdvanced.start(parentTaskId, "orphan_string_stress",  null, LogParams.create().context(CTX, CTX));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text1", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text2", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text3", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text4", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text5", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text6", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text7", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text8", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text9", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text10", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text11", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text12", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text13", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text14", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text15", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text16", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text17", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text18", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text19", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text20", "TEXT"));
                     TimberLoggerAdvanced.success(parentTaskId);
                 }
                 else{
                     String newParentTaskId = Event.generateTaskId("orphan_string_stress");
                     TimberLoggerAdvanced.start(parentTaskId, "orphan_string_stress",  newParentTaskId, null);
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text1", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text2", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text3", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text4", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text5", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text6", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text7", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text8", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text9", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text10", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text11", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text12", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text13", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text14", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text15", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text16", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text17", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text18", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text19", "TEXT"));
+                    TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().text("text20", "TEXT"));
                     TimberLoggerAdvanced.success(parentTaskId);
                     parentTaskId = newParentTaskId;
                 }
@@ -177,6 +240,26 @@ public class TimbermillStressTest extends TimberLogTest{
         for (int i = 0; i < numOfTasks; i++) {
             String parentTaskId = Event.generateTaskId("parent_stress");
             orphan = TimberLogger.start("orphan_stress", parentTaskId, null);
+            TimberLogger.logText("text1", "Text");
+            TimberLogger.logText("text2", "Text");
+            TimberLogger.logText("text3", "Text");
+            TimberLogger.logText("text4", "Text");
+            TimberLogger.logText("text5", "Text");
+            TimberLogger.logText("text6", "Text");
+            TimberLogger.logText("text7", "Text");
+            TimberLogger.logText("text8", "Text");
+            TimberLogger.logText("text9", "Text");
+            TimberLogger.logText("text10", "Text");
+            TimberLogger.logText("text11", "Text");
+            TimberLogger.logText("text12", "Text");
+            TimberLogger.logText("text13", "Text");
+            TimberLogger.logText("text14", "Text");
+            TimberLogger.logText("text15", "Text");
+            TimberLogger.logText("text16", "Text");
+            TimberLogger.logText("text17", "Text");
+            TimberLogger.logText("text18", "Text");
+            TimberLogger.logText("text19", "Text");
+            TimberLogger.logText("text20", "Text");
             TimberLogger.success();
             parentTasks.add(parentTaskId);
         }
@@ -192,6 +275,26 @@ public class TimbermillStressTest extends TimberLogTest{
         String childTaskId = null;
         for (String tasksId : tasksIds) {
             childTaskId = TimberLoggerAdvanced.start("child_stress", tasksId);
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text1", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text2", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text3", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text4", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text5", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text6", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text7", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text8", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text9", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text10", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text11", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text12", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text13", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text14", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text15", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text16", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text17", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text18", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text19", "TEXT"));
+            TimberLoggerAdvanced.logParams(childTaskId, LogParams.create().text("text20", "TEXT"));
             TimberLoggerAdvanced.success(childTaskId);
         }
         return childTaskId;
@@ -212,7 +315,26 @@ public class TimbermillStressTest extends TimberLogTest{
         List<String> retList = new ArrayList<>();
         for (int i = 0; i < numOfTasks; i++) {
             String taskId = TimberLoggerAdvanced.start("advanced_stress");
-            TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(CTX, taskId));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text1", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text2", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text3", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text4", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text5", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text6", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text7", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text8", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text9", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text10", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text11", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text12", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text13", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text14", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text15", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text16", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text17", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text18", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text19", "TEXT"));
+            TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text20", "TEXT"));
             TimberLoggerAdvanced.success(taskId);
             retList.add(taskId);
         }
@@ -230,7 +352,26 @@ public class TimbermillStressTest extends TimberLogTest{
     @TimberLog(name = "simple_stress")
     private String simpleStressLog() {
         String currentTaskId = TimberLogger.getCurrentTaskId();
-        TimberLogger.logContext(CTX, currentTaskId);
+        TimberLogger.logText("text1", "Text");
+        TimberLogger.logText("text2", "Text");
+        TimberLogger.logText("text3", "Text");
+        TimberLogger.logText("text4", "Text");
+        TimberLogger.logText("text5", "Text");
+        TimberLogger.logText("text6", "Text");
+        TimberLogger.logText("text7", "Text");
+        TimberLogger.logText("text8", "Text");
+        TimberLogger.logText("text9", "Text");
+        TimberLogger.logText("text10", "Text");
+        TimberLogger.logText("text11", "Text");
+        TimberLogger.logText("text12", "Text");
+        TimberLogger.logText("text13", "Text");
+        TimberLogger.logText("text14", "Text");
+        TimberLogger.logText("text15", "Text");
+        TimberLogger.logText("text16", "Text");
+        TimberLogger.logText("text17", "Text");
+        TimberLogger.logText("text18", "Text");
+        TimberLogger.logText("text19", "Text");
+        TimberLogger.logText("text20", "Text");
         return currentTaskId;
     }
 }

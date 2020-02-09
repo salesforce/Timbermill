@@ -1,6 +1,7 @@
 package com.datorama.timbermill.plugins;
 
 import com.datorama.timbermill.unit.Event;
+import com.google.common.collect.Maps;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -24,13 +25,16 @@ public class SwitchCasePlugin extends TaskLogPlugin {
 	@Override
 	public void apply(Collection<Event> events) {
 		events.stream()
-			.filter(e -> e.getText().containsKey(searchField))
+			.filter(e -> e.getText() != null && e.getText().containsKey(searchField))
 			.filter(e -> taskMatcher.matches(e))
 			.forEach(e -> {
 				String searchText = e.getText().get(searchField);
 				if (searchText != null) {
 					for (CaseRule caseRule : switchCase) {
 						if (caseRule.matches(searchText)) {
+							if (e.getStrings() == null){
+								e.setStrings(Maps.newHashMap());
+							}
 							e.getStrings().put(outputAttribute, caseRule.getOutput());
 							break;
 						}

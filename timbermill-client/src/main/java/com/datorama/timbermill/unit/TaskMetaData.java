@@ -39,4 +39,13 @@ class TaskMetaData {
 	void setDateToDelete(ZonedDateTime dateToDelete) {
 		this.dateToDelete = dateToDelete;
 	}
+
+	@Override public String toString() {
+		return "TaskMetaData{" +
+				"taskBegin=" + taskBegin +
+				", taskEnd=" + taskEnd +
+				", duration=" + duration +
+				", dateToDelete=" + dateToDelete +
+				'}';
+	}
 }

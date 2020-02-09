@@ -7,20 +7,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
-import org.junit.AfterClass;
-
-import com.datorama.timbermill.annotation.TimberLog;
-import com.datorama.timbermill.unit.LogParams;
-import com.datorama.timbermill.unit.Task;
-
-import org.apache.commons.lang3.tuple.Pair;
-import org.awaitility.Awaitility;
 
 import com.datorama.timbermill.annotation.TimberLog;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
 import static com.datorama.timbermill.EventLogger.STACK_TRACE;
+import static com.datorama.timbermill.TaskIndexer.MAX_LUCENE_CHARS;
 import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
@@ -63,7 +56,8 @@ public abstract class TimberLogTest {
 
 		String log1 = "log1";
 		String log2 = "log2";
-		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2);
+		String ctx = "ctx";
+		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, ctx);
 
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
@@ -79,7 +73,7 @@ public abstract class TimberLogTest {
 
 		assertEquals(str1, strings.get(str1));
 		assertEquals(str2, strings.get(str2));
-		assertEquals(1, metrics.get(metric1).intValue());
+		assertEquals(0, metrics.get(metric1).intValue());
 		assertEquals(2, metrics.get(metric2).intValue());
 		assertEquals(text1, texts.get(text1));
 		assertEquals(text2, texts.get(text2));
@@ -91,11 +85,17 @@ public abstract class TimberLogTest {
 	}
 
 	@TimberLog(name = EVENT)
-	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2) throws InterruptedException {
+	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String ctx) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
-		TimberLogger.logMetric(metric1, 1);
+		TimberLogger.logMetric(metric1, Double.NaN);
 		TimberLogger.logText(text1, text1);
 		TimberLogger.logInfo(log1);
+		StringBuilder stringBuilder = new StringBuilder();
+		for (int i = 0; i < 327660; i++) {
+			stringBuilder.append("a");
+		}
+		String longContext = stringBuilder.toString();
+		TimberLogger.logText(ctx, longContext);
 		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).logInfo(log2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
@@ -124,7 +124,7 @@ public abstract class TimberLogTest {
 
 		StringBuilder sb = new StringBuilder();
 
-		for (int i = 0 ; i < 1000000; i++){
+		for (int i = 0 ; i < 100000; i++){
 			sb.append("a");
 		}
 		String hugeString = sb.toString();
@@ -138,15 +138,16 @@ public abstract class TimberLogTest {
 		Map<String, String> strings = task.getString();
 		Map<String, String> texts = task.getText();
 		Map<String, String> context = task.getCtx();
-		assertEquals(10000, strings.get("sql1").length());
+
+		assertEquals(MAX_LUCENE_CHARS, strings.get("sql1").length());
 		assertEquals(100, strings.get("sql2").length());
-		assertEquals(1000, strings.get("sql3").length());
-		assertEquals(10000, texts.get("sql1").length());
+		assertEquals(MAX_LUCENE_CHARS, strings.get("sql3").length());
+		assertEquals(40000, texts.get("sql1").length());
 		assertEquals(100, texts.get("sql2").length());
-		assertEquals(1000, texts.get("sql3").length());
-		assertEquals(10000, context.get("sql1").length());
+		assertEquals(hugeString.length(), texts.get("sql3").length());
+		assertEquals(MAX_LUCENE_CHARS, context.get("sql1").length());
 		assertEquals(100, context.get("sql2").length());
-		assertEquals(1000, context.get("sql3").length());
+		assertEquals(MAX_LUCENE_CHARS, context.get("sql3").length());
 	}
 
 	@TimberLog(name = EVENT)

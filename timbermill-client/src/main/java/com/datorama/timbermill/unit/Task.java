@@ -326,6 +326,24 @@ public class Task {
 		return updateRequest;
 	}
 
+	@Override public String toString() {
+		return "Task{" +
+				"env='" + env + '\'' +
+				", name='" + name + '\'' +
+				", status=" + status +
+				", parentId='" + parentId + '\'' +
+				", primaryId='" + primaryId + '\'' +
+				", parentsPath=" + parentsPath +
+				", meta={" + meta + "}" +
+				", ctx=" + ctx +
+				", string=" + string +
+				", text=" + text +
+				", metric=" + metric +
+				", log='" + log + '\'' +
+				", orphan=" + orphan +
+				'}';
+	}
+
 	public enum TaskStatus {
 		UNTERMINATED,
 		SUCCESS,

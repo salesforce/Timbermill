@@ -31,11 +31,11 @@ public class TaskIndexer {
     private static final String TEXT = "text";
     private static final String STRING = "string";
     private static final String CTX = "ctx";
+    static final int MAX_LUCENE_CHARS = 32765;
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
     private final Map<String, Integer> propertiesLengthMap;
-    private final int defaultMaxChars;
     private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
 
@@ -43,7 +43,6 @@ public class TaskIndexer {
         this.daysRotation = elasticsearchParams.getDaysRotation() < 0 ? 1 : elasticsearchParams.getDaysRotation();
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.propertiesLengthMap = elasticsearchParams.getPropertiesLengthJson();
-        this.defaultMaxChars = elasticsearchParams.getDefaultMaxChars();
         this.es = es;
         parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
     }
@@ -193,6 +192,9 @@ public class TaskIndexer {
             String primaryId = parentProperties.getPrimaryId();
             event.setPrimaryId(primaryId);
             for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
+                if (event.getContext() == null){
+                    event.setContext(Maps.newHashMap());
+                }
                 event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
             }
 
@@ -297,33 +299,60 @@ public class TaskIndexer {
 
     private void trimAllStrings(Collection<Event> events) {
         events.forEach(e -> {
-            e.setStrings(getTrimmedLongValues(e.getStrings(), STRING));
-            e.setText(getTrimmedLongValues(e.getText(), TEXT));
-            e.setContext(getTrimmedLongValues(e.getContext(), CTX));
+            e.setStrings(getTrimmedLongValues(e.getStrings(), STRING, e));
+            e.setContext(getTrimmedLongValues(e.getContext(), CTX, e));
+            e.setText(getTrimmedLongValues(e.getText(), TEXT, e));
+            e.setMetrics(removeNaNs(e));
         });
     }
 
-    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String prefix) {
+    private Map<String, Number> removeNaNs(Event event) {
+        Map<String, Number> metrics = event.getMetrics();
+        Map<String, Number> newMetrics = Maps.newHashMap();
+        if (metrics != null) {
+            for (Map.Entry<String, Number> entry : metrics.entrySet()) {
+                Number value = entry.getValue();
+                String key = entry.getKey();
+                if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
+                    newMetrics.put(key, 0);
+                    LOG.error("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
+                } else {
+                    newMetrics.put(key, value);
+                }
+            }
+        }
+        return newMetrics;
+    }
+
+    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String prefix, Event event) {
         Map<String, String> newMap = new HashMap<>();
         if (oldMap != null) {
             for (Map.Entry<String, String> entry : oldMap.entrySet()) {
                 String key = entry.getKey().replace(".", "_");
-                String value = trimIfNeededValue(prefix + "." + key, entry.getValue());
+                String value = trimIfNeededValue(prefix + "." + key, entry.getValue(), event);
                 newMap.put(key, value);
             }
         }
         return newMap;
     }
 
-    private String trimIfNeededValue(String key, String value) {
-        Integer maxPropertyLength = propertiesLengthMap.get(key);
+    private String trimIfNeededValue(String key, String value, Event event) {
+        String newValue = trimUsingConfigMap(key, value);
+        if (!key.startsWith(TEXT + ".")) {
+            if (newValue.length() > MAX_LUCENE_CHARS) {
+                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", newValue.substring(0, 20), key, event.getTaskId(), MAX_LUCENE_CHARS);
+                return newValue.substring(0, MAX_LUCENE_CHARS);
+            }
+        }
+        return newValue;
+    }
+
+    private String trimUsingConfigMap(String propertyName, String value) {
+        Integer maxPropertyLength = propertiesLengthMap.get(propertyName);
         if (maxPropertyLength != null){
             if (value.length() > maxPropertyLength) {
                 return value.substring(0, maxPropertyLength);
             }
-        }
-        else if (value.length() > defaultMaxChars){
-            return value.substring(0, defaultMaxChars);
         }
         return value;
     }

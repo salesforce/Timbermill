@@ -21,9 +21,11 @@ public class HeartbeatTask extends Task{
 
         Map<String, Number> eventMetrics = e.getMetrics();
         Map<String, Number> taskMetrics = this.getMetric();
-        taskMetrics.put("submitAmount", eventMetrics.get(SUBMIT_AMOUNT));
-        taskMetrics.put("avgSubmitDuration", eventMetrics.get(AVG_SUBMIT_DURATION));
-        taskMetrics.put("maxSubmitDuration", eventMetrics.get(MAX_SUBMIT_DURATION));
-        taskMetrics.put("outputBufferSize", eventMetrics.get(OUTPUT_BUFFER_SIZE));
+        if (eventMetrics != null) {
+            taskMetrics.put("submitAmount", eventMetrics.get(SUBMIT_AMOUNT));
+            taskMetrics.put("avgSubmitDuration", eventMetrics.get(AVG_SUBMIT_DURATION));
+            taskMetrics.put("maxSubmitDuration", eventMetrics.get(MAX_SUBMIT_DURATION));
+            taskMetrics.put("outputBufferSize", eventMetrics.get(OUTPUT_BUFFER_SIZE));
+        }
     }
 }

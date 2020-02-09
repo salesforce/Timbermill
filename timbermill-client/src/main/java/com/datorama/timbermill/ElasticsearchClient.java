@@ -352,8 +352,12 @@ public class ElasticsearchClient {
         for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
             Task task = taskEntry.getValue();
 
-            UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
-            requests.add(updateRequest);
+            try {
+				UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
+				requests.add(updateRequest);
+			} catch (Throwable t){
+				LOG.error("Failed while creating update request. task:" + task.toString(), t);
+			}
         }
         return requests;
     }

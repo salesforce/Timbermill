@@ -39,7 +39,6 @@ public class TimbermillService {
 							 @Value("${days.rotation:90}") Integer daysRotation,
 							 @Value("${plugins.json:[]}") String pluginsJson,
 							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
-							 @Value("${default.max.chars:100000}") int defaultMaxChars,
 							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds,
 							 @Value("${indexing.threads:10}") int indexingThreads,
 							 @Value("${elasticsearch.user:}") String elasticUser,
@@ -58,7 +57,7 @@ public class TimbermillService {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
-		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(defaultMaxChars,
+		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(
 				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
 				numOfMergedTasksTries, numOfTasksIndexTries);

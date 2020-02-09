@@ -17,7 +17,7 @@ import static com.datorama.timbermill.common.TimbermillUtils.THREAD_SLEEP;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
-    public static final int EVENT_QUEUE_CAPACITY = 1000000;
+    private static final int EVENT_QUEUE_CAPACITY = 1000000;
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     
     private TaskIndexer taskIndexer;
@@ -33,7 +33,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.defaultMaxChars, builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries);
@@ -88,7 +88,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String elasticUrl = null;
         private String pluginsJson = "[]";
         private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
-        private int defaultMaxChars = 1000000;
         private int daysRotation = 90;
         private int indexBulkSize = 2097152;
         private int indexingThreads = 1;
@@ -115,11 +114,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder propertiesLengthMap(Map<String, Integer> propertiesLengthMap) {
             this.propertiesLengthMap = propertiesLengthMap;
-            return this;
-        }
-
-        public Builder defaultMaxChars(int defaultMaxChars) {
-            this.defaultMaxChars = defaultMaxChars;
             return this;
         }
 
