@@ -313,12 +313,14 @@ public class TaskIndexer {
             for (Map.Entry<String, Number> entry : metrics.entrySet()) {
                 Number value = entry.getValue();
                 String key = entry.getKey();
-                if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
-                    newMetrics.put(key, 0);
-                    LOG.error("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
-                } else {
-                    newMetrics.put(key, value);
-                }
+                if (value != null) {
+					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
+						newMetrics.put(key, 0);
+						LOG.error("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
+					} else {
+						newMetrics.put(key, value);
+					}
+				}
             }
         }
         return newMetrics;
