@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 
-import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.annotation.TimberLogTask;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
@@ -84,7 +84,7 @@ public abstract class TimberLogTest {
 		assertTrue(split[1].matches(LOG_REGEX + log2));
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String ctx) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, Double.NaN);
@@ -114,7 +114,7 @@ public abstract class TimberLogTest {
 		assertEquals("TOO_MANY_SERVER_ROWS", errorType);
 	}
 
-	@TimberLog(name = EVENT + "plugin")
+	@TimberLogTask(name = EVENT + "plugin")
 	private String testSwitchCasePluginLog() {
 		TimberLogger.logText("exception", "bla bla bla TOO_MANY_SERVER_ROWS bla bla bla");
 		return TimberLogger.getCurrentTaskId();
@@ -150,7 +150,7 @@ public abstract class TimberLogTest {
 		assertEquals(MAX_LUCENE_CHARS, context.get("sql3").length());
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String testSimpleTaskWithTrimmer1(String hugeString) {
 		TimberLogger.logString("sql1", hugeString);
 		TimberLogger.logString("sql2", hugeString);
@@ -189,7 +189,7 @@ public abstract class TimberLogTest {
         assertEquals(context, child.getCtx().get(context));
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private Pair<String, String> testSpotWithParentTimberLog(String context1, String context2, String[] taskIdSpot) {
 		String taskId1 = TimberLogger.getCurrentTaskId();
 		TimberLogger.logContext(context1, context1);
@@ -198,7 +198,7 @@ public abstract class TimberLogTest {
 	}
 
 
-	@TimberLog(name = EVENT + '2')
+	@TimberLogTask(name = EVENT + '2')
 	private String testSpotWithParentTimberLog2(String context2, String[] taskIdSpot, String taskId1) {
 		TimberLogger.logContext(context2, context2);
 		Thread thread = new Thread(() -> {
@@ -257,7 +257,7 @@ public abstract class TimberLogTest {
 		assertEquals(context1, spot.getCtx().get(context1));
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog1(String context1, String context2) {
 		TimberLogger.logContext(context1, context1);
 		String taskId = TimberLogger.getCurrentTaskId();
@@ -266,7 +266,7 @@ public abstract class TimberLogTest {
 		return tasks;
 	}
 
-	@TimberLog(name = EVENT + '2')
+	@TimberLogTask(name = EVENT + '2')
 	private String[] testSimpleTasksFromDifferentThreadsIndexerJobTimberLog2(String context2, String taskId) {
 
 		TimberLogger.logContext(context2, context2);
@@ -291,12 +291,12 @@ public abstract class TimberLogTest {
 		return tasks;
 	}
 
-	@TimberLog(name = EVENT + '3')
+	@TimberLogTask(name = EVENT + '3')
 	private String testSimpleTasksFromDifferentThreadsIndexerJobTimberLog3() {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@TimberLog(name = SPOT)
+	@TimberLogTask(name = SPOT)
 	private String testSimpleTasksFromDifferentThreadsIndexerJobTimberLog4() {
 		return TimberLogger.getCurrentTaskId();
 	}
@@ -318,7 +318,7 @@ public abstract class TimberLogTest {
 		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS);
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJobTimberLog() {
 		return TimberLogger.getCurrentTaskId();
 	}
@@ -341,7 +341,7 @@ public abstract class TimberLogTest {
 		assertTask(taskChildOfChild, EVENT_CHILD_OF_CHILD, true, true, parentId, childTaskId, TaskStatus.ERROR, EVENT, EVENT_CHILD);
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String testComplexTaskIndexerWithErrorTaskTimberLog3(){
 		try {
 			testComplexTaskIndexerWithErrorTaskTimberLog2();
@@ -350,13 +350,13 @@ public abstract class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	@TimberLog(name = EVENT_CHILD)
+	@TimberLogTask(name = EVENT_CHILD)
 	private void testComplexTaskIndexerWithErrorTaskTimberLog2() throws Exception {
 		childTaskId = TimberLogger.getCurrentTaskId();
 		testComplexTaskIndexerWithErrorTaskTimberLog1();
 	}
 
-	@TimberLog(name = EVENT_CHILD_OF_CHILD)
+	@TimberLogTask(name = EVENT_CHILD_OF_CHILD)
 	private void testComplexTaskIndexerWithErrorTaskTimberLog1() throws Exception {
 		childOfChildTaskId = TimberLogger.getCurrentTaskId();
 		throw FAIL;
@@ -371,7 +371,7 @@ public abstract class TimberLogTest {
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
 	}
 
-	@TimberLog(name = EVENT)
+	@TimberLogTask(name = EVENT)
 	private String testTaskWithNullStringTimberLog() {
 		TimberLogger.logString("key", "null");
 		return TimberLogger.getCurrentTaskId();

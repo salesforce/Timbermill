@@ -6,19 +6,14 @@ import java.util.concurrent.Callable;
 
 import org.junit.AfterClass;
 
-import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.annotation.TimberLogTask;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.unit.Event;
 import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
 import org.apache.commons.lang3.StringUtils;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
-
-import java.time.ZonedDateTime;
-import java.util.UUID;
-import java.util.concurrent.Callable;
 
 import static com.datorama.timbermill.TimberLogTest.*;
 import static com.datorama.timbermill.unit.Task.*;
@@ -209,7 +204,7 @@ public class TimberLogAdvancedTest {
         assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
-    @TimberLog(name = EVENT)
+    @TimberLogTask(name = EVENT)
     private String testOutOfOrderWithParentTask1(String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName, String taskId, String log1, String log2, String log3) {
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
@@ -686,7 +681,7 @@ public class TimberLogAdvancedTest {
         assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
-    @TimberLog(name = EVENT)
+    @TimberLogTask(name = EVENT)
     private void testOngoingTask1(String[] taskId1Arr, String[] taskId2Arr, String[] ongoingTaskIdArr, String ctx, String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String log1, String log2, String log3, String ongoingTaskName) {
         TimberLogger.logParams(LogParams.create().context(ctx, ctx));
         taskId1Arr[0] = TimberLogger.getCurrentTaskId();
@@ -701,7 +696,7 @@ public class TimberLogAdvancedTest {
         }).run();
     }
 
-    @TimberLog(name = EVENT + '2')
+    @TimberLogTask(name = EVENT + '2')
     private String testOngoingTask2() {
         return TimberLogger.getCurrentTaskId();
     }
@@ -737,7 +732,7 @@ public class TimberLogAdvancedTest {
         assertEquals(ctx1, childTask.getCtx().get(ctx1));
     }
 
-    @TimberLog(name = EVENT + '2')
+    @TimberLogTask(name = EVENT + '2')
     private String testOngoingPrimaryTask2() {
         return TimberLogger.getCurrentTaskId();
 
@@ -773,7 +768,7 @@ public class TimberLogAdvancedTest {
         assertTaskPrimary(ongoingTask,  ongoingTaskName, TaskStatus.SUCCESS, ongoingTaskId, true, true);
     }
 
-    @TimberLog(name = EVENT + '2')
+    @TimberLogTask(name = EVENT + '2')
     private String testOngoingTaskWithContext2() {
         return TimberLogger.getCurrentTaskId();
     }
@@ -793,7 +788,7 @@ public class TimberLogAdvancedTest {
         assertTaskPrimary(childTask, EVENT + '2', TaskStatus.SUCCESS, taskId, true, true);
     }
 
-    @TimberLog(name = EVENT + '2')
+    @TimberLogTask(name = EVENT + '2')
     private String testOngoingTaskWithNullContext2() {
         return TimberLogger.getCurrentTaskId();
     }

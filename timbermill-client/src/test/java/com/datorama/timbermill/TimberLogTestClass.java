@@ -1,18 +1,18 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.annotation.TimberLogTask;
 
 
 class TimberLogTestClass {
 
     private final String taskId;
 
-    @TimberLog(name = "ctr")
+    @TimberLogTask(name = "ctr")
     TimberLogTestClass() {
         taskId = TimberLogger.getCurrentTaskId();
     }
 
-    @TimberLog(name = "ctr")
+    @TimberLogTask(name = "ctr")
     TimberLogTestClass(String[] task) throws Exception {
         task[0] = TimberLogger.getCurrentTaskId();
         throw new Exception();

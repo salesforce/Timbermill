@@ -9,7 +9,7 @@ import org.aspectj.lang.annotation.Aspect;
 public class TimberLogAspect {
 
     @Around("(execution(* *(..)) || execution(*.new(..))) && @annotation(timberLogAnnotation)")
-    public Object timberLog(ProceedingJoinPoint pjp, TimberLog timberLogAnnotation) throws Throwable {
+    public Object timberLog(ProceedingJoinPoint pjp, TimberLogTask timberLogAnnotation) throws Throwable {
         TimberLogger.start(timberLogAnnotation.name());
         try {
             Object obj = pjp.proceed();

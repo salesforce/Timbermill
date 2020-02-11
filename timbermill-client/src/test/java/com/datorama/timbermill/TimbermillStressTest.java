@@ -16,7 +16,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.timbermill.annotation.TimberLog;
+import com.datorama.timbermill.annotation.TimberLogTask;
 import com.datorama.timbermill.common.Constants;
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.timbermill.pipe.TimbermillServerOutputPipeBuilder;
@@ -349,7 +349,7 @@ public class TimbermillStressTest extends TimberLogTest{
         return retStr;
     }
 
-    @TimberLog(name = "simple_stress")
+    @TimberLogTask(name = "simple_stress")
     private String simpleStressLog() {
         String currentTaskId = TimberLogger.getCurrentTaskId();
         TimberLogger.logText("text1", "Text");
