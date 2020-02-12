@@ -81,7 +81,7 @@ public class ElasticsearchClient {
     private String oldIndex;
 	private int numOfMergedTasksTries;
 	private int numOfTasksIndexTries;
-	private ConcurrentHashMap<BulkRequest, Integer> failedRequests = new ConcurrentHashMap<>(100);
+	private LinkedBlockingQueue<Pair<BulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfTasksIndexTries) {
@@ -233,7 +233,7 @@ public class ElasticsearchClient {
 		int numberOfActions = request.numberOfActions();
 		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 		if (retryNum > 0){
-			LOG.info("Retry Number {}//{}", retryNum, numOfTasksIndexTries);
+			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfTasksIndexTries, request.estimatedSizeInBytes());
 		}
 		try {
             BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
@@ -246,11 +246,10 @@ public class ElasticsearchClient {
         } catch (Throwable t) {
 			if (retryNum >= numOfTasksIndexTries){
 				LOG.error("Reached maximum retries attempt to index for " + request.getDescription() + " Tasks will not be indexed.", t);
-				failedRequests.remove(request);
 			}
 			else {
 				LOG.warn("Failed while trying to bulk index tasks. Going to retry.", t);
-				failedRequests.put(request, retryNum);
+				failedRequests.offer(Pair.of(request, retryNum));//todo add persistence if fails
 			}
         }
 
@@ -265,7 +264,7 @@ public class ElasticsearchClient {
 				futureRequest.getLeft().get();
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("An error was thrown while indexing a batch", e);
-                failedRequests.put(futureRequest.getRight(), 0);
+                failedRequests.offer(Pair.of(futureRequest.getRight(), 0)); //todo add persistence if fails
             }
         }
     }
@@ -310,7 +309,7 @@ public class ElasticsearchClient {
 				moveTasksFromOldToNewIndex();
 			} catch (Throwable t) {
 				retryMoveTasksFromOldToNewIndex( tryNum + 1);
-				LOG.warn("Retry number " + tryNum + "//" + numOfMergedTasksTries + " failed to merge tasks from old index " + oldIndex, t);
+				LOG.warn("Retry number " + tryNum + "/" + numOfMergedTasksTries + " failed to merge tasks from old index " + oldIndex, t);
 			}
 		}
 		else{
@@ -581,10 +580,16 @@ public class ElasticsearchClient {
     }
 
 	public void retryFailedRequests() {
-		for (Map.Entry<BulkRequest, Integer> entry : failedRequests.entrySet()) {
-			BulkRequest bulkRequest = entry.getKey();
-			Integer retryNum = entry.getValue();
-			sendBulkRequest(bulkRequest, retryNum + 1);
+		if (!failedRequests.isEmpty()) {
+			LOG.info("------------------ Failed Requests Retry Start ------------------");
+			List<Pair<BulkRequest, Integer>> list = Lists.newLinkedList();
+			failedRequests.drainTo(list);
+			for (Pair<BulkRequest, Integer> entry : list) {
+				BulkRequest bulkRequest = entry.getKey();
+				Integer retryNum = entry.getValue();
+				sendBulkRequest(bulkRequest, retryNum + 1);
+			}
+			LOG.info("------------------ Failed Requests Retry End ------------------");
 		}
 	}
 }
