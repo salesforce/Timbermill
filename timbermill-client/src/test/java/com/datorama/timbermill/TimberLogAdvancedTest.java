@@ -811,7 +811,7 @@ public class TimberLogAdvancedTest {
     private void assertCorrupted(Task task, String reason) {
         assertEquals(TaskStatus.CORRUPTED, task.getStatus());
         if (reason != null) {
-            assertEquals(reason, task.getCtx().get(CORRUPTED_REASON));
+            assertEquals(reason, task.getString().get(CORRUPTED_REASON));
         }
     }
 

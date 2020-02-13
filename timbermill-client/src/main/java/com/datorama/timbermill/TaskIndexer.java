@@ -31,18 +31,17 @@ public class TaskIndexer {
     private static final String TEXT = "text";
     private static final String STRING = "string";
     private static final String CTX = "ctx";
-    static final int MAX_LUCENE_CHARS = 32765;
+    private static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
+    private static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private final Map<String, Integer> propertiesLengthMap;
     private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
         this.daysRotation = elasticsearchParams.getDaysRotation() < 0 ? 1 : elasticsearchParams.getDaysRotation();
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
-        this.propertiesLengthMap = elasticsearchParams.getPropertiesLengthJson();
         this.es = es;
         parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
     }
@@ -339,21 +338,15 @@ public class TaskIndexer {
     }
 
     private String trimIfNeededValue(String key, String value, Event event) {
-        String newValue = trimUsingConfigMap(key, value);
-        if (!key.startsWith(TEXT + ".")) {
-            if (newValue.length() > MAX_LUCENE_CHARS) {
-                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", newValue.substring(0, 20), key, event.getTaskId(), MAX_LUCENE_CHARS);
-                return newValue.substring(0, MAX_LUCENE_CHARS);
+        if (key.startsWith(TEXT + ".")) {
+            if (value.length() > MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS) {
+                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
             }
-        }
-        return newValue;
-    }
-
-    private String trimUsingConfigMap(String propertyName, String value) {
-        Integer maxPropertyLength = propertiesLengthMap.get(propertyName);
-        if (maxPropertyLength != null){
-            if (value.length() > maxPropertyLength) {
-                return value.substring(0, maxPropertyLength);
+        } else {
+            if (value.length() > MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS) {
+                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
             }
         }
         return value;

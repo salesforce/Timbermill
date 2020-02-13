@@ -24,27 +24,27 @@ public class ErrorEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-        return getTaskStatus(status, getContext());
+        return getTaskStatus(status, getStrings());
     }
 
-    public static Task.TaskStatus getTaskStatus(Task.TaskStatus status, Map<String, String> context) {
+    public static Task.TaskStatus getTaskStatus(Task.TaskStatus status, Map<String, String> string) {
         if (status == Task.TaskStatus.UNTERMINATED){
             return Task.TaskStatus.ERROR;
         }
         else if (status == Task.TaskStatus.PARTIAL_SUCCESS){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return Task.TaskStatus.CORRUPTED;
         }
         else if (status == Task.TaskStatus.SUCCESS){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return Task.TaskStatus.CORRUPTED;
         }
         else if (status == Task.TaskStatus.PARTIAL_ERROR){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return Task.TaskStatus.CORRUPTED;
         }
         else if (status == Task.TaskStatus.ERROR){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return Task.TaskStatus.CORRUPTED;
         }
         else if (status == Task.TaskStatus.CORRUPTED){

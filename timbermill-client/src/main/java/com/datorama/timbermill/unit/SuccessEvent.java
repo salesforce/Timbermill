@@ -24,27 +24,27 @@ public class SuccessEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-        return getTaskStatus(status, getContext());
+        return getTaskStatus(status, getStrings());
     }
 
-    public static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> context) {
+    private static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
         if (status == TaskStatus.UNTERMINATED){
             return TaskStatus.SUCCESS;
         }
         else if (status == TaskStatus.PARTIAL_SUCCESS){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.SUCCESS){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.PARTIAL_ERROR){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.ERROR){
-            context.put(CORRUPTED_REASON, ALREADY_CLOSED);
+            string.put(CORRUPTED_REASON, ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.CORRUPTED){

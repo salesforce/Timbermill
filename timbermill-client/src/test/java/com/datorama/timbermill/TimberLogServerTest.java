@@ -37,11 +37,6 @@ public class TimberLogServerTest extends TimberLogTest{
     }
 
     @Test
-    public void testSimpleTaskWithTrimmer() {
-        super.testSimpleTaskWithTrimmer();
-    }
-
-    @Test
     public void testSpotWithParent(){
         super.testSpotWithParent();
     }

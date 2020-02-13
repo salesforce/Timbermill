@@ -13,7 +13,6 @@ import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
 import static com.datorama.timbermill.EventLogger.STACK_TRACE;
-import static com.datorama.timbermill.TaskIndexer.MAX_LUCENE_CHARS;
 import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
@@ -117,50 +116,6 @@ public abstract class TimberLogTest {
 	@TimberLogTask(name = EVENT + "plugin")
 	private String testSwitchCasePluginLog() {
 		TimberLogger.logText("exception", "bla bla bla TOO_MANY_SERVER_ROWS bla bla bla");
-		return TimberLogger.getCurrentTaskId();
-	}
-
-	protected void testSimpleTaskWithTrimmer() {
-
-		StringBuilder sb = new StringBuilder();
-
-		for (int i = 0 ; i < 100000; i++){
-			sb.append("a");
-		}
-		String hugeString = sb.toString();
-
-		String taskId = testSimpleTaskWithTrimmer1(hugeString);
-		waitForTask(taskId, TaskStatus.SUCCESS);
-
-		Task task = client.getTaskById(taskId);
-
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
-		Map<String, String> strings = task.getString();
-		Map<String, String> texts = task.getText();
-		Map<String, String> context = task.getCtx();
-
-		assertEquals(MAX_LUCENE_CHARS, strings.get("sql1").length());
-		assertEquals(100, strings.get("sql2").length());
-		assertEquals(MAX_LUCENE_CHARS, strings.get("sql3").length());
-		assertEquals(40000, texts.get("sql1").length());
-		assertEquals(100, texts.get("sql2").length());
-		assertEquals(hugeString.length(), texts.get("sql3").length());
-		assertEquals(MAX_LUCENE_CHARS, context.get("sql1").length());
-		assertEquals(100, context.get("sql2").length());
-		assertEquals(MAX_LUCENE_CHARS, context.get("sql3").length());
-	}
-
-	@TimberLogTask(name = EVENT)
-	private String testSimpleTaskWithTrimmer1(String hugeString) {
-		TimberLogger.logString("sql1", hugeString);
-		TimberLogger.logString("sql2", hugeString);
-		TimberLogger.logString("sql3", hugeString);
-		TimberLogger.logText("sql1", hugeString);
-		TimberLogger.logText("sql2", hugeString);
-		TimberLogger.logText("sql3", hugeString);
-		TimberLogger.logContext("sql1", hugeString);
-		TimberLogger.logContext("sql2", hugeString);
-		TimberLogger.logContext("sql3", hugeString);
 		return TimberLogger.getCurrentTaskId();
 	}
 

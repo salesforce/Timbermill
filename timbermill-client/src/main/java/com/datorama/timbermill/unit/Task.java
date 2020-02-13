@@ -1,16 +1,18 @@
 package com.datorama.timbermill.unit;
 
-import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptType;
-
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.datorama.timbermill.common.Constants;
 
@@ -21,6 +23,7 @@ import static com.datorama.timbermill.unit.Task.TaskStatus.*;
 
 public class Task {
 
+	private static final Logger LOG = LoggerFactory.getLogger(Task.class);
 	public static final String ALREADY_STARTED = "ALREADY_STARTED";
 	public static final String ALREADY_CLOSED = "ALREADY_CLOSED";
 	public static final String CORRUPTED_REASON = "corruptedReason";
@@ -40,6 +43,7 @@ public class Task {
 	private Map<String, Number> metric = new HashMap<>();
 	private String log;
 	private Boolean orphan;
+
 
 	public Task() {
 	}
@@ -72,7 +76,9 @@ public class Task {
 					this.parentId = parentId;
 				}
 				else if (parentId != null && !this.parentId.equals(parentId)){
-					throw new RuntimeException("Timbermill events with same id must have same parentId" + this.parentId + " !=" + parentId);
+					LOG.warn("Found different parentId for same task. Flagged task [{}] as corrupted. parentId 1 [{}], parentId 2 [{}]", e.getTaskId(), this.parentId, parentId);
+					status = CORRUPTED;
+					string.put(CORRUPTED_REASON, "Different parentIds");
 				}
 
 				if (getStartTime() == null){
@@ -113,7 +119,9 @@ public class Task {
 				this.primaryId = primaryId;
 			}
 			else if (primaryId != null && !this.primaryId.equals(primaryId)){
-				throw new RuntimeException("Timbermill events with same id must have same primaryId" + this.primaryId + " !=" + primaryId);
+				LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
+				status = CORRUPTED;
+				string.put(CORRUPTED_REASON, "Different primaryIds");
 			}
 			List<String> parentsPath = e.getParentsPath();
 			if (this.parentsPath == null){
@@ -124,7 +132,9 @@ public class Task {
 					this.parentsPath = parentsPath;
 				}
 				else if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
-					throw new RuntimeException("Timbermill events with same id must have same parentsPath" + this.parentsPath + " !=" + parentsPath);
+					LOG.warn("Found different parentsPath for same task. Flagged task [{}] as corrupted. parentsPath 1 [{}], parentsPath 2 [{}]", e.getTaskId(), this.parentsPath, parentsPath);
+					status = CORRUPTED;
+					string.put(CORRUPTED_REASON, "Different parentsPaths");
 				}
 			}
 			if (e.getContext() != null && !e.getContext().isEmpty()) {

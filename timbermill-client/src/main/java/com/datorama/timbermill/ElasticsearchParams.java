@@ -1,10 +1,7 @@
 package com.datorama.timbermill;
 
-import java.util.Map;
-
 public class ElasticsearchParams {
 	private final String pluginsJson;
-	private final Map<String, Integer> propertiesLengthJson;
 	private final int maximumCacheSize;
 	private final int maximumCacheMinutesHold;
 	private int numberOfShards;
@@ -12,11 +9,11 @@ public class ElasticsearchParams {
 	private int daysRotation;
 	private String deletionCronExp;
 	private String mergingCronExp;
+	private int maxTotalFields;
 
-	public ElasticsearchParams(String pluginsJson, Map<String, Integer> propertiesLengthJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
-			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp) {
+	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
+			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields) {
 		this.pluginsJson = pluginsJson;
-		this.propertiesLengthJson = propertiesLengthJson;
 		this.maximumCacheSize = maximumCacheSize;
 		this.maximumCacheMinutesHold = maximumCacheMinutesHold;
 		this.numberOfShards = numberOfShards;
@@ -24,14 +21,11 @@ public class ElasticsearchParams {
 		this.daysRotation = daysRotation;
 		this.deletionCronExp = deletionCronExp;
 		this.mergingCronExp = mergingCronExp;
+		this.maxTotalFields = maxTotalFields;
 	}
 
 	String getPluginsJson() {
 		return pluginsJson;
-	}
-
-	Map<String, Integer> getPropertiesLengthJson() {
-		return propertiesLengthJson;
 	}
 
 	int getMaximumCacheSize() {
@@ -60,5 +54,9 @@ public class ElasticsearchParams {
 
 	public String getMergingCronExp() {
 		return mergingCronExp;
+	}
+
+	public int getMaxTotalFields() {
+		return maxTotalFields;
 	}
 }

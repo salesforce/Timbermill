@@ -1,32 +1,21 @@
 package com.datorama.timbermill;
 
-import com.datorama.timbermill.common.Constants;
-import com.datorama.timbermill.pipe.LocalOutputPipe;
-
 import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.datorama.timbermill.common.Constants;
+import com.datorama.timbermill.pipe.LocalOutputPipe;
 
 public class TimberLogLocalTest extends TimberLogTest{
 
     @BeforeClass
     public static void init() {
-        Map<String, Integer> map = new HashMap<>();
-        map.put("text.sql1", 40000);
-        map.put("string.sql1", 40000);
-        map.put("ctx.sql1", 40000);
-        map.put("text.sql2", 100);
-        map.put("string.sql2", 100);
-        map.put("ctx.sql2", 100);
-
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = Constants.DEFAULT_ELASTICSEARCH_URL;
         }
-        LocalOutputPipe pipe = new LocalOutputPipe.Builder().numberOfShards(1).numberOfReplicas(0).url(elasticUrl).propertiesLengthMap(map).deletionCronExp(null)
+        LocalOutputPipe pipe = new LocalOutputPipe.Builder().numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null)
                 .pluginsJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]")
                 .build();
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
@@ -42,11 +31,6 @@ public class TimberLogLocalTest extends TimberLogTest{
     @Test
     public void testSwitchCasePlugin() {
         super.testSwitchCasePlugin();
-    }
-
-    @Test
-    public void testSimpleTaskWithTrimmer() {
-        super.testSimpleTaskWithTrimmer();
     }
 
     @Test

@@ -14,7 +14,6 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
-import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -361,8 +360,8 @@ public class ElasticsearchClient {
         return requests;
     }
 
-    public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas) {
-        putIndexTemplate(numberOfShards, numberOfReplicas);
+    public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
+        putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 		puStoredScript();
 	}
 
@@ -384,11 +383,11 @@ public class ElasticsearchClient {
 		}
 	}
 
-	private void putIndexTemplate(int numberOfShards, int numberOfReplicas) {
+	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
         PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
 
         request.patterns(Lists.newArrayList("timbermill*"));
-        request.settings(Settings.builder()
+        request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));
 		request.mapping(MAPPING, XContentType.JSON);

@@ -1,8 +1,6 @@
 package com.datorama.timbermill.server.service;
 
-import java.io.IOException;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -17,7 +15,6 @@ import com.datorama.timbermill.ElasticsearchParams;
 import com.datorama.timbermill.TaskIndexer;
 import com.datorama.timbermill.common.TimbermillUtils;
 import com.datorama.timbermill.unit.Event;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class TimbermillService {
@@ -34,31 +31,30 @@ public class TimbermillService {
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
-							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
-							 @Value("${days.rotation:90}") Integer daysRotation,
-							 @Value("${plugins.json:[]}") String pluginsJson,
-							 @Value("${properties.length.json:{}}") String propertiesLengthJson,
-							 @Value("${termination.timeout.seconds:60}") int terminationTimeoutSeconds,
-							 @Value("${indexing.threads:10}") int indexingThreads,
-							 @Value("${elasticsearch.user:}") String elasticUser,
-							 @Value("${elasticsearch.password:}") String elasticPassword,
-							 @Value("${cache.max.size:10000}") int maximumCacheSize,
-							 @Value("${elasticsearch.number.of.shards:7}") int numberOfShards,
-							 @Value("${elasticsearch.number.of.replicas:1}") int numberOfReplicas,
-							 @Value("${number.of.tasks.merge.retries:3}") int numOfMergedTasksTries,
-							 @Value("${number.of.tasks.index.retries:3}") int numOfTasksIndexTries,
-							 @Value("${elasticsearch.index.max.age:7}") long maxIndexAge,
-							 @Value("${elasticsearch.index.max.gb.size:100}") long maxIndexSizeInGB,
-							 @Value("${elasticsearch.index.max.docs:1000000000}") long maxIndexDocs,
-							 @Value("${deletion.cron.expression:0 0 12 1/1 * ? *}") String deletionCronExp,
-							 @Value("${merging.cron.expression:0 0 0/1 1/1 * ? *}") String mergingCronExp,
-							 @Value("${cache.max.hold.time.minutes:6}") int maximumCacheMinutesHold) throws IOException {
+			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
+			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
+			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
+			@Value("${ELASTICSEARCH_PASSWORD:}") String elasticPassword,
+			@Value("${ELASTICSEARCH_NUMBER_OF_SHARDS:10}") int numberOfShards,
+			@Value("${ELASTICSEARCH_NUMBER_OF_REPLICAS:1}") int numberOfReplicas,
+			@Value("${ELASTICSEARCH_INDEX_MAX_AGE:7}") int maxIndexAge,
+			@Value("${ELASTICSEARCH_INDEX_MAX_GB_SIZE:100}") int maxIndexSizeInGB,
+			@Value("${ELASTICSEARCH_INDEX_MAX_DOCS:1000000000}") int maxIndexDocs,
+			@Value("${ELASTICSEARCH_MAX_TOTAL_FIELDS:4000}") int maxTotalFields,
+			@Value("${INDEXING_THREADS:10}") int indexingThreads,
+			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
+			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
+			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
+			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
+			@Value("${NUMBER_OD_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
+			@Value("${NUMBER_OD_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
+			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
+			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
+			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		Map propertiesLengthJsonMap = new ObjectMapper().readValue(propertiesLengthJson, Map.class);
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(
-				pluginsJson, propertiesLengthJsonMap, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp);
+				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
 				numOfMergedTasksTries, numOfTasksIndexTries);
 		taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);

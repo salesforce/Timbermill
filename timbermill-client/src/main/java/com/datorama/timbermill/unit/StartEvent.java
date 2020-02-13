@@ -32,26 +32,26 @@ public class StartEvent extends Event {
     @JsonIgnore
     @Override
     public Task.TaskStatus getStatusFromExistingStatus(Task.TaskStatus status) {
-        return getTaskStatus(status, getContext());
+        return getTaskStatus(status, getStrings());
     }
 
-    public static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> context) {
+    private static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
         if (status == TaskStatus.UNTERMINATED){
-            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            string.put(CORRUPTED_REASON, ALREADY_STARTED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.PARTIAL_SUCCESS){
             return TaskStatus.SUCCESS;
         }
         else if (status == TaskStatus.SUCCESS){
-            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            string.put(CORRUPTED_REASON, ALREADY_STARTED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.PARTIAL_ERROR){
             return TaskStatus.ERROR;
         }
         else if (status == TaskStatus.ERROR){
-            context.put(CORRUPTED_REASON, ALREADY_STARTED);
+            string.put(CORRUPTED_REASON, ALREADY_STARTED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.CORRUPTED){

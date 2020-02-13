@@ -33,8 +33,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.propertiesLengthMap, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp);
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries);
         taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
@@ -87,7 +87,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxCacheSize = 10000;
         private String elasticUrl = null;
         private String pluginsJson = "[]";
-        private Map<String, Integer> propertiesLengthMap = Collections.EMPTY_MAP;
         private int daysRotation = 90;
         private int indexBulkSize = 2097152;
         private int indexingThreads = 1;
@@ -98,6 +97,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int numberOfReplicas = 1;
         private long maxIndexAge = 7;
         private long maxIndexSizeInGB = 100;
+        private int maxTotalFields = 4000;
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
@@ -109,11 +109,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder pluginsJson(String pluginsJson) {
             this.pluginsJson = pluginsJson;
-            return this;
-        }
-
-        public Builder propertiesLengthMap(Map<String, Integer> propertiesLengthMap) {
-            this.propertiesLengthMap = propertiesLengthMap;
             return this;
         }
 
