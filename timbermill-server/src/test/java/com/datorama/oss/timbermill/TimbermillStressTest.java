@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ import com.google.common.collect.Lists;
 
 import static org.junit.Assert.*;
 
+@Ignore
 public class TimbermillStressTest extends TimberLogTest{
 
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillStressTest.class);
@@ -80,6 +82,7 @@ public class TimbermillStressTest extends TimberLogTest{
     }
 
 
+    @Ignore
     @Test
     public void simpleStressTest() throws ExecutionException, InterruptedException, IOException {
         LOG.info("Running test {}", "simpleStressTest");
@@ -91,6 +94,7 @@ public class TimbermillStressTest extends TimberLogTest{
         assertEquals( numOfTasks * numOfThreads, client.countByName("simple_stress", env));
     }
 
+    @Ignore
     @Test
     public void advanceStressTest() throws ExecutionException, InterruptedException, IOException {
         LOG.info("Running test {}", "advanceStressTest");
@@ -107,6 +111,7 @@ public class TimbermillStressTest extends TimberLogTest{
         assertEquals( numOfTasks * numOfThreads, client.countByName("advanced_stress", env));
     }
 
+    @Ignore
     @Test
     public void orphansStressTest() throws ExecutionException, InterruptedException, IOException {
         LOG.info("Running test {}", "orphansStressTest");
@@ -124,6 +129,7 @@ public class TimbermillStressTest extends TimberLogTest{
         assertEquals( numOfTasks * numOfThreads, client.countByName("orphan_stress", env));
     }
 
+    @Ignore
     @Test
     public void stringOfOrphansStressTest() throws ExecutionException, InterruptedException, IOException {
         LOG.info("Running test {}", "stringOfOrphansStressTest");
