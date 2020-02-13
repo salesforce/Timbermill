@@ -10,11 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.datorama.timbermill.ElasticsearchClient;
-import com.datorama.timbermill.ElasticsearchParams;
-import com.datorama.timbermill.TaskIndexer;
-import com.datorama.timbermill.common.TimbermillUtils;
-import com.datorama.timbermill.unit.Event;
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.ElasticsearchParams;
+import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.unit.Event;
 
 @Service
 public class TimbermillService {
@@ -57,7 +57,7 @@ public class TimbermillService {
 				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
 				numOfMergedTasksTries, numOfTasksIndexTries);
-		taskIndexer = TimbermillUtils.bootstrap(elasticsearchParams, es);
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
 		startWorkingThread(es);
 	}
 
@@ -65,7 +65,7 @@ public class TimbermillService {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				TimbermillUtils.drainAndIndex(eventsQueue, taskIndexer, es);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, es);
 			}
 			stoppedRunning = true;
 		};

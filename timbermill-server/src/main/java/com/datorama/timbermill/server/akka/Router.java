@@ -5,8 +5,9 @@ import akka.actor.ActorSystem;
 import akka.http.javadsl.marshallers.jackson.Jackson;
 import akka.http.javadsl.server.AllDirectives;
 import akka.http.javadsl.server.Route;
+
+import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.datorama.timbermill.server.SpringExtension;
-import com.datorama.timbermill.unit.EventsWrapper;
 import org.springframework.stereotype.Component;
 
 import static akka.actor.ActorRef.noSender;
