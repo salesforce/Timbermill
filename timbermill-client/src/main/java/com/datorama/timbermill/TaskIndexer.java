@@ -339,15 +339,17 @@ public class TaskIndexer {
 
     private String trimIfNeededValue(String key, String value, Event event) {
         if (key.startsWith(TEXT + ".")) {
-            if (value.length() > MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS) {
-                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-            }
+            value = trimValue(key, value, event, MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
         } else {
-            if (value.length() > MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS) {
-                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-            }
+            value = trimValue(key, value, event, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+        }
+        return value;
+    }
+
+    private String trimValue(String key, String value, Event event, int maxChars) {
+        if (value.length() > maxChars) {
+            LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), maxChars);
+            value = value.substring(0, maxChars);
         }
         return value;
     }
