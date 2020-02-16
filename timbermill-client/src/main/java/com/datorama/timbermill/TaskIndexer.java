@@ -31,8 +31,8 @@ public class TaskIndexer {
     private static final String TEXT = "text";
     private static final String STRING = "string";
     private static final String CTX = "ctx";
-    private static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
-    private static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
+    static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
+    static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;

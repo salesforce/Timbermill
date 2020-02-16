@@ -13,6 +13,8 @@ import com.datorama.timbermill.unit.LogParams;
 import com.datorama.timbermill.unit.Task;
 
 import static com.datorama.timbermill.EventLogger.STACK_TRACE;
+import static com.datorama.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
+import static com.datorama.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
 import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static com.datorama.timbermill.unit.Task.TaskStatus;
 import static org.junit.Assert.*;
@@ -55,8 +57,8 @@ public abstract class TimberLogTest {
 
 		String log1 = "log1";
 		String log2 = "log2";
-		String ctx = "ctx";
-		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, ctx);
+		String hugeString = "ctx";
+		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, hugeString);
 
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
@@ -66,6 +68,7 @@ public abstract class TimberLogTest {
 		assertNotNull(task.getDateToDelete());
 		assertTrue(task.getDuration() >= 1000);
 		Map<String, String> strings = task.getString();
+		Map<String, String> ctx = task.getCtx();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
 		String log = task.getLog();
@@ -76,6 +79,9 @@ public abstract class TimberLogTest {
 		assertEquals(2, metrics.get(metric2).intValue());
 		assertEquals(text1, texts.get(text1));
 		assertEquals(text2, texts.get(text2));
+		assertEquals(MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS, texts.get(hugeString).length());
+		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, strings.get(hugeString).length());
+		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, ctx.get(hugeString).length());
 
 		String[] split = log.split("\n");
 		assertEquals(2, split.length);
@@ -84,17 +90,19 @@ public abstract class TimberLogTest {
 	}
 
 	@TimberLogTask(name = EVENT)
-	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String ctx) throws InterruptedException {
+	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String hugeField) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, Double.NaN);
 		TimberLogger.logText(text1, text1);
 		TimberLogger.logInfo(log1);
 		StringBuilder stringBuilder = new StringBuilder();
-		for (int i = 0; i < 327660; i++) {
+		for (int i = 0; i < 3270660; i++) {
 			stringBuilder.append("a");
 		}
-		String longContext = stringBuilder.toString();
-		TimberLogger.logText(ctx, longContext);
+		String hugeString = stringBuilder.toString();
+		TimberLogger.logText(hugeField, hugeString);
+		TimberLogger.logString(hugeField, hugeString);
+		TimberLogger.logContext(hugeField, hugeString);
 		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).logInfo(log2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
