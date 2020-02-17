@@ -86,7 +86,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String elasticUrl = null;
         private String pluginsJson = "[]";
         private int daysRotation = 90;
-        private int indexBulkSize = 2097152;
+        private int indexBulkSize = 200000;
         private int indexingThreads = 1;
         private String elasticUser = null;
         private String awsRegion = null;

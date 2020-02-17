@@ -31,8 +31,6 @@ public class EventsWrapper {
     public long estimatedSize() {
         long i = 37;
         for (Event event : events) {
-            ObjectMapper om = new ObjectMapper();
-            ObjectWriter ow = om.writerFor(om.getTypeFactory().constructType(Event.class));
             i += event.estimatedSize() + 1;
         }
         return i;

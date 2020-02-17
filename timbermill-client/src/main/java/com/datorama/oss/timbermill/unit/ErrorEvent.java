@@ -27,7 +27,7 @@ public class ErrorEvent extends Event {
         return getTaskStatus(status, getStrings());
     }
 
-    public static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
+    private static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
         if (status == TaskStatus.UNTERMINATED){
             return TaskStatus.ERROR;
         }
