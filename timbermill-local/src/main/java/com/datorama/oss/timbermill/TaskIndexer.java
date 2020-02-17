@@ -30,8 +30,8 @@ public class TaskIndexer {
     private static final String TEXT = "text";
     private static final String STRING = "string";
     private static final String CTX = "ctx";
-    private static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
-    private static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
+    static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
+    static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
@@ -320,29 +320,31 @@ public class TaskIndexer {
         return newMetrics;
     }
 
-    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String prefix, Event event) {
+    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String type, Event event) {
         Map<String, String> newMap = new HashMap<>();
         if (oldMap != null) {
             for (Map.Entry<String, String> entry : oldMap.entrySet()) {
                 String key = entry.getKey().replace(".", "_");
-                String value = trimIfNeededValue(prefix + "." + key, entry.getValue(), event);
+                String value = trimIfNeededValue(type, key, entry.getValue(), event);
                 newMap.put(key, value);
             }
         }
         return newMap;
     }
 
-    private String trimIfNeededValue(String key, String value, Event event) {
-        if (key.startsWith(TEXT + ".")) {
-            if (value.length() > MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS) {
-                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-            }
+    private String trimIfNeededValue(String type, String key, String value, Event event) {
+        if (type.equals(TEXT)) {
+            value = trimValue(type, key, value, event, MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
         } else {
-            if (value.length() > MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS) {
-                LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), key, event.getTaskId(), MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-                value = value.substring(0, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-            }
+            value = trimValue(type, key, value, event, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+        }
+        return value;
+    }
+
+    private String trimValue(String type, String key, String value, Event event, int maxChars) {
+        if (value.length() > maxChars) {
+            LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), type + '.' + key, event.getTaskId(), maxChars);
+            value = value.substring(0, maxChars);
         }
         return value;
     }
