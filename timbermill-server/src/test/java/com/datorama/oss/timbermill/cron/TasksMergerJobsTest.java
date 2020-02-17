@@ -20,6 +20,7 @@ import com.datorama.oss.timbermill.TimberLogTest;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
 import static org.junit.Assert.*;
 

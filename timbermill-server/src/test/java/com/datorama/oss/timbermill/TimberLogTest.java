@@ -7,30 +7,23 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
-import org.junit.Assert;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 
-import static com.datorama.oss.timbermill.EventLogger.LOG_WITHOUT_CONTEXT;
-import static com.datorama.timbermill.EventLogger.STACK_TRACE;
-import static com.datorama.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
-import static com.datorama.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
-import static com.datorama.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
-import static com.datorama.timbermill.unit.Task.TaskStatus;
+import static com.datorama.oss.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
+import static com.datorama.oss.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
+import static com.datorama.oss.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
-	static final String DEFAULT_TIMBERMILL_URL = "http://localhost:8484";
+	protected static ElasticsearchClient client;
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
-
-	protected static final String DEFAULT_ELASTICSEARCH_URL = "http://localhost:9200";
-	protected static ElasticsearchClient client;
 
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
@@ -70,29 +63,29 @@ public abstract class TimberLogTest {
 		Task task = client.getTaskById(taskId);
 
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
-		Assert.assertEquals(TEST, task.getEnv());
-		Assert.assertNotNull(task.getDateToDelete());
-		Assert.assertTrue(task.getDuration() >= 1000);
+		assertEquals(TEST, task.getEnv());
+		assertNotNull(task.getDateToDelete());
+		assertTrue(task.getDuration() >= 1000);
 		Map<String, String> strings = task.getString();
 		Map<String, String> ctx = task.getCtx();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
 		String log = task.getLog();
 
-		Assert.assertEquals(str1, strings.get(str1));
-		Assert.assertEquals(str2, strings.get(str2));
-		Assert.assertEquals(0, metrics.get(metric1).intValue());
-		Assert.assertEquals(2, metrics.get(metric2).intValue());
-		Assert.assertEquals(text1, texts.get(text1));
-		Assert.assertEquals(text2, texts.get(text2));
+		assertEquals(str1, strings.get(str1));
+		assertEquals(str2, strings.get(str2));
+		assertEquals(0, metrics.get(metric1).intValue());
+		assertEquals(2, metrics.get(metric2).intValue());
+		assertEquals(text1, texts.get(text1));
+		assertEquals(text2, texts.get(text2));
 		assertEquals(MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS, texts.get(hugeString).length());
 		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, strings.get(hugeString).length());
 		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, ctx.get(hugeString).length());
 
 		String[] split = log.split("\n");
-		Assert.assertEquals(2, split.length);
-		Assert.assertTrue(split[0].matches(LOG_REGEX + log1));
-		Assert.assertTrue(split[1].matches(LOG_REGEX + log2));
+		assertEquals(2, split.length);
+		assertTrue(split[0].matches(LOG_REGEX + log1));
+		assertTrue(split[1].matches(LOG_REGEX + log2));
 	}
 
 	@TimberLogTask(name = EVENT)
@@ -121,10 +114,10 @@ public abstract class TimberLogTest {
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
 
-        assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId, true, true);
+		assertTaskPrimary(task, EVENT + "plugin", TaskStatus.SUCCESS, taskId, true, true);
 		Map<String, String> strings = task.getString();
 		String errorType = strings.get("errorType");
-		Assert.assertEquals("TOO_MANY_SERVER_ROWS", errorType);
+		assertEquals("TOO_MANY_SERVER_ROWS", errorType);
 	}
 
 	@TimberLogTask(name = EVENT + "plugin")
@@ -147,15 +140,15 @@ public abstract class TimberLogTest {
 		waitForTask(taskIdSpot[0], TaskStatus.SUCCESS);
 
 		Task task = client.getTaskById(taskId1);
-        assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1, true, true);
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId1, true, true);
 
 		Task spot = client.getTaskById(taskIdSpot[0]);
 		assertTask(spot, SPOT, true, true, taskId1, taskId1, TaskStatus.SUCCESS, EVENT);
-		Assert.assertEquals(context, spot.getCtx().get(context));
+		assertEquals(context, spot.getCtx().get(context));
 
-        Task child = client.getTaskById(taskId2);
-        assertTask(child, EVENT + '2', true, true, taskId1, taskId1, TaskStatus.SUCCESS, EVENT);
-        Assert.assertEquals(context, child.getCtx().get(context));
+		Task child = client.getTaskById(taskId2);
+		assertTask(child, EVENT + '2', true, true, taskId1, taskId1, TaskStatus.SUCCESS, EVENT);
+		assertEquals(context, child.getCtx().get(context));
 	}
 
 	@TimberLogTask(name = EVENT)
@@ -209,21 +202,21 @@ public abstract class TimberLogTest {
 
 		Task task = client.getTaskById(taskId);
 		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
-        Assert.assertEquals(context1, task.getCtx().get(context1));
+		assertEquals(context1, task.getCtx().get(context1));
 
-        Task task2 = client.getTaskById(taskId2);
-        assertTask(task2, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
-        Assert.assertEquals(context1, task2.getCtx().get(context1));
-        Assert.assertEquals(context2, task2.getCtx().get(context2));
+		Task task2 = client.getTaskById(taskId2);
+		assertTask(task2, EVENT + '2', true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
+		assertEquals(context1, task2.getCtx().get(context1));
+		assertEquals(context2, task2.getCtx().get(context2));
 
 		Task task3 = client.getTaskById(taskId3);
-        assertTask(task3, EVENT + '3', true, true, taskId, taskId2, TaskStatus.SUCCESS, EVENT, EVENT + '2');
-		Assert.assertEquals(context1, task3.getCtx().get(context1));
-		Assert.assertEquals(context2, task3.getCtx().get(context2));
+		assertTask(task3, EVENT + '3', true, true, taskId, taskId2, TaskStatus.SUCCESS, EVENT, EVENT + '2');
+		assertEquals(context1, task3.getCtx().get(context1));
+		assertEquals(context2, task3.getCtx().get(context2));
 
 		Task spot = client.getTaskById(taskIdSpot);
 		assertTask(spot, SPOT, true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
-		Assert.assertEquals(context1, spot.getCtx().get(context1));
+		assertEquals(context1, spot.getCtx().get(context1));
 	}
 
 	@TimberLogTask(name = EVENT)
@@ -376,17 +369,17 @@ public abstract class TimberLogTest {
 		waitForTask(taskId, TaskStatus.CORRUPTED);
 
 		Task task = client.getTaskById(taskId);
-		Assert.assertEquals(LOG_WITHOUT_CONTEXT, task.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, task.getName());
 		Map<String, String> text = task.getText();
-		Assert.assertNotNull(text.get(EventLogger.STACK_TRACE));
-		Assert.assertEquals(bla2, text.get(bla1));
+		assertNotNull(text.get(EventLogger.STACK_TRACE));
+		assertEquals(bla2, text.get(bla1));
 	}
 
 	protected void testOrphan() {
 		String taskId = testOrphanTimberLog();
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
-		Assert.assertTrue(task.isOrphan());
+		assertTrue(task.isOrphan());
 	}
 
 	private String testOrphanTimberLog() {
@@ -396,40 +389,40 @@ public abstract class TimberLogTest {
 	}
 
 	static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
-        Assert.assertEquals(name, task.getName());
-        Assert.assertEquals(status, task.getStatus());
-        Assert.assertNotNull(task.getStartTime());
-        if (shouldHaveEndTime){
-            Assert.assertNotNull(task.getEndTime());
-        }
-        else{
-            Assert.assertNull(task.getEndTime());
-        }
+		assertEquals(name, task.getName());
+		assertEquals(status, task.getStatus());
+		assertNotNull(task.getStartTime());
+		if (shouldHaveEndTime){
+			assertNotNull(task.getEndTime());
+		}
+		else{
+			assertNull(task.getEndTime());
+		}
 
 		if (shouldBeComplete) {
-			Assert.assertNotNull(task.getDuration());
+			assertNotNull(task.getDuration());
 		} else {
-			Assert.assertNull(task.getDuration());
+			assertNull(task.getDuration());
 		}
-        Assert.assertEquals(primaryId, task.getPrimaryId());
-        Assert.assertEquals(parentId, task.getParentId());
+		assertEquals(primaryId, task.getPrimaryId());
+		assertEquals(parentId, task.getParentId());
 
-        List<String> parentsPath = task.getParentsPath();
-        if (parentId == null || (parents.length == 0)){
-            Assert.assertNull(parentsPath);
-        }
-        else {
-            Assert.assertNotNull(parentsPath);
-            Assert.assertEquals(parents.length, parentsPath.size());
-            for (String parent : parents) {
-                Assert.assertTrue(parentsPath.contains(parent));
-            }
-        }
-    }
+		List<String> parentsPath = task.getParentsPath();
+		if (parentId == null || (parents.length == 0)){
+			assertNull(parentsPath);
+		}
+		else {
+			assertNotNull(parentsPath);
+			assertEquals(parents.length, parentsPath.size());
+			for (String parent : parents) {
+				assertTrue(parentsPath.contains(parent));
+			}
+		}
+	}
 
-    static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
-        assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status);
-    }
+	static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
+		assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status);
+	}
 
 	static void assertTaskCorrupted(Task task, String name, TaskStatus status, boolean shouldHaveEndTime) {
 		assertTask(task, name, shouldHaveEndTime, false, null, null, status);

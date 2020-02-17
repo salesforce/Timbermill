@@ -26,6 +26,8 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
 
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
 import static org.junit.Assert.*;
 
 @Ignore
@@ -55,12 +57,12 @@ public class TimbermillStressTest extends TimberLogTest{
         LOG.info("maxBufferSize = {}", maxBufferSize);
         String timbermillUrl = System.getenv("TIMBERMILL_URL");
         if (StringUtils.isEmpty(timbermillUrl)){
-            timbermillUrl = TimberLogTest.DEFAULT_TIMBERMILL_URL;
+            timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
 
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = TimberLogTest.DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
 
         String awsRegion = System.getenv("ELASTICSEARCH_AWS_REGION");

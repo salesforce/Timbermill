@@ -23,8 +23,11 @@
 hs_err_pid*
 *.iml
 *.asc
+
 /.idea/$PRODUCT_WORKSPACE_FILE$
 /.idea/.gitignore
-/timbermill-server/target/
+/timbermill-server/target/*
 /timbermill-client/target/*
+/timbermill-local/target/*
 /.idea/*
+/timbermill-client/.settings/org.eclipse.ajdt.ui.prefs

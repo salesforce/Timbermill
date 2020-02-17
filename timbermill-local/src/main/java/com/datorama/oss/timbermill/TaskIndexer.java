@@ -20,7 +20,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-
+import java.time.temporal.ChronoUnit;
 import static com.datorama.oss.timbermill.common.Constants.GSON;
 import static java.util.stream.Collectors.groupingBy;
 
@@ -88,6 +88,10 @@ public class TaskIndexer {
         es.rolloverIndex(index);
         LOG.info("{} tasks were indexed to elasticsearch", timbermillEvents.size());
         return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
+    }
+
+    public static long getTimesDuration(ZonedDateTime taskIndexerStartTime, ZonedDateTime taskIndexerEndTime) {
+        return ChronoUnit.MILLIS.between(taskIndexerStartTime, taskIndexerEndTime);
     }
 
     private Map<String, Task> fetchPreviouslyIndexedParentTasks(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {

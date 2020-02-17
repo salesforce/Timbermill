@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 
+import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
+import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
+
 public class Task {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Task.class);
@@ -70,8 +73,8 @@ public class Task {
 				}
 				else if (parentId != null && !this.parentId.equals(parentId)){
 					LOG.warn("Found different parentId for same task. Flagged task [{}] as corrupted. parentId 1 [{}], parentId 2 [{}]", e.getTaskId(), this.parentId, parentId);
-					status = TaskStatus.CORRUPTED;
-					string.put(Constants.CORRUPTED_REASON, "Different parentIds");
+					status = CORRUPTED;
+					string.put(CORRUPTED_REASON, "Different parentIds");
 				}
 
 				if (getStartTime() == null){
@@ -113,8 +116,8 @@ public class Task {
 			}
 			else if (primaryId != null && !this.primaryId.equals(primaryId)){
 				LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
-				status = TaskStatus.CORRUPTED;
-				string.put(Constants.CORRUPTED_REASON, "Different primaryIds");
+				status = CORRUPTED;
+				string.put(CORRUPTED_REASON, "Different primaryIds");
 			}
 			List<String> parentsPath = e.getParentsPath();
 			if (this.parentsPath == null){
@@ -126,8 +129,8 @@ public class Task {
 				}
 				else if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
 					LOG.warn("Found different parentsPath for same task. Flagged task [{}] as corrupted. parentsPath 1 [{}], parentsPath 2 [{}]", e.getTaskId(), this.parentsPath, parentsPath);
-					status = TaskStatus.CORRUPTED;
-					string.put(Constants.CORRUPTED_REASON, "Different parentsPaths");
+					status = CORRUPTED;
+					string.put(CORRUPTED_REASON, "Different parentsPaths");
 				}
 			}
 			if (e.getContext() != null && !e.getContext().isEmpty()) {

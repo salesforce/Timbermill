@@ -8,17 +8,20 @@ import org.junit.Test;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
+
 public class TimberLogServerTest extends TimberLogTest{
 
     @BeforeClass
     public static void init() {
         String timbermillUrl = System.getenv("TIMBERMILL_URL");
         if (StringUtils.isEmpty(timbermillUrl)){
-            timbermillUrl = TimberLogTest.DEFAULT_TIMBERMILL_URL;
+            timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = TimberLogTest.DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3);

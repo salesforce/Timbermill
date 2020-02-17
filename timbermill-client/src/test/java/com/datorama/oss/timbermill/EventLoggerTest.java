@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill;
 
-
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -14,6 +13,7 @@ import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.ImmutableMap;
 
 import static com.datorama.oss.timbermill.common.Constants.EXCEPTION;
+import static com.datorama.oss.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static org.junit.Assert.*;
 
 public class EventLoggerTest {
@@ -136,7 +136,7 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(EventLogger.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 	}
@@ -150,7 +150,7 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(EventLogger.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
 		assertTrue(event.getText().get(EXCEPTION).contains(exception.toString()));
@@ -166,7 +166,7 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(EventLogger.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getText().get(key));
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
@@ -182,7 +182,7 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(EventLogger.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(value, event.getStrings().get(key));
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);
@@ -198,7 +198,7 @@ public class EventLoggerTest {
 
 		assertEquals(1, events.size());
 		Event event = events.get(0);
-		assertEquals(EventLogger.LOG_WITHOUT_CONTEXT, event.getName());
+		assertEquals(LOG_WITHOUT_CONTEXT, event.getName());
 		assertEquals(1, event.getMetrics().get(key));
 		assertEquals(TEST, event.getStrings().get(BOOTSTRAP));
 		assertTrue(event instanceof SpotEvent);

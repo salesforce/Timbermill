@@ -21,7 +21,6 @@ import com.datorama.oss.timbermill.pipe.StatisticsCollectorOutputPipe;
 import com.datorama.oss.timbermill.unit.*;
 
 final class EventLogger {
-	public static final String LOG_WITHOUT_CONTEXT = "LogWithoutContext";
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
     private static final String THREAD_NAME = "threadName";
 	static final String STACK_TRACE = "stackTrace";
@@ -271,7 +270,7 @@ final class EventLogger {
 	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		String stackTrace = getStackTraceString();
 		logParams.text(STACK_TRACE, stackTrace);
-		return createSpotEvent(null, LOG_WITHOUT_CONTEXT, logParams, TaskStatus.CORRUPTED, null, null);
+		return createSpotEvent(null, Constants.LOG_WITHOUT_CONTEXT, logParams, TaskStatus.CORRUPTED, null, null);
 	}
 
 	private static String getStackTraceString() {

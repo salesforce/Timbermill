@@ -11,6 +11,7 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -23,7 +24,7 @@ public class TimberLogAdvancedOrphansTest {
     public static void setUp(){
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = TimberLogTest.DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3);
