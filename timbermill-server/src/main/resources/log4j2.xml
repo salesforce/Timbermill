@@ -1,19 +1,13 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
-<log4j:configuration xmlns:log4j='http://jakarta.apache.org/log4j/'>
-
-    <appender name="CA" class="org.apache.log4j.ConsoleAppender">
-        <layout class="org.apache.log4j.PatternLayout">
-            <param name="ConversionPattern" value="%-5r [%d{dd MMM yyyy HH:mm:ss,SSS}] [%-5p] [%t] [%c] - %m%n" />
-        </layout>
-    </appender>
-
-    <category name="org.elasticsearch.client">
-        <priority value="ERROR"/>
-    </category>
-
-    <root>
-        <level value="INFO" />
-        <appender-ref ref="CA" />
-    </root>
-</log4j:configuration>
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

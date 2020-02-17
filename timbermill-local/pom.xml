@@ -13,9 +13,7 @@
     <url>https://github.com/datorama/Timbermill</url>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
-        <aspectj.version>1.9.2</aspectj.version>
     </properties>
 
     <licenses>
@@ -87,34 +85,9 @@
                         <useIncrementalCompilation>false</useIncrementalCompilation>
                     </configuration>
                 </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>aspectj-maven-plugin</artifactId>
-                    <version>1.11</version>
-                    <configuration>
-                        <source>${java.source-target.version}</source>
-                        <target>${java.source-target.version}</target>
-                        <complianceLevel>${java.source-target.version}</complianceLevel>
-                        <encoding>${project.build.sourceEncoding}</encoding>
-                        <showWeaveInfo>true</showWeaveInfo>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <phase>process-sources</phase>
-                            <goals>
-                                <goal>compile</goal>
-                                <goal>test-compile</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>aspectj-maven-plugin</artifactId>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -182,17 +155,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M1</version>
-                <configuration>
-                    <excludes>
-                        <exclude>**/**StressTest.java</exclude>
-                    </excludes>
-                    <argLine>-Dfile.encoding=UTF8 -Duser.timezone=UTC </argLine>
-                </configuration>
             </plugin>
         </plugins>
     </build>
