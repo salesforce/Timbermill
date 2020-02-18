@@ -44,21 +44,25 @@ final class EventLogger {
 	}
 
 	static void bootstrap(EventOutputPipe eventOutputPipe, boolean doHeartbeat, Map<String, String> staticParams, String environment) {
+		try {
 		env = environment;
-		if (isBootstrapped) {
-			LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParams);
-		} else {
-			LOG.info("Bootstrapping EventLogger with params ({})", staticParams);
-			isBootstrapped = true;
-			StatisticsCollectorOutputPipe statsCollector = new StatisticsCollectorOutputPipe(eventOutputPipe);
+			if (isBootstrapped) {
+				LOG.warn("EventLogger is already bootstrapped, ignoring this bootstrap invocation. EventOutputPipe={}, ({})", eventOutputPipe, staticParams);
+			} else {
+				LOG.info("Bootstrapping EventLogger with params ({})", staticParams);
+				isBootstrapped = true;
+				StatisticsCollectorOutputPipe statsCollector = new StatisticsCollectorOutputPipe(eventOutputPipe);
 
-			if (doHeartbeat) {
-				ClientHeartbeater heartbeater = new ClientHeartbeater(statsCollector, eventOutputPipe);
-				heartbeater.start();
+				if (doHeartbeat) {
+					ClientHeartbeater heartbeater = new ClientHeartbeater(statsCollector, eventOutputPipe);
+					heartbeater.start();
+				}
+				EventLogger.staticParams.putAll(staticParams);
+
+				threadInstance = ThreadLocal.withInitial(() -> new EventLogger(statsCollector));
 			}
-			EventLogger.staticParams.putAll(staticParams);
-
-			threadInstance = ThreadLocal.withInitial(() -> new EventLogger(statsCollector));
+		} catch (Throwable t){
+			LOG.error("Was unable to bootstrap Timbermill", t);
 		}
 	}
 
@@ -79,9 +83,14 @@ final class EventLogger {
 		if (logParams == null) {
 			logParams = LogParams.create();
 		}
-		addStaticParams(logParams);
-		Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name, dateToDelete);
-		return submitEvent(event);
+		try {
+			addStaticParams(logParams);
+			Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name, dateToDelete);
+			return submitEvent(event);
+		} catch (Throwable throwable){
+			LOG.error("Was unable to send event to Timbermill", throwable);
+			return null;
+		}
 	}
 
 	String successEvent() {
@@ -92,8 +101,13 @@ final class EventLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		Event event = createSuccessEvent(ongoingTaskId, logParams);
-		return submitEvent(event);
+		try{
+			Event event = createSuccessEvent(ongoingTaskId, logParams);
+			return submitEvent(event);
+		} catch (Throwable throwable){
+			LOG.error("Was unable to send event to Timbermill", throwable);
+			return null;
+		}
 	}
 
 	String endWithError(Throwable t) {
@@ -104,16 +118,26 @@ final class EventLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		Event event = createErrorEvent(t, ongoingTaskId, logParams);
-        return submitEvent(event);
+		try{
+			Event event = createErrorEvent(t, ongoingTaskId, logParams);
+			return submitEvent(event);
+		} catch (Throwable throwable){
+			LOG.error("Was unable to send event to Timbermill", throwable);
+			return null;
+		}
     }
 
 	String spotEvent(String taskId, String name, String parentTaskId, LogParams logParams, TaskStatus status, ZonedDateTime dateToDelete) {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		Event event = createSpotEvent(taskId, name, logParams, status, dateToDelete, parentTaskId);
-		return submitEvent(event);
+		try{
+			Event event = createSpotEvent(taskId, name, logParams, status, dateToDelete, parentTaskId);
+			return submitEvent(event);
+		} catch (Throwable throwable){
+			LOG.error("Was unable to send event to Timbermill", throwable);
+			return null;
+		}
 	}
 
 	String logParams(LogParams logParams) {
@@ -124,8 +148,13 @@ final class EventLogger {
 		if (logParams == null){
 			logParams = LogParams.create();
 		}
-		Event event = createInfoEvent(logParams, ongoingTaskId);
-		return submitEvent(event);
+		try{
+			Event event = createInfoEvent(logParams, ongoingTaskId);
+			return submitEvent(event);
+		} catch (Throwable throwable){
+			LOG.error("Was unable to send event to Timbermill", throwable);
+			return null;
+		}
 	}
 
 	String getCurrentTaskId() {

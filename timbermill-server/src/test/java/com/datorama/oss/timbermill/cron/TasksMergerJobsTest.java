@@ -52,8 +52,8 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
-		String currentIndex = "com.datorama.oss.timbermill-test-new";
-		String previousIndex = "com.datorama.oss.timbermill-test-old";
+		String currentIndex = "timbermill-test-new";
+		String previousIndex = "timbermill-test-old";
 		TimberLogTest.client.setOldIndex(previousIndex);
 		TimberLogTest.client.setCurrentIndex(currentIndex);
 		jobDataMap.put(CLIENT, TimberLogTest.client);

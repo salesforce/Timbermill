@@ -41,7 +41,7 @@ public class ClientHeartbeater {
 				}
 			}
 		});
-		heartbeatThread.setName("com.datorama.com.datorama.oss.timbermill-heartbeat-thread");
+		heartbeatThread.setName("timbermill-heartbeat-thread");
 		heartbeatThread.setDaemon(true);
 		heartbeatThread.start();
 	}

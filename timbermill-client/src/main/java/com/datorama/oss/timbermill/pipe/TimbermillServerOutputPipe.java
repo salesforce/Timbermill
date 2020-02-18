@@ -30,7 +30,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private Thread thread;
     private int maxEventsBatchSize;
     private long maxSecondsBeforeBatchTimeout;
-
+    private boolean started = false;
 
     private TimbermillServerOutputPipe() {
     }
@@ -61,6 +61,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                 }
             } while (keepRunning);
         });
+        thread.setName("timbermill-sender");
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
             try {
@@ -75,16 +76,20 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
             sendEventsOverConnection(httpCon, eventsWrapperBytes);
-            int responseCode = httpCon.getResponseCode();
-            if (responseCode == 200) {
-                LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
-                return;
+            try {
+                int responseCode = httpCon.getResponseCode();
+                if (responseCode == 200) {
+                    LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
+                    return;
 
-            } else {
-                LOG.warn("Request to com.datorama.oss.timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+                } else {
+                    LOG.warn("Request to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+                }
+            } catch (Exception e){
+                LOG.error("Request to Timbermill failed", e);
             }
         }
-        LOG.error("Can't send events to com.datorama.oss.timbermill, failed {} attempts." , MAX_RETRY);
+        LOG.error("Can't send events to Timbermill, failed {} attempts." , MAX_RETRY);
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
@@ -163,11 +168,11 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         if(!this.buffer.offer(e)){
             LOG.warn("Event {} was removed from the queue due to insufficient space", e.getTaskId());
         }
-        if (!this.thread.isAlive()) {
-            synchronized (this) {
-                if (!this.thread.isAlive()) {
-                    thread.start();
-                }
+
+        synchronized (this) {
+            if (!this.started) {
+                thread.start();
+                this.started = true;
             }
         }
     }

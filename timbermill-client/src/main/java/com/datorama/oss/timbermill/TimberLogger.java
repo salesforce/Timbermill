@@ -7,6 +7,8 @@ import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.pipe.EventOutputPipe;
@@ -15,6 +17,7 @@ import com.datorama.oss.timbermill.unit.TaskStatus;
 
 public final class TimberLogger {
 
+	private static final Logger LOG = LoggerFactory.getLogger(TimberLogger.class);
 	private static final String DEFAULT = "default";
 
 	private TimberLogger() {
@@ -235,7 +238,11 @@ public final class TimberLogger {
 	static ZonedDateTime createDateToDelete(int daysToKeep) {
 		ZonedDateTime dateToDelete = ZonedDateTime.now();
 		if (daysToKeep > 0){
-			dateToDelete = dateToDelete.plusDays(daysToKeep);
+			try {
+				dateToDelete = dateToDelete.plusDays(daysToKeep);
+			} catch (Throwable t){
+				LOG.error("Error parsing date", t);
+			}
 		}
 		return dateToDelete;
 	}

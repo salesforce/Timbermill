@@ -383,9 +383,9 @@ public class ElasticsearchClient {
 	}
 
 	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("com.datorama.oss.timbermill-template");
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
 
-        request.patterns(Lists.newArrayList("com.datorama.oss.timbermill*"));
+        request.patterns(Lists.newArrayList("timbermill*"));
         request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));
