@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
     private static final int HTTP_TIMEOUT = 2000;
-    private static final int MAX_RETRY = 3;
+    private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
@@ -73,9 +73,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
         HttpURLConnection httpCon = getHttpURLConnection();
-        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
+        String eventsWrapperString = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
-            sendEventsOverConnection(httpCon, eventsWrapperBytes);
+            sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
             try {
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {
@@ -83,13 +83,17 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                     return;
 
                 } else {
-                    LOG.warn("Request to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+                    LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
                 }
             } catch (Exception e){
-                LOG.error("Request to Timbermill failed", e);
+                LOG.error("Request #" + tryNum + " to Timbermill failed", e);
+            }
+            try {
+                Thread.sleep(2 ^ tryNum * 1000); //Exponential backoff
+            } catch (InterruptedException ignored) {
             }
         }
-        LOG.error("Can't send events to Timbermill, failed {} attempts." , MAX_RETRY);
+        LOG.error("Can't send events to Timbermill, failed {} attempts.\n Failed request: {} " , MAX_RETRY, eventsWrapperString);
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
@@ -99,11 +103,10 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         os.close();
     }
 
-    private byte[] getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
+    private String getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
         ObjectMapper om = new ObjectMapper();
         ObjectWriter ow = om.writerFor(om.getTypeFactory().constructType(EventsWrapper.class));
-        String eventsWrapperString = ow.writeValueAsString(eventsWrapper);
-        return eventsWrapperString.getBytes();
+        return ow.writeValueAsString(eventsWrapper);
     }
 
     private HttpURLConnection getHttpURLConnection() throws IOException {

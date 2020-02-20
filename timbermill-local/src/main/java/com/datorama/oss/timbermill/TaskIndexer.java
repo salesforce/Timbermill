@@ -310,7 +310,7 @@ public class TaskIndexer {
                 if (value != null) {
 					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
 						newMetrics.put(key, 0);
-						LOG.error("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
+						LOG.warn("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
 					} else {
 						newMetrics.put(key, value);
 					}
