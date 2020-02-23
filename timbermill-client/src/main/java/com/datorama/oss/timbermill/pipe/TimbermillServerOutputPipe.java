@@ -7,12 +7,14 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,6 +27,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
+    private int maxCharsAllowedForNonAnalyzedFields;
+    private int maxCharsAllowedForAnalyzedFields;
     private URL timbermillServerUrl;
     private LinkedBlockingQueue<Event> buffer;
     private Thread thread;
@@ -47,6 +51,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
         maxEventsBatchSize = builder.maxEventsBatchSize;
         maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
+        maxCharsAllowedForNonAnalyzedFields = builder.maxCharsAllowedForNonAnalyzedFields;
+        maxCharsAllowedForAnalyzedFields = builder.maxCharsAllowedForAnalyzedFields;
         buffer = new LinkedBlockingQueue<>(builder.maxBufferSize);
         thread = new Thread(() -> {
             do {
@@ -69,6 +75,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }));
+        maxCharsAllowedForNonAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
+        maxCharsAllowedForAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
@@ -86,7 +94,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                     LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
                 }
             } catch (Exception e){
-                LOG.error("Request #" + tryNum + " to Timbermill failed", e);
+                LOG.warn("Request #" + tryNum + " to Timbermill failed", e);
             }
             try {
                 Thread.sleep(2 ^ tryNum * 1000); //Exponential backoff
@@ -145,24 +153,49 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
 	private void cleanEvent(Event event) {
-		if (event.getStrings().isEmpty()){
+        Map<String, String> strings = event.getStrings();
+        if (strings.isEmpty()){
 			event.setStrings(null);
 		}
-		if (event.getText().isEmpty()){
-			event.setText(null);
-		}
-		if (event.getContext().isEmpty()){
-			event.setContext(null);
-		}
+		else{
+            trimLongValues(strings, "strings", maxCharsAllowedForNonAnalyzedFields);
+        }
+
+        Map<String, String> context = event.getContext();
+        if (context.isEmpty()){
+            event.setContext(null);
+        }
+        else {
+            trimLongValues(context, "context", maxCharsAllowedForNonAnalyzedFields);
+        }
+
+        Map<String, String> text = event.getText();
+        if (text.isEmpty()){
+            event.setText(null);
+        }
+        else {
+            trimLongValues(text, "text", maxCharsAllowedForAnalyzedFields);
+        }
 		if (event.getMetrics().isEmpty()){
 			event.setMetrics(null);
 		}
 		if (event.getLogs().isEmpty()){
 			event.setLogs(null);
 		}
+
 	}
 
-	private boolean isExceededMaxTimeToWait(long startBatchTime) {
+    private void trimLongValues(Map<String, String> map, String mapName, int maxChars) {
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            String value = entry.getValue();
+            if (value.length() > maxChars) {
+                LOG.debug("Entry with key {} under {} is over max character allowed {}", entry.getKey(), mapName, maxChars);
+                entry.setValue(value.substring(0, maxChars));
+            }
+        }
+    }
+
+    private boolean isExceededMaxTimeToWait(long startBatchTime) {
         return System.currentTimeMillis() - startBatchTime > maxSecondsBeforeBatchTimeout * 1000;
     }
 

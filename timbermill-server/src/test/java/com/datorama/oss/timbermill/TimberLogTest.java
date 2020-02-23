@@ -13,8 +13,8 @@ import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 
-import static com.datorama.oss.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
-import static com.datorama.oss.timbermill.TaskIndexer.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
+import static com.datorama.oss.timbermill.common.Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
+import static com.datorama.oss.timbermill.common.Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
 import static com.datorama.oss.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static org.junit.Assert.*;
 
@@ -56,8 +56,8 @@ public abstract class TimberLogTest {
 
 		String log1 = "log1";
 		String log2 = "log2";
-		String hugeString = "ctx";
-		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, hugeString);
+		String hugeField = "hugeField";
+		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, hugeField);
 
 		waitForTask(taskId, TaskStatus.SUCCESS);
 		Task task = client.getTaskById(taskId);
@@ -78,9 +78,9 @@ public abstract class TimberLogTest {
 		assertEquals(2, metrics.get(metric2).intValue());
 		assertEquals(text1, texts.get(text1));
 		assertEquals(text2, texts.get(text2));
-		assertEquals(MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS, texts.get(hugeString).length());
-		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, strings.get(hugeString).length());
-		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, ctx.get(hugeString).length());
+		assertEquals(MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS, texts.get(hugeField).length());
+		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, strings.get(hugeField).length());
+		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, ctx.get(hugeField).length());
 
 		String[] split = log.split("\n");
 		assertEquals(2, split.length);

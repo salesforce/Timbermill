@@ -29,10 +29,8 @@ public class TaskIndexer {
     private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
     private static final String TEXT = "text";
     private static final String STRING = "string";
-    private static final String CTX = "ctx";
-    static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 32765;
-    static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 1000000;
 
+    private static final String CTX = "ctx";
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
     private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
@@ -334,9 +332,9 @@ public class TaskIndexer {
 
     private String trimIfNeededValue(String type, String key, String value, Event event) {
         if (type.equals(TEXT)) {
-            value = trimValue(type, key, value, event, MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
+            value = trimValue(type, key, value, event, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
         } else {
-            value = trimValue(type, key, value, event, MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+            value = trimValue(type, key, value, event, Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
         }
         return value;
     }
