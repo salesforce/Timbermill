@@ -39,7 +39,7 @@ public class TimbermillService {
 			@Value("${ELASTICSEARCH_NUMBER_OF_REPLICAS:1}") int numberOfReplicas,
 			@Value("${ELASTICSEARCH_INDEX_MAX_AGE:7}") int maxIndexAge,
 			@Value("${ELASTICSEARCH_INDEX_MAX_GB_SIZE:100}") int maxIndexSizeInGB,
-			@Value("${ELASTICSEARCH_INDEX_MAX_DOCS:1000000000}") int maxIndexDocs,
+			@Value("${ELASTICSEARCH_INDEX_MAX_DOCS:50}") int maxIndexDocs,
 			@Value("${ELASTICSEARCH_MAX_TOTAL_FIELDS:4000}") int maxTotalFields,
 			@Value("${INDEXING_THREADS:10}") int indexingThreads,
 			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
