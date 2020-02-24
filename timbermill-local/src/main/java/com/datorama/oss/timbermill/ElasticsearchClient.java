@@ -280,42 +280,35 @@ public class ElasticsearchClient {
                 currentIndex = rolloverResponse.getNewIndex();
                 oldIndex = rolloverResponse.getOldIndex();
 
-                new Thread(() -> {
-					try {
-						moveTasksFromOldToNewIndex();
-					} catch (Throwable t) {
-						LOG.warn("Failed to merge tasks from old index " + oldIndex + ". Going to retry", t);
-						retryMoveTasksFromOldToNewIndex(1);
-					}
-				}).start();
+				moveTasksFromOldToNewIndex(1);
             }
         } catch (Throwable t) {
             LOG.error("An error occurred while rollovered index " + timbermillAlias, t);
         }
     }
 
-	private void moveTasksFromOldToNewIndex() throws IOException {
-		Map<String, Task> previousIndexPartialTasks = getIndexPartialTasks(oldIndex);
-		if (!previousIndexPartialTasks.isEmpty()) {
-			indexAndDeleteTasks(previousIndexPartialTasks);
+	private void moveTasksFromOldToNewIndex(int tryNum) {
+		try{
+			Map<String, Task> previousIndexPartialTasks = getIndexPartialTasks(oldIndex);
+			if (!previousIndexPartialTasks.isEmpty()) {
+				indexAndDeleteTasks(previousIndexPartialTasks);
+			}
+		} catch (Throwable t) {
+			if (tryNum <= numOfMergedTasksTries) {
+				LOG.warn("Try #" + tryNum + " Failed to merge tasks from old index " + oldIndex + ". Going to retry", t);
+				try {
+					Thread.sleep((2 ^ tryNum) * 1000);
+				} catch (InterruptedException ignored) {
+				}
+				moveTasksFromOldToNewIndex(tryNum + 1);
+			}
+			else{
+				LOG.error("{} tries failed to merge tasks.", tryNum);
+			}
 		}
     }
 
-	private void retryMoveTasksFromOldToNewIndex(int tryNum) {
-		if (tryNum <= numOfMergedTasksTries){
-			try {
-				moveTasksFromOldToNewIndex();
-			} catch (Throwable t) {
-				retryMoveTasksFromOldToNewIndex( tryNum + 1);
-				LOG.warn("Retry number " + tryNum + "/" + numOfMergedTasksTries + " failed to merge tasks from old index " + oldIndex, t);
-			}
-		}
-		else{
-			LOG.error("{} tries failed to merge tasks.", tryNum);
-		}
-	}
-
-    public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks) {
+	public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks) {
         LOG.info("About to migrate partial tasks from old index [{}] to new index [{}]", oldIndex, currentIndex);
         index(previousIndexPartialTasks, currentIndex);
         deleteTasksFromIndex(previousIndexPartialTasks, oldIndex);
