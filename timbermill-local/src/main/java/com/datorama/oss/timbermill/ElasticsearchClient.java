@@ -161,7 +161,7 @@ public class ElasticsearchClient {
 			Map<String, Task> fetchedTasks = getTasksByIds(tasksToFetch);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
-					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
+					LOG.info("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
 				}
 			}
 			return fetchedTasks;
