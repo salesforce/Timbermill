@@ -83,18 +83,18 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         HttpURLConnection httpCon = getHttpURLConnection();
         String eventsWrapperString = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
-            sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
             try {
+                sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {
                     LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
                     return;
 
                 } else {
-                    LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+                    LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}/{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
                 }
             } catch (Exception e){
-                LOG.warn("Request #" + tryNum + " to Timbermill failed", e);
+                LOG.warn("Request #" + tryNum + " to Timbermill failed, Attempt: "+ tryNum + "/" + MAX_RETRY, e);
             }
             try {
                 Thread.sleep(2 ^ tryNum * 1000); //Exponential backoff

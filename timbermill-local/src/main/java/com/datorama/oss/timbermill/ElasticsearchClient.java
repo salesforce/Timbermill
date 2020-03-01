@@ -158,7 +158,13 @@ public class ElasticsearchClient {
 
     Map<String, Task> fetchIndexedTasks(String...tasksToFetch) throws IOException {
 		if (tasksToFetch.length > 0) {
-			return getTasksByIds(tasksToFetch);
+			Map<String, Task> fetchedTasks = getTasksByIds(tasksToFetch);
+			for (String taskId : tasksToFetch) {
+				if (!fetchedTasks.containsKey(taskId)){
+					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
+				}
+			}
+			return fetchedTasks;
 		}
 		return Collections.emptyMap();
 	}
