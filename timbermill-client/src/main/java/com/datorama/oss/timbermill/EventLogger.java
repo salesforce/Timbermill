@@ -181,6 +181,10 @@ final class EventLogger {
 		};
 	}
 
+	void clearStack(){
+		taskIdStack.clear();
+	}
+
 	void addIdToContext(String ongoingTaskId) {
 		taskIdStack.push(ongoingTaskId);
 	}
