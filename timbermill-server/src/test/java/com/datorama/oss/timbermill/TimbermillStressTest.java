@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -18,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import com.datorama.oss.timbermill.unit.Event;
@@ -43,7 +45,7 @@ public class TimbermillStressTest extends TimberLogTest{
     private static int maxBufferSize = 20000000;
 
     @BeforeClass
-    public static void init() {
+    public static void init() throws SQLException {
         try {
             numOfParents = Integer.parseInt(System.getenv("NUM_OF_PARENTS"));
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));
@@ -70,7 +72,7 @@ public class TimbermillStressTest extends TimberLogTest{
             awsRegion = null;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
-                7, 100, 1000000000, 3, 3);
+                7, 100, 1000000000, 3, 3,3,new SqLiteDiskHandler());
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();

@@ -1,12 +1,14 @@
 package com.datorama.oss.timbermill;
 
+import java.sql.SQLException;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphansTest{
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws SQLException {
 		TimberLogServerTest.init();
 	}
 

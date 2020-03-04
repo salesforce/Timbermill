@@ -55,7 +55,9 @@ import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.TimbermillBulkRequest;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
@@ -79,10 +81,14 @@ public class ElasticsearchClient {
     private String oldIndex;
 	private int numOfMergedTasksTries;
 	private int numOfTasksIndexTries;
-	private LinkedBlockingQueue<Pair<BulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
+	private int maxBulkIndexFetches;
+	private LinkedBlockingQueue<Pair<TimbermillBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
+	private DiskHandler diskHandler;
+
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfTasksIndexTries) {
+			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfTasksIndexTries,int maxBulkIndexFetches, DiskHandler diskHandler) {
+		this.diskHandler = diskHandler;
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries);
 
 		this.indexBulkSize = indexBulkSize;
@@ -90,6 +96,7 @@ public class ElasticsearchClient {
         this.maxIndexSizeInGB = maxIndexSizeInGB;
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfMergedTasksTries = numOfMergedTasksTries;
+		this.maxBulkIndexFetches = maxBulkIndexFetches;
 		this.numOfTasksIndexTries = numOfTasksIndexTries;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
@@ -227,7 +234,8 @@ public class ElasticsearchClient {
         }
     }
 
-    private void sendBulkRequest(BulkRequest request, int retryNum){
+    private void sendBulkRequest(TimbermillBulkRequest timbermillBulkRequest, int retryNum){
+		BulkRequest request = timbermillBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
 		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 		if (retryNum > 0){
@@ -241,23 +249,30 @@ public class ElasticsearchClient {
             else{
                 LOG.info("Batch of {} requests finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
             }
+           throw new RuntimeException();
         } catch (Throwable t) {
 			if (retryNum >= numOfTasksIndexTries){
-				LOG.error("Reached maximum retries attempt to index for " + request.getDescription() + " Tasks will not be indexed.", t);
+				LOG.warn("Reached maximum retries attempt to index for " + request.getDescription() + " Tasks will not be indexed.", t);
+				failedRequests.remove(timbermillBulkRequest);
+				if (timbermillBulkRequest.getTimesFetched() < maxBulkIndexFetches){
+					diskHandler.persistToDisk(timbermillBulkRequest);
+				}
+				else {
+					LOG.error(timbermillBulkRequest.toString());
+				}
 			}
 			else {
 				LOG.warn("Failed while trying to bulk index tasks. Going to retry.", t);
-				failedRequests.offer(Pair.of(request, retryNum));//todo add persistence if fails
+				failedRequests.offer(Pair.of(timbermillBulkRequest, retryNum));//todo add persistence if fails
 			}
         }
 
     }
 
     public void index(Map<String, Task> tasksMap, String index) {
-        Collection<UpdateRequest> updateRequests = createUpdateRequests(tasksMap, index);
-        Collection<Pair<Future, BulkRequest>> futuresRequests = createFuturesRequests(updateRequests);
+        Collection<Pair<Future, TimbermillBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index);
 
-        for (Pair<Future, BulkRequest> futureRequest : futuresRequests) {
+        for (Pair<Future, TimbermillBulkRequest> futureRequest : futuresRequests) {
             try {
 				futureRequest.getLeft().get();
             } catch (InterruptedException | ExecutionException e) {
@@ -315,24 +330,36 @@ public class ElasticsearchClient {
         LOG.info("Successfully migrated {} tasks to new index [{}]", previousIndexPartialTasks.size(), currentIndex);
     }
 
-    private Collection<Pair<Future, BulkRequest>> createFuturesRequests(Collection<UpdateRequest> requests) {
-        BulkRequest request = new BulkRequest();
-        Collection<Pair<Future, BulkRequest>> futures = new ArrayList<>();
+	private Collection<Pair<Future, TimbermillBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index) {
+		Collection<UpdateRequest> requests = createUpdateRequests(tasksMap, index);
+		BulkRequest request = new BulkRequest();
+		Collection<Pair<Future, TimbermillBulkRequest>> futures = new ArrayList<>();
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
 
             if (request.estimatedSizeInBytes() > indexBulkSize) {
-                addRequestToFutures(request, futures);
+				TimbermillBulkRequest timbermillBulkRequest = new TimbermillBulkRequest(request);
+				addRequestToFutures(timbermillBulkRequest, futures);
                 request = new BulkRequest();
             }
         }
         if (!request.requests().isEmpty()) {
-            addRequestToFutures(request, futures);
+			TimbermillBulkRequest timbermillBulkRequest = new TimbermillBulkRequest(request);
+			addRequestToFutures(timbermillBulkRequest, futures);
         }
-        return futures;
+
+		addRetryTimbermillBulkRequests(futures);
+		return futures;
     }
 
-    private void addRequestToFutures(BulkRequest request, Collection<Pair<Future, BulkRequest>> futures) {
+	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, TimbermillBulkRequest>> futures) {
+		List<TimbermillBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
+		for (TimbermillBulkRequest failedRequest : failedRequests) {
+			addRequestToFutures(failedRequest, futures);
+		}
+	}
+
+	private void addRequestToFutures(TimbermillBulkRequest request, Collection<Pair<Future, TimbermillBulkRequest>> futures) {
         Future<?> future = executorService.submit(() -> sendBulkRequest(request, 0));
         futures.add(Pair.of(future, request));
     }
@@ -573,14 +600,18 @@ public class ElasticsearchClient {
 	public void retryFailedRequests() {
 		if (!failedRequests.isEmpty()) {
 			LOG.info("------------------ Failed Requests Retry Start ------------------");
-			List<Pair<BulkRequest, Integer>> list = Lists.newLinkedList();
+			List<Pair<TimbermillBulkRequest, Integer>> list = Lists.newLinkedList();
 			failedRequests.drainTo(list);
-			for (Pair<BulkRequest, Integer> entry : list) {
-				BulkRequest bulkRequest = entry.getKey();
+			for (Pair<TimbermillBulkRequest, Integer> entry : list) {
+				TimbermillBulkRequest bulkRequest = entry.getKey();
 				Integer retryNum = entry.getValue();
 				sendBulkRequest(bulkRequest, retryNum + 1);
 			}
 			LOG.info("------------------ Failed Requests Retry End ------------------");
 		}
+	}
+
+	public int numOfFailedRequests(){
+		return failedRequests.size();
 	}
 }

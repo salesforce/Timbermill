@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.cron;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TimberLogTest;
+import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
@@ -43,12 +45,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 	private static TasksMergerJobs tasksMergerJobs;
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws SQLException {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
-		TimberLogTest.client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3, 3);
+		TimberLogTest.client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3,
+				3,3,new SqLiteDiskHandler());
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

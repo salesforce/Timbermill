@@ -1,5 +1,6 @@
 package com.datorama.timbermill.server.service;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.unit.Event;
 
@@ -31,6 +33,8 @@ public class TimbermillService {
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
+			@Value("${disk.handler.strategy:sqlite}") String diskHandlerStrategy,
+			@Value("${persistent.fetch.cron.expression:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
 			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
@@ -48,16 +52,23 @@ public class TimbermillService {
 			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
 			@Value("${NUMBER_OD_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
 			@Value("${NUMBER_OD_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
+			@Value("${max.bulk.index.fetches:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
+		DiskHandler diskHandler = null;
+		try {
+			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
+		} catch (SQLException e) {
+			e.printStackTrace(); //TODO OZ
+		}
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(
-				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
+				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,persistentFetchCronExp);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
-				numOfMergedTasksTries, numOfTasksIndexTries);
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
+				numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,diskHandler);
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
 		startWorkingThread(es);
 	}
 

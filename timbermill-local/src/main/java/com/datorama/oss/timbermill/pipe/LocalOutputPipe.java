@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.pipe;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.unit.Event;
 
@@ -10,6 +11,7 @@ import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.SQLException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -31,11 +33,17 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
+        DiskHandler diskHandler = null;
+        try {
+            diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
+        } catch (SQLException e) {
+            e.printStackTrace(); //TODO fix this (OZ)
+        }
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields);
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,null);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries);
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,diskHandler);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
         startWorkingThread(es);
     }
 
@@ -80,6 +88,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         //DEFAULTS
         private int numOfTasksIndexTries = 3;
+        private int maxBulkIndexFetched = 3;
         private int numOfMergedTasksTries = 3;
         private int maxCacheHoldTimeMinutes = 60;
         private int maxCacheSize = 10000;
@@ -99,6 +108,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
+        private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
+        private String diskHandlerStrategy = "sqlite";
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -191,6 +202,21 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
         public Builder numOfTasksIndexTries(int numOfTasksIndexTries) {
             this.numOfTasksIndexTries = numOfTasksIndexTries;
+            return this;
+        }
+
+        public Builder persistentFetchCronExp(String persistentFetchCronExp) {
+            this.persistentFetchCronExp = persistentFetchCronExp;
+            return this;
+        }
+
+        public Builder diskHandlerStrategy(String diskHandlerStrategy) {
+            this.diskHandlerStrategy = diskHandlerStrategy;
+            return this;
+        }
+
+        public Builder maxBulkIndexFetched(int maxBulkIndexFetched) {
+            this.maxBulkIndexFetched = maxBulkIndexFetched;
             return this;
         }
 

@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.common;
 
+import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -18,6 +19,7 @@ import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
+import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.google.common.collect.Sets;
 
 import static org.quartz.CronScheduleBuilder.cronSchedule;
@@ -298,7 +300,10 @@ public class ElasticsearchUtil {
 
 	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
-	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
+	public static final String DISK_HANDLER = "disk_handler";
+	private static final String SQLITE = "sqlite";
+
+	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es, DiskHandler diskHandler) {
 		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields());
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
 
@@ -306,11 +311,25 @@ public class ElasticsearchUtil {
 		if (!Strings.isEmpty(deletionCronExp)) {
 			runDeletionTaskCron(deletionCronExp, es);
 		}
+		String  persistentFetchCronExp = elasticsearchParams.getPersistentFetchCronExp();
+		if (!Strings.isEmpty(persistentFetchCronExp)) {
+			runPersistentFetchCron(persistentFetchCronExp, diskHandler);
+		}
 		return new TaskIndexer(elasticsearchParams, es);
 	}
 
+	public static DiskHandler getDiskHandler(String diskHandlerStrategy) throws SQLException {
+		String strategy = diskHandlerStrategy.toLowerCase();
+		if (strategy.equals(SQLITE)){
+			return new SqLiteDiskHandler();
+		}
+		else{
+			throw new RuntimeException("Unsupported disk handler strategy " + diskHandlerStrategy);
+		}
+	}
+
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
-		while (!eventsQueue.isEmpty()) {
+		while (!eventsQueue.isEmpty() || es.numOfFailedRequests()>0) {  //TODO do we need to add "&& !failedRequest.isEmpty()"? if there aren't any events then we ignore the failed requests
 			try {
 				es.retryFailedRequests();
 
@@ -370,6 +389,27 @@ public class ElasticsearchUtil {
 			LOG.error("Error occurred while deleting expired tasks", e);
 		}
 
+	}
+
+	private static void runPersistentFetchCron(String persistentFetchCronExp, DiskHandler diskHandler) {
+		try {
+			final StdSchedulerFactory sf = new StdSchedulerFactory();
+			Scheduler scheduler = sf.getScheduler();
+			JobDataMap jobDataMap = new JobDataMap();
+			jobDataMap.put(DISK_HANDLER, diskHandler);
+			JobDetail job = newJob(PersistentFetchJob.class)
+					.withIdentity("job1", "group1").usingJobData(jobDataMap)
+					.build();
+			CronTrigger trigger = newTrigger()
+					.withIdentity("trigger1", "group1")
+					.withSchedule(cronSchedule(persistentFetchCronExp))
+					.build();
+
+			scheduler.scheduleJob(job, trigger);
+			scheduler.start();
+		} catch (SchedulerException e) {
+			LOG.error("Error occurred while fetching failed bulks from disk", e);
+		}
 	}
 
 	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es) {

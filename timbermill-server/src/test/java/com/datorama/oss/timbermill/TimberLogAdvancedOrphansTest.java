@@ -1,10 +1,13 @@
 package com.datorama.oss.timbermill;
 
+import java.sql.SQLException;
+
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 
+import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
@@ -21,13 +24,13 @@ public class TimberLogAdvancedOrphansTest {
     private static ElasticsearchClient client;
 
     @BeforeClass
-    public static void setUp(){
+    public static void setUp() throws SQLException {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3);
+                7, 100, 1000000000, 3, 3,3, new SqLiteDiskHandler());
     }
 
     @AfterClass
