@@ -46,8 +46,8 @@ public class TimbermillService {
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
 			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
-			@Value("${NUMBER_OD_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
-			@Value("${NUMBER_OD_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
+			@Value("${NUMBER_OF_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
+			@Value("${NUMBER_OF_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {

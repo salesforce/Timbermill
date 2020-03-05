@@ -52,7 +52,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
@@ -70,7 +69,6 @@ public class ElasticsearchClient {
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
-    private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
     private final ExecutorService executorService;
     private long maxIndexAge;
     private long maxIndexSizeInGB;
@@ -101,7 +99,7 @@ public class ElasticsearchClient {
             String serviceName = "es";
             signer.setServiceName(serviceName);
             signer.setRegionName(awsRegion);
-            HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
+            HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, new DefaultAWSCredentialsProviderChain());
             builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
 
