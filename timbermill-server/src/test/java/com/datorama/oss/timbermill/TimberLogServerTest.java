@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
@@ -27,7 +28,7 @@ public class TimberLogServerTest extends TimberLogTest{
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3,3,new SqLiteDiskHandler());
+                7, 100, 1000000000, 3, 3,3,new SQLJetDiskHandler());
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000)
                 .maxSecondsBeforeBatchTimeout(3).build();
         TimberLogger.bootstrap(pipe, TEST);

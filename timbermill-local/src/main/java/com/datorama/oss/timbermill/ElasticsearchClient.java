@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -13,9 +14,11 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetResponse;
@@ -57,7 +60,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.TimbermillBulkRequest;
+import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
@@ -82,7 +85,7 @@ public class ElasticsearchClient {
 	private int numOfMergedTasksTries;
 	private int numOfTasksIndexTries;
 	private int maxBulkIndexFetches;
-	private LinkedBlockingQueue<Pair<TimbermillBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
+	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
 
 
@@ -234,8 +237,8 @@ public class ElasticsearchClient {
         }
     }
 
-    private void sendBulkRequest(TimbermillBulkRequest timbermillBulkRequest, int retryNum){
-		BulkRequest request = timbermillBulkRequest.getRequest();
+    private void sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
+		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
 		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 		if (retryNum > 0){
@@ -244,37 +247,22 @@ public class ElasticsearchClient {
 		try {
             BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
             if (responses.hasFailures()) {
-                LOG.error("Couldn't bulk index tasks to elasticsearch cluster. Error: {}", responses.buildFailureMessage());
+				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
                 LOG.info("Batch of {} requests finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
             }
-           throw new RuntimeException();
         } catch (Throwable t) {
-			if (retryNum >= numOfTasksIndexTries){
-				LOG.warn("Reached maximum retries attempt to index for " + request.getDescription() + " Tasks will not be indexed.", t);
-				failedRequests.remove(timbermillBulkRequest);
-				if (timbermillBulkRequest.getTimesFetched() < maxBulkIndexFetches){
-					diskHandler.persistToDisk(timbermillBulkRequest);
-				}
-				else {
-					LOG.error(timbermillBulkRequest.toString());
-				}
-			}
-			else {
-				LOG.warn("Failed while trying to bulk index tasks. Going to retry.", t);
-				failedRequests.offer(Pair.of(timbermillBulkRequest, retryNum));//todo add persistence if fails
-			}
+			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
         }
-
     }
 
     public void index(Map<String, Task> tasksMap, String index) {
-        Collection<Pair<Future, TimbermillBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index);
+        Collection<Pair<Future, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index);
 
-        for (Pair<Future, TimbermillBulkRequest> futureRequest : futuresRequests) {
+        for (Pair<Future, DbBulkRequest> futureRequest : futuresRequests) {
             try {
-				futureRequest.getLeft().get();
+				futureRequest.getLeft().get(); // execute request
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("An error was thrown while indexing a batch", e);
                 failedRequests.offer(Pair.of(futureRequest.getRight(), 0)); //todo add persistence if fails
@@ -330,37 +318,37 @@ public class ElasticsearchClient {
         LOG.info("Successfully migrated {} tasks to new index [{}]", previousIndexPartialTasks.size(), currentIndex);
     }
 
-	private Collection<Pair<Future, TimbermillBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index) {
+	private Collection<Pair<Future, DbBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index) {
 		Collection<UpdateRequest> requests = createUpdateRequests(tasksMap, index);
 		BulkRequest request = new BulkRequest();
-		Collection<Pair<Future, TimbermillBulkRequest>> futures = new ArrayList<>();
+		Collection<Pair<Future, DbBulkRequest>> futures = new ArrayList<>();
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
 
             if (request.estimatedSizeInBytes() > indexBulkSize) {
-				TimbermillBulkRequest timbermillBulkRequest = new TimbermillBulkRequest(request);
-				addRequestToFutures(timbermillBulkRequest, futures);
+				DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
+				addRequestToFutures(dbBulkRequest, futures);
                 request = new BulkRequest();
             }
         }
         if (!request.requests().isEmpty()) {
-			TimbermillBulkRequest timbermillBulkRequest = new TimbermillBulkRequest(request);
-			addRequestToFutures(timbermillBulkRequest, futures);
+			DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
+			addRequestToFutures(dbBulkRequest, futures);
         }
 
 		addRetryTimbermillBulkRequests(futures);
 		return futures;
     }
 
-	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, TimbermillBulkRequest>> futures) {
-		List<TimbermillBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
-		for (TimbermillBulkRequest failedRequest : failedRequests) {
+	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, DbBulkRequest>> futures) {
+		List<DbBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
+		for (DbBulkRequest failedRequest : failedRequests) {
 			addRequestToFutures(failedRequest, futures);
 		}
 	}
 
-	private void addRequestToFutures(TimbermillBulkRequest request, Collection<Pair<Future, TimbermillBulkRequest>> futures) {
-        Future<?> future = executorService.submit(() -> sendBulkRequest(request, 0));
+	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future, DbBulkRequest>> futures) {
+        Future<?> future = executorService.submit(() -> sendDbBulkRequest(request, 0));
         futures.add(Pair.of(future, request));
     }
 
@@ -600,12 +588,12 @@ public class ElasticsearchClient {
 	public void retryFailedRequests() {
 		if (!failedRequests.isEmpty()) {
 			LOG.info("------------------ Failed Requests Retry Start ------------------");
-			List<Pair<TimbermillBulkRequest, Integer>> list = Lists.newLinkedList();
+			List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
 			failedRequests.drainTo(list);
-			for (Pair<TimbermillBulkRequest, Integer> entry : list) {
-				TimbermillBulkRequest bulkRequest = entry.getKey();
+			for (Pair<DbBulkRequest, Integer> entry : list) {
+				DbBulkRequest bulkRequest = entry.getKey();
 				Integer retryNum = entry.getValue();
-				sendBulkRequest(bulkRequest, retryNum + 1);
+				sendDbBulkRequest(bulkRequest, retryNum + 1);
 			}
 			LOG.info("------------------ Failed Requests Retry End ------------------");
 		}
@@ -614,4 +602,74 @@ public class ElasticsearchClient {
 	public int numOfFailedRequests(){
 		return failedRequests.size();
 	}
+
+//	private void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
+//		if (dbBulkRequest.isInDisk()){
+//			if (retryNum >= numOfTasksIndexTries){
+//				LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription() + " Tasks will not be indexed.", failureMessage);
+//				failedRequests.remove(dbBulkRequest);
+//				if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
+//					remainOnlyFailureRequests(dbBulkRequest,responses);
+//					diskHandler.persistToDisk(dbBulkRequest);
+//				}
+//				else {
+//					LOG.error(dbBulkRequest.toString());
+//				}
+//			}
+//			else {
+//				LOG.warn("Failed while trying to bulk index tasks. Going to retry.", failureMessage);
+//				remainOnlyFailureRequests(dbBulkRequest,responses);
+//				failedRequests.offer(Pair.of(dbBulkRequest, retryNum));
+//			}
+//		}
+//		else{
+//			remainOnlyFailureRequests(dbBulkRequest,responses);
+//			if (retryNum >= numOfTasksIndexTries){
+//				LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription() + " Tasks will not be indexed.", failureMessage);
+//				failedRequests.remove(dbBulkRequest);
+//				diskHandler.persistToDisk(dbBulkRequest);
+//			} else {
+//				LOG.warn("Failed while trying to bulk index tasks. Going to retry.", failureMessage);
+//				failedRequests.offer(Pair.of(dbBulkRequest, retryNum));
+//			}
+//		}
+//	}
+
+	private void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
+		if (retryNum >= numOfTasksIndexTries){
+			// failed bulk isn't from disk
+			LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription() + " Tasks will not be indexed.", failureMessage);
+			failedRequests.remove(dbBulkRequest);
+			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
+				remainOnlyFailureRequests(dbBulkRequest,responses);
+				diskHandler.persistToDisk(dbBulkRequest);
+			}
+			else {
+				LOG.error(dbBulkRequest.toString());
+			}
+		}
+		else {
+			LOG.warn("Failed while trying to bulk index tasks. Going to retry.", failureMessage);
+			remainOnlyFailureRequests(dbBulkRequest,responses);
+			failedRequests.offer(Pair.of(dbBulkRequest, retryNum));
+		}
+	}
+
+	private void remainOnlyFailureRequests(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+		if (bulkResponses != null){
+			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
+			BulkRequest failedRequests = new BulkRequest();
+			BulkItemResponse[] responses = bulkResponses.getItems();
+			int length = requests.size();
+			for (int i = 0 ; i < length; i++){
+				if (responses[i].isFailed()){
+					failedRequests.add(requests.get(i));
+				}
+			}
+			dbBulkRequest.setRequest(failedRequests);
+		}
+		//else - the bulk method threw exception, then all requests failed. No change is needed in BulkRequest.
+	}
+
 }
+

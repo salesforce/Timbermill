@@ -321,7 +321,7 @@ public class ElasticsearchUtil {
 	public static DiskHandler getDiskHandler(String diskHandlerStrategy) throws SQLException {
 		String strategy = diskHandlerStrategy.toLowerCase();
 		if (strategy.equals(SQLITE)){
-			return new SqLiteDiskHandler();
+			return new SQLJetDiskHandler();
 		}
 		else{
 			throw new RuntimeException("Unsupported disk handler strategy " + diskHandlerStrategy);

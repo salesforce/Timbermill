@@ -18,6 +18,7 @@ import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TimberLogTest;
+import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
@@ -51,7 +52,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
 		TimberLogTest.client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3,
-				3,3,new SqLiteDiskHandler());
+				3,3,new SQLJetDiskHandler());
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

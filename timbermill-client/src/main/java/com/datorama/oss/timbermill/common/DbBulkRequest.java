@@ -8,23 +8,26 @@ import java.util.UUID;
 
 import org.elasticsearch.action.bulk.BulkRequest;
 
-public class TimbermillBulkRequest implements Serializable {
-	private int id;
+public class DbBulkRequest implements Serializable {
+	private String id;
 	private BulkRequest request;
 	private Date createTime;
 	private Date updateTime;
 	private int timesFetched;
-	private boolean inProgress;
+	private boolean inDisk;
 
-	public TimbermillBulkRequest(BulkRequest request) {
+
+	public DbBulkRequest(BulkRequest request) {
 		this.request = request;
+		String uniqueID = UUID.randomUUID().toString();
+		setId(uniqueID);
 	}
 
-	public int getId() {
+	public String  getId() {
 		return id;
 	}
 
-	public void setId(int id) {
+	public void setId(String id) {
 		this.id = id;
 	}
 
@@ -60,12 +63,12 @@ public class TimbermillBulkRequest implements Serializable {
 		this.timesFetched = timesFetched;
 	}
 
-	public boolean isInProgress() {
-		return inProgress;
+	public boolean isInDisk() {
+		return inDisk;
 	}
 
-	public void setInProgress(boolean inProgress) {
-		this.inProgress = inProgress;
+	public void setInDisk(boolean inDisk) {
+		this.inDisk = inDisk;
 	}
 
 	@Override public boolean equals(Object o) {
@@ -73,10 +76,10 @@ public class TimbermillBulkRequest implements Serializable {
 			return true;
 		if (o == null || getClass() != o.getClass())
 			return false;
-		TimbermillBulkRequest that = (TimbermillBulkRequest) o;
-		return id == that.id &&
+		DbBulkRequest that = (DbBulkRequest) o;
+		return id.equals(that.id) &&
 				timesFetched == that.timesFetched &&
-				inProgress == that.inProgress &&
+				inDisk == that.inDisk &&
 				Objects.equals(createTime, that.createTime) &&
 				Objects.equals(updateTime, that.updateTime);
 	}

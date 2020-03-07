@@ -6,14 +6,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.sql.rowset.serial.SerialBlob;
-
-import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.common.io.stream.ByteBufferStreamInput;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,12 +23,13 @@ public class SqLiteDiskHandler implements DiskHandler {
 	private static final String IN_PROGRESS = "inProgress";
 	//TODO check if removing UNIQUE before AUTOINCREMENT is OK
 	private static final String CREATE_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID	+ " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + CREATE_TIME + " TEXT, " + UPDATE_TIME + " TEXT, "	+ TIMES_FETCHED + " INTEGER, " + IN_PROGRESS + " BOOLEAN)";
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID	+ " TEXT, " + FAILED_TASK + " BLOB NOT NULL, " + CREATE_TIME + " TEXT, " + UPDATE_TIME + " TEXT, "	+ TIMES_FETCHED + " INTEGER, " + IN_PROGRESS + " BOOLEAN)";
 
 	private static final Logger LOG = LoggerFactory.getLogger(SqLiteDiskHandler.class);
 	private static final String INSERT = "INSERT INTO " + FAILED_BULKS_TABLE_NAME + "(" + ID + ", " + FAILED_TASK + ", " + CREATE_TIME + ", " + UPDATE_TIME	+ ", " + TIMES_FETCHED + ", " + IN_PROGRESS
 			+ ") VALUES(?, ?, ?, ?, ?, ?)";
 	private static final String QUERY = "SELECT * FROM failed_bulks";
+	private static final String DELETE = "DELETE FROM failed_bulks WHERE id = ?";
 	public static final String URL = "jdbc:sqlite:" + DB_NAME;
 
 
@@ -46,8 +42,22 @@ public class SqLiteDiskHandler implements DiskHandler {
 		}
 	}
 
-	@Override public List<TimbermillBulkRequest> fetchFailedBulks() {
-		List<TimbermillBulkRequest> timbermillBulkRequests = new ArrayList<>();
+//	@Override void List<TimbermillBulkRequest> deleteBulk() {
+//
+//		try (Connection conn = DriverManager.getConnection(URL);
+//				PreparedStatement pstmt = conn.prepareStatement(INSERT)) {
+//
+//			LOG.info("**running delete " + DELETE);
+//
+//			// set the corresponding param
+//			pstmt.setInt(1, id);
+//			// execute the delete statement
+//			pstmt.executeUpdate();
+//		}
+//	}
+
+	@Override public List<DbBulkRequest> fetchFailedBulks() {
+		List<DbBulkRequest> dbBulkRequests = new ArrayList<>();
 
 		try (Connection conn = DriverManager.getConnection(URL);
 				Statement stmt  = conn.createStatement();
@@ -57,23 +67,22 @@ public class SqLiteDiskHandler implements DiskHandler {
 
 			// loop through the result set
 			BulkRequest request;
-			TimbermillBulkRequest timbermillBulkRequest;
+			DbBulkRequest dbBulkRequest;
 
-			while (rs.next()) {
+			while (rs.next()) { // TODO LIMIT IT
 				// fetch the serialized object to a byte array
 				byte[] st = (byte[])rs.getObject(2);
 				request = new BulkRequest();
 				request.readFrom(StreamInput.wrap(st));
-				timbermillBulkRequest = new TimbermillBulkRequest(request);
-				timbermillBulkRequest.setId(rs.getInt(1));
-				timbermillBulkRequest.setCreateTime(rs.getDate(3));
-				timbermillBulkRequest.setUpdateTime(rs.getDate(4));
-				timbermillBulkRequest.setTimesFetched(rs.getInt(5));
-				timbermillBulkRequest.setInProgress(rs.getBoolean(6));
+				dbBulkRequest = new DbBulkRequest(request);
+				dbBulkRequest.setId(rs.getString(1));
+				dbBulkRequest.setCreateTime(rs.getDate(3));
+				dbBulkRequest.setUpdateTime(rs.getDate(4));
+				dbBulkRequest.setTimesFetched(rs.getInt(5));
+				dbBulkRequest.setInDisk(rs.getBoolean(6));
 
-				timbermillBulkRequests.add(timbermillBulkRequest);
+				dbBulkRequests.add(dbBulkRequest);
 			}
-			return timbermillBulkRequests;
 
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
@@ -81,25 +90,36 @@ public class SqLiteDiskHandler implements DiskHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		return timbermillBulkRequests;
+		return dbBulkRequests;
 	}
 
-	@Override public void persistToDisk(TimbermillBulkRequest timbermillBulkRequest) {
-		BulkRequest request = timbermillBulkRequest.getRequest();
+	@Override public void persistToDisk(DbBulkRequest dbBulkRequest) {
+		BulkRequest request = dbBulkRequest.getRequest();
 		try (Connection conn = DriverManager.getConnection(URL) ; PreparedStatement pstmt = conn.prepareStatement(INSERT)) {
+
+			LOG.info("running insert " + INSERT);
+
 			BytesStreamOutput out = new BytesStreamOutput();
 			request.writeTo(out);
-			//pstmt.setInt(1, timbermillBulkRequest.getId());
+			pstmt.setString(1, dbBulkRequest.getId());
 			pstmt.setBytes(2, out.bytes().toBytesRef().bytes);
-			pstmt.setDate(3, timbermillBulkRequest.getCreateTime());
-			pstmt.setDate(4, timbermillBulkRequest.getUpdateTime());
-			pstmt.setInt(5, timbermillBulkRequest.getTimesFetched());
-			pstmt.setBoolean(6, timbermillBulkRequest.isInProgress());
+			pstmt.setDate(3, dbBulkRequest.getCreateTime());
+			pstmt.setDate(4, dbBulkRequest.getUpdateTime());
+			pstmt.setInt(5, dbBulkRequest.getTimesFetched());
+			pstmt.setBoolean(6, dbBulkRequest.isInDisk());
 			pstmt.executeUpdate();
 		} catch (Exception e) {
-			LOG.error("Failed persisting bulk request to disk. Request: " + timbermillBulkRequest.getRequest().requests().toString());
+			LOG.error("Failed persisting bulk request to disk. Request: " + dbBulkRequest.getRequest().requests().toString());
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override public void deleteBulk(DbBulkRequest dbBulkRequest) {
+
+	}
+
+	@Override public void updateBulk(String id, DbBulkRequest dbBulkRequest) {
+
 	}
 
 }

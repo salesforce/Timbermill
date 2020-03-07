@@ -3,8 +3,12 @@ package com.datorama.oss.timbermill.common;
 import java.util.List;
 
 public interface DiskHandler {
-	List<TimbermillBulkRequest> fetchFailedBulks();
+	List<DbBulkRequest> fetchFailedBulks();
 
-	void persistToDisk(TimbermillBulkRequest timbermillBulkRequest);
+	void persistToDisk(DbBulkRequest dbBulkRequest);
+
+	void deleteBulk(DbBulkRequest dbBulkRequest);
+
+	void updateBulk(String id, DbBulkRequest dbBulkRequest);
 }
 

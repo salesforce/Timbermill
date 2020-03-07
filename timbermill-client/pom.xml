@@ -40,6 +40,13 @@
         <url>https://github.com/datorama/Timbermill/tree/master</url>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>tmate</id>
+            <url>http://maven.tmatesoft.com/content/repositories/releases</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.aspectj</groupId>
@@ -104,6 +111,11 @@
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.15.1
             </version>
+        </dependency>
+        <dependency>
+            <groupId>org.tmatesoft.sqljet</groupId>
+            <artifactId>sqljet</artifactId>
+            <version>1.1.13</version>
         </dependency>
     </dependencies>
 
