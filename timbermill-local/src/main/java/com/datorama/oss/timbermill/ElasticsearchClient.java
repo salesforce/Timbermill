@@ -3,7 +3,6 @@ package com.datorama.oss.timbermill;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -87,6 +86,7 @@ public class ElasticsearchClient {
 	private int maxBulkIndexFetches;
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
+	private static final boolean withPersistence = true;
 
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
@@ -336,7 +336,9 @@ public class ElasticsearchClient {
 			addRequestToFutures(dbBulkRequest, futures);
         }
 
-		addRetryTimbermillBulkRequests(futures);
+		if (withPersistence){
+			addRetryTimbermillBulkRequests(futures);
+		}
 		return futures;
     }
 
@@ -641,8 +643,13 @@ public class ElasticsearchClient {
 			LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription() + " Tasks will not be indexed.", failureMessage);
 			failedRequests.remove(dbBulkRequest);
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
-				remainOnlyFailureRequests(dbBulkRequest,responses);
-				diskHandler.persistToDisk(dbBulkRequest);
+				if (withPersistence) {
+					remainOnlyFailureRequests(dbBulkRequest, responses);
+					diskHandler.persistToDisk(dbBulkRequest);
+				}
+				else{
+					LOG.error(dbBulkRequest.toString());
+				}
 			}
 			else {
 				LOG.error(dbBulkRequest.toString());

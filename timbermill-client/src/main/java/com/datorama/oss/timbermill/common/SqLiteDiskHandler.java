@@ -77,7 +77,6 @@ public class SqLiteDiskHandler implements DiskHandler {
 				dbBulkRequest = new DbBulkRequest(request);
 				dbBulkRequest.setId(rs.getString(1));
 				dbBulkRequest.setCreateTime(rs.getDate(3));
-				dbBulkRequest.setUpdateTime(rs.getDate(4));
 				dbBulkRequest.setTimesFetched(rs.getInt(5));
 				dbBulkRequest.setInDisk(rs.getBoolean(6));
 
@@ -104,7 +103,6 @@ public class SqLiteDiskHandler implements DiskHandler {
 			pstmt.setString(1, dbBulkRequest.getId());
 			pstmt.setBytes(2, out.bytes().toBytesRef().bytes);
 			pstmt.setDate(3, dbBulkRequest.getCreateTime());
-			pstmt.setDate(4, dbBulkRequest.getUpdateTime());
 			pstmt.setInt(5, dbBulkRequest.getTimesFetched());
 			pstmt.setBoolean(6, dbBulkRequest.isInDisk());
 			pstmt.executeUpdate();

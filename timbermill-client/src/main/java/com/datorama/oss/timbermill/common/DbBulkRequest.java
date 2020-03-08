@@ -12,7 +12,7 @@ public class DbBulkRequest implements Serializable {
 	private String id;
 	private BulkRequest request;
 	private Date createTime;
-	private Date updateTime;
+	private Long insertTime;
 	private int timesFetched;
 	private boolean inDisk;
 
@@ -21,6 +21,7 @@ public class DbBulkRequest implements Serializable {
 		this.request = request;
 		String uniqueID = UUID.randomUUID().toString();
 		setId(uniqueID);
+//		setCreateTime(new Date(System.currentTimeMillis())); TODO check if we can insert Date type in db
 	}
 
 	public String  getId() {
@@ -47,14 +48,6 @@ public class DbBulkRequest implements Serializable {
 		this.createTime = createTime;
 	}
 
-	public Date getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(Date updateTime) {
-		this.updateTime = updateTime;
-	}
-
 	public int getTimesFetched() {
 		return timesFetched;
 	}
@@ -71,6 +64,14 @@ public class DbBulkRequest implements Serializable {
 		this.inDisk = inDisk;
 	}
 
+	public Long getInsertTime() {
+		return insertTime;
+	}
+
+	public void setInsertTime(Long insertTime) {
+		this.insertTime = insertTime;
+	}
+
 	@Override public boolean equals(Object o) {
 		if (this == o)
 			return true;
@@ -78,9 +79,8 @@ public class DbBulkRequest implements Serializable {
 			return false;
 		DbBulkRequest that = (DbBulkRequest) o;
 		return id.equals(that.id) &&
-				timesFetched == that.timesFetched &&
 				inDisk == that.inDisk &&
-				Objects.equals(createTime, that.createTime) &&
-				Objects.equals(updateTime, that.updateTime);
+				insertTime == that.insertTime &&
+				Objects.equals(createTime, that.createTime);
 	}
 }

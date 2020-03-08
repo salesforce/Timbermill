@@ -23,16 +23,22 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private static final String ID = "id";
 	private static final String FAILED_TASK = "failedTask";
 	private static final String CREATE_TIME = "createTime";
-	private static final String UPDATE_TIME = "updateTime";
+	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
 	private static final String IN_DISK = "inDisk";
+	private static final String INSERT_TIME_INDEX = "insertTimeIndex";
+
+	public static final int fetchLimit = 10;
+	public static final long waitingTime = 1*60000; // 1 minute
+
 
 	private static SqlJetDb db;
 	private static ISqlJetTable table;
 
 	private static final String CREATE_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + CREATE_TIME + " TEXT, " + UPDATE_TIME + " TEXT, "
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + CREATE_TIME + " DATE, " + INSERT_TIME + " LONG, "
 					+ TIMES_FETCHED + " INTEGER, " + IN_DISK + " BOOLEAN)";
+	private static final String createInsertTimeIndexQuery = "CREATE INDEX " + INSERT_TIME_INDEX + " ON " + FAILED_BULKS_TABLE_NAME + "(" +  INSERT_TIME + ")";
 
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetDiskHandler.class);
 
@@ -41,14 +47,16 @@ public class SQLJetDiskHandler implements DiskHandler {
 		File dbFile = new File(DB_NAME);
 		dbFile.delete();
 		try {
-			// create database
+			// creating database
 			db = SqlJetDb.open(dbFile, true);
 			db.getOptions().setAutovacuum(true);
-			// create table
+			// creating table
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			db.getOptions().setUserVersion(1);
 			db.createTable(CREATE_TABLE);
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
+			db.createIndex(createInsertTimeIndexQuery);
+
 			db.commit();
 			LOG.info("Created DB successfully " + CREATE_TABLE);
 		} catch (SqlJetException e) {
@@ -56,34 +64,38 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
+	//region public methods
+
 	public SQLJetDiskHandler() {
 	}
 
-	@Override public List<DbBulkRequest> fetchFailedBulks() {
+	public List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch) {
 		List<DbBulkRequest> dbBulkRequests = new ArrayList<>();
-		BulkRequest request;
-		DbBulkRequest dbBulkRequest;
 		ISqlJetCursor resultCursor = null;
-
 		try {
 			LOG.info("**running query");
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = table.order(table.getPrimaryKeyIndexName());
+			resultCursor = table.scope(INSERT_TIME_INDEX, new Object[] {0}, new Object[] {System.currentTimeMillis()-waitingTime}); // bulk is in db at least waitingTime
 
 			if (!resultCursor.eof()) {
-				do {
 
-					byte[] bulkRequestBytes = resultCursor.getBlobAsArray(FAILED_TASK);
-					request = deserializeBulkRequest(bulkRequestBytes);
+				int fetchedCount = 0;
+				DbBulkRequest dbBulkRequest;
+				BulkRequest request;
+
+				do {
+					request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 					dbBulkRequest = new DbBulkRequest(request);
 					dbBulkRequest.setId(resultCursor.getString(ID));
 					dbBulkRequest.setCreateTime((Date) resultCursor.getValue(CREATE_TIME));
-					dbBulkRequest.setUpdateTime((Date) resultCursor.getValue(UPDATE_TIME));
-					dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED));
+					dbBulkRequest.setInsertTime((Long)resultCursor.getValue(INSERT_TIME));
+					dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1);
 					dbBulkRequest.setInDisk(true);
-
 					dbBulkRequests.add(dbBulkRequest);
-				} while (resultCursor.next());
+					if (deleteAfterFetch){
+						resultCursor.delete();
+					}
+				} while (resultCursor.next() && ++fetchedCount < fetchLimit);
 			}
 		} catch (SqlJetException | IOException e) {
 			e.printStackTrace();
@@ -93,14 +105,20 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return dbBulkRequests;
 	}
 
-	@Override public void persistToDisk(DbBulkRequest dbBulkRequest) {
+		@Override public List<DbBulkRequest> fetchFailedBulks() {
+			return fetchFailedBulks(true);
+		}
+
+		@Override public void persistToDisk(DbBulkRequest dbBulkRequest) {
 		try {
 			LOG.info("running insert of bulk request with id: {}",dbBulkRequest.getId());
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			ISqlJetTable table = db.getTable(FAILED_BULKS_TABLE_NAME);
+			long currentTime = System.currentTimeMillis();
 			table.insert(dbBulkRequest.getId(), serializeBulkRequest(dbBulkRequest.getRequest()), dbBulkRequest.getCreateTime(),
-					dbBulkRequest.getUpdateTime(), dbBulkRequest.getTimesFetched(), true);
+					currentTime, dbBulkRequest.getTimesFetched(), true);
 			dbBulkRequest.setInDisk(true);
+			dbBulkRequest.setInsertTime(currentTime);
 			db.commit();
 		} catch (SqlJetException | IOException e) {
 			e.printStackTrace();
@@ -112,7 +130,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		LOG.info("running delete of bulk request with id: {}",id);
 		try {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			ISqlJetCursor deleteCursor = table.lookup(ID, id);
+			ISqlJetCursor deleteCursor = table.lookup(table.getPrimaryKeyIndexName(), id);
 			if (!deleteCursor.eof()) {
 				deleteCursor.delete();
 			}
@@ -128,19 +146,51 @@ public class SQLJetDiskHandler implements DiskHandler {
 		try {
 			LOG.info("running update");
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			ISqlJetCursor updateCursor = table.lookup(ID, id);
+			ISqlJetCursor updateCursor = table.lookup(table.getPrimaryKeyIndexName(), id);
 			if (!updateCursor.eof()) {
-				updateCursor.update(id, dbBulkRequest.getRequest(), dbBulkRequest.getCreateTime(),
-						dbBulkRequest.getUpdateTime(), dbBulkRequest.getUpdateTime(), true);
+				updateCursor.update(id, serializeBulkRequest(dbBulkRequest.getRequest()), dbBulkRequest.getCreateTime(),
+						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched(), true);
 			}
 			updateCursor.close();
 			db.commit();
-		} catch (SqlJetException ex) {
+		} catch (SqlJetException | IOException ex) {
 			ex.printStackTrace();
 		}
 	}
 
-	// help methods
+	public void dropTable(){
+		try {
+			db.dropTable(FAILED_BULKS_TABLE_NAME);
+			db.commit();
+		} catch (SqlJetException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void emptyDb() {
+		LOG.info("empties db");
+		try {
+			db.beginTransaction(SqlJetTransactionMode.WRITE);
+			ISqlJetCursor deleteCursor = table.lookup(table.getPrimaryKeyIndexName());
+			while (!deleteCursor.eof()) {
+				deleteCursor.delete();
+			}
+			deleteCursor.close();
+			db.commit();
+
+		} catch (SqlJetException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public int failedBulksAmount() {
+		return fetchFailedBulks(false).size();
+	}
+	// endregion
+
+
+
+	//region private methods
 
 	private byte[] serializeBulkRequest(BulkRequest request) throws IOException {
 		BytesStreamOutput out = new BytesStreamOutput();
@@ -174,13 +224,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	public void dropTable(){
-		try {
-			db.dropTable(FAILED_BULKS_TABLE_NAME);
-			db.commit();
-		} catch (SqlJetException e) {
-			e.printStackTrace();
-		}
-	}
+	// endregion
+
 }
 
