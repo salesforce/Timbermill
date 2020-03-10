@@ -61,6 +61,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.internal.LazilyParsedNumber;
 
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
+
 public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
@@ -380,9 +382,9 @@ public class ElasticsearchClient {
 	}
 
 	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill2-template");
 
-        request.patterns(Lists.newArrayList("timbermill*"));
+        request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_PREFIX + "*"));
         request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));

@@ -294,7 +294,7 @@ public class ElasticsearchUtil {
 	public static final String INDEX_DELIMITER = "-";
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
-	private static final String TIMBERMILL_INDEX_PREFIX = "timbermill";
+	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
 	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
