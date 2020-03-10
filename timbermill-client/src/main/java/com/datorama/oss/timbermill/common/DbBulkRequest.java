@@ -21,7 +21,7 @@ public class DbBulkRequest implements Serializable {
 		this.request = request;
 		String uniqueID = UUID.randomUUID().toString();
 		setId(uniqueID);
-//		setCreateTime(new Date(System.currentTimeMillis())); TODO check if we can insert Date type in db
+		//setCreateTime(new Date(System.currentTimeMillis())); //TODO check if we can insert Date type in db
 	}
 
 	public String  getId() {

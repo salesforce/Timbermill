@@ -11,6 +11,7 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tmatesoft.sqljet.core.SqlJetException;
 
 public class SqLiteDiskHandler implements DiskHandler {
 	private static final String DB_NAME = "/Users/ozafar/IdeaProjects/Timbermill/timbermill-server/timbermill.db";
@@ -118,6 +119,10 @@ public class SqLiteDiskHandler implements DiskHandler {
 
 	@Override public void updateBulk(String id, DbBulkRequest dbBulkRequest) {
 
+	}
+
+	@Override public boolean hasFailedBulks() {
+		return false;
 	}
 
 }

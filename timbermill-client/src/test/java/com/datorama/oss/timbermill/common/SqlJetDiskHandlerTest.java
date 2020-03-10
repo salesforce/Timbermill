@@ -19,12 +19,10 @@ import static org.junit.Assert.*;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
-import com.datorama.oss.timbermill.TimberLogger;
 
 public class SqlJetDiskHandlerTest {
 
 	private static SQLJetDiskHandler diskHandler;
-	private static boolean test = false;
 
 
 	@BeforeClass
@@ -39,8 +37,7 @@ public class SqlJetDiskHandlerTest {
 		diskHandler.emptyDb();
 		DbBulkRequest dbBulkRequest = createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
-		List<DbBulkRequest> fetchedRequests = diskHandler.fetchFailedBulks();
-		assertEquals(0, fetchedRequests.size());
+		assertEquals(false, diskHandler.hasFailedBulks());
 	}
 
 	@Test
@@ -51,8 +48,7 @@ public class SqlJetDiskHandlerTest {
 
 		updateInsertTimeforTest(dbBulkRequest);
 
-		List<DbBulkRequest> fetchedRequests = diskHandler.fetchFailedBulks(false);
-		assertEquals(1, fetchedRequests.size());
+		assertEquals(true, diskHandler.hasFailedBulks());
 	}
 
 
@@ -77,13 +73,12 @@ public class SqlJetDiskHandlerTest {
 		DbBulkRequest dbBulkRequest2 = createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest2);
 		updateInsertTimeforTest(dbBulkRequest2);
-		fetchedRequests = diskHandler.fetchFailedBulks(false);
-		assertEquals(2, fetchedRequests.size());
+		assertEquals(2, diskHandler.failedBulksAmount());
 	}
 
 
 	@Test
-	public void deleteBulk() {
+	public void deleteBulk()  {
 		diskHandler.emptyDb();
 		DbBulkRequest dbBulkRequest = createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
@@ -94,8 +89,7 @@ public class SqlJetDiskHandlerTest {
 		assertEquals(1, fetchedRequests.size());
 
 		diskHandler.deleteBulk(dbBulkRequest);
-		fetchedRequests = diskHandler.fetchFailedBulks();
-		assertEquals(0, fetchedRequests.size());
+		assertEquals(false, diskHandler.hasFailedBulks());
 
 	}
 
@@ -142,5 +136,7 @@ public class SqlJetDiskHandlerTest {
 		dbBulkRequest.setInsertTime((long) 0);
 		diskHandler.updateBulk(dbBulkRequest.getId(), dbBulkRequest);
 	}
+
+
 
 }

@@ -329,7 +329,7 @@ public class ElasticsearchUtil {
 	}
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
-		while (!eventsQueue.isEmpty()) {  //TODO do we need to add "&& !failedRequest.isEmpty()"? if there aren't any events then we ignore the failed requests
+		while (!eventsQueue.isEmpty() || es.hasFailedRequests()) {  //TODO do we need to add "&& !failedRequest.isEmpty()"? if there aren't any events then we ignore the failed requests
 			try {
 				es.retryFailedRequests();
 
