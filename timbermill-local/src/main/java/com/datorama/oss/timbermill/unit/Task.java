@@ -322,7 +322,7 @@ public class Task {
 		params.put("metric", metric);
 		params.put("logi", log);
 		params.put("parentsPath", parentsPath);
-		params.put("status", status.toString());
+		params.put("status", status != null ? status.toString() : "");
 		if (orphan != null){
 			params.put("orphan", orphan);
 		}
