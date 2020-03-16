@@ -19,7 +19,6 @@ import org.quartz.spi.TriggerFiredBundle;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TimberLogTest;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
-import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 

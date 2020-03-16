@@ -33,12 +33,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        DiskHandler diskHandler = null;
-        try {
-            diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
-        } catch (SQLException e) {
-            e.printStackTrace(); //TODO fix this (OZ)
-        }
+        DiskHandler diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,null);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
@@ -47,7 +42,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         startWorkingThread(es);
     }
 
-
+    // constructor for tests
+    public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es,DiskHandler diskHandler) {
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
+        startWorkingThread(es);
+    }
 
     private void startWorkingThread(ElasticsearchClient es) {
         Runnable eventsHandler = () -> {
@@ -222,6 +221,18 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);
+        }
+
+        public ElasticsearchParams buildElasticSearchParams() {
+            ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maxCacheSize, maxCacheHoldTimeMinutes,
+                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,null);
+            return elasticsearchParams;
+        }
+
+        public ElasticsearchClient buildElasticSearchClient(DiskHandler diskHandler) {
+            ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword,
+                    maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetched,diskHandler);
+            return elasticsearchClient;
         }
     }
 }

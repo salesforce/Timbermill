@@ -52,15 +52,15 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.tmatesoft.sqljet.core.SqlJetException;
 
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.datorama.oss.timbermill.common.Constants;
-import com.datorama.oss.timbermill.common.DiskHandler;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.DbBulkRequest;
+import com.datorama.oss.timbermill.common.*;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
@@ -89,7 +89,7 @@ public class ElasticsearchClient {
 	private DiskHandler diskHandler;
 	private static final boolean withPersistence = true;
 	private boolean test = true;
-	private int testCounter = 0;
+
 
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
@@ -181,7 +181,7 @@ public class ElasticsearchClient {
 			Map<String, Task> tasksByIds = getTasksByIds(taskId);
 			return tasksByIds.get(taskId);
 		} catch (IOException e){
-        	throw new RuntimeException(e);
+        	return null;//throw new RuntimeException(e);
 		}
     }
 
@@ -248,11 +248,9 @@ public class ElasticsearchClient {
 			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfTasksIndexTries, request.estimatedSizeInBytes());
 		}
 		try {
-			if (test && testCounter++ < 2){
-				throw new RuntimeException();
-			}
-            BulkResponse responses = client.bulk(request, RequestOptions.DEFAULT);
-            if (responses.hasFailures()) {
+			BulkResponse responses = bulk(dbBulkRequest,RequestOptions.DEFAULT);
+
+			if (responses.hasFailures()) {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
@@ -263,7 +261,11 @@ public class ElasticsearchClient {
         }
     }
 
-    public void index(Map<String, Task> tasksMap, String index) {
+	BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
+		return client.bulk(request.getRequest(), requestOptions);
+	}
+
+	public void index(Map<String, Task> tasksMap, String index) {
         Collection<Pair<Future, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index);
 
         for (Pair<Future, DbBulkRequest> futureRequest : futuresRequests) {
@@ -271,7 +273,7 @@ public class ElasticsearchClient {
 				futureRequest.getLeft().get(); // execute request
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("An error was thrown while indexing a batch", e);
-                failedRequests.offer(Pair.of(futureRequest.getRight(), 0)); //todo add persistence if fails
+                failedRequests.offer(Pair.of(futureRequest.getRight(), 0));
             }
         }
     }
@@ -623,8 +625,8 @@ public class ElasticsearchClient {
 		return hasFailedInMemory || hasFailedInDisk;
 	}
 
-	private void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
-		if (retryNum >= 0){//numOfTasksIndexTries){
+	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
+		if (retryNum >= numOfTasksIndexTries){//numOfTasksIndexTries){
 			// failed bulk isn't from disk
 			LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription(), failureMessage);
 			failedRequests.remove(dbBulkRequest);

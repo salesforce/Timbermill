@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
-import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import com.datorama.oss.timbermill.unit.Event;

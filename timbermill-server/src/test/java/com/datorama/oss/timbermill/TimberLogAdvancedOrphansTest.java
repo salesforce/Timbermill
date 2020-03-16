@@ -8,7 +8,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
-import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;

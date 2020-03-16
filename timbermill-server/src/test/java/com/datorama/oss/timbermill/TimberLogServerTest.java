@@ -1,19 +1,28 @@
 package com.datorama.oss.timbermill;
 
 
+import java.io.IOException;
 import java.sql.SQLException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
+import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
-import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
+import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 public class TimberLogServerTest extends TimberLogTest{
 
@@ -88,4 +97,5 @@ public class TimberLogServerTest extends TimberLogTest{
     public void testOrphan() {
         super.testOrphan();
     }
+
 }

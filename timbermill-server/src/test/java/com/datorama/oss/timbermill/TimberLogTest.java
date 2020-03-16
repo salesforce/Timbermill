@@ -13,14 +13,13 @@ import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 
-import static com.datorama.oss.timbermill.common.Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
-import static com.datorama.oss.timbermill.common.Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
-import static com.datorama.oss.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
+import static com.datorama.oss.timbermill.common.Constants.*;
 import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
 	protected static ElasticsearchClient client;
+
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -29,6 +28,7 @@ public abstract class TimberLogTest {
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
+	protected static boolean testWithPersistence = true;
 	private String childTaskId;
 	private String childOfChildTaskId;
 

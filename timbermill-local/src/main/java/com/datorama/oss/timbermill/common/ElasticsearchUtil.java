@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.common;
 
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -17,9 +16,9 @@ import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
+import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
-import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.google.common.collect.Sets;
 
 import static org.quartz.CronScheduleBuilder.cronSchedule;
@@ -318,7 +317,7 @@ public class ElasticsearchUtil {
 		return new TaskIndexer(elasticsearchParams, es);
 	}
 
-	public static DiskHandler getDiskHandler(String diskHandlerStrategy) throws SQLException {
+	public static DiskHandler getDiskHandler(String diskHandlerStrategy)  {
 		String strategy = diskHandlerStrategy.toLowerCase();
 		if (strategy.equals(SQLITE)){
 			return new SQLJetDiskHandler();
@@ -329,7 +328,7 @@ public class ElasticsearchUtil {
 	}
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
-		while (!eventsQueue.isEmpty() || es.hasFailedRequests()) {  //TODO do we need to add "&& !failedRequest.isEmpty()"? if there aren't any events then we ignore the failed requests
+		while (!eventsQueue.isEmpty() || es.hasFailedRequests()) {
 			try {
 				es.retryFailedRequests();
 

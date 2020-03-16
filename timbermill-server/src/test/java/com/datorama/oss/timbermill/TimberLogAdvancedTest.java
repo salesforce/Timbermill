@@ -13,7 +13,6 @@ import org.junit.BeforeClass;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
-import com.datorama.oss.timbermill.common.SqLiteDiskHandler;
 import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;

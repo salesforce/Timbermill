@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.tmatesoft.sqljet.core.internal.db.SqlJetDbHandle;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
@@ -58,12 +59,8 @@ public class TimbermillService {
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		DiskHandler diskHandler = null;
-		try {
-			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
-		} catch (SQLException e) {
-			e.printStackTrace(); //TODO OZ
-		}
+		DiskHandler diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
+
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(
 				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,persistentFetchCronExp);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
