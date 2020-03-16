@@ -24,7 +24,7 @@ public class TimberLogAdvancedOrphansTest {
     private static ElasticsearchClient client;
 
     @BeforeClass
-    public static void setUp() throws SQLException {
+    public static void setUp() {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;

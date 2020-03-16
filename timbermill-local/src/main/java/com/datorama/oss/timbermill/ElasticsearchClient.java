@@ -52,15 +52,15 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
-import org.tmatesoft.sqljet.core.SqlJetException;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.datorama.oss.timbermill.common.*;
+import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.common.DbBulkRequest;
+import com.datorama.oss.timbermill.common.DiskHandler;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
@@ -73,6 +73,7 @@ public class ElasticsearchClient {
     private static final String TTL_FIELD = "meta.dateToDelete";
     private static final String STATUS = "status";
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
+	private static final boolean withPersistence = true;
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
@@ -87,15 +88,11 @@ public class ElasticsearchClient {
 	private int maxBulkIndexFetches;
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
-	private static final boolean withPersistence = true;
-	private boolean test = true;
-
-
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfTasksIndexTries,int maxBulkIndexFetches, DiskHandler diskHandler) {
+			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfBulkIndexTries,int maxBulkIndexFetches, DiskHandler diskHandler) {
 		this.diskHandler = diskHandler;
-		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries);
+		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfBulkIndexTries);
 
 		this.indexBulkSize = indexBulkSize;
         this.maxIndexAge = maxIndexAge;
@@ -103,7 +100,7 @@ public class ElasticsearchClient {
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfMergedTasksTries = numOfMergedTasksTries;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
-		this.numOfTasksIndexTries = numOfTasksIndexTries;
+		this.numOfTasksIndexTries = numOfBulkIndexTries;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
@@ -181,7 +178,7 @@ public class ElasticsearchClient {
 			Map<String, Task> tasksByIds = getTasksByIds(taskId);
 			return tasksByIds.get(taskId);
 		} catch (IOException e){
-        	return null;//throw new RuntimeException(e);
+        	return null;
 		}
     }
 
@@ -249,7 +246,6 @@ public class ElasticsearchClient {
 		}
 		try {
 			BulkResponse responses = bulk(dbBulkRequest,RequestOptions.DEFAULT);
-
 			if (responses.hasFailures()) {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
@@ -270,7 +266,7 @@ public class ElasticsearchClient {
 
         for (Pair<Future, DbBulkRequest> futureRequest : futuresRequests) {
             try {
-				futureRequest.getLeft().get(); // execute request
+				futureRequest.getLeft().get();
             } catch (InterruptedException | ExecutionException e) {
                 LOG.error("An error was thrown while indexing a batch", e);
                 failedRequests.offer(Pair.of(futureRequest.getRight(), 0));
@@ -343,20 +339,17 @@ public class ElasticsearchClient {
 			DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
 			addRequestToFutures(dbBulkRequest, futures);
         }
-
 //      *** moved to beginning of iteration! ***
-//		if (withPersistence){
-//			addRetryTimbermillBulkRequests(futures);
-//		}
+//		addRetryTimbermillBulkRequests(futures);
 		return futures;
     }
 
-	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, DbBulkRequest>> futures) {
-		List<DbBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
-		for (DbBulkRequest failedRequest : failedRequests) {
-			addRequestToFutures(failedRequest, futures);
-		}
-	}
+//	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, DbBulkRequest>> futures) {
+//		List<DbBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
+//		for (DbBulkRequest failedRequest : failedRequests) {
+//			addRequestToFutures(failedRequest, futures);
+//		}
+//	}
 
 	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future, DbBulkRequest>> futures) {
         Future<?> future = executorService.submit(() -> sendDbBulkRequest(request, 0));

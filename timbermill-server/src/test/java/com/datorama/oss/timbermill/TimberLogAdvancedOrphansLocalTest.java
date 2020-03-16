@@ -8,7 +8,7 @@ import org.junit.Test;
 public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansTest {
 
     @BeforeClass
-    public static void init() throws SQLException {
+    public static void init() {
         TimberLogLocalTest.init();
     }
 

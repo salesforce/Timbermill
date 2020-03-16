@@ -27,7 +27,7 @@ import static org.mockito.Mockito.doAnswer;
 public class TimberLogServerTest extends TimberLogTest{
 
     @BeforeClass
-    public static void init() throws SQLException {
+    public static void init()  {
         String timbermillUrl = System.getenv("TIMBERMILL_URL");
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
