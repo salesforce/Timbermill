@@ -606,8 +606,8 @@ public class ElasticsearchClient {
 				Integer retryNum = entry.getValue();
 				sendDbBulkRequest(dbBulkRequest, retryNum + 1);
 			}
+			LOG.info("------------------ Failed Requests From Memory Retry End ------------------");
 		}
-		LOG.info("------------------ Failed Requests From Memory Retry End ------------------");
 		if (withPersistence && diskHandler.hasFailedBulks()){
 			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
 			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchFailedBulks();

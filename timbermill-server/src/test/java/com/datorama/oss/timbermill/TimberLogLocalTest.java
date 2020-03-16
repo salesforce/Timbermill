@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill;
 
 import java.io.IOException;
-import java.sql.SQLException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkResponse;
