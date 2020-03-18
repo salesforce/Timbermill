@@ -28,6 +28,7 @@ public abstract class Event{
 
 	public static final String EVENT_ID_DELIMITER = "___";
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
+	private static final String TIMBERMILL_SUFFEIX = "_timbermill2";
 
 	protected String taskId;
 
@@ -202,9 +203,13 @@ public abstract class Event{
 	@JsonIgnore
 	public String getNameFromId() {
 		if (name == null){
-			String[] split = taskId.split(EVENT_ID_DELIMITER);
+			String taskIdToUse = taskId;
+			if (taskIdToUse.endsWith(TIMBERMILL_SUFFEIX)){
+				taskIdToUse = taskIdToUse.substring(0, taskIdToUse.length() - TIMBERMILL_SUFFEIX.length());
+			}
+			String[] split = taskIdToUse.split(EVENT_ID_DELIMITER);
 			if (split.length == 1){
-				split = taskId.split(OLD_EVENT_ID_DELIMITER);
+				split = taskIdToUse.split(OLD_EVENT_ID_DELIMITER);
 				String[] newSplit = Arrays.copyOf(split, split.length - 2);
 				return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
 			}

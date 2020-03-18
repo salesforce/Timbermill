@@ -34,7 +34,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private Thread thread;
     private int maxEventsBatchSize;
     private long maxSecondsBeforeBatchTimeout;
-    private boolean started = false;
 
     private TimbermillServerOutputPipe() {
     }
@@ -68,6 +67,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } while (keepRunning);
         });
         thread.setName("timbermill-sender");
+        thread.start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
             try {
@@ -75,8 +75,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }));
-        maxCharsAllowedForNonAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
-        maxCharsAllowedForAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
@@ -203,13 +201,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     public void send(Event e) {
         if(!this.buffer.offer(e)){
             LOG.warn("Event {} was removed from the queue due to insufficient space", e.getTaskId());
-        }
-
-        synchronized (this) {
-            if (!this.started) {
-                thread.start();
-                this.started = true;
-            }
         }
     }
 
