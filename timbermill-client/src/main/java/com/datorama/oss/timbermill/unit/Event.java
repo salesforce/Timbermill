@@ -8,6 +8,9 @@ import java.util.UUID;
 
 import javax.validation.constraints.NotNull;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonDeserializer;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonSerializer;
 import com.fasterxml.jackson.annotation.*;
@@ -26,6 +29,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 )
 public abstract class Event{
 
+	private static final Logger LOG = LoggerFactory.getLogger(Event.class);
 	public static final String EVENT_ID_DELIMITER = "___";
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 	private static final String TIMBERMILL_SUFFEIX = "_timbermill2";
@@ -202,21 +206,25 @@ public abstract class Event{
 
 	@JsonIgnore
 	public String getNameFromId() {
-		if (name == null){
-			String taskIdToUse = taskId;
-			if (taskIdToUse.endsWith(TIMBERMILL_SUFFEIX)){
-				taskIdToUse = taskIdToUse.substring(0, taskIdToUse.length() - TIMBERMILL_SUFFEIX.length());
+		try {
+			if (name == null) {
+				String taskIdToUse = taskId;
+				if (taskIdToUse.endsWith(TIMBERMILL_SUFFEIX)) {
+					taskIdToUse = taskIdToUse.substring(0, taskIdToUse.length() - TIMBERMILL_SUFFEIX.length());
+				}
+				String[] split = taskIdToUse.split(EVENT_ID_DELIMITER);
+				if (split.length == 1) {
+					split = taskIdToUse.split(OLD_EVENT_ID_DELIMITER);
+					String[] newSplit = Arrays.copyOf(split, split.length - 2);
+					return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
+				}
+				return split[0];
+			} else {
+				return name;
 			}
-			String[] split = taskIdToUse.split(EVENT_ID_DELIMITER);
-			if (split.length == 1){
-				split = taskIdToUse.split(OLD_EVENT_ID_DELIMITER);
-				String[] newSplit = Arrays.copyOf(split, split.length - 2);
-				return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
-			}
-			return split[0];
-		}
-		else{
-			return name;
+		} catch (Exception e){
+			LOG.error("Couldn't get name from ID {}", taskId);
+			return taskId;
 		}
 	}
 
