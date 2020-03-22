@@ -303,7 +303,7 @@ public class ElasticsearchClient {
 			if (tryNum <= numOfMergedTasksTries) {
 				LOG.warn("Try #" + tryNum + " Failed to merge tasks from old index " + oldIndex + ". Going to retry", t);
 				try {
-					Thread.sleep((2 ^ tryNum) * 1000);
+					Thread.sleep((long) (Math.pow(2, tryNum) * 1000));
 				} catch (InterruptedException ignored) {
 				}
 				moveTasksFromOldToNewIndex(tryNum + 1);

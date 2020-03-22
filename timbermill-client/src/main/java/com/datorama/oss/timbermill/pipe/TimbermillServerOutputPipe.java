@@ -95,7 +95,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                 LOG.warn("Request #" + tryNum + " to Timbermill failed, Attempt: "+ tryNum + "/" + MAX_RETRY, e);
             }
             try {
-                Thread.sleep(2 ^ tryNum * 1000); //Exponential backoff
+                Thread.sleep((long) (Math.pow(2 , tryNum) * 1000)); //Exponential backoff
             } catch (InterruptedException ignored) {
             }
         }
@@ -186,7 +186,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private void trimLongValues(Map<String, String> map, String mapName, int maxChars) {
         for (Map.Entry<String, String> entry : map.entrySet()) {
             String value = entry.getValue();
-            if (value.length() > maxChars) {
+            if (value != null && value.length() > maxChars) {
                 LOG.debug("Entry with key {} under {} is over max character allowed {}", entry.getKey(), mapName, maxChars);
                 entry.setValue(value.substring(0, maxChars));
             }
