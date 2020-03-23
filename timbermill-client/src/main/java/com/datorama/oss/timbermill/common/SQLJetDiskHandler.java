@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.common;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,39 +23,43 @@ import org.tmatesoft.sqljet.core.table.ISqlJetCursor;
 import org.tmatesoft.sqljet.core.table.ISqlJetTable;
 import org.tmatesoft.sqljet.core.table.SqlJetDb;
 
+import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
+
 @Service("sqlite")
 public class SQLJetDiskHandler implements DiskHandler {
 	private static final String DB_NAME = "timbermillJet.db";
 	private static final String FAILED_BULKS_TABLE_NAME = "failed_bulks";
 	private static final String ID = "id";
 	private static final String FAILED_TASK = "failedTask";
-	private static final String CREATE_TIME = "createTime";
 	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
 	private static final String INSERT_TIME_INDEX = "insertTimeIndex";
 	private static final String CREATE_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + CREATE_TIME + " TEXT, " + INSERT_TIME + " TEXT, "
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String createInsertTimeIndexQuery = "CREATE INDEX IF NOT EXISTS " + INSERT_TIME_INDEX + " ON " + FAILED_BULKS_TABLE_NAME + "(" +  INSERT_TIME + ")";
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetDiskHandler.class);
 
-	private int waitingTime;
-	private int maxFetchedBulks;
+	private int waitingTimeInMinutes;
+	private int maxFetchedBulksInOneTime;
+	private int maxInsertTries;
+	private String locationInDisk;
 	private SqlJetDb db;
 	private ISqlJetTable table;
-	private String locationInDisk;
 
 	public SQLJetDiskHandler() {
-		this(1,3,"/Users/ozafar/IdeaProjects/Timbermill/timbermill-server");
+		this(0,3,3,"/tmp");
 		init();
 	}
 
 	@Autowired
-	public SQLJetDiskHandler(@Value("${waiting.time:6000}") int waitingTime,
-			@Value("${fetch.limit:10}")int maxFetchedBulks,
-			@Value("${location.in.disk:}") String locationInDisk) {
-		this.waitingTime = waitingTime;
-		this.maxFetchedBulks = maxFetchedBulks;
+	public SQLJetDiskHandler(@Value("${WAITING_TIME_IN_MINUTES:1}") int waitingTimeInMinutes,
+			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}")int maxFetchedBulks,
+			@Value("${MAX_INSERT_TRIES:5}")int maxInsertTries,
+			@Value("${LOCATION_IN_DISK:/tmp}") String locationInDisk) {
+		this.waitingTimeInMinutes = waitingTimeInMinutes;
+		this.maxFetchedBulksInOneTime = maxFetchedBulks;
+		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
 	}
 
@@ -94,37 +99,40 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return fetchFailedBulks(true);
 	}
 
-	@Override public void persistToDisk(DbBulkRequest dbBulkRequest) {
-		try {
-			LOG.info("Inserting bulk request with id: {}, that was fetched {} times.", dbBulkRequest.getId(), dbBulkRequest.getTimesFetched());
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			dbBulkRequest.setInsertTime(DateTime.now().toString());
-			table.insert(serializeBulkRequest(dbBulkRequest.getRequest()), dbBulkRequest.getCreateTime(),
-					dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-			System.out.print("");
-		} catch (SqlJetException | IOException e) {
-			LOG.error("Insertion of bulk {} has failed.", dbBulkRequest.getId(),e);
-		} finally {
-			silentDbCommit();
+	@Override public void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximunInsertTriesException {
+		int retryNum = 0;
+		long sleepTime = 1000;
+
+		while (retryNum++ < maxInsertTries) {
+			try {
+				if (dbBulkRequest.getTimesFetched() > 0) {
+					LOG.info("Inserting bulk request with id: {} to disk, that was fetched {} times.", dbBulkRequest.getId(), dbBulkRequest.getTimesFetched());
+				} else {
+					LOG.info("Inserting bulk request to disk for the first time.");
+				}
+				db.beginTransaction(SqlJetTransactionMode.WRITE);
+				dbBulkRequest.setInsertTime(DateTime.now().toString());
+				table.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
+						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
+				break; // if arrived here then inserting succeed, no need to retry again
+			} catch (Exception e) {
+				LOG.error("Insertion of bulk {} has failed for the {}th time. Error message: {}", dbBulkRequest.getId(), e);
+				silentThreadSleep(sleepTime);
+				sleepTime*=2;
+				if (retryNum == maxInsertTries){
+					throw new MaximunInsertTriesException(maxInsertTries);
+				}
+			} finally {
+				silentDbCommit();
+			}
 		}
 	}
 
-	 public void updateBulk(DbBulkRequest dbBulkRequest) {
-		ISqlJetCursor updateCursor = null;
-		int id = dbBulkRequest.getId();
+	private void silentThreadSleep(long sleepTime) {
 		try {
-			LOG.info("Updating bulk with id: {}",id);
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			updateCursor = table.lookup(table.getPrimaryKeyIndexName(), id);
-			if (!updateCursor.eof()) {
-				updateCursor.update(id, serializeBulkRequest(dbBulkRequest.getRequest()), dbBulkRequest.getCreateTime(),
-						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-			}
-		} catch (SqlJetException | IOException e) {
-			LOG.error("Updating of bulk {} has failed.", dbBulkRequest.getId(),e);
-		} finally {
-			silentDbCommit();
-			closeCursor(updateCursor);
+			Thread.sleep(sleepTime);
+		} catch (InterruptedException ex) {
+			ex.printStackTrace();
 		}
 	}
 
@@ -134,7 +142,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = table.scope(INSERT_TIME_INDEX,  new Object[] {""}, new Object[] {DateTime.now().minusMillis(waitingTime).toString()}); // bulk is in db at least waitingTime
+			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least waitingTime
 			returnValue = !resultCursor.eof();
 		} catch (SqlJetException e) {
 			e.printStackTrace();
@@ -153,19 +161,31 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return ret;
 	}
 
-	public void close() {
+	public void updateBulk(DbBulkRequest dbBulkRequest) {
+		ISqlJetCursor updateCursor = null;
+		int id = dbBulkRequest.getId();
 		try {
-			db.close();
-		} catch (SqlJetException e) {
-			e.printStackTrace();
+			LOG.info("Updating bulk with id: {}",id);
+			db.beginTransaction(SqlJetTransactionMode.WRITE);
+			updateCursor = table.lookup(table.getPrimaryKeyIndexName(), id);
+			if (!updateCursor.eof()) {
+				updateCursor.update(id, serializeBulkRequest(dbBulkRequest.getRequest()),
+						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
+			}
+		} catch (SqlJetException | IOException e) {
+			LOG.error("Updating of bulk {} has failed.", dbBulkRequest.getId(),e);
+		} finally {
+			silentDbCommit();
+			closeCursor(updateCursor);
 		}
 	}
 
-	public void dropTable(){
+	public void dropAndRecreateTable(){
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
 			db.createTable(CREATE_TABLE);
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
+			db.createIndex(createInsertTimeIndexQuery);
 			db.commit();
 		} catch (SqlJetException e) {
 			LOG.error("Dropping the table {} has failed",FAILED_BULKS_TABLE_NAME,e);
@@ -193,8 +213,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return fetchFailedBulks(false).size();
 	}
 
-	public void setWaitingTime(int waitingTime) {
-		this.waitingTime = waitingTime;
+	public void setWaitingTimeInMinutes(int waitingTimeInMinutes) {
+		this.waitingTimeInMinutes = waitingTimeInMinutes;
 	}
 
 	// endregion
@@ -211,7 +231,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		try {
 			LOG.info("Fetching from SQLite.");
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = table.scope(INSERT_TIME_INDEX,  new Object[] {""}, new Object[] {DateTime.now().minusMillis(waitingTime).toString()}); // bulk is in db at least waitingTime
+			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least waitingTime
 
 			if (!resultCursor.eof()) {
 				do {
@@ -220,7 +240,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 					if (deleteAfterFetch){
 						resultCursor.delete();
 					}
-				} while (++fetchedCount < maxFetchedBulks && resultCursor.next());
+				} while (++fetchedCount < maxFetchedBulksInOneTime && resultCursor.next());
 				LOG.info("Fetched {} bulk requests.",fetchedCount);
 			}
 		} catch (SqlJetException | IOException e) {
@@ -231,11 +251,15 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return dbBulkRequests;
 	}
 
+	private ISqlJetCursor getBulksInScopeIterator() throws SqlJetException {
+		return table.scope(INSERT_TIME_INDEX,
+				new Object[] {""}, new Object[] { DateTime.now().minusMinutes(waitingTimeInMinutes).toString()});
+	}
+
 	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
 		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
 		dbBulkRequest.setId((int) resultCursor.getInteger(ID));
-		dbBulkRequest.setCreateTime(resultCursor.getString(CREATE_TIME));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;
@@ -300,7 +324,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db = null;
 		}
 	}
-	// endregion
 
+	// endregion
 }
 

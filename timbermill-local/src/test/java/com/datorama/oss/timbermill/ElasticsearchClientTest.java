@@ -27,7 +27,7 @@ import static org.mockito.Mockito.spy;
 public class ElasticsearchClientTest {
 
 	private static ElasticsearchClient elasticsearchClient = new ElasticsearchClient("http://localhost:9200", 1000, 1, null, null, null,
-			7, 100, 1000000000, 3, 3, 3, new SQLJetDiskHandler());
+			7, 100, 1000000000, 3, 3, 3,true,new SQLJetDiskHandler());
 	private DbBulkRequest bulkRequest;
 	private BulkResponse bulkResponse;
 

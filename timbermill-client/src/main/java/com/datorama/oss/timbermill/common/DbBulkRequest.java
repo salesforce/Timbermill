@@ -3,60 +3,52 @@ package com.datorama.oss.timbermill.common;
 import java.io.Serializable;
 
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.joda.time.DateTime;
 
 public class DbBulkRequest implements Serializable {
 	private int id = -1;
-	private BulkRequest request;
-	private String createTime;
+	private int timesFetched = 0;
 	private String insertTime;
-	private int timesFetched;
+	private BulkRequest request;
 
 
 	public DbBulkRequest(BulkRequest request) {
 		this.request = request;
-		this.createTime = DateTime.now().toString();
-		this.timesFetched = 0;
 	}
 
 	public int getId() {
 		return id;
 	}
 
-	public void setId(int id) {
+	public DbBulkRequest setId(int id) {
 		this.id = id;
+		return this;
 	}
 
 	public BulkRequest getRequest() {
 		return request;
 	}
 
-	public void setRequest(BulkRequest request) {
+	public DbBulkRequest setRequest(BulkRequest request) {
 		this.request = request;
-	}
-
-	public String getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(String createTime) {
-		this.createTime = createTime;
+		return this;
 	}
 
 	public int getTimesFetched() {
 		return timesFetched;
 	}
 
-	public void setTimesFetched(int timesFetched) {
+	public DbBulkRequest setTimesFetched(int timesFetched) {
 		this.timesFetched = timesFetched;
+		return this;
 	}
 
 	public String getInsertTime() {
 		return insertTime;
 	}
 
-	public void setInsertTime(String insertTime) {
+	public DbBulkRequest setInsertTime(String insertTime) {
 		this.insertTime = insertTime;
+		return this;
 	}
 
 }

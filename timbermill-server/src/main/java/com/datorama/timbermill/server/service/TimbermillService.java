@@ -18,7 +18,6 @@ import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 
 @Service
@@ -43,7 +42,7 @@ public class TimbermillService {
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
-			@Value("${persistent.fetch.cron.expression:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp, //TODO do we need this?
+			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
 			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
@@ -69,9 +68,9 @@ public class TimbermillService {
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
 		elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
-				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,persistentFetchCronExp);
+				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,null);
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,withPersistence,null);
 	}
 
 	@PostConstruct
@@ -79,7 +78,7 @@ public class TimbermillService {
 		if (!diskHandler.isCreatedSuccefully()){
 			elasticsearchClient.setWithPersistence(false);
 		}
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient, diskHandler);
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
 	}
 

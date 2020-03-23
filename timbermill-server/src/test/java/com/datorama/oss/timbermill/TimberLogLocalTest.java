@@ -33,7 +33,7 @@ public class TimberLogLocalTest extends TimberLogTest {
         LocalOutputPipe pipe = buildLocalOutputPipeForTest(pipeBuilder,diskHandler);
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000,3, 3,3,null);
+                7, 100, 1000000000,3, 3,3, true,null);
         TimberLogger.bootstrap(pipe, TEST);
     }
 
@@ -108,7 +108,7 @@ public class TimberLogLocalTest extends TimberLogTest {
                     @Override public BulkResponse answer(InvocationOnMock invocation) throws Throwable {
                         Object[] args = invocation.getArguments();
                         DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
-                        if (dbBulkRequest.getTimesFetched() < 2){
+                        if (dbBulkRequest.getTimesFetched() < 1){
                             throw new RuntimeException();
                         }
                         // call real method

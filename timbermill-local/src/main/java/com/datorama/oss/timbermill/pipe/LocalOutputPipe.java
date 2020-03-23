@@ -31,13 +31,13 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
         DiskHandler diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,null);
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,diskHandler);
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,true,diskHandler);
         if (!diskHandler.isCreatedSuccefully()){
             es.setWithPersistence(false);
         }
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
 
@@ -45,7 +45,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (!diskHandler.isCreatedSuccefully()){
             es.setWithPersistence(false);
         }
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
 
@@ -226,13 +226,13 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public ElasticsearchParams buildElasticSearchParams() {
             ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maxCacheSize, maxCacheHoldTimeMinutes,
-                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,null);
+                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
             return elasticsearchParams;
         }
 
         public ElasticsearchClient buildElasticSearchClient(DiskHandler diskHandler) {
             ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword,
-                    maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetched,diskHandler);
+                    maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetched,true, diskHandler);
             return elasticsearchClient;
         }
     }
