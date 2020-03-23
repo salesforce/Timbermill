@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +44,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 	private static TasksMergerJobs tasksMergerJobs;
 
 	@BeforeClass
-	public static void init() throws SQLException {
+	public static void init() {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;

@@ -20,8 +20,8 @@ import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ElasticsearchClientTest {
@@ -44,13 +44,14 @@ public class ElasticsearchClientTest {
 
 	@Test
 	public void failSomeOfRequestsOfBulk() throws IOException {
-		bulkRequest = createMockDbBulkRequest(2);
+		int amountOfRequestsInBulk = 2;
+		bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
 		bulkResponse = elasticsearchClient.bulk(bulkRequest,RequestOptions.DEFAULT);
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
 		int bulkNewSize = bulkRequest.getRequest().requests().size();
-		Assert.assertEquals(1, bulkNewSize);
+		Assert.assertEquals(amountOfRequestsInBulk-1, bulkNewSize);
 		Assert.assertNotEquals(successItemId, bulkRequest.getRequest().requests().get(0).id());
 	}
 
@@ -65,7 +66,6 @@ public class ElasticsearchClientTest {
 		int bulkNewSize = bulkRequest.getRequest().requests().size();
 		Assert.assertEquals(0, bulkNewSize);
 	}
-
 
 	// make bulk's item #itemNumber to not fail
 	private String makeItemSuccess(BulkResponse bulkResponse,int itemNumber) {
@@ -93,5 +93,4 @@ public class ElasticsearchClientTest {
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(bulkRequest);
 		return dbBulkRequest;
 	}
-
 }

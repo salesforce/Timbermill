@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill;
 
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -12,7 +11,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
-import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
@@ -29,8 +27,9 @@ public class TimberLogAdvancedTest {
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
+
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3 ,3,3,new SQLJetDiskHandler());
+                7, 100, 1000000000, 3 ,3,3,null);
     }
 
     @AfterClass

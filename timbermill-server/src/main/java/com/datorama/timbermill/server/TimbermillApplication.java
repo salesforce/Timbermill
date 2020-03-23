@@ -16,12 +16,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
 
 import javax.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 
 @SpringBootApplication
+@ComponentScan("com.datorama")
 public class TimbermillApplication {
     private static final Logger log = LoggerFactory.getLogger(TimbermillApplication.class);
     private static final int PORT = 8484;

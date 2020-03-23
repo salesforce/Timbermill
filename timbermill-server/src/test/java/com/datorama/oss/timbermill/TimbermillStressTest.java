@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -45,7 +44,7 @@ public class TimbermillStressTest extends TimberLogTest{
     private static int maxBufferSize = 20000000;
 
     @BeforeClass
-    public static void init() throws SQLException {
+    public static void init() {
         try {
             numOfParents = Integer.parseInt(System.getenv("NUM_OF_PARENTS"));
             numOfThreads = Integer.parseInt(System.getenv("NUM_OF_THREADS"));

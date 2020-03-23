@@ -52,7 +52,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -73,7 +72,7 @@ public class ElasticsearchClient {
     private static final String TTL_FIELD = "meta.dateToDelete";
     private static final String STATUS = "status";
     private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
-	private static final boolean withPersistence = true;
+	private boolean withPersistence = true;
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
@@ -84,7 +83,7 @@ public class ElasticsearchClient {
     private String currentIndex;
     private String oldIndex;
 	private int numOfMergedTasksTries;
-	private int numOfTasksIndexTries;
+	private int numOfBulkIndexTries;
 	private int maxBulkIndexFetches;
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
@@ -100,7 +99,7 @@ public class ElasticsearchClient {
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfMergedTasksTries = numOfMergedTasksTries;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
-		this.numOfTasksIndexTries = numOfBulkIndexTries;
+		this.numOfBulkIndexTries = numOfBulkIndexTries;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
@@ -242,7 +241,7 @@ public class ElasticsearchClient {
 		int numberOfActions = request.numberOfActions();
 		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 		if (retryNum > 0){
-			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfTasksIndexTries, request.estimatedSizeInBytes());
+			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfBulkIndexTries, request.estimatedSizeInBytes());
 		}
 		try {
 			BulkResponse responses = bulk(dbBulkRequest,RequestOptions.DEFAULT);
@@ -257,7 +256,7 @@ public class ElasticsearchClient {
         }
     }
 
-	BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
+	 BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
 		return client.bulk(request.getRequest(), requestOptions);
 	}
 
@@ -339,17 +338,8 @@ public class ElasticsearchClient {
 			DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
 			addRequestToFutures(dbBulkRequest, futures);
         }
-//      *** moved to beginning of iteration! ***
-//		addRetryTimbermillBulkRequests(futures);
 		return futures;
     }
-
-//	private void addRetryTimbermillBulkRequests(Collection<Pair<Future, DbBulkRequest>> futures) {
-//		List<DbBulkRequest> failedRequests = diskHandler.fetchFailedBulks();
-//		for (DbBulkRequest failedRequest : failedRequests) {
-//			addRequestToFutures(failedRequest, futures);
-//		}
-//	}
 
 	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future, DbBulkRequest>> futures) {
         Future<?> future = executorService.submit(() -> sendDbBulkRequest(request, 0));
@@ -603,7 +593,7 @@ public class ElasticsearchClient {
 		}
 		if (withPersistence && diskHandler.hasFailedBulks()){
 			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchFailedBulks();
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
 				sendDbBulkRequest(dbBulkRequest, 0);
 			}
@@ -619,45 +609,53 @@ public class ElasticsearchClient {
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
-		if (retryNum >= numOfTasksIndexTries){//numOfTasksIndexTries){
-			// failed bulk isn't from disk
-			LOG.warn("Reached maximum retries attempt to index for " + dbBulkRequest.getRequest().getDescription(), failureMessage);
-			failedRequests.remove(dbBulkRequest);
+		if (retryNum >= numOfBulkIndexTries){
+			LOG.warn("Reached maximum retries ({}) attempt to index for {}.",numOfBulkIndexTries,dbBulkRequest.getRequest().getDescription(), failureMessage);
 			if (withPersistence) {
 				if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
-					remainOnlyFailureRequests(dbBulkRequest, responses);
+					removeSucceedRequestsFromBulk(dbBulkRequest, responses);
 					diskHandler.persistToDisk(dbBulkRequest);
 				}
 				else{
-					LOG.error("Tasks of bulk {} will not be indexed.",dbBulkRequest.toString());
+					LOG.error("Tasks of bulk {} will not be indexed because it was fetched maximum times ({}).",dbBulkRequest.toString(),maxBulkIndexFetches);
 				}
 			}
 			else {
-				LOG.error("Tasks of bulk {} will not be indexed.",dbBulkRequest.toString());
+				LOG.error("Tasks of bulk {} will not be indexed because it was fetched maximum times ({}).",dbBulkRequest.toString(),maxBulkIndexFetches);
 			}
 		}
 		else {
-			LOG.warn("Failed while trying to bulk index tasks. Going to retry.", failureMessage);
-			remainOnlyFailureRequests(dbBulkRequest,responses);
+			LOG.warn("Failed while trying to bulk index tasks, failure message: {}.\n Going to retry.", failureMessage);
+			removeSucceedRequestsFromBulk(dbBulkRequest,responses);
 			failedRequests.offer(Pair.of(dbBulkRequest, retryNum));
 		}
 	}
 
-	private void remainOnlyFailureRequests(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+	private void removeSucceedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+		BulkRequest bulkRequest = dbBulkRequest.getRequest();
+		int numOfRequests = bulkRequest.numberOfActions();
+
 		if (bulkResponses != null){
-			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
-			BulkRequest failedRequests = new BulkRequest();
 			BulkItemResponse[] responses = bulkResponses.getItems();
-			int length = requests.size();
-			for (int i = 0 ; i < length; i++){
-				if (responses[i].isFailed()){
-					failedRequests.add(requests.get(i));
+			List<DocWriteRequest<?>> requests = bulkRequest.requests();
+			ListIterator<DocWriteRequest<?>> iter = requests.listIterator();
+			int i = 0;
+			while(iter.hasNext()){
+				iter.next();
+				if(!responses[i++].isFailed()){
+					iter.remove();
 				}
 			}
-			dbBulkRequest.setRequest(failedRequests);
+			LOG.info("Failed bulk remained with {} failed requests of {}.",requests.size(),numOfRequests);
 		}
-		//else - the bulk method threw exception, then all requests failed. No change is needed in BulkRequest.
+		else {
+			// An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
+			LOG.info("All {} requests failed due to an error.", numOfRequests);
+		}
 	}
 
+	public void setWithPersistence(boolean withPersistence) {
+		this.withPersistence = withPersistence;
+	}
 }
 

@@ -11,7 +11,6 @@ import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -26,9 +25,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
 
-    private LocalOutputPipe() {
-    }
-
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
@@ -38,12 +34,17 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,null);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,diskHandler);
+        if (!diskHandler.isCreatedSuccefully()){
+            es.setWithPersistence(false);
+        }
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
         startWorkingThread(es);
     }
 
-    // constructor for tests
     public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es,DiskHandler diskHandler) {
+        if (!diskHandler.isCreatedSuccefully()){
+            es.setWithPersistence(false);
+        }
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
         startWorkingThread(es);
     }

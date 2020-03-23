@@ -9,6 +9,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
@@ -19,6 +20,7 @@ import static org.junit.Assert.*;
 public abstract class TimberLogTest {
 
 	protected static ElasticsearchClient client;
+	protected static SQLJetDiskHandler diskHandler = new SQLJetDiskHandler();
 
 	static final String TEST = "test";
 	static final String EVENT = "Event";

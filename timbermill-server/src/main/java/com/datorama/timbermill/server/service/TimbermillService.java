@@ -4,9 +4,12 @@ import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import javax.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +18,7 @@ import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 
 @Service
@@ -29,11 +33,17 @@ public class TimbermillService {
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
+	private ElasticsearchParams elasticsearchParams;
+	private ElasticsearchClient elasticsearchClient;
+
+	@Autowired
+	@Qualifier("sqlite")
+	DiskHandler diskHandler;
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-			@Value("${disk.handler.strategy:sqlite}") String diskHandlerStrategy,
-			@Value("${persistent.fetch.cron.expression:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
+			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
+			@Value("${persistent.fetch.cron.expression:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp, //TODO do we need this?
 			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
@@ -51,20 +61,26 @@ public class TimbermillService {
 			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
 			@Value("${NUMBER_OD_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
 			@Value("${NUMBER_OD_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
-			@Value("${max.bulk.index.fetches:3}") int maxBulkIndexFetches,
+			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		DiskHandler diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
 
-		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(
-				pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards, numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,persistentFetchCronExp);
-		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs,
-				numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,diskHandler);
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es, diskHandler);
-		startWorkingThread(es);
+		elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
+				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields,persistentFetchCronExp);
+		elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,null);
+	}
+
+	@PostConstruct
+	private void init(){
+		if (!diskHandler.isCreatedSuccefully()){
+			elasticsearchClient.setWithPersistence(false);
+		}
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient, diskHandler);
+		startWorkingThread(elasticsearchClient);
 	}
 
 	private void startWorkingThread(ElasticsearchClient es) {

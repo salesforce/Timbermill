@@ -1,32 +1,29 @@
 package com.datorama.oss.timbermill.common;
 
 import java.io.Serializable;
-import java.util.Date;
-import java.util.Objects;
-import java.util.UUID;
 
 import org.elasticsearch.action.bulk.BulkRequest;
+import org.joda.time.DateTime;
 
 public class DbBulkRequest implements Serializable {
-	private String id;
+	private int id = -1;
 	private BulkRequest request;
 	private String createTime;
-	private Long insertTime;
+	private String insertTime;
 	private int timesFetched;
 
 
 	public DbBulkRequest(BulkRequest request) {
 		this.request = request;
-		String uniqueID = UUID.randomUUID().toString();
-		setId(uniqueID);
-		setCreateTime(new Date(System.currentTimeMillis()).toString());
+		this.createTime = DateTime.now().toString();
+		this.timesFetched = 0;
 	}
 
-	public String  getId() {
+	public int getId() {
 		return id;
 	}
 
-	public void setId(String id) {
+	public void setId(int id) {
 		this.id = id;
 	}
 
@@ -54,22 +51,12 @@ public class DbBulkRequest implements Serializable {
 		this.timesFetched = timesFetched;
 	}
 
-	public Long getInsertTime() {
+	public String getInsertTime() {
 		return insertTime;
 	}
 
-	public void setInsertTime(Long insertTime) {
+	public void setInsertTime(String insertTime) {
 		this.insertTime = insertTime;
 	}
 
-	@Override public boolean equals(Object o) {
-		if (this == o)
-			return true;
-		if (o == null || getClass() != o.getClass())
-			return false;
-		DbBulkRequest that = (DbBulkRequest) o;
-		return id.equals(that.id) &&
-				insertTime == that.insertTime &&
-				Objects.equals(createTime, that.createTime);
-	}
 }

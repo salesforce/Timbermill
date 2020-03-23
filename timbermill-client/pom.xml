@@ -40,13 +40,6 @@
         <url>https://github.com/datorama/Timbermill/tree/master</url>
     </scm>
 
-    <repositories>
-        <repository>
-            <id>tmate</id>
-            <url>http://maven.tmatesoft.com/content/repositories/releases</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>org.aspectj</groupId>
