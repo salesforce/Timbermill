@@ -230,7 +230,11 @@ final class EventLogger {
 
 	private Event createErrorEvent(Throwable t, String ongoingTaskId, LogParams logParams) {
 		if (t != null) {
-			logParams.text(Constants.EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+			try {
+				logParams.text(Constants.EXCEPTION, t + "\n" + ExceptionUtils.getStackTrace(t));
+			} catch (Exception e){
+				logParams.text(Constants.EXCEPTION, t.getMessage());
+			}
 		}
 		Event e;
 		if (ongoingTaskId == null) {

@@ -293,7 +293,9 @@ public abstract class Event{
 	private int getStringMapSize(Map<String, String> map) {
 		int size = 0;
 		for (Map.Entry<String, String> entry : map.entrySet()) {
-			size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
+			if (entry.getKey() != null && entry.getValue() != null) {
+				size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
+			}
 		}
 		return size;
 	}
