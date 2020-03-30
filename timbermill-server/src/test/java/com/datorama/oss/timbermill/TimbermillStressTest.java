@@ -71,7 +71,7 @@ public class TimbermillStressTest extends TimberLogTest{
             awsRegion = null;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
-                7, 100, 1000000000, 3, 3,3, true, new SQLJetDiskHandler());
+                7, 100, 1000000000, 3, 3,3, true, new SQLJetDiskHandler(0,3,3,"/tmp"));
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();

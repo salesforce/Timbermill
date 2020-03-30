@@ -27,43 +27,47 @@ import static org.mockito.Mockito.spy;
 public class ElasticsearchClientTest {
 
 	private static ElasticsearchClient elasticsearchClient = new ElasticsearchClient("http://localhost:9200", 1000, 1, null, null, null,
-			7, 100, 1000000000, 3, 3, 3,true,new SQLJetDiskHandler());
-	private DbBulkRequest bulkRequest;
-	private BulkResponse bulkResponse;
+			7, 100, 1000000000, 3, 3, 3,true, new SQLJetDiskHandler(0,3,3,"/tmp"));
 
 	@Test
 	public void failAllOfRequestsOfBulk() throws IOException {
 		int amountOfRequestsInBulk = 5;
-		bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
-		bulkResponse = elasticsearchClient.bulk(bulkRequest,RequestOptions.DEFAULT);
+		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
-		int bulkNewSize = bulkRequest.getRequest().requests().size();
+
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk, bulkNewSize);
 	}
 
 	@Test
 	public void failSomeOfRequestsOfBulk() throws IOException {
 		int amountOfRequestsInBulk = 2;
-		bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
-		bulkResponse = elasticsearchClient.bulk(bulkRequest,RequestOptions.DEFAULT);
+		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
-		int bulkNewSize = bulkRequest.getRequest().requests().size();
+
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk-1, bulkNewSize);
-		Assert.assertNotEquals(successItemId, bulkRequest.getRequest().requests().get(0).id());
+		Assert.assertNotEquals(successItemId, fetchedBulkRequest.getRequest().requests().get(0).id());
 	}
 
 	@Test
 	public void successAllOfRequestsOfBulk() throws IOException {
-		bulkRequest = createMockDbBulkRequest(2);
-		bulkResponse = elasticsearchClient.bulk(bulkRequest,RequestOptions.DEFAULT);
+		DbBulkRequest bulkRequest = createMockDbBulkRequest(2);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 
 		makeItemSuccess(bulkResponse,0);
 		makeItemSuccess(bulkResponse,1);
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
-		int bulkNewSize = bulkRequest.getRequest().requests().size();
+
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(0, bulkNewSize);
 	}
 

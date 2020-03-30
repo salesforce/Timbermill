@@ -36,13 +36,9 @@ public class TimbermillService {
 	private ElasticsearchClient elasticsearchClient;
 
 	@Autowired
-	@Qualifier("sqlite")
-	DiskHandler diskHandler;
-
-	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
+			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
@@ -65,19 +61,19 @@ public class TimbermillService {
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
 
-		terminationTimeout = terminationTimeoutSeconds * 1000;
+		DiskHandler diskHandler = null;
+		if (withPersistence){
+			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
+			if (!diskHandler.isCreatedSuccefully()){
+				withPersistence = false;
+			}
+		}
 
+		terminationTimeout = terminationTimeoutSeconds * 1000;
 		elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
 				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,withPersistence,null);
-	}
-
-	@PostConstruct
-	private void init(){
-		if (!diskHandler.isCreatedSuccefully()){
-			elasticsearchClient.setWithPersistence(false);
-		}
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,withPersistence,diskHandler);
 		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
 	}

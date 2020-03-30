@@ -30,7 +30,7 @@ public class TimberLogLocalTest extends TimberLogTest {
         }
         LocalOutputPipe.Builder pipeBuilder = new LocalOutputPipe.Builder().numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null)
                 .pluginsJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
-        LocalOutputPipe pipe = buildLocalOutputPipeForTest(pipeBuilder,diskHandler);
+        LocalOutputPipe pipe = buildLocalOutputPipeForTest(pipeBuilder, new SQLJetDiskHandler(0,3,3,"/tmp"));
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000,3, 3,3, true,null);
@@ -108,7 +108,7 @@ public class TimberLogLocalTest extends TimberLogTest {
                     @Override public BulkResponse answer(InvocationOnMock invocation) throws Throwable {
                         Object[] args = invocation.getArguments();
                         DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
-                        if (dbBulkRequest.getTimesFetched() < 1){
+                        if (dbBulkRequest.getTimesFetched() < 2){
                             throw new RuntimeException();
                         }
                         // call real method

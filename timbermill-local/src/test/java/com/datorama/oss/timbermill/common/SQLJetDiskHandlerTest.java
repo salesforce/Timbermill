@@ -9,17 +9,16 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.joda.time.DateTime;
-import org.junit.Before;
-import org.junit.Test;
-
-
-import static org.junit.Assert.*;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Test;
 
 import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
 
-public class SqlJetDiskHandlerTest {
+import static org.junit.Assert.*;
+
+public class SQLJetDiskHandlerTest {
 
 	private static SQLJetDiskHandler diskHandler;
 	public static int numOfMinutes = 1;
@@ -54,7 +53,7 @@ public class SqlJetDiskHandlerTest {
 	}
 
 	@Test
-	public void fetchFailedBulks() throws MaximunInsertTriesException {
+	public void fetchFailedBulksAdvanced() throws MaximunInsertTriesException {
 
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
@@ -72,7 +71,7 @@ public class SqlJetDiskHandlerTest {
 		diskHandler.persistToDisk(dbBulkRequest2);
 		dbBulkRequest2.setId(2);
 		updateInsertTimeforTest(dbBulkRequest2);
-		assertEquals(2, diskHandler.failedBulksAmount());
+		assertEquals(2, diskHandler.fetchAndDeleteFailedBulks().size());
 	}
 
 	@Test
@@ -103,12 +102,31 @@ public class SqlJetDiskHandlerTest {
 	}
 
 	@Test
+	public void failedBulksAmount() throws MaximunInsertTriesException {
+		DbBulkRequest dbBulkRequest1 = MockBulkRequest.createMockDbBulkRequest();
+		dbBulkRequest1.setId(1);
+		DbBulkRequest dbBulkRequest2 = MockBulkRequest.createMockDbBulkRequest();
+		dbBulkRequest2.setId(2);
+		DbBulkRequest dbBulkRequest3 = MockBulkRequest.createMockDbBulkRequest();
+		dbBulkRequest3.setId(3);
+		diskHandler.persistToDisk(dbBulkRequest1);
+		updateInsertTimeforTest(dbBulkRequest1);
+		diskHandler.persistToDisk(dbBulkRequest2);
+		updateInsertTimeforTest(dbBulkRequest2);
+		diskHandler.persistToDisk(dbBulkRequest3);
+		updateInsertTimeforTest(dbBulkRequest3);
+
+		assertEquals(3, diskHandler.failedBulksAmount());
+		assertEquals(3, diskHandler.failedBulksAmount()); // to make sure the db didn't change after the call to failedBulksAmount
+	}
+
+	@Test
 	public void failToInsert() {
 		boolean thrown = false;
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		dbBulkRequest.setRequest(null); // will cause insert to fail
 		try {
-			diskHandler.persistToDisk(dbBulkRequest);
+			diskHandler.persistToDisk(dbBulkRequest,0);
 		} catch (MaximunInsertTriesException e){
 			thrown = true;
 		}
@@ -116,10 +134,9 @@ public class SqlJetDiskHandlerTest {
 	}
 
 	@Test
-	 public void dropAndRecreateTable() throws MaximunInsertTriesException {
+	public void dropAndRecreateTable() throws MaximunInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
-		updateInsertTimeforTest(dbBulkRequest);
 
 		diskHandler.dropAndRecreateTable();
 		assertEquals(false, diskHandler.hasFailedBulks());
@@ -127,9 +144,15 @@ public class SqlJetDiskHandlerTest {
 
 	@Test
 	public void emptyDb() throws MaximunInsertTriesException {
-		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		diskHandler.persistToDisk(dbBulkRequest);
-		updateInsertTimeforTest(dbBulkRequest);
+		DbBulkRequest dbBulkRequest1 = MockBulkRequest.createMockDbBulkRequest();
+		DbBulkRequest dbBulkRequest2 = MockBulkRequest.createMockDbBulkRequest();
+		DbBulkRequest dbBulkRequest3 = MockBulkRequest.createMockDbBulkRequest();
+		diskHandler.persistToDisk(dbBulkRequest1);
+		diskHandler.persistToDisk(dbBulkRequest2);
+		diskHandler.persistToDisk(dbBulkRequest3);
+		updateInsertTimeforTest(dbBulkRequest1);
+		updateInsertTimeforTest(dbBulkRequest2);
+		updateInsertTimeforTest(dbBulkRequest3);
 
 		diskHandler.emptyDb();
 		assertEquals(false, diskHandler.hasFailedBulks());
@@ -170,3 +193,4 @@ public class SqlJetDiskHandlerTest {
 		}
 	}
 }
+

@@ -585,8 +585,7 @@ public class ElasticsearchClient {
 	public void retryFailedRequests() {
 		if (!failedRequests.isEmpty()) {
 			LOG.info("------------------ Failed Requests From Memory Retry Start ------------------");
-			List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
-			failedRequests.drainTo(list);
+			List<Pair<DbBulkRequest, Integer>> list = memoryFailedRequestsAsList();
 			for (Pair<DbBulkRequest, Integer> entry : list) {
 				DbBulkRequest dbBulkRequest = entry.getKey();
 				Integer retryNum = entry.getValue();
@@ -605,6 +604,12 @@ public class ElasticsearchClient {
 
 	}
 
+	List<Pair<DbBulkRequest, Integer>> memoryFailedRequestsAsList() {
+		List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
+		failedRequests.drainTo(list);
+		return list;
+	}
+
 	public boolean hasFailedRequests(){
 		boolean hasFailedInMemory = failedRequests.size()>0;
 		boolean hasFailedInDisk = diskHandler.hasFailedBulks();
@@ -616,9 +621,9 @@ public class ElasticsearchClient {
 			LOG.warn("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfBulkIndexTries, failureMessage);
 			if (withPersistence) {
 				if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
-					removeSucceedRequestsFromBulk(dbBulkRequest, responses);
+					DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 					try {
-						diskHandler.persistToDisk(dbBulkRequest);
+						diskHandler.persistToDisk(updatedDbBulkRequest);
 					} catch (MaximunInsertTriesException e){
 						LOG.error("Tasks of failed bulk will not be indexed because inserting to disk failed for the maximum times ({}).", e.getMaximumTriesNumber());
 					}
@@ -633,12 +638,12 @@ public class ElasticsearchClient {
 		}
 		else {
 			LOG.warn("Failed while trying to bulk index tasks, failure message: {}. Going to retry.", failureMessage);
-			removeSucceedRequestsFromBulk(dbBulkRequest,responses);
-			failedRequests.offer(Pair.of(dbBulkRequest, retryNum));
+			DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest,responses);
+			failedRequests.offer(Pair.of(updatedDbBulkRequest, retryNum));
 		}
 	}
 
-	private DbBulkRequest removeSucceedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+	private DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
 		BulkRequest bulkRequest = dbBulkRequest.getRequest();
 		int numOfRequests = bulkRequest.numberOfActions();
 
@@ -664,8 +669,5 @@ public class ElasticsearchClient {
 		return dbBulkRequest;
 	}
 
-	public void setWithPersistence(boolean withPersistence) {
-		this.withPersistence = withPersistence;
-	}
 }
 

@@ -20,7 +20,6 @@ import static org.junit.Assert.*;
 public abstract class TimberLogTest {
 
 	protected static ElasticsearchClient client;
-	protected static SQLJetDiskHandler diskHandler = new SQLJetDiskHandler();
 
 	static final String TEST = "test";
 	static final String EVENT = "Event";

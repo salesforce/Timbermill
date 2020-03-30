@@ -22,6 +22,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private TaskIndexer taskIndexer;
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
+    private boolean withPersistence = true;
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
 
@@ -29,22 +30,23 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
-        DiskHandler diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
+        DiskHandler diskHandler = null;
+        if (withPersistence) {
+            diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
+            if (!diskHandler.isCreatedSuccefully()) {
+                withPersistence = false;
+            }
+        }
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,true,diskHandler);
-        if (!diskHandler.isCreatedSuccefully()){
-            es.setWithPersistence(false);
-        }
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,withPersistence,diskHandler);
+
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
 
     public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es,DiskHandler diskHandler) {
-        if (!diskHandler.isCreatedSuccefully()){
-            es.setWithPersistence(false);
-        }
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
