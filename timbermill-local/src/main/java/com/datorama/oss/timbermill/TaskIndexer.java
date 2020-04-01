@@ -152,7 +152,6 @@ public class TaskIndexer {
                     eventsMap.put(orphanId, eventsList);
                 }
                 enrichEvent(eventsMap, previouslyIndexedTasks, orphanEvent);
-
             }
         }
     }
@@ -162,15 +161,15 @@ public class TaskIndexer {
         String parentId = event.getParentId();
         if (parentId != null) {
 
-            if (isOrphan(previouslyIndexedTasks, event.getParentId(), event, eventsMap)){
+            if (isOrphan(previouslyIndexedTasks, event, eventsMap)){
                 event.setOrphan(true);
-                Queue<Event> eventList = parentIdTORootOrphansEventsCache.getIfPresent(event.getParentId());
+                Queue<Event> eventList = parentIdTORootOrphansEventsCache.getIfPresent(parentId);
 
                 Event orphanEvent = new AdoptedEvent(event);
                 if (eventList == null) {
                     eventList = new LinkedBlockingQueue<>();
                     eventList.add(orphanEvent);
-                    parentIdTORootOrphansEventsCache.put(event.getParentId(), eventList);
+                    parentIdTORootOrphansEventsCache.put(parentId, eventList);
                 } else {
                     eventList.add(orphanEvent);
                 }
@@ -206,10 +205,11 @@ public class TaskIndexer {
         updateAdoptedOrphans(event, eventsMap, previouslyIndexedTasks);
     }
 
-    private boolean isOrphan(Map<String, Task> previouslyIndexedTasks, String parentId, Event event, Map<String, List<Event>> eventsMap) {
+    private boolean isOrphan(Map<String, Task> previouslyIndexedTasks, Event event, Map<String, List<Event>> eventsMap) {
         if (event.isOrphan() != null && !event.isOrphan()){
             return false;
         }
+        String parentId = event.getParentId();
         if (parentId != null) {
             if (parentIdTORootOrphansEventsCache.getIfPresent(parentId) != null){
                 return true;

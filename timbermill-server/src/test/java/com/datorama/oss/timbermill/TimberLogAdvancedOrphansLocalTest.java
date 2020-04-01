@@ -21,6 +21,11 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
     }
 
     @Test
+    public void testOrphanWithComplexAdoption(){
+        super.testOrphanWithComplexAdoption();
+    }
+
+    @Test
     public void testOutOfOrderComplexOrphanWithAdoption(){
         super.testOutOfOrderComplexOrphanWithAdoption();
     }
