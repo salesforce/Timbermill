@@ -6,7 +6,7 @@
 
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-local</artifactId>
-    <version>2.1.28</version>
+    <version>2.1.29</version>
     <packaging>jar</packaging>
     <name>timbermill-local</name>
     <description>A better logging service</description>
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>com.datorama.oss</groupId>
             <artifactId>timbermill-client</artifactId>
-            <version>2.1.28</version>
+            <version>2.1.29</version>
         </dependency>
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
