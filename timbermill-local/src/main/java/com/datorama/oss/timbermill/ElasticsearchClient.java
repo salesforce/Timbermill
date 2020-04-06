@@ -255,7 +255,7 @@ public class ElasticsearchClient {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
-                LOG.info("Batch of {} requests finished successfully after {} tries . Took: {} millis.", numberOfActions, retryNum + 1 , responses.getTook().millis());
+                LOG.info("Batch with size of {}{} finished successfully. Took: {} millis. Persisted to disk: {}", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
             }
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());

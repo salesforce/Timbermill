@@ -73,10 +73,10 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 			// creating index if not exists
 			db.createIndex(createInsertTimeIndexQuery);
-			LOG.info("SQLite created successfully: " + CREATE_TABLE);
+			LOG.info("SQLite was created successfully: " + CREATE_TABLE);
 			silentDbCommit();
 		} catch (Exception e) {
-			LOG.error("Creating DB has failed",e);
+			LOG.error("Creation of DB has failed",e);
 			silentCloseDb();
 		}
 	}
@@ -146,7 +146,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			LOG.info("Recreated table successfully.");
 			db.commit();
 		} catch (SqlJetException e) {
-			LOG.error("Dropping the table {} has failed",FAILED_BULKS_TABLE_NAME,e);
+			LOG.error("Drop table {} has failed",FAILED_BULKS_TABLE_NAME,e);
 		}
 	}
 
@@ -185,7 +185,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 		while (retryNum++ < maxInsertTries) {
 			try {
 				if (dbBulkRequest.getTimesFetched() > 0) {
-					LOG.info("Inserting bulk request with id: {} to disk, that was fetched {} times.", dbBulkRequest.getId(), dbBulkRequest.getTimesFetched());
+					int timesFetched = dbBulkRequest.getTimesFetched();
+					LOG.info("Inserting bulk request with id: {} to disk, that was fetched {} {}.", dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
 				} else {
 					LOG.info("Inserting bulk request to disk for the first time.");
 				}
@@ -193,7 +194,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				table.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-				LOG.info("Insert bulk request successfully to SQLite.");
+				LOG.info("Bulk request was inserted successfully to SQLite.");
 				break; // if arrived here then inserting succeed, no need to retry again
 			} catch (Exception e) {
 				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
@@ -229,7 +230,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount++;
 			}
-			LOG.info("Fetched {} bulk.",fetchedCount);
+			LOG.info("Fetched successfully. Number of fetched bulks: {}.",fetchedCount);
 		} catch (SqlJetException | IOException e) {
 			LOG.error("Fetching has failed.",e);
 		} finally {
