@@ -18,6 +18,7 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN = "orphan";
     private static final String ORPHAN_PARENT = "orphan_parent";
     private static final String CTX = "ctx";
+    private static final String ORPHAN_CHILD = "orphan_child";
     private static ElasticsearchClient client;
 
     @BeforeClass
@@ -64,6 +65,51 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(1, task.getParentsPath().size());
         Assert.assertEquals(ORPHAN_PARENT, task.getParentsPath().get(0));
         Assert.assertEquals(ctx, task.getCtx().get(ctx));
+    }
+
+    public void testOrphanWithComplexAdoption() {
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(CTX + 1, CTX + 1));
+        waitForTask(taskId, TaskStatus.SUCCESS);
+
+        String orphanChildId = TimberLoggerAdvanced.start(ORPHAN_CHILD, taskId, LogParams.create().context(CTX + 2, CTX + 2));
+        TimberLoggerAdvanced.success(orphanChildId);
+
+        TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(CTX, CTX));
+        TimberLoggerAdvanced.success(parentTaskId);
+
+
+
+        waitForTask(orphanChildId, TaskStatus.SUCCESS);
+        waitForTask(parentTaskId, TaskStatus.SUCCESS);
+
+        Task parentTask = client.getTaskById(parentTaskId);
+        Task task = client.getTaskById(taskId);
+        Task orphanChildTask = client.getTaskById(orphanChildId);
+
+        Assert.assertNull(parentTask.isOrphan());
+        Assert.assertNull(parentTask.getParentId());
+        Assert.assertEquals(parentTaskId, parentTask.getPrimaryId());
+        Assert.assertEquals(CTX, parentTask.getCtx().get(CTX));
+
+        Assert.assertFalse(task.isOrphan());
+        Assert.assertEquals(parentTaskId, task.getParentId());
+        Assert.assertEquals(parentTaskId, task.getPrimaryId());
+        Assert.assertEquals(1, task.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, task.getParentsPath().get(0));
+        Assert.assertEquals(CTX, task.getCtx().get(CTX));
+        Assert.assertEquals(CTX + 1, task.getCtx().get(CTX + 1));
+
+        Assert.assertFalse(orphanChildTask.isOrphan());
+        Assert.assertEquals(taskId, orphanChildTask.getParentId());
+        Assert.assertEquals(parentTaskId, orphanChildTask.getPrimaryId());
+        Assert.assertEquals(2, orphanChildTask.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, orphanChildTask.getParentsPath().get(0));
+        Assert.assertEquals(ORPHAN, orphanChildTask.getParentsPath().get(1));
+        Assert.assertEquals(CTX, orphanChildTask.getCtx().get(CTX));
+        Assert.assertEquals(CTX + 1, orphanChildTask.getCtx().get(CTX + 1));
+        Assert.assertEquals(CTX + 2, orphanChildTask.getCtx().get(CTX + 2));
     }
 
     public void testOutOfOrderComplexOrphanWithAdoption() {

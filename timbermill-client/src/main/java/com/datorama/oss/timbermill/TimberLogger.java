@@ -235,6 +235,10 @@ public final class TimberLogger {
 		return EventLogger.get().wrapFunction(function);
 	}
 
+	public static void clear(){
+		EventLogger.get().clearStack();
+	}
+
 	static ZonedDateTime createDateToDelete(int daysToKeep) {
 		ZonedDateTime dateToDelete = ZonedDateTime.now();
 		if (daysToKeep > 0){

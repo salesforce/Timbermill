@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,7 +26,6 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 public abstract class Event{
 
 	public static final String EVENT_ID_DELIMITER = "___";
-	private static final String OLD_EVENT_ID_DELIMITER = "_";
 
 	protected String taskId;
 
@@ -199,21 +197,7 @@ public abstract class Event{
 		return false;
 	}
 
-	@JsonIgnore
-	public String getNameFromId() {
-		if (name == null){
-			String[] split = taskId.split(EVENT_ID_DELIMITER);
-			if (split.length == 1){
-				split = taskId.split(OLD_EVENT_ID_DELIMITER);
-				String[] newSplit = Arrays.copyOf(split, split.length - 2);
-				return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
-			}
-			return split[0];
-		}
-		else{
-			return name;
-		}
-	}
+
 
 	@JsonIgnore
 	public static String generateTaskId(String name) {
@@ -280,7 +264,9 @@ public abstract class Event{
 	private int getStringMapSize(Map<String, String> map) {
 		int size = 0;
 		for (Map.Entry<String, String> entry : map.entrySet()) {
-			size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
+			if (entry.getKey() != null && entry.getValue() != null) {
+				size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
+			}
 		}
 		return size;
 	}

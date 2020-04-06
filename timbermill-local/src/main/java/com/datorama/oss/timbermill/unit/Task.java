@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,9 @@ import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
 public class Task {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Task.class);
+	private static final String OLD_EVENT_ID_DELIMITER = "_";
+	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
+
 	private String env;
 
 	private String name;
@@ -56,7 +60,7 @@ public class Task {
 				}
 				String name = e.getName();
 				if (name == null){
-					name = e.getNameFromId();
+					name = getNameFromId(name, e.getTaskId());
 				}
 
 				String parentId = e.getParentId();
@@ -115,9 +119,14 @@ public class Task {
 				this.primaryId = primaryId;
 			}
 			else if (primaryId != null && !this.primaryId.equals(primaryId)){
-				LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
-				status = CORRUPTED;
-				string.put(CORRUPTED_REASON, "Different primaryIds");
+				if (this.primaryId.equals(e.getTaskId())){
+					this.primaryId = e.getPrimaryId(); // Override actual primary id
+				}
+				else if (!primaryId.equals(e.getTaskId())){
+					LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
+					status = CORRUPTED;
+					string.put(CORRUPTED_REASON, "Different primaryIds");
+				}
 			}
 			List<String> parentsPath = e.getParentsPath();
 			if (this.parentsPath == null){
@@ -348,5 +357,28 @@ public class Task {
 				", log='" + log + '\'' +
 				", orphan=" + orphan +
 				'}';
+	}
+
+	public static String getNameFromId(String name, String taskId) {
+		try {
+			if (name == null) {
+				String taskIdToUse = taskId;
+				if (taskIdToUse.endsWith(TIMBERMILL_SUFFIX)) {
+					taskIdToUse = taskIdToUse.substring(0, taskIdToUse.length() - TIMBERMILL_SUFFIX.length());
+				}
+				String[] split = taskIdToUse.split(Event.EVENT_ID_DELIMITER);
+				if (split.length == 1) {
+					split = taskIdToUse.split(OLD_EVENT_ID_DELIMITER);
+					String[] newSplit = Arrays.copyOf(split, split.length - 2);
+					return String.join(OLD_EVENT_ID_DELIMITER, newSplit);
+				}
+				return split[0];
+			} else {
+				return name;
+			}
+		} catch (Exception e){
+			LOG.error("Couldn't get name from ID {}", taskId);
+			return taskId;
+		}
 	}
 }

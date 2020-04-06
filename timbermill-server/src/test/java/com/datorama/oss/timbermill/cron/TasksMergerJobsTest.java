@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
 import static org.junit.Assert.*;
 
 public class TasksMergerJobsTest extends TimberLogTest {
@@ -54,8 +55,8 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
-		String currentIndex = "timbermill-test-new";
-		String previousIndex = "timbermill-test-old";
+		String currentIndex = TIMBERMILL_INDEX_PREFIX + "-test-new";
+		String previousIndex = TIMBERMILL_INDEX_PREFIX + "-test-old";
 		TimberLogTest.client.setOldIndex(previousIndex);
 		TimberLogTest.client.setCurrentIndex(currentIndex);
 		jobDataMap.put(CLIENT, TimberLogTest.client);

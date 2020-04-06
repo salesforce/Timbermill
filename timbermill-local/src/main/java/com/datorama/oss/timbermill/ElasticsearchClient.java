@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -27,10 +28,7 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.*;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.*;
 import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.core.CountResponse;
 import org.elasticsearch.client.indices.CreateIndexRequest;
@@ -44,18 +42,15 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.Scroll;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.util.IOUtils;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.common.DiskHandler;
@@ -65,18 +60,21 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.internal.LazilyParsedNumber;
+
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
 
 public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
     private static final String STATUS = "status";
-    private static final String WAIT_FOR_COMPLETION = "wait_for_completion";
 	private boolean withPersistence;
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
-    private static final AWSCredentialsProvider credentialsProvider = new DefaultAWSCredentialsProviderChain();
     private final ExecutorService executorService;
     private long maxIndexAge;
     private long maxIndexSizeInGB;
@@ -112,7 +110,7 @@ public class ElasticsearchClient {
             String serviceName = "es";
             signer.setServiceName(serviceName);
             signer.setRegionName(awsRegion);
-            HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
+            HttpRequestInterceptor interceptor = new AWSRequestSigningApacheInterceptor(serviceName, signer, new DefaultAWSCredentialsProviderChain());
             builder.setHttpClientConfigCallback(callback -> callback.addInterceptorLast(interceptor));
         }
 
@@ -169,14 +167,20 @@ public class ElasticsearchClient {
 
     Map<String, Task> fetchIndexedTasks(String...tasksToFetch) throws IOException {
 		if (tasksToFetch.length > 0) {
-			return getTasksByIds(tasksToFetch);
+			Map<String, Task> fetchedTasks = getTasksByIds(currentIndex, tasksToFetch);
+			for (String taskId : tasksToFetch) {
+				if (!fetchedTasks.containsKey(taskId)){
+					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
+				}
+			}
+			return fetchedTasks;
 		}
 		return Collections.emptyMap();
 	}
 
     public Task getTaskById(String taskId){
         try {
-			Map<String, Task> tasksByIds = getTasksByIds(taskId);
+			Map<String, Task> tasksByIds = getTasksByIds(null, taskId);
 			return tasksByIds.get(taskId);
 		} catch (IOException e){
         	return null;
@@ -189,12 +193,12 @@ public class ElasticsearchClient {
 		return map.get(taskId);
     }
 
-    private Map<String, Task> getTasksByIds(String...taskIds) throws IOException {
+    private Map<String, Task> getTasksByIds(String index, String... taskIds) throws IOException {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
         for (String taskId : taskIds) {
             idsQueryBuilder.addIds(taskId);
         }
-		return getSingleTaskByIds(idsQueryBuilder, null);
+		return getSingleTaskByIds(idsQueryBuilder, index);
     }
 
     private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index) throws IOException {
@@ -306,7 +310,7 @@ public class ElasticsearchClient {
 			if (tryNum <= numOfMergedTasksTries) {
 				LOG.warn("Try #" + tryNum + " Failed to merge tasks from old index " + oldIndex + ". Going to retry", t);
 				try {
-					Thread.sleep((2 ^ tryNum) * 1000);
+					Thread.sleep((long) (Math.pow(2, tryNum) * 1000));
 				} catch (InterruptedException ignored) {
 				}
 				moveTasksFromOldToNewIndex(tryNum + 1);
@@ -318,9 +322,9 @@ public class ElasticsearchClient {
     }
 
 	public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks) {
-        LOG.info("About to migrate partial tasks from old index [{}] to new index [{}]", oldIndex, currentIndex);
-        index(previousIndexPartialTasks, currentIndex);
-        deleteTasksFromIndex(previousIndexPartialTasks, oldIndex);
+		LOG.info("Starting migration between old index [{}] and new index [{}]", oldIndex, currentIndex);
+		index(previousIndexPartialTasks, currentIndex);
+        deleteTasksFromIndex(previousIndexPartialTasks.keySet(), oldIndex);
         LOG.info("Successfully migrated {} tasks to new index [{}]", previousIndexPartialTasks.size(), currentIndex);
     }
 
@@ -388,9 +392,9 @@ public class ElasticsearchClient {
 	}
 
 	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
-        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill-template");
+        PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill2-template");
 
-        request.patterns(Lists.newArrayList("timbermill*"));
+        request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_PREFIX + "*"));
         request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));
@@ -543,35 +547,66 @@ public class ElasticsearchClient {
         metric.putAll(newMetrics);
     }
 
-    private void deleteTasksFromIndex(Map<String, Task> idToTaskMap, String index) {
-        LOG.info("About to delete tasks from  index [{}]", index);
-        IdsQueryBuilder idsQuery = new IdsQueryBuilder();
-        for (String id : idToTaskMap.keySet()) {
-            idsQuery.addIds(id);
-        }
-        deleteByQuery(index, idsQuery);
+    private void deleteTasksFromIndex(Set<String> idsSet, String index) {
+        LOG.info("Deleting tasks from  index [{}]", index);
+
+
+        List<String> ids = new ArrayList<>();
+		idsSet.forEach(id -> ids.add('"' + id + '"'));
+		String query = "{\n"
+				+ "    \"query\": {\n"
+				+ "        \"ids\" : {\n"
+				+ "            \"values\" : " + ids.toString() + " \n"
+				+ "        }\n"
+				+ "    }\n"
+				+ "}";
+		deleteByQuery(index, query);
     }
 
     public void deleteExpiredTasks() {
         LOG.info("About to delete expired tasks");
-        RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(ElasticsearchClient.TTL_FIELD).lte(new DateTime());
-        deleteByQuery("_all", rangeQueryBuilder);
+		String query = "{\n"
+				+ "  \"query\": {\n"
+				+ "    \"bool\": {\n"
+				+ "      \"must\": [\n"
+				+ "    {\n"
+				+ "    \"range\": {\n"
+				+ "      \"" +TTL_FIELD + "\": {\n"
+				+ "        \"lte\": \"now\"\n"
+				+ "      }\n"
+				+ "    }\n"
+				+ "    }\n"
+				+ "      ]\n"
+				+ "    }\n"
+				+ "  }\n"
+				+ "}";
+		deleteByQuery("*", query);
     }
 
-    private void deleteByQuery(String index, QueryBuilder query) {
-        DeleteByQueryRequest request = new DeleteByQueryRequest(index).setQuery(query);
-        RequestOptions.Builder builder = RequestOptions.DEFAULT.toBuilder();
-        builder.addHeader(WAIT_FOR_COMPLETION, "false");
-        RequestOptions options = builder.build();
-        try {
-            BulkByScrollResponse bulkByScrollResponse = client.deleteByQuery(request, options);
-            LOG.info("Deleted {} tasks.", bulkByScrollResponse.getStatus().getDeleted());
-        } catch (IOException e) {
+    private JsonElement deleteByQuery(String index, String query) {
+		Request request = new Request("POST", "/" + index + "/_delete_by_query");
+		request.addParameter("conflicts","proceed");
+		request.addParameter("wait_for_completion", "false");
+		request.setJsonEntity(query);
+		try {
+			Response response = client.getLowLevelClient().performRequest(request);
+			InputStream content = response.getEntity().getContent();
+			String json = IOUtils.toString(content);
+			JsonObject asJsonObject = new JsonParser().parse(json).getAsJsonObject();
+			JsonElement task = asJsonObject.get("task");
+			if (task == null){
+				LOG.error("Delete by query didn't return taskId. Response was {}", json);
+			}
+			else {
+				return task;
+			}
+		} catch (IOException e) {
             throw new RuntimeException(e);
         } catch (IllegalStateException e) {
             LOG.warn("Could not perform deletion, elasticsearch client was closed.");
         }
-    }
+		return null;
+	}
 
     long countByName(String name, String env) throws IOException {
         CountRequest countRequest = new CountRequest();

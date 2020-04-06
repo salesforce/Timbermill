@@ -103,6 +103,7 @@ public abstract class TimberLogTest {
 		TimberLogger.logText(hugeField, hugeString);
 		TimberLogger.logString(hugeField, hugeString);
 		TimberLogger.logContext(hugeField, hugeString);
+		TimberLogger.logContext(null, "null");
 		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).logInfo(log2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();

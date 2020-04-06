@@ -34,7 +34,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private Thread thread;
     private int maxEventsBatchSize;
     private long maxSecondsBeforeBatchTimeout;
-    private boolean started = false;
 
     private TimbermillServerOutputPipe() {
     }
@@ -68,6 +67,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } while (keepRunning);
         });
         thread.setName("timbermill-sender");
+        thread.start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
             try {
@@ -75,29 +75,27 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }));
-        maxCharsAllowedForNonAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
-        maxCharsAllowedForAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
         HttpURLConnection httpCon = getHttpURLConnection();
         String eventsWrapperString = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
-            sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
             try {
+                sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {
                     LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
                     return;
 
                 } else {
-                    LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}//{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
+                    LOG.warn("Request #" + tryNum + " to Timbermill return status {}, Attempt: {}/{} Message: {}", responseCode, tryNum, MAX_RETRY, httpCon.getResponseMessage());
                 }
             } catch (Exception e){
-                LOG.warn("Request #" + tryNum + " to Timbermill failed", e);
+                LOG.warn("Request #" + tryNum + " to Timbermill failed, Attempt: "+ tryNum + "/" + MAX_RETRY, e);
             }
             try {
-                Thread.sleep(2 ^ tryNum * 1000); //Exponential backoff
+                Thread.sleep((long) (Math.pow(2 , tryNum) * 1000)); //Exponential backoff
             } catch (InterruptedException ignored) {
             }
         }
@@ -188,7 +186,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private void trimLongValues(Map<String, String> map, String mapName, int maxChars) {
         for (Map.Entry<String, String> entry : map.entrySet()) {
             String value = entry.getValue();
-            if (value.length() > maxChars) {
+            if (value != null && value.length() > maxChars) {
                 LOG.debug("Entry with key {} under {} is over max character allowed {}", entry.getKey(), mapName, maxChars);
                 entry.setValue(value.substring(0, maxChars));
             }
@@ -203,13 +201,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     public void send(Event e) {
         if(!this.buffer.offer(e)){
             LOG.warn("Event {} was removed from the queue due to insufficient space", e.getTaskId());
-        }
-
-        synchronized (this) {
-            if (!this.started) {
-                thread.start();
-                this.started = true;
-            }
         }
     }
 
