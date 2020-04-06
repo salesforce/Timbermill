@@ -40,8 +40,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable table;
 
-	public SQLJetDiskHandler() {
-		this(1,10,3,"/tmp");
+	public SQLJetDiskHandler(String locationInDisk) {
+		this(1,10,3,locationInDisk);
 	}
 
 	public SQLJetDiskHandler(int waitingTimeInMinutes, int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
@@ -167,7 +167,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	 public int failedBulksAmount() {
+	public int failedBulksAmount() {
 		return fetchFailedBulks(false).size();
 	}
 

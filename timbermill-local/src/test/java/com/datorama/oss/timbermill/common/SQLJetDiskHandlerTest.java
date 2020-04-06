@@ -25,7 +25,7 @@ public class SQLJetDiskHandlerTest {
 
 	@BeforeClass
 	public static void init()  {
-		diskHandler = new SQLJetDiskHandler();
+		diskHandler = new SQLJetDiskHandler("/tmp/SQLJetDiskHandlerTest");
 		diskHandler.setWaitingTimeInMinutes(numOfMinutes);
 	}
 

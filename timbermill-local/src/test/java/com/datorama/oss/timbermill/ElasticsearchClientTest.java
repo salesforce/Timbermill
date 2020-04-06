@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.UUID;
 
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -11,7 +12,9 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
@@ -20,14 +23,25 @@ import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 
+import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ElasticsearchClientTest {
 
-	private static ElasticsearchClient elasticsearchClient = new ElasticsearchClient("http://localhost:9200", 1000, 1, null, null, null,
-			7, 100, 1000000000, 3, 3, 3,true, new SQLJetDiskHandler(0,3,3,"/tmp"));
+
+	private static ElasticsearchClient elasticsearchClient;
+
+	@BeforeClass
+	public static void init() {
+		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+		if (StringUtils.isEmpty(elasticUrl)) {
+			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+		}
+		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+				7, 100, 1000000000, 3, 3, 3,true, new SQLJetDiskHandler(0,3,3,"/tmp/ElasticsearchClientTest"));
+	}
 
 	@Test
 	public void failAllOfRequestsOfBulk() throws IOException {
@@ -69,6 +83,11 @@ public class ElasticsearchClientTest {
 		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(0, bulkNewSize);
+	}
+
+	@AfterClass
+	public static void tearDown(){
+		elasticsearchClient.close();
 	}
 
 	// make bulk's item #itemNumber to not fail
