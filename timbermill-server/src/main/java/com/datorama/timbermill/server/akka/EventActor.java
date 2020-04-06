@@ -28,7 +28,7 @@ public class EventActor extends AbstractActor {
         return ReceiveBuilder.create()
                 .match(EventsWrapper.class, eventsWrapper -> {
                     Collection<Event> events = eventsWrapper.getEvents();
-                    //timbermillService.handleEvent(events);
+                    timbermillService.handleEvent(events);
                 })
                 .build();
     }
