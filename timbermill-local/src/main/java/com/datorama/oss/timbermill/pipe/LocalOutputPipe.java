@@ -11,8 +11,12 @@ import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+
+import static com.datorama.oss.timbermill.common.SQLJetDiskHandler.*;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -32,7 +36,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
         DiskHandler diskHandler = null;
         if (withPersistence) {
-            diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy);
+            diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy,builder.buildDiskHandlerParams());
             if (!diskHandler.isCreatedSuccefully()) {
                 withPersistence = false;
             }
@@ -110,8 +114,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
-        private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
+        private int waitingTimeInMinutes = 1;
+        private int maxFetchedBulksInOneTime = 10;
+        private int maxInsertTries = 3;
+        private String locationInDisk = "/tmp";
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -207,13 +214,28 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder persistentFetchCronExp(String persistentFetchCronExp) {
-            this.persistentFetchCronExp = persistentFetchCronExp;
+        public Builder diskHandlerStrategy(String diskHandlerStrategy) {
+            this.diskHandlerStrategy = diskHandlerStrategy;
             return this;
         }
 
-        public Builder diskHandlerStrategy(String diskHandlerStrategy) {
-            this.diskHandlerStrategy = diskHandlerStrategy;
+        public Builder waitingTimeInMinutes(int waitingTimeInMinutes) {
+            this.waitingTimeInMinutes = waitingTimeInMinutes;
+            return this;
+        }
+
+        public Builder maxFetchedBulksInOneTime(int maxFetchedBulksInOneTime) {
+            this.maxFetchedBulksInOneTime = maxFetchedBulksInOneTime;
+            return this;
+        }
+
+        public Builder maxInsertTries(int maxInsertTries) {
+            this.maxInsertTries = maxInsertTries;
+            return this;
+        }
+
+        public Builder locationInDisk(String locationInDisk) {
+            this.locationInDisk = locationInDisk;
             return this;
         }
 
@@ -224,6 +246,15 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);
+        }
+
+        public Map<Object,Object> buildDiskHandlerParams() {
+            Map<Object,Object> diskHandlerParams = new HashMap<>();
+            diskHandlerParams.put(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES,waitingTimeInMinutes);
+            diskHandlerParams.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
+            diskHandlerParams.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
+            diskHandlerParams.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);
+            return diskHandlerParams;
         }
 
         public ElasticsearchParams buildElasticSearchParams() {

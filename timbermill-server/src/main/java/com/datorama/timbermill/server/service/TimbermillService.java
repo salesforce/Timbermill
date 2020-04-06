@@ -1,15 +1,14 @@
 package com.datorama.timbermill.server.service;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import javax.annotation.PostConstruct;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +18,8 @@ import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.unit.Event;
+
+import static com.datorama.oss.timbermill.common.SQLJetDiskHandler.*;
 
 @Service
 public class TimbermillService {
@@ -32,13 +33,9 @@ public class TimbermillService {
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
-	private ElasticsearchParams elasticsearchParams;
-	private ElasticsearchClient elasticsearchClient;
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
-			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 			@Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 			@Value("${ELASTICSEARCH_USER:}") String elasticUser,
@@ -59,21 +56,33 @@ public class TimbermillService {
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
-			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold) {
+			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold,
+			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
+			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
+			@Value("${WAITING_TIME_IN_MINUTES:0}") int waitingTimeInMinutes,
+			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
+			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
+			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
 
 		DiskHandler diskHandler = null;
 		if (withPersistence){
-			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy);
+			Map<Object, Object> params = new HashMap<>();
+			params.put(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES,waitingTimeInMinutes);
+			params.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
+			params.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
+			params.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);
+
+			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy, params);
 			if (!diskHandler.isCreatedSuccefully()){
 				withPersistence = false;
 			}
 		}
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
+		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
 				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
-		elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetches,withPersistence,diskHandler);
+		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries, maxBulkIndexFetches, withPersistence, diskHandler);
 		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
 	}

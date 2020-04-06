@@ -20,6 +20,7 @@ import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 
+import static com.datorama.oss.timbermill.common.SQLJetDiskHandler.*;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -298,7 +299,6 @@ public class ElasticsearchUtil {
 
 	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
-	public static final String DISK_HANDLER = "disk_handler";
 	private static final String SQLITE = "sqlite";
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
@@ -312,10 +312,15 @@ public class ElasticsearchUtil {
 		return new TaskIndexer(elasticsearchParams, es);
 	}
 
-	public static DiskHandler getDiskHandler(String diskHandlerStrategy)  {
+	public static DiskHandler getDiskHandler(String diskHandlerStrategy,Map<Object, Object> params)  {
 		String strategy = diskHandlerStrategy.toLowerCase();
 		if (strategy.equals(SQLITE)){
-			return new SQLJetDiskHandler();
+			return new SQLJetDiskHandler(
+					(int)params.get(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES),
+					(int)params.get(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME),
+					(int)params.get(SQLJetDiskHandlerParams.MAX_INSERT_TRIES),
+					(String) params.get(SQLJetDiskHandlerParams.LOCATION_IN_DISK)
+			);
 		}
 		else{
 			throw new RuntimeException("Unsupported disk handler strategy " + diskHandlerStrategy);

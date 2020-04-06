@@ -1,19 +1,13 @@
 package com.datorama.oss.timbermill.common;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptType;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +41,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private ISqlJetTable table;
 
 	public SQLJetDiskHandler() {
-		this(1000,3,3,"/tmp");
+		this(1,10,3,"/tmp");
 	}
 
 	public SQLJetDiskHandler(int waitingTimeInMinutes, int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
@@ -105,7 +99,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least waitingTime
+			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least the waitingTime
 			returnValue = !resultCursor.eof();
 		} catch (SqlJetException e) {
 			e.printStackTrace();
@@ -149,6 +143,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.createTable(CREATE_TABLE);
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
 			db.createIndex(createInsertTimeIndexQuery);
+			LOG.info("Recreated table successfully.");
 			db.commit();
 		} catch (SqlJetException e) {
 			LOG.error("Dropping the table {} has failed",FAILED_BULKS_TABLE_NAME,e);
@@ -198,9 +193,10 @@ public class SQLJetDiskHandler implements DiskHandler {
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				table.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
+				LOG.info("Insert bulk request successfully to SQLite.");
 				break; // if arrived here then inserting succeed, no need to retry again
 			} catch (Exception e) {
-				LOG.error("Insertion of bulk {} has failed for the {}th time. Error message: {}", dbBulkRequest.getId(), e);
+				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
 				silentThreadSleep(sleepTimeIfFails);
 				sleepTimeIfFails*=2;
 				if (retryNum == maxInsertTries){
@@ -331,5 +327,13 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	// endregion
+
+	public enum SQLJetDiskHandlerParams {
+		WAITING_TIME_IN_MINUTES,
+		MAX_FETCHED_BULKS_IN_ONE_TIME,
+		MAX_INSERT_TRIES,
+		LOCATION_IN_DISK;
+	}
+
 }
 

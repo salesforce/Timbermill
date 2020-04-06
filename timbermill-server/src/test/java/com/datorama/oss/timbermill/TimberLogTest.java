@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 public abstract class TimberLogTest {
 
 	protected static ElasticsearchClient client;
+	protected static SQLJetDiskHandler diskHandler = null;
 
 	static final String TEST = "test";
 	static final String EVENT = "Event";
@@ -29,7 +30,6 @@ public abstract class TimberLogTest {
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
-	protected static boolean testWithPersistence = true;
 	private String childTaskId;
 	private String childOfChildTaskId;
 

@@ -84,8 +84,8 @@ public class ElasticsearchClient {
     private String currentIndex;
     private String oldIndex;
 	private int numOfMergedTasksTries;
-	private int numOfBulkIndexTries;
-	private int maxBulkIndexFetches;
+	private int numOfBulkIndexTries; // after such number of tries, bulk is considered as failed or will be persisted to disk if has persistence
+	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
 
@@ -251,7 +251,7 @@ public class ElasticsearchClient {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
-                LOG.info("Batch of {} requests finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
+                LOG.info("Batch of {} requests finished successfully after {} tries . Took: {} millis.", numberOfActions, retryNum + 1 , responses.getTook().millis());
             }
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
@@ -664,7 +664,7 @@ public class ElasticsearchClient {
 					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
 		} else {
 			// An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
-			LOG.info("All {} requests of bulk failed due to the error.", numOfRequests, dbBulkRequest.getId());
+			LOG.info("All {} requests of bulk failed.", numOfRequests, dbBulkRequest.getId());
 		}
 		return dbBulkRequest;
 	}

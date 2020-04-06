@@ -72,6 +72,7 @@ public class SQLJetDiskHandlerTest {
 		dbBulkRequest2.setId(2);
 		updateInsertTimeforTest(dbBulkRequest2);
 		assertEquals(2, diskHandler.fetchAndDeleteFailedBulks().size());
+		assertEquals(false, diskHandler.hasFailedBulks());
 	}
 
 	@Test

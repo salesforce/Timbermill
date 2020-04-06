@@ -18,7 +18,7 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN = "orphan";
     private static final String ORPHAN_PARENT = "orphan_parent";
     private static final String CTX = "ctx";
-    protected static ElasticsearchClient client;
+    private static ElasticsearchClient client;
 
     @BeforeClass
     public static void setUp() {
