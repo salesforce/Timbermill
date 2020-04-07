@@ -42,7 +42,7 @@ public class LocalOutputPipe implements EventOutputPipe {
             }
         }
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields);
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,builder.persistentFetchCronExp);
         ElasticsearchClient es = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched,withPersistence,diskHandler);
 
@@ -50,7 +50,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         startWorkingThread(es);
     }
 
-    public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es,DiskHandler diskHandler) {
+    public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es) {
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, es);
         startWorkingThread(es);
     }
@@ -114,8 +114,9 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
+        private String persistentFetchCronExp = "0/5 * * 1/1 * ? *"; //TODO change to real values
         private String diskHandlerStrategy = "sqlite";
-        private int waitingTimeInMinutes = 1;
+        private int waitingTimeInMinutes = 0;
         private int maxFetchedBulksInOneTime = 10;
         private int maxInsertTries = 3;
         private String locationInDisk = "/tmp";
@@ -127,6 +128,21 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder pluginsJson(String pluginsJson) {
             this.pluginsJson = pluginsJson;
+            return this;
+        }
+
+        public Builder numberOfShards(int numberOfShards) {
+            this.numberOfShards = numberOfShards;
+            return this;
+        }
+
+        public Builder deletionCronExp(String deletionCronExp) {
+            this.deletionCronExp = deletionCronExp;
+            return this;
+        }
+
+        public Builder numberOfReplicas(int numberOfReplicas) {
+            this.numberOfReplicas = numberOfReplicas;
             return this;
         }
 
@@ -170,16 +186,6 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder numberOfShards(int numberOfShards) {
-            this.numberOfShards = numberOfShards;
-            return this;
-        }
-
-        public Builder numberOfReplicas(int numberOfReplicas) {
-            this.numberOfReplicas = numberOfReplicas;
-            return this;
-        }
-
         public Builder maxIndexAge(long maxIndexAge) {
             this.maxIndexAge = maxIndexAge;
             return this;
@@ -192,11 +198,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder maxIndexDocs(long maxIndexDocs) {
             this.maxIndexDocs = maxIndexDocs;
-            return this;
-        }
-
-        public Builder deletionCronExp(String deletionCronExp) {
-            this.deletionCronExp = deletionCronExp;
             return this;
         }
 
@@ -244,6 +245,11 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
+        public Builder persistentFetchCronExp(String persistentFetchCronExp) {
+            this.persistentFetchCronExp = persistentFetchCronExp;
+            return this;
+        }
+
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);
         }
@@ -259,7 +265,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public ElasticsearchParams buildElasticSearchParams() {
             ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maxCacheSize, maxCacheHoldTimeMinutes,
-                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
+                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
             return elasticsearchParams;
         }
 

@@ -246,7 +246,9 @@ public class ElasticsearchClient {
         }
     }
 
-    void sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
+    // return true iff execution of bulk finished successfully
+    boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
+		boolean isSucceeded = false;
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
 		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
@@ -263,10 +265,14 @@ public class ElasticsearchClient {
 					numOfSuccessfullBulksFromDisk+=1;
 				}
                 LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
+				isSucceeded =  true;
             }
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
         }
+		finally {
+			return isSucceeded;
+		}
     }
 
      // wrap bulk method as a not-final method in order that Mockito will able to mock it
@@ -624,7 +630,7 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-	public void retryFailedRequests() {
+	public void retryFailedRequestsFromMemory() {
 		if (!failedRequests.isEmpty()) {
 			LOG.info("------------------ Failed Requests From Memory Retry Start ------------------");
 			List<Pair<DbBulkRequest, Integer>> list = memoryFailedRequestsAsList();
@@ -635,30 +641,14 @@ public class ElasticsearchClient {
 			}
 			LOG.info("------------------ Failed Requests From Memory Retry End ------------------");
 		}
-		if (withPersistence && diskHandler.hasFailedBulks()){
-			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
-			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				sendDbBulkRequest(dbBulkRequest, 0);
-			}
-			LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
-		}
-
-	}
-
-	List<Pair<DbBulkRequest, Integer>> memoryFailedRequestsAsList() {
-		List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
-		failedRequests.drainTo(list);
-		return list;
 	}
 
 	public boolean hasFailedRequests(){
-		boolean hasFailedInMemory = failedRequests.size()>0;
-		boolean hasFailedInDisk = diskHandler.hasFailedBulks();
 		// -------- DEBUG -----------
 		LOG.info("Persistence Status: {} persisted to disk, {} finished successfully, {} fetched maximum times, {} couldn't be inserted",numOfBulksPersistedToDisk,numOfSuccessfullBulksFromDisk,numOfFetchedMaxTimes,numOfCouldntBeInserted);
 		// -------- DEBUG -----------
-		return hasFailedInMemory || hasFailedInDisk;
+		boolean hasFailedInMemory = failedRequests.size()>0;
+		return hasFailedInMemory;
 
 	}
 
@@ -720,5 +710,30 @@ public class ElasticsearchClient {
 		return dbBulkRequest;
 	}
 
+	public boolean isWithPersistence() {
+		return withPersistence;
+	}
+
+	public boolean retryFailedRequestsFromDisk() {
+		boolean keepRunning = false;
+		if (withPersistence && diskHandler.hasFailedBulks()){
+			keepRunning = true;
+			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
+				if (!sendDbBulkRequest(dbBulkRequest, 0)){
+					keepRunning = false;
+				}
+			}
+			LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
+		}
+		return keepRunning;
+	}
+
+	List<Pair<DbBulkRequest, Integer>> memoryFailedRequestsAsList() {
+		List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
+		failedRequests.drainTo(list);
+		return list;
+	}
 }
 

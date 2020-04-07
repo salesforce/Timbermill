@@ -55,14 +55,15 @@ public class TimbermillService {
 			@Value("${NUMBER_OF_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
-			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
+			@Value("${DELETION_CRON_EXPRESSION:0/1 0 0 ? * * *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold,
 			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
-			@Value("${WAITING_TIME_IN_MINUTES:3}") int waitingTimeInMinutes,
+			@Value("${persistent.fetch.cron.expression:0/5 * * 1/1 * ? *}") String persistentFetchCronExp, //TODO change to real values
+			@Value("${WAITING_TIME_IN_MINUTES:0}") int waitingTimeInMinutes, //TODO change to real values
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
-			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
+			@Value("${LOCATION_IN_DISK:/tmp}") String locationInDisk) { //TODO change to real values
 
 		DiskHandler diskHandler = null;
 		if (withPersistence){
@@ -80,7 +81,7 @@ public class TimbermillService {
 
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
-				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields);
+				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
 		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries, maxBulkIndexFetches, withPersistence, diskHandler);
 		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);

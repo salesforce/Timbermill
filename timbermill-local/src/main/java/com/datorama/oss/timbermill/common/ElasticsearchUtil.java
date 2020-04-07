@@ -16,6 +16,7 @@ import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
+import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
@@ -299,6 +300,7 @@ public class ElasticsearchUtil {
 
 	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newConcurrentHashSet();
+	public static final String ELASTIC_SEARCH_CLIENT = "elastic_search_client";
 	private static final String SQLITE = "sqlite";
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
@@ -309,7 +311,34 @@ public class ElasticsearchUtil {
 		if (!Strings.isEmpty(deletionCronExp)) {
 			runDeletionTaskCron(deletionCronExp, es);
 		}
+		if (es.isWithPersistence()) {
+			String persistentFetchCronExp = elasticsearchParams.getPersistentFetchCronExp();
+			if (!Strings.isEmpty(persistentFetchCronExp)) {
+				runPersistentFetchCron(persistentFetchCronExp, es);
+			}
+		}
 		return new TaskIndexer(elasticsearchParams, es);
+	}
+
+	private static void runPersistentFetchCron(String persistentFetchCronExp, ElasticsearchClient es) {
+		try {
+			final StdSchedulerFactory sf = new StdSchedulerFactory();
+			Scheduler scheduler = sf.getScheduler();
+			JobDataMap jobDataMap = new JobDataMap();
+			jobDataMap.put(ELASTIC_SEARCH_CLIENT, es);
+			JobDetail job = newJob(PersistentFetchJob.class)
+					.withIdentity("job2", "group2").usingJobData(jobDataMap)
+					.build();
+			CronTrigger trigger = newTrigger()
+					.withIdentity("trigger2", "group2")
+					.withSchedule(cronSchedule(persistentFetchCronExp))
+					.build();
+
+			scheduler.scheduleJob(job, trigger);
+			scheduler.start();
+		} catch (SchedulerException e) {
+			LOG.error("Error occurred while fetching failed bulks from disk", e);
+		}
 	}
 
 	public static DiskHandler getDiskHandler(String diskHandlerStrategy,Map<Object, Object> params)  {
@@ -330,7 +359,7 @@ public class ElasticsearchUtil {
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
 		while (!eventsQueue.isEmpty() || es.hasFailedRequests()) {
 			try {
-				es.retryFailedRequests();
+				es.retryFailedRequestsFromMemory();
 
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);

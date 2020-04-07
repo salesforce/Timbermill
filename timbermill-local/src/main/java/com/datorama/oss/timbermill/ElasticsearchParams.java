@@ -10,9 +10,10 @@ public class ElasticsearchParams {
 	private String deletionCronExp;
 	private String mergingCronExp;
 	private int maxTotalFields;
+	private String persistentFetchCronExp;
 
 	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
-			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields) {
+			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields,String persistentFetchCronExp) {
 		this.pluginsJson = pluginsJson;
 		this.maximumCacheSize = maximumCacheSize;
 		this.maximumCacheMinutesHold = maximumCacheMinutesHold;
@@ -22,6 +23,7 @@ public class ElasticsearchParams {
 		this.deletionCronExp = deletionCronExp;
 		this.mergingCronExp = mergingCronExp;
 		this.maxTotalFields = maxTotalFields;
+		this.persistentFetchCronExp = persistentFetchCronExp;
 	}
 
 	public int getNumberOfShards() {
@@ -59,4 +61,6 @@ public class ElasticsearchParams {
 	int getDaysRotation() {
 		return daysRotation;
 	}
+
+	public String getPersistentFetchCronExp() { return persistentFetchCronExp; }
 }
