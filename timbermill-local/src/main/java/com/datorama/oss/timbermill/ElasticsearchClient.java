@@ -86,6 +86,10 @@ public class ElasticsearchClient {
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
+	private int numOfBulksPersistedToDisk = 0;
+	private int numOfSuccessfullBulksFromDisk = 0;
+	private int numOfFetchedMaxTimes = 0;
+	private int numOfCouldntBeInserted = 0;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfBulkIndexTries,int maxBulkIndexFetches,boolean withPersistence, DiskHandler diskHandler) {
@@ -255,7 +259,10 @@ public class ElasticsearchClient {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
-                LOG.info("Batch with size of {}{} finished successfully. Took: {} millis. Persisted to disk: {}", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
+            	if (dbBulkRequest.getTimesFetched() > 0 ){
+					numOfSuccessfullBulksFromDisk+=1;
+				}
+                LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
             }
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
@@ -648,7 +655,11 @@ public class ElasticsearchClient {
 	public boolean hasFailedRequests(){
 		boolean hasFailedInMemory = failedRequests.size()>0;
 		boolean hasFailedInDisk = diskHandler.hasFailedBulks();
+		// -------- DEBUG -----------
+		LOG.info("Persistence Status: {} persisted to disk, {} finished successfully, {} fetched maximum times, {} couldn't be inserted",numOfBulksPersistedToDisk,numOfSuccessfullBulksFromDisk,numOfFetchedMaxTimes,numOfCouldntBeInserted);
+		// -------- DEBUG -----------
 		return hasFailedInMemory || hasFailedInDisk;
+
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
@@ -659,12 +670,17 @@ public class ElasticsearchClient {
 					DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 					try {
 						diskHandler.persistToDisk(updatedDbBulkRequest);
+						if (dbBulkRequest.getTimesFetched()==0){
+							numOfBulksPersistedToDisk+=1;
+						}
 					} catch (MaximunInsertTriesException e){
-						LOG.error("Tasks of failed bulk will not be indexed because inserting to disk failed for the maximum times ({}).", e.getMaximumTriesNumber());
+						LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
+						numOfCouldntBeInserted+=1;
 					}
 				}
 				else{
 					LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).",maxBulkIndexFetches);
+					numOfFetchedMaxTimes+=1;
 				}
 			}
 			else {

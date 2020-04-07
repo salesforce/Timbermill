@@ -34,6 +34,11 @@ public class SQLJetDiskHandlerTest {
 		diskHandler.dropAndRecreateTable();
 	}
 
+	@AfterClass
+	public static void tearDown(){
+		diskHandler.dropAndRecreateTable();
+	}
+
 	@Test
 	public void fetchBeforeWaitingTime() throws MaximunInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
@@ -157,12 +162,6 @@ public class SQLJetDiskHandlerTest {
 
 		diskHandler.emptyDb();
 		assertEquals(false, diskHandler.hasFailedBulks());
-	}
-
-
-	@AfterClass
-	public static void tearDown(){
-		diskHandler.dropAndRecreateTable();
 	}
 
 	private String getRequestAsString(DbBulkRequest dbBulkRequest) {
