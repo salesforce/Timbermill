@@ -114,11 +114,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
-        private String persistentFetchCronExp = "0/5 * * 1/1 * ? *"; //TODO change to real values
+        private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
-        private int waitingTimeInMinutes = 0;
+        private int waitingTimeInMinutes = 3;
         private int maxFetchedBulksInOneTime = 10;
-        private int maxInsertTries = 3;
+        private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
 
         public Builder url(String elasticUrl) {
