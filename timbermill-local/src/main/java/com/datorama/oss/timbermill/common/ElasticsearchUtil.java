@@ -304,7 +304,7 @@ public class ElasticsearchUtil {
 	private static final String SQLITE = "sqlite";
 
 	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-//		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields()); //TODO change back
+		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields());
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
 
 		String deletionCronExp = elasticsearchParams.getDeletionCronExp();
