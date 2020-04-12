@@ -40,7 +40,7 @@ public class ElasticsearchClientTest {
 		if (StringUtils.isEmpty(elasticUrl)) {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
-		diskHandler = new SQLJetDiskHandler(0,3,3,"/tmp/ElasticsearchClientTest");
+		diskHandler = new SQLJetDiskHandler(3,3,"/tmp/ElasticsearchClientTest");
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
 				7, 100, 1000000000, 3, 3, 3,true,diskHandler );
 	}

@@ -68,7 +68,6 @@ public class TimbermillService {
 		DiskHandler diskHandler = null;
 		if (withPersistence){
 			Map<Object, Object> params = new HashMap<>();
-			params.put(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES,waitingTimeInMinutes);
 			params.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
 			params.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
 			params.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);

@@ -669,7 +669,7 @@ public class ElasticsearchClient {
 					}
 				}
 				else{
-					LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).",maxBulkIndexFetches);
+					LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).",dbBulkRequest.getId(),maxBulkIndexFetches);
 					numOfFetchedMaxTimes+=1;
 				}
 			}
@@ -716,16 +716,20 @@ public class ElasticsearchClient {
 
 	public boolean retryFailedRequestsFromDisk() {
 		boolean keepRunning = false;
-		if (withPersistence && diskHandler.hasFailedBulks()){
-			keepRunning = true;
-			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
-			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!sendDbBulkRequest(dbBulkRequest, 0)){
-					keepRunning = false;
+		if (withPersistence) {
+			if (diskHandler.hasFailedBulks()) {
+				keepRunning = true;
+				LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
+				List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+				for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
+					if (!sendDbBulkRequest(dbBulkRequest, 0)) {
+						keepRunning = false;
+					}
 				}
+				LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
+			} else{
+				LOG.info("There are no failed bulks to fetch from disk");
 			}
-			LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
 		}
 		return keepRunning;
 	}

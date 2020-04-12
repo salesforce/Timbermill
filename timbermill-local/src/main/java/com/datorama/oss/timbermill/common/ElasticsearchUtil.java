@@ -345,7 +345,6 @@ public class ElasticsearchUtil {
 		String strategy = diskHandlerStrategy.toLowerCase();
 		if (strategy.equals(SQLITE)){
 			return new SQLJetDiskHandler(
-					(int)params.get(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES),
 					(int)params.get(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME),
 					(int)params.get(SQLJetDiskHandlerParams.MAX_INSERT_TRIES),
 					(String) params.get(SQLJetDiskHandlerParams.LOCATION_IN_DISK)
