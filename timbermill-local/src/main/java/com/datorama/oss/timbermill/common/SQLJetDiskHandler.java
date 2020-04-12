@@ -41,7 +41,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private ISqlJetTable table;
 
 	public SQLJetDiskHandler(String locationInDisk) {
-		this(1,10,3,locationInDisk);
+		this(10,10,3,locationInDisk);
 	}
 
 	public SQLJetDiskHandler(int waitingTimeInMinutes, int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
@@ -195,7 +195,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				table.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
 				LOG.info("Bulk request was inserted successfully to SQLite.");
-				break; // if arrived here then inserting succeed, no need to retry again
+				break; // if arrived here then insertion succeeded, no need to retry again
 			} catch (Exception e) {
 				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
 				silentThreadSleep(sleepTimeIfFails);
