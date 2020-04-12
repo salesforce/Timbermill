@@ -22,10 +22,13 @@ public class SQLJetDiskHandlerTest {
 
 	private static SQLJetDiskHandler diskHandler;
 	public static int numOfMinutes = 1;
+	public static int maxFetchedBulks = 10;
+	public static int maxInsertTries = 3;
+
 
 	@BeforeClass
 	public static void init()  {
-		diskHandler = new SQLJetDiskHandler(numOfMinutes,10,3,"/tmp/SQLJetDiskHandlerTest");
+		diskHandler = new SQLJetDiskHandler(numOfMinutes,maxFetchedBulks, maxInsertTries,"/tmp/SQLJetDiskHandlerTest");
 	}
 
 	@Before
@@ -136,6 +139,21 @@ public class SQLJetDiskHandlerTest {
 			thrown = true;
 		}
 		assertEquals(true,thrown);
+	}
+
+	@Test
+	public void persistManyBulks() throws MaximunInsertTriesException {
+		DbBulkRequest dbBulkRequest;
+		int extraBulks = 2;
+		for (int i = 0 ; i < maxFetchedBulks + extraBulks ; i++){
+			dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
+			dbBulkRequest.setId(i+1);
+			diskHandler.persistToDisk(dbBulkRequest);
+			updateInsertTimeforTest(dbBulkRequest);
+		}
+		List<DbBulkRequest> fetchedRequests = diskHandler.fetchAndDeleteFailedBulks();
+		assertEquals(maxFetchedBulks,fetchedRequests.size());
+		assertEquals(extraBulks,diskHandler.failedBulksAmount());
 	}
 
 	@Test
