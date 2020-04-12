@@ -25,8 +25,7 @@ public class SQLJetDiskHandlerTest {
 
 	@BeforeClass
 	public static void init()  {
-		diskHandler = new SQLJetDiskHandler("/tmp/SQLJetDiskHandlerTest");
-		diskHandler.setWaitingTimeInMinutes(numOfMinutes);
+		diskHandler = new SQLJetDiskHandler(numOfMinutes,10,3,"/tmp/SQLJetDiskHandlerTest");
 	}
 
 	@Before
@@ -145,22 +144,6 @@ public class SQLJetDiskHandlerTest {
 		diskHandler.persistToDisk(dbBulkRequest);
 
 		diskHandler.dropAndRecreateTable();
-		assertEquals(false, diskHandler.hasFailedBulks());
-	}
-
-	@Test
-	public void emptyDb() throws MaximunInsertTriesException {
-		DbBulkRequest dbBulkRequest1 = MockBulkRequest.createMockDbBulkRequest();
-		DbBulkRequest dbBulkRequest2 = MockBulkRequest.createMockDbBulkRequest();
-		DbBulkRequest dbBulkRequest3 = MockBulkRequest.createMockDbBulkRequest();
-		diskHandler.persistToDisk(dbBulkRequest1);
-		diskHandler.persistToDisk(dbBulkRequest2);
-		diskHandler.persistToDisk(dbBulkRequest3);
-		updateInsertTimeforTest(dbBulkRequest1);
-		updateInsertTimeforTest(dbBulkRequest2);
-		updateInsertTimeforTest(dbBulkRequest3);
-
-		diskHandler.emptyDb();
 		assertEquals(false, diskHandler.hasFailedBulks());
 	}
 

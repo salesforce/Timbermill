@@ -150,29 +150,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	public void emptyDb() {
-		LOG.info("Emptying SQLite DB...");
-		ISqlJetCursor deleteCursor = null;
-		try {
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			deleteCursor = table.lookup(table.getPrimaryKeyIndexName());
-			while (!deleteCursor.eof()) {
-				deleteCursor.delete();
-			}
-		} catch (SqlJetException e) {
-			LOG.error("Emptying the DB {} has failed",DB_NAME,e);
-		} finally {
-			silentDbCommit();
-			closeCursor(deleteCursor);
-		}
-	}
-
 	public int failedBulksAmount() {
 		return fetchFailedBulks(false).size();
-	}
-
-	public void setWaitingTimeInMinutes(int waitingTimeInMinutes) {
-		this.waitingTimeInMinutes = waitingTimeInMinutes;
 	}
 
 	// endregion

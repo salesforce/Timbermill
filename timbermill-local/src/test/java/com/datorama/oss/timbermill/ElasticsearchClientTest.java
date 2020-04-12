@@ -32,6 +32,7 @@ public class ElasticsearchClientTest {
 
 
 	private static ElasticsearchClient elasticsearchClient;
+	private static SQLJetDiskHandler diskHandler;
 
 	@BeforeClass
 	public static void init() {
@@ -39,8 +40,9 @@ public class ElasticsearchClientTest {
 		if (StringUtils.isEmpty(elasticUrl)) {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
+		diskHandler = new SQLJetDiskHandler(0,3,3,"/tmp/ElasticsearchClientTest");
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000, 3, 3, 3,true, new SQLJetDiskHandler(0,3,3,"/tmp/ElasticsearchClientTest"));
+				7, 100, 1000000000, 3, 3, 3,true,diskHandler );
 	}
 
 	@Test
@@ -88,6 +90,7 @@ public class ElasticsearchClientTest {
 	@AfterClass
 	public static void tearDown(){
 		elasticsearchClient.close();
+		diskHandler.dropAndRecreateTable();
 	}
 
 	// make bulk's item #itemNumber to not fail
