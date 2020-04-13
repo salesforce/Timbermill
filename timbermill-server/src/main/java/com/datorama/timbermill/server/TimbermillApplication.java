@@ -1,16 +1,10 @@
 package com.datorama.timbermill.server;
 
-import akka.NotUsed;
-import akka.actor.ActorSystem;
-import akka.http.javadsl.ConnectHttp;
-import akka.http.javadsl.Http;
-import akka.http.javadsl.ServerBinding;
-import akka.http.javadsl.model.HttpRequest;
-import akka.http.javadsl.model.HttpResponse;
-import akka.stream.ActorMaterializer;
-import akka.stream.javadsl.Flow;
-import com.datorama.timbermill.server.akka.Router;
-import com.datorama.timbermill.server.service.TimbermillService;
+import java.time.Duration;
+import java.util.concurrent.CompletionStage;
+
+import javax.annotation.PreDestroy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -18,9 +12,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 
-import javax.annotation.PreDestroy;
-import java.time.Duration;
-import java.util.concurrent.CompletionStage;
+import com.datorama.timbermill.server.akka.Router;
+import com.datorama.timbermill.server.service.TimbermillService;
+
+import akka.NotUsed;
+import akka.actor.ActorSystem;
+import akka.http.javadsl.ConnectHttp;
+import akka.http.javadsl.Http;
+import akka.http.javadsl.ServerBinding;
+import akka.http.javadsl.model.HttpRequest;
+import akka.http.javadsl.model.HttpResponse;
+import akka.stream.Materializer;
+import akka.stream.javadsl.Flow;
 
 @SpringBootApplication
 @ComponentScan("com.datorama")
@@ -36,7 +39,7 @@ public class TimbermillApplication {
         system = context.getBean(ActorSystem.class);
 
         final Http http = Http.get(system);
-        final ActorMaterializer materializer = ActorMaterializer.create(system);
+        final Materializer materializer = Materializer.createMaterializer(system);
 
         Router router = context.getBean(Router.class);
         final Flow<HttpRequest, HttpResponse, NotUsed> flow = router.createRoute().flow(system, materializer);
