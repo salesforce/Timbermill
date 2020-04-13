@@ -32,7 +32,6 @@ public class ApplicationConfig {
         configMap.put("akka.http.host-connection-pool.max-open-requests", connectionPoolMaxOpenRequests);
 
         Config akkaConfig = ConfigFactory.parseMap(configMap);
-        final ActorSystem system = ActorSystem.create("default", akkaConfig);
-        return system;
+        return ActorSystem.create("default", akkaConfig);
     }
 }
