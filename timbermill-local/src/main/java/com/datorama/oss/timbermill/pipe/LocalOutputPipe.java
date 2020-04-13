@@ -256,7 +256,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Map<Object,Object> buildDiskHandlerParams() {
             Map<Object,Object> diskHandlerParams = new HashMap<>();
-            diskHandlerParams.put(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES,waitingTimeInMinutes);
             diskHandlerParams.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
             diskHandlerParams.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
             diskHandlerParams.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);

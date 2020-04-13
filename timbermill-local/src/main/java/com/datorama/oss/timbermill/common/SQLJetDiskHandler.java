@@ -26,26 +26,18 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private static final String FAILED_TASK = "failedTask";
 	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
-	private static final String INSERT_TIME_INDEX = "insertTimeIndex";
 	private static final String CREATE_TABLE =
 			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
 					+ TIMES_FETCHED + " INTEGER)";
-	private static final String createInsertTimeIndexQuery = "CREATE INDEX IF NOT EXISTS " + INSERT_TIME_INDEX + " ON " + FAILED_BULKS_TABLE_NAME + "(" +  INSERT_TIME + ")";
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetDiskHandler.class);
 
-	private int waitingTimeInMinutes;
 	private int maxFetchedBulksInOneTime;
 	private int maxInsertTries;
 	private String locationInDisk;
 	private SqlJetDb db;
 	private ISqlJetTable table;
 
-	public SQLJetDiskHandler(String locationInDisk) {
-		this(10,10,3,locationInDisk);
-	}
-
-	public SQLJetDiskHandler(int waitingTimeInMinutes, int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
-		this.waitingTimeInMinutes = waitingTimeInMinutes;
+	public SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
@@ -70,9 +62,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.getOptions().setUserVersion(1);
 			db.createTable(CREATE_TABLE);
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
-
-			// creating index if not exists
-			db.createIndex(createInsertTimeIndexQuery);
 			LOG.info("SQLite was created successfully: " + CREATE_TABLE);
 			silentDbCommit();
 		} catch (Exception e) {
@@ -99,7 +88,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least the waitingTime
+			resultCursor = table.lookup(table.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
 		} catch (SqlJetException e) {
 			e.printStackTrace();
@@ -142,7 +131,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
 			db.createTable(CREATE_TABLE);
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
-			db.createIndex(createInsertTimeIndexQuery);
 			LOG.info("Recreated table successfully.");
 			db.commit();
 		} catch (SqlJetException e) {
@@ -197,7 +185,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		try {
 			LOG.info("Fetching from SQLite...");
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			resultCursor = getBulksInScopeIterator(); // bulks which are in db at least for the waitingTime
+			resultCursor = table.lookup(table.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
 				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor);
@@ -223,11 +211,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 
 	//region private methods
-
-	private ISqlJetCursor getBulksInScopeIterator() throws SqlJetException {
-		return table.scope(INSERT_TIME_INDEX,
-				new Object[] {""}, new Object[] { DateTime.now().minusMinutes(waitingTimeInMinutes).toString()});
-	}
 
 	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
 		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
@@ -309,11 +292,9 @@ public class SQLJetDiskHandler implements DiskHandler {
 	// endregion
 
 	public enum SQLJetDiskHandlerParams {
-		WAITING_TIME_IN_MINUTES,
 		MAX_FETCHED_BULKS_IN_ONE_TIME,
 		MAX_INSERT_TRIES,
 		LOCATION_IN_DISK;
 	}
-
 }
 

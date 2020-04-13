@@ -59,8 +59,7 @@ public class TimbermillService {
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold,
 			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
-			@Value("${persistent.fetch.cron.expression:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
-			@Value("${WAITING_TIME_IN_MINUTES:3}") int waitingTimeInMinutes,
+			@Value("${PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
@@ -68,7 +67,6 @@ public class TimbermillService {
 		DiskHandler diskHandler = null;
 		if (withPersistence){
 			Map<Object, Object> params = new HashMap<>();
-			params.put(SQLJetDiskHandlerParams.WAITING_TIME_IN_MINUTES,waitingTimeInMinutes);
 			params.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
 			params.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
 			params.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);

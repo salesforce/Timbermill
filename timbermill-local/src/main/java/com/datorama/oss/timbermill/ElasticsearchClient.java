@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -86,7 +87,7 @@ public class ElasticsearchClient {
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
-	private int numOfBulksPersistedToDisk = 0;
+	private AtomicInteger numOfBulksPersistedToDisk = new AtomicInteger(0);
 	private int numOfSuccessfullBulksFromDisk = 0;
 	private int numOfFetchedMaxTimes = 0;
 	private int numOfCouldntBeInserted = 0;
@@ -661,7 +662,7 @@ public class ElasticsearchClient {
 					try {
 						diskHandler.persistToDisk(updatedDbBulkRequest);
 						if (dbBulkRequest.getTimesFetched()==0){
-							numOfBulksPersistedToDisk+=1;
+							numOfBulksPersistedToDisk.incrementAndGet();
 						}
 					} catch (MaximunInsertTriesException e){
 						LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
@@ -669,7 +670,7 @@ public class ElasticsearchClient {
 					}
 				}
 				else{
-					LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).",maxBulkIndexFetches);
+					LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).",dbBulkRequest.getId(),maxBulkIndexFetches);
 					numOfFetchedMaxTimes+=1;
 				}
 			}
@@ -716,16 +717,20 @@ public class ElasticsearchClient {
 
 	public boolean retryFailedRequestsFromDisk() {
 		boolean keepRunning = false;
-		if (withPersistence && diskHandler.hasFailedBulks()){
-			keepRunning = true;
-			LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
-			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!sendDbBulkRequest(dbBulkRequest, 0)){
-					keepRunning = false;
+		if (withPersistence) {
+			if (diskHandler.hasFailedBulks()) {
+				keepRunning = true;
+				LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
+				List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+				for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
+					if (!sendDbBulkRequest(dbBulkRequest, 0)) {
+						keepRunning = false;
+					}
 				}
+				LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
+			} else{
+				LOG.info("There are no failed bulks to fetch from disk");
 			}
-			LOG.info("------------------ Failed Requests From Disk Retry End ------------------");
 		}
 		return keepRunning;
 	}
