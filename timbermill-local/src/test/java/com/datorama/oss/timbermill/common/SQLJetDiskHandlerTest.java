@@ -41,7 +41,7 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void fetch() throws MaximunInsertTriesException {
+	public void hasFailedBulks() throws MaximunInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
 		assertEquals(true, diskHandler.hasFailedBulks());
