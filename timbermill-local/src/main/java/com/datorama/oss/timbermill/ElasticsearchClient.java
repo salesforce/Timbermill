@@ -277,7 +277,7 @@ public class ElasticsearchClient {
     }
 
      // wrap bulk method as a not-final method in order that Mockito will able to mock it
-	 BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
+	 public BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
 		return client.bulk(request.getRequest(), requestOptions);
 	}
 
@@ -646,11 +646,9 @@ public class ElasticsearchClient {
 
 	public boolean hasFailedRequests(){
 		// -------- DEBUG -----------
-		LOG.info("Persistence Status: {} persisted to disk, {} finished successfully, {} fetched maximum times, {} couldn't be inserted",numOfBulksPersistedToDisk,numOfSuccessfullBulksFromDisk,numOfFetchedMaxTimes,numOfCouldntBeInserted);
+		LOG.trace("Persistence Status: {} persisted to disk, {} finished successfully, {} fetched maximum times, {} couldn't be inserted",numOfBulksPersistedToDisk,numOfSuccessfullBulksFromDisk,numOfFetchedMaxTimes,numOfCouldntBeInserted);
 		// -------- DEBUG -----------
-		boolean hasFailedInMemory = failedRequests.size()>0;
-		return hasFailedInMemory;
-
+		return failedRequests.size()>0;
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
@@ -722,6 +720,9 @@ public class ElasticsearchClient {
 				keepRunning = true;
 				LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");
 				List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+				if (failedRequestsFromDisk.size() == 0){
+					keepRunning = false;
+				}
 				for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
 					if (!sendDbBulkRequest(dbBulkRequest, 0)) {
 						keepRunning = false;

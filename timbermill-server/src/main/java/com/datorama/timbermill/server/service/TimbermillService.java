@@ -60,7 +60,7 @@ public class TimbermillService {
 			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
-			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
+			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
 

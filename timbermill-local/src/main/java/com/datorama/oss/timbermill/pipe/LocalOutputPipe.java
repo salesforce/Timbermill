@@ -26,7 +26,6 @@ public class LocalOutputPipe implements EventOutputPipe {
     private TaskIndexer taskIndexer;
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
-    private boolean withPersistence = true;
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
 
@@ -35,6 +34,7 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
         DiskHandler diskHandler = null;
+        boolean withPersistence = builder.withPersistence;
         if (withPersistence) {
             diskHandler = ElasticsearchUtil.getDiskHandler(builder.diskHandlerStrategy,builder.buildDiskHandlerParams());
             if (!diskHandler.isCreatedSuccefully()) {
@@ -114,10 +114,10 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
+        private boolean withPersistence = true;
         private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
-        private int waitingTimeInMinutes = 3;
-        private int maxFetchedBulksInOneTime = 10;
+        private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
 
@@ -220,8 +220,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder waitingTimeInMinutes(int waitingTimeInMinutes) {
-            this.waitingTimeInMinutes = waitingTimeInMinutes;
+        public Builder withPersistence(boolean withPersistence) {
+            this.withPersistence = withPersistence;
             return this;
         }
 
