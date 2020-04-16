@@ -35,18 +35,19 @@ public class TimbermillApplication {
     private static ConfigurableApplicationContext context;
 
     public static void main(String[] args) {
-        context = SpringApplication.run(TimbermillApplication.class, args);
-        system = context.getBean(ActorSystem.class);
-
-        final Http http = Http.get(system);
-        final Materializer materializer = Materializer.createMaterializer(system);
-
-        Router router = context.getBean(Router.class);
-        final Flow<HttpRequest, HttpResponse, NotUsed> flow = router.createRoute().flow(system, materializer);
-        binding = http
-                .bindAndHandle(flow, ConnectHttp.toHost("0.0.0.0", PORT), materializer);
-
-        log.info("Server online at http://localhost:" + PORT + "/");
+//        context = SpringApplication.run(TimbermillApplication.class, args);
+//        system = context.getBean(ActorSystem.class);
+//
+//        final Http http = Http.get(system);
+//        final Materializer materializer = Materializer.createMaterializer(system);
+//
+//        Router router = context.getBean(Router.class);
+//        final Flow<HttpRequest, HttpResponse, NotUsed> flow = router.createRoute().flow(system, materializer);
+//        binding = http
+//                .bindAndHandle(flow, ConnectHttp.toHost("0.0.0.0", PORT), materializer);
+//
+//        log.info("Server online at http://localhost:" + PORT + "/");
+        SpringApplication.run(TimbermillApplication.class, args);
     }
 
     @PreDestroy
