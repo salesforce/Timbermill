@@ -1,7 +1,6 @@
 package com.datorama.timbermill.server.service;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -18,8 +17,6 @@ import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.unit.Event;
-
-import static com.datorama.oss.timbermill.common.SQLJetDiskHandler.*;
 
 @Service
 public class TimbermillService {
@@ -57,31 +54,21 @@ public class TimbermillService {
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold,
-			@Value("${WITH_PERSISTENCE:true}") boolean withPersistence,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
 
-		DiskHandler diskHandler = null;
-		if (withPersistence){
-			Map<Object, Object> params = new HashMap<>();
-			params.put(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME,maxFetchedBulksInOneTime);
-			params.put(SQLJetDiskHandlerParams.MAX_INSERT_TRIES,maxInsertTries);
-			params.put(SQLJetDiskHandlerParams.LOCATION_IN_DISK,locationInDisk);
-
-			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy, params);
-			if (!diskHandler.isCreatedSuccefully()){
-				withPersistence = false;
-			}
-		}
-
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
 				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
+
+		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries, maxBulkIndexFetches, withPersistence, diskHandler);
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries, maxBulkIndexFetches, diskHandlerStrategy,
+				params);
+
 		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
 	}

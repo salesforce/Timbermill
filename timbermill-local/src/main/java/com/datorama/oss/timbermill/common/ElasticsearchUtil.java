@@ -21,7 +21,6 @@ import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 
-import static com.datorama.oss.timbermill.common.SQLJetDiskHandler.*;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -341,13 +340,13 @@ public class ElasticsearchUtil {
 		}
 	}
 
-	public static DiskHandler getDiskHandler(String diskHandlerStrategy,Map<Object, Object> params)  {
+	public static DiskHandler getDiskHandler(String diskHandlerStrategy, Map<String, Object> params)  {
 		String strategy = diskHandlerStrategy.toLowerCase();
 		if (strategy.equals(SQLITE)){
 			return new SQLJetDiskHandler(
-					(int)params.get(SQLJetDiskHandlerParams.MAX_FETCHED_BULKS_IN_ONE_TIME),
-					(int)params.get(SQLJetDiskHandlerParams.MAX_INSERT_TRIES),
-					(String) params.get(SQLJetDiskHandlerParams.LOCATION_IN_DISK)
+					(int)params.get(SQLJetDiskHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
+					(int)params.get(SQLJetDiskHandler.MAX_INSERT_TRIES),
+					(String) params.get(SQLJetDiskHandler.LOCATION_IN_DISK)
 			);
 		}
 		else{

@@ -29,7 +29,8 @@ public class TimberLoggerAdvanced {
         return start(null, name, parentTaskId, logParams);
     }
 
-    public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+    //for testing
+    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
         return startWithDateToDelete(taskId, name, parentTaskId, logParams,null);
     }
 
@@ -46,11 +47,7 @@ public class TimberLoggerAdvanced {
     }
 
     public static String startWithDaysToKeep(String name, String parentTaskId, LogParams logParams, int daysToKeep) {
-        return startWithDaysToKeep(null, name, parentTaskId, logParams, daysToKeep);
-    }
-
-    static String startWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
-        return startWithDateToDelete(taskId, name, parentTaskId, logParams, TimberLogger.createDateToDelete(daysToKeep));
+        return startWithDateToDelete(null, name, parentTaskId, logParams, TimberLogger.createDateToDelete(daysToKeep));
     }
 
     public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
@@ -69,7 +66,7 @@ public class TimberLoggerAdvanced {
         return startWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
     }
 
-    static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+    private static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
         return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, dateToDelete);
     }
 

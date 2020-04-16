@@ -18,7 +18,9 @@ public class PersistentFetchJob implements Job {
 			currentlyRunning = true;
 			LOG.info("Cron is fetching from disk...");
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.ELASTIC_SEARCH_CLIENT);
-			while (es.retryFailedRequestsFromDisk()) {
+			boolean runNextBulk = true;
+			while (runNextBulk) {
+				runNextBulk = es.retryFailedRequestsFromDisk();
 			}
 			currentlyRunning = false;
 		}

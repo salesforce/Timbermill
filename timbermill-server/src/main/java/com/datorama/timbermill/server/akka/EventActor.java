@@ -2,9 +2,6 @@ package com.datorama.timbermill.server.akka;
 
 import java.util.Collection;
 
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
-
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.datorama.timbermill.server.service.TimbermillService;
@@ -12,10 +9,7 @@ import com.datorama.timbermill.server.service.TimbermillService;
 import akka.actor.AbstractActor;
 import akka.japi.pf.ReceiveBuilder;
 
-@Component
-@Scope("prototype")
 public class EventActor extends AbstractActor {
-
 
     private final TimbermillService timbermillService;
 

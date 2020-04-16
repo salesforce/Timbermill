@@ -1,32 +1,37 @@
 package com.datorama.timbermill.server;
 
-import akka.actor.*;
-import com.typesafe.config.*;
-import org.springframework.beans.factory.annotation.*;
-import org.springframework.context.*;
-import org.springframework.context.annotation.*;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.google.common.collect.Maps;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
+import akka.actor.ActorSystem;
 
 @Configuration
 public class ApplicationConfig {
 
-    private final ApplicationContext applicationContext;
-    private final SpringExtension springAkkaExtension;
+    @Value("${AKKA_SERVER_BACKLOG:10000}")
+    private String serverBackLog;
 
-    @Autowired
-    public ApplicationConfig(ApplicationContext applicationContext, SpringExtension springAkkaExtension) {
-        this.applicationContext = applicationContext;
-        this.springAkkaExtension = springAkkaExtension;
-    }
+    @Value("${AKKA_CONNECTION_POOL_MAX_CONNECTIONS:400}")
+    private String connectionPoolMaxConnections;
+
+    @Value("${AKKA_CONNECTION_POOL_MAX_OPEN_REQUESTS:2048}")
+    private String connectionPoolMaxOpenRequests;
 
     @Bean
     public ActorSystem actorSystem() {
-        final ActorSystem system = ActorSystem.create("default", akkaConfiguration());
-        springAkkaExtension.setApplicationContext(applicationContext);
-        return system;
-    }
+        Map<String, String> configMap = Maps.newHashMap();
+        configMap.put("akka.http.server.backlog", serverBackLog);
+        configMap.put("akka.http.host-connection-pool.max-connections", connectionPoolMaxConnections);
+        configMap.put("akka.http.host-connection-pool.max-open-requests", connectionPoolMaxOpenRequests);
 
-    @Bean
-    public Config akkaConfiguration() {
-        return ConfigFactory.load();
+        Config akkaConfig = ConfigFactory.parseMap(configMap);
+        return ActorSystem.create("default", akkaConfig);
     }
 }

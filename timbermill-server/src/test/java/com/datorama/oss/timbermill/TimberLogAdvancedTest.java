@@ -29,7 +29,7 @@ public class TimberLogAdvancedTest {
         }
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3 ,3,3, true,null);
+                7, 100, 1000000000, 3 ,3,3, null, null);
     }
 
     @AfterClass

@@ -8,7 +8,6 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
-import org.joda.time.DateTime;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -21,30 +20,28 @@ import static org.junit.Assert.*;
 public class SQLJetDiskHandlerTest {
 
 	private static SQLJetDiskHandler diskHandler;
-	public static int maxFetchedBulks = 10;
-	public static int maxInsertTries = 3;
-
+	private static int maxFetchedBulks = 10;
 
 	@BeforeClass
 	public static void init()  {
-		diskHandler = new SQLJetDiskHandler(maxFetchedBulks, maxInsertTries,"/tmp/SQLJetDiskHandlerTest");
+		diskHandler = new SQLJetDiskHandler(maxFetchedBulks, 3,"/tmp/SQLJetDiskHandlerTest");
 	}
 
 	@Before
 	public void emptyDbBeforeTest() {
-		diskHandler.dropAndRecreateTable();
+		diskHandler.close();
 	}
 
 	@AfterClass
 	public static void tearDown(){
-		diskHandler.dropAndRecreateTable();
+		diskHandler.close();
 	}
 
 	@Test
 	public void hasFailedBulks() throws MaximunInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
-		assertEquals(true, diskHandler.hasFailedBulks());
+		assertTrue(diskHandler.hasFailedBulks());
 	}
 
 	@Test
@@ -61,7 +58,7 @@ public class SQLJetDiskHandlerTest {
 		DbBulkRequest dbBulkRequest2 = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest2);
 		assertEquals(2, diskHandler.fetchAndDeleteFailedBulks().size());
-		assertEquals(false, diskHandler.hasFailedBulks());
+		assertFalse(diskHandler.hasFailedBulks());
 	}
 
 	@Test
@@ -72,20 +69,6 @@ public class SQLJetDiskHandlerTest {
 		diskHandler.persistToDisk(fetchedRequest);
 		fetchedRequest=diskHandler.fetchFailedBulks(false).get(0);
 		assertEquals(2, fetchedRequest.getTimesFetched());
-	}
-
-	@Test
-	public void updateBulk() throws MaximunInsertTriesException {
-		int times = 6;
-		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		diskHandler.persistToDisk(dbBulkRequest);
-		dbBulkRequest.setId(1);
-		dbBulkRequest.setTimesFetched(times);
-		diskHandler.updateBulk(dbBulkRequest);
-
-		List<DbBulkRequest> fetchedRequests = diskHandler.fetchAndDeleteFailedBulks();
-		DbBulkRequest dbBulkRequestFromDisk = fetchedRequests.get(0);
-		assertEquals(times + 1, dbBulkRequestFromDisk.getTimesFetched());
 	}
 
 	@Test
@@ -110,7 +93,7 @@ public class SQLJetDiskHandlerTest {
 		} catch (MaximunInsertTriesException e){
 			thrown = true;
 		}
-		assertEquals(true,thrown);
+		assertTrue(thrown);
 	}
 
 	@Test
@@ -132,8 +115,8 @@ public class SQLJetDiskHandlerTest {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
 
-		diskHandler.dropAndRecreateTable();
-		assertEquals(false, diskHandler.hasFailedBulks());
+		diskHandler.close();
+		assertFalse(diskHandler.hasFailedBulks());
 	}
 
 	private String getRequestAsString(DbBulkRequest dbBulkRequest) {
@@ -141,7 +124,7 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	public static class MockBulkRequest {
-		public static UpdateRequest createMockRequest() {
+		static UpdateRequest createMockRequest() {
 			String taskId = UUID.randomUUID().toString();
 			String index = "timbermill-test";
 			UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
@@ -150,13 +133,12 @@ public class SQLJetDiskHandlerTest {
 			return updateRequest;
 		}
 
-		public static DbBulkRequest createMockDbBulkRequest() {
+		static DbBulkRequest createMockDbBulkRequest() {
 			BulkRequest bulkRequest = new BulkRequest();
 			for (int i = 0 ; i < 3 ; i++){
 				bulkRequest.add(createMockRequest());
 			}
-			DbBulkRequest dbBulkRequest = new DbBulkRequest(bulkRequest);
-			return dbBulkRequest;
+			return new DbBulkRequest(bulkRequest);
 		}
 	}
 }
