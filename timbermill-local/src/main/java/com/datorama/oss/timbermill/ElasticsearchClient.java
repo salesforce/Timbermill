@@ -73,7 +73,6 @@ public class ElasticsearchClient {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
     private static final String TTL_FIELD = "meta.dateToDelete";
     private static final String STATUS = "status";
-	private boolean withPersistence;
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final ExecutorService executorService;
@@ -93,9 +92,10 @@ public class ElasticsearchClient {
 	private int numOfCouldntBeInserted = 0;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfBulkIndexTries,int maxBulkIndexFetches,boolean withPersistence, DiskHandler diskHandler) {
-		this.diskHandler = diskHandler;
-		this.withPersistence = withPersistence;
+			long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfBulkIndexTries, int maxBulkIndexFetches, String diskHandlerStrategy,
+			Map<String, Object> params) {
+
+		this.diskHandler = getDiskHandler(diskHandlerStrategy, params);
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfBulkIndexTries);
 		this.indexBulkSize = indexBulkSize;
@@ -129,6 +129,18 @@ public class ElasticsearchClient {
 
         client = new RestHighLevelClient(builder);
     }
+
+	private DiskHandler getDiskHandler(String diskHandlerStrategy, Map<String, Object> params) {
+		DiskHandler diskHandler = null;
+		if (diskHandlerStrategy != null && !diskHandlerStrategy.toLowerCase().equals("none")){
+
+			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy, params);
+			if (!diskHandler.isCreatedSuccesfully()){
+				diskHandler = null;
+			}
+		}
+		return diskHandler;
+	}
 
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfTasksIndexTries) {
 		if (indexBulkSize < 1) {
@@ -241,6 +253,9 @@ public class ElasticsearchClient {
 
     public void close(){
         try {
+        	if (isWithPersistence()){
+        		diskHandler.close();
+			}
             client.close();
         } catch (IOException e) {
             throw new ElasticsearchException(e);
@@ -248,7 +263,7 @@ public class ElasticsearchClient {
     }
 
     // return true iff execution of bulk finished successfully
-    boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
+	private boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
 		boolean isSucceeded = false;
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
@@ -271,10 +286,8 @@ public class ElasticsearchClient {
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
         }
-		finally {
-			return isSucceeded;
-		}
-    }
+		return isSucceeded;
+	}
 
      // wrap bulk method as a not-final method in order that Mockito will able to mock it
 	 BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
@@ -597,7 +610,7 @@ public class ElasticsearchClient {
 		deleteByQuery("*", query);
     }
 
-    private JsonElement deleteByQuery(String index, String query) {
+    private void deleteByQuery(String index, String query) {
 		Request request = new Request("POST", "/" + index + "/_delete_by_query");
 		request.addParameter("conflicts","proceed");
 		request.addParameter("wait_for_completion", "false");
@@ -608,18 +621,14 @@ public class ElasticsearchClient {
 			String json = IOUtils.toString(content);
 			JsonObject asJsonObject = new JsonParser().parse(json).getAsJsonObject();
 			JsonElement task = asJsonObject.get("task");
-			if (task == null){
+			if (task != null) {
+				LOG.info("Task id {} for deletion by query {}", task, query);
+			} else {
 				LOG.error("Delete by query didn't return taskId. Response was {}", json);
 			}
-			else {
-				return task;
-			}
-		} catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalStateException e) {
-            LOG.warn("Could not perform deletion, elasticsearch client was closed.");
+		} catch (Exception e) {
+            LOG.warn("Could not perform deletion.", e);
         }
-		return null;
 	}
 
     long countByName(String name, String env) throws IOException {
@@ -648,15 +657,14 @@ public class ElasticsearchClient {
 		// -------- DEBUG -----------
 		LOG.info("Persistence Status: {} persisted to disk, {} finished successfully, {} fetched maximum times, {} couldn't be inserted",numOfBulksPersistedToDisk,numOfSuccessfullBulksFromDisk,numOfFetchedMaxTimes,numOfCouldntBeInserted);
 		// -------- DEBUG -----------
-		boolean hasFailedInMemory = failedRequests.size()>0;
-		return hasFailedInMemory;
+		return failedRequests.size()>0;
 
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
 		if (retryNum >= numOfBulkIndexTries){
 			LOG.warn("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfBulkIndexTries, failureMessage);
-			if (withPersistence) {
+			if (isWithPersistence()) {
 				if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
 					DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 					try {
@@ -706,18 +714,18 @@ public class ElasticsearchClient {
 					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
 		} else {
 			// An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
-			LOG.info("All {} requests of bulk failed.", numOfRequests, dbBulkRequest.getId());
+			LOG.info("All {} requests of bulk failed. Bulk Id {}", numOfRequests, dbBulkRequest.getId());
 		}
 		return dbBulkRequest;
 	}
 
 	public boolean isWithPersistence() {
-		return withPersistence;
+		return diskHandler != null;
 	}
 
 	public boolean retryFailedRequestsFromDisk() {
 		boolean keepRunning = false;
-		if (withPersistence) {
+		if (isWithPersistence()) {
 			if (diskHandler.hasFailedBulks()) {
 				keepRunning = true;
 				LOG.info("------------------ Failed Requests From Disk Retry Start ------------------");

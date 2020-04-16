@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.common;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +21,10 @@ import org.tmatesoft.sqljet.core.table.SqlJetDb;
 import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
 
 public class SQLJetDiskHandler implements DiskHandler {
+	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
+	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
+	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
+
 	private static final String DB_NAME = "timbermillJet.db";
 	private static final String FAILED_BULKS_TABLE_NAME = "failed_bulks";
 	private static final String ID = "id";
@@ -37,7 +42,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable table;
 
-	public SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
+	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
@@ -94,12 +99,12 @@ public class SQLJetDiskHandler implements DiskHandler {
 			e.printStackTrace();
 		} finally {
 			closeCursor(resultCursor);
-			return returnValue;
 		}
+		return returnValue;
 	}
 
 	@Override
-	public boolean isCreatedSuccefully() {
+	public boolean isCreatedSuccesfully() {
 		boolean ret = db != null;
 		if (!ret){
 			LOG.error("SQLite wasn't initialized successfully.");
@@ -107,26 +112,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return ret;
 	}
 
-	public void updateBulk(DbBulkRequest dbBulkRequest) {
-		ISqlJetCursor updateCursor = null;
-		int id = dbBulkRequest.getId();
-		try {
-			LOG.info("Updating bulk with id: {}",id);
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
-			updateCursor = table.lookup(table.getPrimaryKeyIndexName(), id);
-			if (!updateCursor.eof()) {
-				updateCursor.update(id, serializeBulkRequest(dbBulkRequest.getRequest()),
-						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-			}
-		} catch (SqlJetException | IOException e) {
-			LOG.error("Updating of bulk {} has failed.", dbBulkRequest.getId(),e);
-		} finally {
-			silentDbCommit();
-			closeCursor(updateCursor);
-		}
-	}
-
-	public void dropAndRecreateTable(){
+	@Override public void close() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
 			db.createTable(CREATE_TABLE);
@@ -138,7 +124,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	public int failedBulksAmount() {
+	// For tests
+	int failedBulksAmount() {
 		return fetchFailedBulks(false).size();
 	}
 
@@ -260,16 +247,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	private void silentDbRollback()  {
-		try {
-			if (db!=null){
-				db.rollback();
-			}
-		} catch (SqlJetException e) {
-			LOG.error("Rollback has failed",e);
-		}
-	}
-
 	private void silentCloseDb()  {
 		if (db!=null){
 			try {
@@ -289,12 +266,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
+
 	// endregion
 
-	public enum SQLJetDiskHandlerParams {
-		MAX_FETCHED_BULKS_IN_ONE_TIME,
-		MAX_INSERT_TRIES,
-		LOCATION_IN_DISK;
-	}
 }
 
