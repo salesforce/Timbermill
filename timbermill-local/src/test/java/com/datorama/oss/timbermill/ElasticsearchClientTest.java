@@ -21,7 +21,6 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DbBulkRequest;
-import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Mockito.doReturn;
@@ -32,7 +31,6 @@ public class ElasticsearchClientTest {
 
 
 	private static ElasticsearchClient elasticsearchClient;
-	private static SQLJetDiskHandler diskHandler;
 
 	@BeforeClass
 	public static void init() {
@@ -40,9 +38,8 @@ public class ElasticsearchClientTest {
 		if (StringUtils.isEmpty(elasticUrl)) {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
-		diskHandler = new SQLJetDiskHandler(3,3,"/tmp/ElasticsearchClientTest");
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000, 3, 3, 3,true,diskHandler );
+				7, 100, 1000000000, 3, 3, 3, null, null);
 	}
 
 	@Test
@@ -90,7 +87,6 @@ public class ElasticsearchClientTest {
 	@AfterClass
 	public static void tearDown(){
 		elasticsearchClient.close();
-		diskHandler.dropAndRecreateTable();
 	}
 
 	// make bulk's item #itemNumber to not fail
@@ -116,7 +112,6 @@ public class ElasticsearchClientTest {
 		for (int i = 0 ; i < amountOfRequestsInBulk ; i++){
 			bulkRequest.add(createMockRequest());
 		}
-		DbBulkRequest dbBulkRequest = new DbBulkRequest(bulkRequest);
-		return dbBulkRequest;
+		return new DbBulkRequest(bulkRequest);
 	}
 }
