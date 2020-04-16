@@ -42,7 +42,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable table;
 
-	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
+	public SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
@@ -61,7 +61,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 			if (!db.getOptions().isAutovacuum()){
 				db.getOptions().setAutovacuum(true);
 			}
-
 			// creating table if not exists
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			db.getOptions().setUserVersion(1);
@@ -95,8 +94,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
 			resultCursor = table.lookup(table.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
-		} catch (SqlJetException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			LOG.error("Checking how many bulks are in SQLite has failed.");
 		} finally {
 			closeCursor(resultCursor);
 		}
@@ -119,8 +118,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 			table = db.getTable(FAILED_BULKS_TABLE_NAME);
 			LOG.info("Recreated table successfully.");
 			db.commit();
-		} catch (SqlJetException e) {
-			LOG.error("Drop table {} has failed",FAILED_BULKS_TABLE_NAME,e);
+		} catch (Exception e) {
+			LOG.warn("Drop table {} has failed",FAILED_BULKS_TABLE_NAME,e);
 		}
 	}
 
@@ -148,7 +147,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				table.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-				LOG.info("Bulk request was inserted successfully to SQLite.");
+				LOG.info("Bulk request was inserted successfully to disk.");
 				break; // if arrived here then insertion succeeded, no need to retry again
 			} catch (Exception e) {
 				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
@@ -185,7 +184,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				fetchedCount++;
 			}
 			LOG.info("Fetched successfully. Number of fetched bulks: {}.",fetchedCount);
-		} catch (SqlJetException | IOException e) {
+		} catch (Exception e) {
 			LOG.error("Fetching has failed.",e);
 		} finally {
 			closeCursor(resultCursor);
@@ -234,7 +233,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			if (cursor != null) {
 				cursor.close();
 			}
-		} catch (SqlJetException e) {
+		} catch (Exception e) {
 			LOG.error("Closing cursor has failed",e);
 		}
 	}
@@ -242,7 +241,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private void silentDbCommit(){
 		try {
 			db.commit();
-		} catch (SqlJetException e) {
+		} catch (Exception e) {
 			LOG.error("Commit updates has failed",e);
 		}
 	}
@@ -251,7 +250,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		if (db!=null){
 			try {
 				db.close();
-			} catch (SqlJetException e) {
+			} catch (Exception e) {
 				LOG.error("Closing SQLite has failed",e);
 			}
 			db = null;
@@ -261,11 +260,10 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private void silentThreadSleep(long sleepTime) {
 		try {
 			Thread.sleep(sleepTime);
-		} catch (InterruptedException ex) {
-			ex.printStackTrace();
+		} catch (Exception e) {
+			LOG.warn("Making thread sleep has failed",e);
 		}
 	}
-
 
 	// endregion
 

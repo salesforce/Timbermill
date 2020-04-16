@@ -45,6 +45,12 @@ public class LocalOutputPipe implements EventOutputPipe {
         startWorkingThread();
     }
 
+    public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es) {
+        esClient = es;
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
+        startWorkingThread();
+    }
+
     private void startWorkingThread() {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
@@ -114,7 +120,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
         private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
-        private int maxFetchedBulksInOneTime = 10;
+        private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
         private String locationInDisk = "/db";
 
@@ -246,5 +252,17 @@ public class LocalOutputPipe implements EventOutputPipe {
             return new LocalOutputPipe(this);
         }
 
+        public ElasticsearchParams buildElasticSearchParams() {
+            ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maxCacheSize, maxCacheHoldTimeMinutes,
+                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
+            return elasticsearchParams;
+        }
+
+        public ElasticsearchClient buildElasticSearchClient() {
+            Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
+            ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword,
+                    maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetched,diskHandlerStrategy,params);
+            return elasticsearchClient;
+        }
     }
 }
