@@ -9,7 +9,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
-import com.datorama.oss.timbermill.common.SQLJetDiskHandler;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
@@ -24,6 +23,7 @@ public abstract class TimberLogTest {
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
+	static final int failures = 2;
 
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
