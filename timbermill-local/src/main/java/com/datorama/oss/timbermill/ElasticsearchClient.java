@@ -314,9 +314,6 @@ public class ElasticsearchClient {
 
 				moveTasksFromOldToNewIndex();
 			}
-			else{
-				LOG.error("Could not rollovered index " + timbermillAlias);
-			}
 		} catch (MaxRetriesException e) {
 			LOG.error("Could not rollovered index " + timbermillAlias);
 		}
