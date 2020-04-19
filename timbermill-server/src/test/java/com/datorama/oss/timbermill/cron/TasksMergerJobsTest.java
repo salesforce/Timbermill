@@ -50,7 +50,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
 		TimberLogTest.client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3,
-				3,3, null, null);
+				3, 1000, null, null);
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

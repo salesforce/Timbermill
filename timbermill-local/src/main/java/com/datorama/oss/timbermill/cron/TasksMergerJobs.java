@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.io.IOException;
 import java.util.Map;
 
 import org.quartz.Job;
@@ -24,12 +23,8 @@ public class TasksMergerJobs implements Job {
 		String previousIndex = client.getOldIndex();
 		if (indexExists(previousIndex)){
 			LOG.info("About to merge partial tasks between indices");
-			try {
-				int size = migrateOldPartialTaskToNewIndex(currentIndex, previousIndex);
-				LOG.info("Finished merging {} partial tasks.", size);
-			} catch (IOException e) {
-				LOG.error("Could not merge partial tasks between indices [{}] [{}]", previousIndex, currentIndex);
-			}
+			int size = migrateMatchingTasksToNewIndexPartialTasks(currentIndex, previousIndex);
+			LOG.info("Finished merging {} partial tasks.", size);
 		}
 	}
 
@@ -37,14 +32,13 @@ public class TasksMergerJobs implements Job {
 		return index != null;
 	}
 
-	private int migrateOldPartialTaskToNewIndex(String currentIndex, String previousIndex) throws IOException {
+	private int migrateMatchingTasksToNewIndexPartialTasks(String currentIndex, String previousIndex) {
 		Map<String, Task> previousIndexMatchingTasks = Maps.newHashMap();
-		Map<String, Task> currentIndexPartialTasks = client.getIndexPartialTasks(currentIndex);
+		String functionDescription = "Migrate old tasks to new index'es partial tasks";
+		Map<String, Task> currentIndexPartialTasks = client.getIndexPartialTasks(currentIndex, functionDescription);
 		if (!currentIndexPartialTasks.isEmpty()) {
-			previousIndexMatchingTasks = client.fetchTasksByIdsFromIndex(previousIndex, currentIndexPartialTasks.keySet());
-			if (!previousIndexMatchingTasks.isEmpty()) {
-				client.indexAndDeleteTasks(previousIndexMatchingTasks);
-			}
+			previousIndexMatchingTasks = client.getTasksByIds(previousIndex, currentIndexPartialTasks.keySet(), functionDescription);
+			client.indexAndDeleteTasks(previousIndexMatchingTasks);
 		}
 		return previousIndexMatchingTasks.size();
 	}

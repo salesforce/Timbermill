@@ -34,12 +34,14 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields,builder.persistentFetchCronExp);
+                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields, builder.persistentFetchCronExp
+        );
 
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfMergedTasksTries, builder.numOfTasksIndexTries,builder.maxBulkIndexFetched, builder.diskHandlerStrategy,
-                params);
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, params,
+                builder.diskHandlerStrategy
+        );
 
         taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
         startWorkingThread();
@@ -97,9 +99,9 @@ public class LocalOutputPipe implements EventOutputPipe {
     public static class Builder {
 
         //DEFAULTS
-        private int numOfTasksIndexTries = 3;
+        private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
-        private int numOfMergedTasksTries = 3;
+        private int numOfElasticSearchActionsTries = 3;
         private int maxCacheHoldTimeMinutes = 60;
         private int maxCacheSize = 10000;
         private String elasticUrl = null;
@@ -209,12 +211,11 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder numOfMergedTasksTries(int numOfMergedTasksTries) {
-            this.numOfMergedTasksTries = numOfMergedTasksTries;
+        public Builder numOfElasticSearchActionsTries(int numOfElasticSearchActionsTries) {
+            this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
             return this;
         }
         public Builder numOfTasksIndexTries(int numOfTasksIndexTries) {
-            this.numOfTasksIndexTries = numOfTasksIndexTries;
             return this;
         }
 
@@ -243,6 +244,11 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
+        public Builder searchMaxSize(int searchMaxSize) {
+            this.searchMaxSize = searchMaxSize;
+            return this;
+        }
+
         public Builder persistentFetchCronExp(String persistentFetchCronExp) {
             this.persistentFetchCronExp = persistentFetchCronExp;
             return this;
@@ -252,17 +258,5 @@ public class LocalOutputPipe implements EventOutputPipe {
             return new LocalOutputPipe(this);
         }
 
-        public ElasticsearchParams buildElasticSearchParams() {
-            ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maxCacheSize, maxCacheHoldTimeMinutes,
-                    numberOfShards, numberOfReplicas,  daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
-            return elasticsearchParams;
-        }
-
-        public ElasticsearchClient buildElasticSearchClient() {
-            Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
-            ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser, elasticPassword,
-                    maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries,maxBulkIndexFetched,diskHandlerStrategy,params);
-            return elasticsearchClient;
-        }
     }
 }

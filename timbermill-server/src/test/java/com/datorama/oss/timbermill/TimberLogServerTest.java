@@ -23,7 +23,7 @@ public class TimberLogServerTest extends TimberLogTest{
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3,3, null, null);
+                7, 100, 1000000000, 3, 3, 1000, null, null);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000)
                 .maxSecondsBeforeBatchTimeout(3).build();
         TimberLogger.bootstrap(pipe, TEST);

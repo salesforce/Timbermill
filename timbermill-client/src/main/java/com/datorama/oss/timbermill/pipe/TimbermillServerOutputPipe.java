@@ -102,10 +102,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
-        OutputStream os = httpCon.getOutputStream();
-        os.write(eventsWrapperBytes);
-        os.flush();
-        os.close();
+		try (OutputStream os = httpCon.getOutputStream()) {
+			os.write(eventsWrapperBytes);
+		}
     }
 
     private String getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {

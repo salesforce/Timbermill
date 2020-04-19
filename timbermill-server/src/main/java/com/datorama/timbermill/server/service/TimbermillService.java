@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import javax.annotation.PreDestroy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,13 +45,13 @@ public class TimbermillService {
 			@Value("${ELASTICSEARCH_INDEX_MAX_GB_SIZE:100}") int maxIndexSizeInGB,
 			@Value("${ELASTICSEARCH_INDEX_MAX_DOCS:1000000000}") int maxIndexDocs,
 			@Value("${ELASTICSEARCH_MAX_TOTAL_FIELDS:4000}") int maxTotalFields,
+			@Value("${ELASTICSEARCH_MAX_SEARCH_SIZE:1000}") int searchMaxSize,
+			@Value("${ELASTICSEARCH_ACTION_TRIES:3}") int numOfElasticSearchActionsTries,
 			@Value("${INDEXING_THREADS:10}") int indexingThreads,
 			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
 			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
-			@Value("${NUMBER_OF_TASKS_MERGE_RETRIES:3}") int numOfMergedTasksTries,
-			@Value("${NUMBER_OF_TASKS_INDEX_RETRIES:3}") int numOfTasksIndexTries,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
@@ -66,8 +68,8 @@ public class TimbermillService {
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfMergedTasksTries, numOfTasksIndexTries, maxBulkIndexFetches, diskHandlerStrategy,
-				params);
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, params, diskHandlerStrategy
+		);
 
 		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
@@ -86,6 +88,7 @@ public class TimbermillService {
 		workingThread.start();
 	}
 
+	@PreDestroy
 	public void tearDown(){
 		LOG.info("Gracefully shutting down Timbermill Server.");
 		keepRunning = false;

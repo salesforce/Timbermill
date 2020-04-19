@@ -377,7 +377,7 @@ public class Task {
 				return name;
 			}
 		} catch (Exception e){
-			LOG.error("Couldn't get name from ID {}", taskId);
+			LOG.warn("Couldn't get name from ID {}", taskId);
 			return taskId;
 		}
 	}

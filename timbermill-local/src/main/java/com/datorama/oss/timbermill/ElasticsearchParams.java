@@ -13,7 +13,7 @@ public class ElasticsearchParams {
 	private String persistentFetchCronExp;
 
 	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
-			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields,String persistentFetchCronExp) {
+			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields, String persistentFetchCronExp) {
 		this.pluginsJson = pluginsJson;
 		this.maximumCacheSize = maximumCacheSize;
 		this.maximumCacheMinutesHold = maximumCacheMinutesHold;
@@ -63,4 +63,5 @@ public class ElasticsearchParams {
 	}
 
 	public String getPersistentFetchCronExp() { return persistentFetchCronExp; }
+
 }

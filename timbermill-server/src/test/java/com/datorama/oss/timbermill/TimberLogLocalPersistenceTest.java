@@ -11,7 +11,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
@@ -34,12 +33,10 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
-        LocalOutputPipe.Builder pipeBuilder = new LocalOutputPipe.Builder().numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null).locationInDisk("/tmp").persistentFetchCronExp("0/5 * * 1/1 * ? *") // fetch every 5 seconds
-                .pluginsJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
-        LocalOutputPipe pipe = buildLocalOutputPipeForTest(pipeBuilder);
+        LocalOutputPipe pipe = buildLocalOutputPipeForTest(elasticUrl);
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000,3, 3,3, null, null);
+                7, 100, 1000000000,3, 3, 1000, null, null);
         TimberLogger.bootstrap(pipe, TEST);
     }
 
@@ -110,26 +107,29 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
         super.testOrphan();
     }
 
-    public static LocalOutputPipe buildLocalOutputPipeForTest(LocalOutputPipe.Builder pipeBuilder) {
-        ElasticsearchParams elasticsearchParams = pipeBuilder.buildElasticSearchParams();
-        ElasticsearchClient elasticsearchClient = pipeBuilder.buildElasticSearchClient();
+    public static LocalOutputPipe buildLocalOutputPipeForTest(String elasticUrl) {
+        LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("none").numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null).persistentFetchCronExp("0/5 * * 1/1 * ? *") // fetch every 2 seconds
+                .pluginsJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
+        LocalOutputPipe pipe = builder.build();
+
+        ElasticsearchClient elasticsearchClient = pipe.getEsClient();
         elasticsearchClientSpy = Mockito.spy(elasticsearchClient);
         try {
-            doAnswer(new Answer<BulkResponse>() {
-                @Override public BulkResponse answer(InvocationOnMock invocation) throws Throwable {
-                    Object[] args = invocation.getArguments();
-                    DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
-                    if (dbBulkRequest.getTimesFetched() < failures) {
-                        throw new RuntimeException();
-                    }
-                    // call real method
-                    return elasticsearchClient.bulk(dbBulkRequest, (RequestOptions) args[1]);
+            doAnswer((Answer<BulkResponse>) invocation -> {
+                Object[] args = invocation.getArguments();
+                DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
+                if (dbBulkRequest.getTimesFetched() < 1) {
+                    throw new RuntimeException();
                 }
+                // call real method
+                return elasticsearchClient.bulk(dbBulkRequest, (RequestOptions) args[1]);
             }).when(elasticsearchClientSpy).bulk(any(), any());
         } catch (IOException e) {
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
 
-        return new LocalOutputPipe(elasticsearchParams, elasticsearchClientSpy);
+        pipe.setEsClient(elasticsearchClientSpy);
+        return pipe;
     }
+
 }

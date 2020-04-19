@@ -4,6 +4,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
@@ -37,7 +38,7 @@ public class TaskIndexer {
     private long daysRotation;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-        this.daysRotation = elasticsearchParams.getDaysRotation() < 0 ? 1 : elasticsearchParams.getDaysRotation();
+        this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.es = es;
         parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
@@ -89,7 +90,7 @@ public class TaskIndexer {
     }
 
     private Map<String, Task> fetchPreviouslyIndexedParentTasks(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-        String[] missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
+        Set<String> missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
         try {
             return this.es.fetchIndexedTasks(missingParentTaskIds);
         } catch (Throwable t) {
@@ -347,11 +348,11 @@ public class TaskIndexer {
         return value;
     }
 
-    private static String[] getMissingParentTaskIds(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
+    private static Set<String> getMissingParentTaskIds(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
 
         return timbermillEvents.stream()
                 .filter(e -> e.getParentId() != null && !startEventsIds.contains(e.getParentId()))
-                .map(Event::getParentId).toArray(String[]::new);
+                .map(Event::getParentId).collect(Collectors.toSet());
     }
 
     private static ParentProperties getParentProperties(Task indexedTask, Collection<Event> previousEvents) {
