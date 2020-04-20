@@ -94,6 +94,9 @@ public class ElasticsearchClient {
 			String diskHandlerStrategy) {
 
 		this.diskHandler = getDiskHandler(diskHandlerStrategy, params);
+		if (diskHandler!=null && diskHandler.isCreatedSuccesfully()){
+			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
+		}
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries);
 		this.indexBulkSize = indexBulkSize;

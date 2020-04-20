@@ -7,6 +7,7 @@ import java.util.Map;
 import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
 
 public interface DiskHandler {
+
 	List<DbBulkRequest> fetchAndDeleteFailedBulks();
 
 	void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximunInsertTriesException;
@@ -22,6 +23,8 @@ public interface DiskHandler {
 		diskHandlerParams.put(SQLJetDiskHandler.LOCATION_IN_DISK, locationInDisk);
 		return diskHandlerParams;
 	}
+
+	int failedBulksAmount();
 
 	void close();
 }
