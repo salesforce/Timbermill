@@ -729,8 +729,8 @@ public class ElasticsearchClient {
 	private void dailyResetCounters() {
 		// reset counters of persistence status
 		LocalTime now = LocalTime.now();
-		LocalTime start = LocalTime.parse("23:59:55");
-		LocalTime stop = LocalTime.parse("00:00:05");
+		LocalTime start = LocalTime.parse("23:58:55");
+		LocalTime stop = LocalTime.parse("23:59:05");
 		if (now.isAfter(start) && now.isBefore(stop)) {
 			numOfFetchedMaxTimes = 0;
 			numOfCouldntBeInserted = 0;
