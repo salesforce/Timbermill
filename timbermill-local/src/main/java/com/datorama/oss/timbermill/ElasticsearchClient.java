@@ -787,7 +787,7 @@ public class ElasticsearchClient {
 		LocalTime stop = LocalTime.parse("23:59:05");
 		if (now.isAfter(start) && now.isBefore(stop)) {
 			numOfFetchedMaxTimes = 0;
-			numOfCouldntBeInserted = 0;
+			numOfCouldNotBeInserted = 0;
 		}
 	}
 }
