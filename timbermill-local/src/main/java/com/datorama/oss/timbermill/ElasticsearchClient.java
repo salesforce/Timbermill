@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZonedDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,6 +105,9 @@ public class ElasticsearchClient {
 			String diskHandlerStrategy) {
 
 		this.diskHandler = getDiskHandler(diskHandlerStrategy, params);
+		if (diskHandler!=null && diskHandler.isCreatedSuccesfully()){
+			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
+		}
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries);
 		this.indexBulkSize = indexBulkSize;
@@ -740,8 +744,11 @@ public class ElasticsearchClient {
 	}
 
 	public boolean retryFailedRequestsFromDisk() {
+
+		dailyResetCounters();
+
 		boolean keepRunning = false;
-		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db, {} couldn't be inserted to db", numOfBulksPersistedToDisk,
+		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db since 00:00, {} couldn't be inserted to db since 00:00", numOfBulksPersistedToDisk,
 				numOfSuccessfulBulksFromDisk,
 				numOfFetchedMaxTimes, numOfCouldNotBeInserted);
 		if (diskHandler.hasFailedBulks()) {
@@ -771,6 +778,17 @@ public class ElasticsearchClient {
 		List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
 		failedRequests.drainTo(list);
 		return list;
+	}
+
+	private void dailyResetCounters() {
+		// reset counters of persistence status
+		LocalTime now = LocalTime.now();
+		LocalTime start = LocalTime.parse("23:58:55");
+		LocalTime stop = LocalTime.parse("23:59:05");
+		if (now.isAfter(start) && now.isBefore(stop)) {
+			numOfFetchedMaxTimes = 0;
+			numOfCouldntBeInserted = 0;
+		}
 	}
 }
 

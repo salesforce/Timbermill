@@ -123,8 +123,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	// For tests
-	int failedBulksAmount() {
+	@Override public int failedBulksAmount() {
 		return fetchFailedBulks(false).size();
 	}
 
