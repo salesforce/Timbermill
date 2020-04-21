@@ -47,8 +47,8 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
     @After
     public void check(){
-        assertEquals(elasticsearchClientSpy.numOfBulksPersistedToDisk.get(), elasticsearchClientSpy.numOfSuccessfullBulksFromDisk);
-        assertEquals(0, elasticsearchClientSpy.numOfCouldntBeInserted);
+        assertEquals(elasticsearchClientSpy.numOfBulksPersistedToDisk.get(), elasticsearchClientSpy.numOfSuccessfulBulksFromDisk);
+        assertEquals(0, elasticsearchClientSpy.numOfCouldNotBeInserted);
         assertEquals(0, elasticsearchClientSpy.numOfFetchedMaxTimes);
     }
 
