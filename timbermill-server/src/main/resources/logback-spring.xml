@@ -17,8 +17,4 @@
         <appender-ref ref="Console" />
     </logger>
 
-    <logger name="com.datorama.oss.timbermill" level="debug" additivity="false">
-        <appender-ref ref="Console" />
-    </logger>
-
 </configuration>
