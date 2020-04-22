@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
-    private static final int HTTP_TIMEOUT = 2000;
+    private static final int HTTP_TIMEOUT = 5000;
     private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
@@ -77,10 +77,10 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
-        HttpURLConnection httpCon = getHttpURLConnection();
         String eventsWrapperString = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
             try {
+                HttpURLConnection httpCon = getHttpURLConnection();
                 sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {

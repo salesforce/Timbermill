@@ -29,8 +29,7 @@ public class TimberLoggerAdvanced {
         return start(null, name, parentTaskId, logParams);
     }
 
-    //for testing
-    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+    public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
         return startWithDateToDelete(taskId, name, parentTaskId, logParams,null);
     }
 
@@ -70,7 +69,6 @@ public class TimberLoggerAdvanced {
         return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, dateToDelete);
     }
 
-    //For testing only
     public static String logParams(@NotNull String ongoingTaskId, LogParams logParams) {
         if (StringUtils.isEmpty(ongoingTaskId)){
             LOG.error("`ongoingTaskId` can't be empty, ignoring TimberLoggerAdvanced `logParams` method call");
