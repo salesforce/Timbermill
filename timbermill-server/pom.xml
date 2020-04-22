@@ -136,17 +136,6 @@
                     <argLine>-Dfile.encoding=UTF8 -Duser.timezone=UTC </argLine>
                 </configuration>
             </plugin>
-            <plugin>
-                <artifactId>maven-war-plugin</artifactId>
-                <version>2.2</version>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Build-Time>yyyy-MM-dd HH:mm</Build-Time>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>
