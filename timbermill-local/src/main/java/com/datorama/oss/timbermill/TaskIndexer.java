@@ -220,7 +220,8 @@ public class TaskIndexer {
                     return false;
                 }
                 if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof StartEvent)){
-                    Boolean isOrphan = event.isOrphan();
+                    Event parentEvent = eventsMap.get(parentId).stream().filter(e -> e instanceof StartEvent).findFirst().get();
+                    Boolean isOrphan = parentEvent.isOrphan();
                     return isOrphan != null && isOrphan;
                 }
             }

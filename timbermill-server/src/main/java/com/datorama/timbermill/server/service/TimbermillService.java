@@ -51,7 +51,7 @@ public class TimbermillService {
 			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
-			@Value("${CACHE_MAX_SIZE:10000}") int maximumCacheSize,
+			@Value("${CACHE_MAX_SIZE:1000000}") int maximumCacheSize,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,

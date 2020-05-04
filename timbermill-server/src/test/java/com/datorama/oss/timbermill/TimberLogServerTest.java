@@ -84,4 +84,15 @@ public class TimberLogServerTest extends TimberLogTest{
         super.testOrphan();
     }
 
+    @Test
+    public void testMissingParentTaskFromDifferentThreads(){
+        super.testMissingParentTaskFromDifferentThreads();
+    }
+
+    @Test
+    public void testMissingParentTaskOutOffOrderFromDifferentThreads(){
+        super.testMissingParentTaskOutOffOrderFromDifferentThreads();
+    }
+
+
 }

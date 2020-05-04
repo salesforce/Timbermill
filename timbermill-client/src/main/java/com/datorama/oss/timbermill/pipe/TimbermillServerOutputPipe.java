@@ -18,7 +18,6 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
@@ -77,11 +76,11 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
-        String eventsWrapperString = getEventsWrapperBytes(eventsWrapper);
+        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
             try {
                 HttpURLConnection httpCon = getHttpURLConnection();
-                sendEventsOverConnection(httpCon, eventsWrapperString.getBytes());
+                sendEventsOverConnection(httpCon, eventsWrapperBytes);
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {
                     LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
@@ -98,19 +97,18 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }
-        LOG.error("Can't send events to Timbermill, failed {} attempts.\n Failed request: {} " , MAX_RETRY, eventsWrapperString);
+        LOG.error("Can't send events to Timbermill, failed {} attempts.\n Failed request: {} " , MAX_RETRY, new String(eventsWrapperBytes));
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
 		try (OutputStream os = httpCon.getOutputStream()) {
-			os.write(eventsWrapperBytes);
+			os.write(eventsWrapperBytes, 0, eventsWrapperBytes.length);
 		}
     }
 
-    private String getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
+    private byte[] getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
         ObjectMapper om = new ObjectMapper();
-        ObjectWriter ow = om.writerFor(om.getTypeFactory().constructType(EventsWrapper.class));
-        return ow.writeValueAsString(eventsWrapper);
+        return om.writeValueAsBytes(eventsWrapper);
     }
 
     private HttpURLConnection getHttpURLConnection() throws IOException {

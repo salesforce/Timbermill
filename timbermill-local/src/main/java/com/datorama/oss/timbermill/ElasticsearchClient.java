@@ -682,34 +682,38 @@ public class ElasticsearchClient {
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
-		if (retryNum >= numOfElasticSearchActionsTries){
-			LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
-			if (isWithPersistence()) {
-				if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches){
-					DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
-					try {
-						diskHandler.persistToDisk(updatedDbBulkRequest);
-						if (dbBulkRequest.getTimesFetched()==0){
-							numOfBulksPersistedToDisk.incrementAndGet();
+	 	if (failureMessage.contains("type=null_pointer_exception")){
+			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
+			LOG.error("Null Pointer Exception Error in script. Requests:");
+			failedRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
+	 	}
+	 	else {
+			if (retryNum >= numOfElasticSearchActionsTries) {
+				LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
+				if (isWithPersistence()) {
+					if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
+						DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
+						try {
+							diskHandler.persistToDisk(updatedDbBulkRequest);
+							if (dbBulkRequest.getTimesFetched() == 0) {
+								numOfBulksPersistedToDisk.incrementAndGet();
+							}
+						} catch (MaximunInsertTriesException e) {
+							LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
+							numOfCouldNotBeInserted += 1;
 						}
-					} catch (MaximunInsertTriesException e){
-						LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
-						numOfCouldNotBeInserted +=1;
+					} else {
+						LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", dbBulkRequest.getId(), maxBulkIndexFetches);
+						numOfFetchedMaxTimes += 1;
 					}
+				} else {
+					LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).", maxBulkIndexFetches);
 				}
-				else{
-					LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).",dbBulkRequest.getId(),maxBulkIndexFetches);
-					numOfFetchedMaxTimes+=1;
-				}
+			} else {
+				LOG.warn("Failed while trying to bulk index tasks, failure message: {}. Going to retry.", failureMessage);
+				DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
+				failedRequests.offer(Pair.of(updatedDbBulkRequest, retryNum));
 			}
-			else {
-				LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).",maxBulkIndexFetches);
-			}
-		}
-		else {
-			LOG.warn("Failed while trying to bulk index tasks, failure message: {}. Going to retry.", failureMessage);
-			DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest,responses);
-			failedRequests.offer(Pair.of(updatedDbBulkRequest, retryNum));
 		}
 	}
 

@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -137,6 +138,8 @@ public class Task {
 					this.parentsPath = parentsPath;
 				}
 				else if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
+					List<String> evenTypeList = events.stream().map(ev -> ev.getClass().getSimpleName()).collect(Collectors.toList());
+					LOG.warn(evenTypeList.toString());
 					LOG.warn("Found different parentsPath for same task. Flagged task [{}] as corrupted. parentsPath 1 [{}], parentsPath 2 [{}]", e.getTaskId(), this.parentsPath, parentsPath);
 					status = CORRUPTED;
 					string.put(CORRUPTED_REASON, "Different parentsPaths");

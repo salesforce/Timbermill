@@ -9,6 +9,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
@@ -262,6 +263,83 @@ public abstract class TimberLogTest {
 	@TimberLogTask(name = SPOT)
 	private String testSimpleTasksFromDifferentThreadsIndexerJobTimberLog4() {
 		return TimberLogger.getCurrentTaskId();
+	}
+
+	protected void testMissingParentTaskFromDifferentThreads() {
+		String spotId = Event.generateTaskId(SPOT);
+
+		String context1 = "context1";
+		final String[] tasks = new String[2];
+		Thread thread = new Thread(() -> {
+			tasks[0] = TimberLogger.start(EVENT, spotId, LogParams.create().context(context1, context1));
+			tasks[1] = TimberLogger.start(EVENT_CHILD);
+			TimberLogger.success();
+			TimberLogger.success();
+		});
+		thread.start();
+		while(thread.isAlive()){waits();}
+
+		String taskId1 = tasks[0];
+		String taskId2 = tasks[1];
+
+		waitForTask(taskId1, TaskStatus.SUCCESS);
+		waitForTask(taskId2, TaskStatus.SUCCESS);
+
+
+		String context2 = "context2";
+
+		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
+
+		waitForTask(spotId, TaskStatus.SUCCESS);
+
+		Task task1 = client.getTaskById(taskId1);
+		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
+		assertEquals(context1, task1.getCtx().get(context1));
+		assertEquals(context2, task1.getCtx().get(context2));
+
+		Task task2 = client.getTaskById(taskId2);
+		assertTask(task2, EVENT_CHILD, true, true, spotId, taskId1, TaskStatus.SUCCESS, SPOT, EVENT);
+		assertEquals(context1, task2.getCtx().get(context1));
+		assertEquals(context2, task2.getCtx().get(context2));
+	}
+
+	protected void testMissingParentTaskOutOffOrderFromDifferentThreads() {
+		String spotId = Event.generateTaskId(SPOT);
+
+		String context1 = "context1";
+		final String[] tasks = new String[2];
+		Thread thread = new Thread(() -> {
+			String eventId = Event.generateTaskId(EVENT);
+			tasks[1] = TimberLogger.start(EVENT_CHILD, eventId, LogParams.create());
+			TimberLogger.success();
+			tasks[0] = TimberLogger.start(eventId, EVENT, spotId, LogParams.create().context(context1, context1));
+			TimberLogger.success();
+		});
+		thread.start();
+		while(thread.isAlive()){waits();}
+
+		String taskId1 = tasks[0];
+		String taskId2 = tasks[1];
+
+		waitForTask(taskId1, TaskStatus.SUCCESS);
+		waitForTask(taskId2, TaskStatus.SUCCESS);
+
+
+		String context2 = "context2";
+
+		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
+
+		waitForTask(spotId, TaskStatus.SUCCESS);
+
+		Task task1 = client.getTaskById(taskId1);
+		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
+		assertEquals(context1, task1.getCtx().get(context1));
+		assertEquals(context2, task1.getCtx().get(context2));
+
+		Task task2 = client.getTaskById(taskId2);
+		assertTask(task2, EVENT_CHILD, true, true, spotId, taskId1, TaskStatus.SUCCESS, SPOT, EVENT);
+		assertEquals(context1, task2.getCtx().get(context1));
+		assertEquals(context2, task2.getCtx().get(context2));
 	}
 
 	protected void testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob() {
