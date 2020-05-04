@@ -120,7 +120,7 @@ public class Task {
 			}
 			else if (primaryId != null && !this.primaryId.equals(primaryId)){
 				if (this.primaryId.equals(e.getTaskId())){
-					this.primaryId = e.getPrimaryId(); // Override actual primary id
+					this.primaryId = primaryId; // Override with actual primary id
 				}
 				else if (!primaryId.equals(e.getTaskId())){
 					LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
