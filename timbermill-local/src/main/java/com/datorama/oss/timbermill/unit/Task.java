@@ -124,6 +124,8 @@ public class Task {
 					this.primaryId = primaryId; // Override with actual primary id
 				}
 				else if (!primaryId.equals(e.getTaskId())){
+					List<String> evenTypeList = events.stream().map(ev -> ev.getClass().getSimpleName()).collect(Collectors.toList());
+					LOG.warn(evenTypeList.toString());
 					LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
 					status = CORRUPTED;
 					string.put(CORRUPTED_REASON, "Different primaryIds");
