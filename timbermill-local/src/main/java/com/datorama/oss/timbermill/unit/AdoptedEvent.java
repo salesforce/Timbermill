@@ -7,10 +7,13 @@ public class AdoptedEvent extends Event {
 		this.name = e.getName();
 		this.taskId = e.getTaskId();
 		this.setParentId(e.getParentId());
-		this.setContext(e.getContext());
 	}
 
 	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
 		return null;
+	}
+
+	@Override public boolean isAdoptedEvent(){
+		return true;
 	}
 }

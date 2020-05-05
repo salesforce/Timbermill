@@ -50,71 +50,71 @@ public class Task {
 	}
 
 	public Task(List<Event> events, long daysRotation) {
-		for (Event e : events) {
-			if (!(e instanceof AdoptedEvent)){
-				String env = e.getEnv();
-				if (this.env == null || this.env.equals(env)) {
-					this.env = env;
-				}
-				else{
-					throw new RuntimeException("Timbermill events with same id must have same env " + this.env + " !=" + env);
-				}
-				String name = e.getName();
-				if (name == null){
-					name = getNameFromId(name, e.getTaskId());
-				}
+		List<Event> regularEvents = events.stream().filter(e -> !e.isAdoptedEvent()).collect(Collectors.toList());
+		for (Event e : regularEvents) {
+			String env = e.getEnv();
+			if (this.env == null || this.env.equals(env)) {
+				this.env = env;
+			}
+			else{
+				throw new RuntimeException("Timbermill events with same id must have same env " + this.env + " !=" + env);
+			}
+			String name = e.getName();
+			if (name == null){
+				name = getNameFromId(name, e.getTaskId());
+			}
 
-				String parentId = e.getParentId();
+			String parentId = e.getParentId();
 
-				ZonedDateTime startTime = e.getTime();
-				ZonedDateTime endTime = e.getEndTime();
+			ZonedDateTime startTime = e.getTime();
+			ZonedDateTime endTime = e.getEndTime();
 
-				if (this.name == null){
-					this.name = name;
-				}
+			if (this.name == null){
+				this.name = name;
+			}
 
-				if (this.parentId == null){
-					this.parentId = parentId;
-				}
-				else if (parentId != null && !this.parentId.equals(parentId)){
-					LOG.warn("Found different parentId for same task. Flagged task [{}] as corrupted. parentId 1 [{}], parentId 2 [{}]", e.getTaskId(), this.parentId, parentId);
-					status = CORRUPTED;
-					string.put(CORRUPTED_REASON, "Different parentIds");
-				}
+			if (this.parentId == null){
+				this.parentId = parentId;
+			}
+			else if (parentId != null && !this.parentId.equals(parentId)){
+				LOG.warn("Found different parentId for same task. Flagged task [{}] as corrupted. parentId 1 [{}], parentId 2 [{}]", e.getTaskId(), this.parentId, parentId);
+				status = CORRUPTED;
+				string.put(CORRUPTED_REASON, "Different parentIds");
+			}
 
-				if (getStartTime() == null){
-					setStartTime(startTime);
-				}
+			if (getStartTime() == null){
+				setStartTime(startTime);
+			}
 
-				if (getEndTime() == null){
-					setEndTime(endTime);
-				}
+			if (getEndTime() == null){
+				setEndTime(endTime);
+			}
 
-				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
-				if (dateToDelete != null) {
-					this.setDateToDelete(dateToDelete);
-				}
+			ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
+			if (dateToDelete != null) {
+				this.setDateToDelete(dateToDelete);
+			}
 
-				status = e.getStatusFromExistingStatus(this.status);
+			status = e.getStatusFromExistingStatus(this.status);
 
-				if (e.getStrings() != null && !e.getStrings().isEmpty()) {
-					string.putAll(e.getStrings());
-				}
-				if (e.getText() != null && !e.getText().isEmpty()) {
-					text.putAll(e.getText());
-				}
-				if (e.getMetrics() != null && !e.getMetrics().isEmpty()) {
-					metric.putAll(e.getMetrics());
-				}
+			if (e.getStrings() != null && !e.getStrings().isEmpty()) {
+				string.putAll(e.getStrings());
+			}
+			if (e.getText() != null && !e.getText().isEmpty()) {
+				text.putAll(e.getText());
+			}
+			if (e.getMetrics() != null && !e.getMetrics().isEmpty()) {
+				metric.putAll(e.getMetrics());
+			}
 
-				if (e.getLogs() != null && !e.getLogs().isEmpty()) {
-					if (log != null) {
-						log += '\n' + StringUtils.join(e.getLogs(), '\n');
-					} else {
-						log = StringUtils.join(e.getLogs(), '\n');
-					}
+			if (e.getLogs() != null && !e.getLogs().isEmpty()) {
+				if (log != null) {
+					log += '\n' + StringUtils.join(e.getLogs(), '\n');
+				} else {
+					log = StringUtils.join(e.getLogs(), '\n');
 				}
 			}
+
 			String primaryId = e.getPrimaryId();
 			if (this.primaryId == null){
 				this.primaryId = primaryId;
@@ -136,10 +136,7 @@ public class Task {
 				this.parentsPath = parentsPath;
 			}
 			else{
-				if (e instanceof AdoptedEvent){
-					this.parentsPath = parentsPath;
-				}
-				else if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
+				if (parentsPath != null && !parentsPath.equals(this.parentsPath)){
 					List<String> evenTypeList = events.stream().map(ev -> ev.getClass().getSimpleName()).collect(Collectors.toList());
 					LOG.warn(evenTypeList.toString());
 					LOG.warn("Found different parentsPath for same task. Flagged task [{}] as corrupted. parentsPath 1 [{}], parentsPath 2 [{}]", e.getTaskId(), this.parentsPath, parentsPath);
@@ -159,6 +156,36 @@ public class Task {
 		if (isComplete()){
 			long duration = ElasticsearchUtil.getTimesDuration(startTime, endTime);
 			setDuration(duration);
+		}
+
+		List<Event> adoptedEvents = events.stream().filter(Event::isAdoptedEvent).collect(Collectors.toList());
+		if (adoptedEvents.size() > 1){
+			LOG.warn("More than 1 adopted events. Events {}", adoptedEvents);
+		}
+		for (Event adoptedEvent : adoptedEvents) {
+			String primaryId = adoptedEvent.getPrimaryId();
+			if (primaryId == null){
+				LOG.warn("No primary ID for adopted event. Adopted {} \n Task {}", adoptedEvent.toString(), this.toString());
+			}
+			else{
+				this.primaryId = primaryId;
+			}
+
+			List<String> parentsPath = adoptedEvent.getParentsPath();
+			if (parentsPath == null || parentsPath.isEmpty()){
+				LOG.warn("Empty parent path for adopted event. Adopted {} \n Task {}", adoptedEvent.toString(), this.toString());
+			}
+			else{
+				this.parentsPath = parentsPath;
+			}
+
+			Map<String, String> adoptedContext = adoptedEvent.getContext();
+			if (adoptedContext != null && !adoptedContext.isEmpty()) {
+				for (Map.Entry<String, String> entry : adoptedContext.entrySet()) {
+					this.ctx.putIfAbsent(entry.getKey(), entry.getValue());
+				}
+			}
+			orphan = false;
 		}
 	}
 
