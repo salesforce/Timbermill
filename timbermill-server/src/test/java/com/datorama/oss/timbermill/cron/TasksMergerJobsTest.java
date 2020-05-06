@@ -71,7 +71,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
 		Task oldTask = new Task(oldEvents, 1);
 		oldTasks.put(id, oldTask);
@@ -115,7 +115,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, infoEvent);
@@ -173,7 +173,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		Thread.sleep(10);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
 		Task newTask = new Task(newEvents, 1);
 		newTasks.put(id, newTask);
@@ -209,7 +209,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
 		Task oldTask = new Task(oldEvents, 1);
 		oldTasks.put(id, oldTask);
@@ -253,7 +253,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, infoEvent);
@@ -311,7 +311,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		Thread.sleep(10);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
 		Task newTask = new Task(newEvents, 1);
 		newTasks.put(id, newTask);
@@ -347,7 +347,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		Thread.sleep(10);
 		LogParams successLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new SuccessEvent(id, successLogParams);
@@ -397,7 +397,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String id = Event.generateTaskId(ROLLOVER_TEST);
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
-		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, ROLLOVER_TEST, null);
+		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		Thread.sleep(10);
 		LogParams ErrorLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event errorEvent = new ErrorEvent(id, ErrorLogParams);

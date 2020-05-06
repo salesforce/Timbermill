@@ -199,15 +199,16 @@ final class EventLogger {
 	}
 
 	private Event createStartEvent(String taskId, LogParams logParams, String parentTaskId, boolean isOngoingTask, String name, ZonedDateTime dateToDelete) {
-		PrimaryParentIdPair primaryParentIdPair;
 		Event event;
 		if (!isOngoingTask) {
-			primaryParentIdPair = getPrimaryParentIdPair(parentTaskId);
-			event = new StartEvent(taskId, name, logParams, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId());
+			if (parentTaskId == null){
+				parentTaskId = getParentIdFromStack();
+			}
+			event = new StartEvent(taskId, name, logParams, parentTaskId);
 			taskIdStack.push(event.getTaskId());
 		}
 		else{
-			event = new StartEvent(taskId, name, logParams, null, parentTaskId);
+			event = new StartEvent(taskId, name, logParams, parentTaskId);
 		}
 		setDateToDelete(dateToDelete, event);
 		return event;
@@ -270,8 +271,10 @@ final class EventLogger {
 			logParams = LogParams.create();
 		}
 		addStaticParams(logParams);
-		PrimaryParentIdPair primaryParentIdPair = getPrimaryParentIdPair(parentTaskId);
-		SpotEvent spotEvent = new SpotEvent(taskId, name, primaryParentIdPair.getPrimaryId(), primaryParentIdPair.getParentId(), status, logParams);
+		if (parentTaskId == null) {
+			parentTaskId = getParentIdFromStack();
+		}
+		SpotEvent spotEvent = new SpotEvent(taskId, name, parentTaskId, status, logParams);
 		setDateToDelete(dateToDelete, spotEvent);
 		return spotEvent;
 	}
@@ -286,17 +289,12 @@ final class EventLogger {
 		}
 	}
 
-	private PrimaryParentIdPair getPrimaryParentIdPair(String parentTaskId) {
-		if (parentTaskId != null){
-			return new PrimaryParentIdPair(null, parentTaskId);
-		}
-		String primaryId = null;
+	private String getParentIdFromStack() {
 		String parentId = null;
 		if (!taskIdStack.isEmpty()) {
-			primaryId = taskIdStack.firstElement();
 			parentId = taskIdStack.peek();
 		}
-		return new PrimaryParentIdPair(primaryId, parentId);
+		return parentId;
 	}
 
 	private void addStaticParams(@NotNull LogParams logParams) {
@@ -327,17 +325,12 @@ final class EventLogger {
 	}
 
 	private static class PrimaryParentIdPair {
-		private final String primaryId;
 
 		private final String parentId;
 
-		PrimaryParentIdPair(String primaryId, String parentId) {
+		PrimaryParentIdPair(String parentId) {
 
-			this.primaryId = primaryId;
 			this.parentId = parentId;
-		}
-		String getPrimaryId() {
-			return primaryId;
 		}
 
 		String getParentId() {
