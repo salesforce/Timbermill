@@ -4,13 +4,11 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,10 +22,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import static com.datorama.oss.timbermill.ElasticsearchClient.CTX_FIELDS;
 import static com.datorama.oss.timbermill.common.Constants.GSON;
 import static java.util.stream.Collectors.groupingBy;
-import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
 public class TaskIndexer {
 
@@ -38,7 +34,7 @@ public class TaskIndexer {
     private static final String CTX = "ctx";
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
+    private final Cache<String, Queue<Event>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
@@ -138,132 +134,110 @@ public class TaskIndexer {
         }
     }
 
-    private void updateAdoptedOrphans(Event parentEvent, Map<String, List<Event>> eventsMap) {
-        String taskId = parentEvent.getTaskId();
-        Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
-
-        parentIdTORootOrphansEventsCache.invalidate(taskId);
-        if (adoptedEvents != null) {
-            populateWithContextValue(adoptedEvents);
-            for (AdoptedEvent adoptedEvent : adoptedEvents) {
-                populateParentParams(adoptedEvent, null, Lists.newArrayList(parentEvent));
-                String adoptedId = adoptedEvent.getTaskId();
-                if (eventsMap.containsKey(adoptedId)){
-                    eventsMap.get(adoptedId).add(adoptedEvent);
+    private void updateAdoptedOrphans(Event event, Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks) {
+        String taskId = event.getTaskId();
+        Queue<Event> orphansEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
+        if (orphansEvents != null && (event.isOrphan() == null || !event.isOrphan())){
+            parentIdTORootOrphansEventsCache.invalidate(taskId);
+            for (Event orphanEvent : orphansEvents) {
+                if (!eventsMap.containsKey(event.getTaskId())){
+					eventsMap.put(event.getTaskId(), Lists.newArrayList(event));
+				}
+                String orphanId = orphanEvent.getTaskId();
+                if (eventsMap.containsKey(orphanId)){
+                    eventsMap.get(orphanId).add(orphanEvent);
                 }
                 else{
-                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
+                    List<Event> eventsList = new LinkedList<>();
+                    eventsList.add(orphanEvent);
+                    eventsMap.put(orphanId, eventsList);
                 }
-                updateAdoptedOrphans(adoptedEvent, eventsMap);
+                enrichEvent(eventsMap, previouslyIndexedTasks, orphanEvent);
             }
         }
-
-    }
-
-    private void populateWithContextValue(Queue<AdoptedEvent> adoptedEvent) {
-        Set<String> taskIds = adoptedEvent.stream().map(Event::getTaskId).collect(Collectors.toSet());
-        Map<String, Task> tasks = this.es.getTasksByIds(null, taskIds, "Get adopted tasks context", CTX_FIELDS, EMPTY_ARRAY);
-
-        adoptedEvent.forEach(e -> {
-            Task task = tasks.get(e.getTaskId());
-            if (task != null){
-                for (Map.Entry<String, String> entry : task.getCtx().entrySet()) {
-                    e.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-                }
-            }
-        });
     }
 
     private void enrichEvent(Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks, Event event) {
+        List<String> parentsPath = new ArrayList<>();
         String parentId = event.getParentId();
         if (parentId != null) {
-            if (isOrphan(event, previouslyIndexedTasks, eventsMap)){
+
+            if (isOrphan(previouslyIndexedTasks, event, eventsMap)){
                 event.setOrphan(true);
-                addOrphanToCache(event, parentId);
+                Queue<Event> eventList = parentIdTORootOrphansEventsCache.getIfPresent(parentId);
+
+                Event orphanEvent = new AdoptedEvent(event);
+                if (eventList == null) {
+                    eventList = new LinkedBlockingQueue<>();
+                    eventList.add(orphanEvent);
+                    parentIdTORootOrphansEventsCache.put(parentId, eventList);
+                } else {
+                    eventList.add(orphanEvent);
+                }
             }
             else {
                 event.setOrphan(false);
             }
-            populateParentParams(event, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
-        }
-        if (hasAdoptedOrphans(event)) {
-            updateAdoptedOrphans(event, eventsMap);
-        }
-    }
 
-    private boolean hasAdoptedOrphans(Event event) {
-        String taskId = event.getTaskId();
-        Queue<AdoptedEvent> orphansEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
-        return orphansEvents != null && (event.isOrphan() == null || !event.isOrphan());
-    }
+            ParentProperties parentProperties = getParentProperties(previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
 
-    private void populateParentParams(Event event, Task previousTask, Collection<Event> currentParentEvent) {
-        ParentProperties parentProperties = getParentProperties(previousTask, currentParentEvent);
-        List<String> parentsPath =  new ArrayList<>();
-        String primaryId = parentProperties.getPrimaryId();
-        event.setPrimaryId(primaryId);
-        if (event.getContext() == null){
-            event.setContext(Maps.newHashMap());
-        }
-        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
-            event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-        }
+            String primaryId = parentProperties.getPrimaryId();
+            event.setPrimaryId(primaryId);
+            for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
+                if (event.getContext() == null){
+                    event.setContext(Maps.newHashMap());
+                }
+                event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
+            }
 
-        Collection<String> parentParentsPath = parentProperties.getParentPath();
-        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
-            parentsPath.addAll(parentParentsPath);
-        }
+            Collection<String> parentParentsPath = parentProperties.getParentPath();
+            if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
+                parentsPath.addAll(parentParentsPath);
+            }
 
-        String parentName = parentProperties.getParentName();
-        if(parentName != null) {
-            parentsPath.add(parentName);
+            String parentName = parentProperties.getParentName();
+            if(parentName != null) {
+                parentsPath.add(parentName);
+            }
         }
-
         if(!parentsPath.isEmpty()) {
             event.setParentsPath(parentsPath);
         }
+        updateAdoptedOrphans(event, eventsMap, previouslyIndexedTasks);
     }
 
-    private void addOrphanToCache(Event event, String parentId) {
-        Queue<AdoptedEvent> eventList = parentIdTORootOrphansEventsCache.getIfPresent(parentId);
-
-        AdoptedEvent orphanEvent = new AdoptedEvent(event);
-        if (eventList == null) {
-            eventList = new LinkedBlockingQueue<>();
-            eventList.add(orphanEvent);
-            parentIdTORootOrphansEventsCache.put(parentId, eventList);
-        } else {
-            eventList.add(orphanEvent);
-        }
-    }
-
-    private boolean isOrphan(Event event, Map<String, Task> previouslyIndexedTasks, Map<String, List<Event>> eventsMap) {
-        String parentId = event.getParentId();
-        if (parentId == null) {
+    private boolean isOrphan(Map<String, Task> previouslyIndexedTasks, Event event, Map<String, List<Event>> eventsMap) {
+        if (event.isOrphan() != null && !event.isOrphan()){
             return false;
-        } else {
-            if (previouslyIndexedTasks.containsKey(parentId)){
-                return false;
-            }
-            if (eventsMap.containsKey(parentId)){
-                if (eventsMap.get(parentId).stream().anyMatch(Event::isAdoptedEvent)) {
-                    return false;
-                }
-                if (eventsMap.get(parentId).stream().anyMatch(Event::isStartEvent)){
-                    List<Event> parentEvents = eventsMap.get(parentId).stream().filter(Event::isStartEvent).collect(Collectors.toList());
-                    if (parentEvents.size() != 1){
-                        LOG.warn("Problem with parent events. Evens: {}", parentEvents.toString());
-                    }
-                    for (Event e : parentEvents) {
-                        if (e.isOrphan() != null && e.isOrphan()){
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            }
-            return true;
         }
+        String parentId = event.getParentId();
+        if (parentId != null) {
+            if (parentIdTORootOrphansEventsCache.getIfPresent(parentId) != null){
+                return true;
+            }
+            else if(eventsMap.containsKey(parentId)){
+                if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof AdoptedEvent)){
+                    return false;
+                }
+                if (eventsMap.get(parentId).stream().anyMatch(e -> e instanceof StartEvent)){
+                    Event parentEvent = eventsMap.get(parentId).stream().filter(e -> e instanceof StartEvent).findFirst().get();
+                    Boolean isOrphan = parentEvent.isOrphan();
+                    return isOrphan != null && isOrphan;
+                }
+            }
+
+            if (previouslyIndexedTasks.containsKey(parentId)) {
+                Boolean isOrphan = previouslyIndexedTasks.get(parentId).isOrphan();
+                return isOrphan != null && isOrphan;
+            }
+            else {
+                return true;
+            }
+        }
+        else {
+            return false;
+        }
+
     }
 
     private Collection<DefaultMutableTreeNode> getTreesRoots(Collection<Event> timbermillEvents) {
@@ -384,18 +358,18 @@ public class TaskIndexer {
 
     private static ParentProperties getParentProperties(Task indexedTask, Collection<Event> previousEvents) {
 
-        if (indexedTask != null && previousEvents != null){
-            LOG.warn("Parent task exists both in ES and in batch.\n ES: {} \n Batch: {}", indexedTask, previousEvents);
-        }
-
         Map<String, String> context = Maps.newHashMap();
         String primaryId = null;
         Collection<String> parentPath = null;
         String parentName = null;
-        if (previousEvents != null && !previousEvents.isEmpty()){
-            if (previousEvents.size() > 1){
-                LOG.warn("More than 2 StartEvents for parent in current batch. Events {}", previousEvents.toString());
-            }
+        if (indexedTask != null){
+            primaryId = indexedTask.getPrimaryId();
+            context = indexedTask.getCtx();
+            parentPath = indexedTask.getParentsPath();
+            parentName = indexedTask.getName();
+        }
+
+        if (previousEvents != null){
             for (Event previousEvent : previousEvents) {
                 String previousPrimaryId = previousEvent.getPrimaryId();
                 if (previousPrimaryId != null){
@@ -417,13 +391,6 @@ public class TaskIndexer {
                 }
             }
         }
-        if (indexedTask != null){
-            primaryId = indexedTask.getPrimaryId();
-            context = indexedTask.getCtx();
-            parentPath = indexedTask.getParentsPath();
-            parentName = indexedTask.getName();
-        }
-
         return new ParentProperties(primaryId, context, parentPath, parentName);
     }
 

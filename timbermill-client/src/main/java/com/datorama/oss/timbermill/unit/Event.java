@@ -197,11 +197,6 @@ public abstract class Event{
 		return false;
 	}
 
-	@JsonIgnore
-	public boolean isAdoptedEvent(){
-		return false;
-	}
-
 
 
 	@JsonIgnore

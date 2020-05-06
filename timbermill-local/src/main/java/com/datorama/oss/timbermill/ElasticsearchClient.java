@@ -85,8 +85,7 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	public static final String[] CTX_FIELDS = {CTX + ".*"};
-	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
+	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId",  CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final ExecutorService executorService;
@@ -197,7 +196,7 @@ public class ElasticsearchClient {
 
     Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		if (!tasksToFetch.isEmpty()) {
-			Map<String, Task> fetchedTasks = getNonOrphansTasksByIds(currentIndex, tasksToFetch, "Fetch previously indexed parent tasks", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+			Map<String, Task> fetchedTasks = getTasksByIds(currentIndex, tasksToFetch, "Fetch previously indexed parent tasks", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
 					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
@@ -226,19 +225,6 @@ public class ElasticsearchClient {
         }
 		return getSingleTaskByIds(idsQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude);
     }
-
-	public Map<String, Task> getNonOrphansTasksByIds(String index, Set<String> taskIds, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
-		IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
-		for (String taskId : taskIds) {
-			idsQueryBuilder.addIds(taskId);
-		}
-		TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("orphan", true);
-
-		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		boolQueryBuilder.filter(idsQueryBuilder);
-		boolQueryBuilder.mustNot(termQueryBuilder);
-		return getSingleTaskByIds(boolQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude);
-	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
         Map<String, Task> retMap = Maps.newHashMap();
