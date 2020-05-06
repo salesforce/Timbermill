@@ -54,7 +54,7 @@ public class EventLoggerTest {
 		assertEquals(QUERY, startEvent.getName());
 		assertTrue(startEvent instanceof StartEvent);
 		assertTrue(endEvent instanceof SuccessEvent);
-		assertNull(startEvent.getTaskId(), startEvent.getPrimaryId());
+		assertEquals(startEvent.getTaskId(), startEvent.getPrimaryId());
 		assertNull(startEvent.getParentId());
 		assertEquals(TEST, startEvent.getStrings().get(BOOTSTRAP));
 	}
@@ -124,7 +124,7 @@ public class EventLoggerTest {
 		Event spotEvent = filteredEvents.get(1);
 		assertTrue(spotEvent instanceof SpotEvent);
 		assertEquals(startId, spotEvent.getParentId());
-		assertNull(startId, spotEvent.getPrimaryId());
+		assertEquals(startId, spotEvent.getPrimaryId());
 		assertEquals("Testing", spotEvent.getName());
 	}
 

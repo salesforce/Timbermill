@@ -179,16 +179,12 @@ public class TaskIndexer {
         if (parentId != null) {
             if (isOrphan(event, previouslyIndexedTasks, eventsMap)){
                 event.setOrphan(true);
-                event.setPrimaryId(null);
                 addOrphanToCache(event, parentId);
             }
             else {
                 event.setOrphan(false);
-                populateParentParams(event, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
             }
-        }
-        else{
-            event.setPrimaryId(event.getTaskId());
+            populateParentParams(event, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
         }
         if (hasAdoptedOrphans(event)) {
             updateAdoptedOrphans(eventsMap, event.getTaskId());
@@ -201,8 +197,8 @@ public class TaskIndexer {
         return orphansEvents != null && (event.isOrphan() == null || !event.isOrphan());
     }
 
-    private void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
-        ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
+    private void populateParentParams(Event event, Task previousTask, Collection<Event> currentParentEvent) {
+        ParentProperties parentProperties = getParentProperties(previousTask, currentParentEvent);
         List<String> parentsPath =  new ArrayList<>();
         String primaryId = parentProperties.getPrimaryId();
         event.setPrimaryId(primaryId);
@@ -386,20 +382,31 @@ public class TaskIndexer {
                 .map(Event::getParentId).collect(Collectors.toSet());
     }
 
-    private static ParentProperties getParentProperties(Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
+    private static ParentProperties getParentProperties(Task indexedTask, Collection<Event> previousEvents) {
+
+        if (indexedTask != null && previousEvents != null){
+            LOG.warn("Parent task exists both in ES and in batch.\n ES: {} \n Batch: {}", indexedTask, previousEvents);
+        }
+
         Map<String, String> context = Maps.newHashMap();
         String primaryId = null;
         Collection<String> parentPath = null;
         String parentName = null;
-        if (parentCurrentEvent != null && !parentCurrentEvent.isEmpty()){
-            for (Event previousEvent : parentCurrentEvent) {
+        if (previousEvents != null && !previousEvents.isEmpty()){
+            if (previousEvents.size() > 1){
+                LOG.warn("More than 2 StartEvents for parent in current batch. Events {}", previousEvents.toString());
+            }
+            for (Event previousEvent : previousEvents) {
                 String previousPrimaryId = previousEvent.getPrimaryId();
                 if (previousPrimaryId != null){
                     primaryId = previousPrimaryId;
                 }
                 Map<String, String> previousContext = previousEvent.getContext();
                 if (previousContext != null){
-                    context.putAll(previousContext);
+                    for (Map.Entry<String, String> entry : previousContext.entrySet()) {
+                        context.putIfAbsent(entry.getKey(), entry.getValue());
+                    }
+
                 }
                 Collection<String> previousPath = previousEvent.getParentsPath();
                 if (previousPath != null){
@@ -412,27 +419,11 @@ public class TaskIndexer {
                 }
             }
         }
-        if (parentIndexedTask != null){
-
-            String indexedPrimary = parentIndexedTask.getPrimaryId();
-            if (indexedPrimary != null) {
-                primaryId = indexedPrimary;
-            }
-
-            Map<String, String> indexedContext = parentIndexedTask.getCtx();
-            if (indexedContext != null) {
-                context.putAll(indexedContext);
-            }
-
-            List<String> indexedParentsPath = parentIndexedTask.getParentsPath();
-            if (indexedParentsPath != null) {
-                parentPath = indexedParentsPath;
-            }
-
-            String indexedName = parentIndexedTask.getName();
-            if (indexedName != null) {
-                parentName = indexedName;
-            }
+        if (indexedTask != null){
+            primaryId = indexedTask.getPrimaryId();
+            context = indexedTask.getCtx();
+            parentPath = indexedTask.getParentsPath();
+            parentName = indexedTask.getName();
         }
 
         return new ParentProperties(primaryId, context, parentPath, parentName);

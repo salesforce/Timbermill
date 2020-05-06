@@ -13,8 +13,13 @@ public class SpotEvent extends Event {
     public SpotEvent() {
     }
 
-    public SpotEvent(String taskId, String name, String parentId, TaskStatus status, @NotNull LogParams logParams) {
+    public SpotEvent(String taskId, String name, String primaryId, String parentId, TaskStatus status, @NotNull LogParams logParams) {
         super(taskId, name, logParams, parentId);
+        if (primaryId == null){
+            this.primaryId = this.taskId;
+        } else {
+            this.primaryId = primaryId;
+        }
         this.status = status;
     }
 

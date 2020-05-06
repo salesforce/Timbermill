@@ -16,8 +16,13 @@ public class StartEvent extends Event {
     public StartEvent() {
     }
 
-    public StartEvent(String taskId, String name, @NotNull LogParams logParams, String parentId) {
+    public StartEvent(String taskId, String name, @NotNull LogParams logParams, String primaryId, String parentId) {
         super(taskId, name, logParams, parentId);
+        if (primaryId == null){
+            this.primaryId = this.taskId;
+        } else {
+            this.primaryId = primaryId;
+        }
     }
 
     @JsonIgnore
