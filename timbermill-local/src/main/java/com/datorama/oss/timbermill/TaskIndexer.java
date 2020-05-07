@@ -17,8 +17,7 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -43,7 +42,17 @@ public class TaskIndexer {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.es = es;
-        parentIdTORootOrphansEventsCache = CacheBuilder.newBuilder().maximumSize(elasticsearchParams.getMaximumCacheSize()).expireAfterAccess(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).build();
+        CacheBuilder<String, Queue<AdoptedEvent>> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> {
+            int sum = value.stream().mapToInt(Event::estimatedSize).sum();
+            return key.length() + sum;
+        });
+        parentIdTORootOrphansEventsCache = cacheBuilder
+                .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
+                        notification -> {
+                            if (notification.wasEvicted()){
+                                LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
+                            }
+                        }).build();
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
@@ -53,7 +62,6 @@ public class TaskIndexer {
 
         Collection<Event> heartbeatEvents = new HashSet<>();
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
-        Collection<String> startEventsIds = new HashSet<>();
 
         events.forEach(e -> {
             if (e.getName() != null && e.getName().equals(Constants.HEARTBEAT_TASK)){
@@ -61,9 +69,6 @@ public class TaskIndexer {
             }
             else{
                 timbermillEvents.add(e);
-                if (e.isStartEvent()){
-                    startEventsIds.add(e.getTaskId());
-                }
             }
         });
 
@@ -74,14 +79,14 @@ public class TaskIndexer {
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
-            IndexEvent indexEvent = handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents, startEventsIds);
+            IndexEvent indexEvent = handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents);
             es.indexMetaDataTasks(env, GSON.toJson(indexEvent));
         }
         LOG.info("------------------ Batch End ------------------");
     }
 
-    private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-        Map<String, Task> previouslyIndexedParentTasks = fetchPreviouslyIndexedParentTasks(timbermillEvents, startEventsIds);
+    private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
+        Map<String, Task> previouslyIndexedParentTasks = fetchPreviouslyIndexedParentTasks(timbermillEvents);
         applyPlugins(timbermillEvents, env);
         Map<String, Task> tasksMap = createEnrichedTasks(timbermillEvents, previouslyIndexedParentTasks);
         String index = es.createTimbermillAlias(env);
@@ -91,8 +96,8 @@ public class TaskIndexer {
         return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
     }
 
-    private Map<String, Task> fetchPreviouslyIndexedParentTasks(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-        Set<String> missingParentTaskIds = getMissingParentTaskIds(timbermillEvents, startEventsIds);
+    private Map<String, Task> fetchPreviouslyIndexedParentTasks(Collection<Event> timbermillEvents) {
+        Set<String> missingParentTaskIds = getMissingParentTaskIds(timbermillEvents);
         try {
             return this.es.fetchIndexedTasks(missingParentTaskIds);
         } catch (Throwable t) {
@@ -139,8 +144,8 @@ public class TaskIndexer {
     private void updateAdoptedOrphans(Map<String, List<Event>> eventsMap, String parentTaskId) {
         Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(parentTaskId);
 
-        parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
         if (adoptedEvents != null) {
+            parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
             populateWithContextValue(adoptedEvents);
             for (AdoptedEvent adoptedEvent : adoptedEvents) {
                 populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
@@ -183,7 +188,6 @@ public class TaskIndexer {
                 addOrphanToCache(event, parentId);
             }
             else {
-                event.setOrphan(false);
                 populateParentParams(event, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
             }
         }
@@ -233,7 +237,7 @@ public class TaskIndexer {
 
         AdoptedEvent orphanEvent = new AdoptedEvent(event);
         if (eventList == null) {
-            eventList = new LinkedBlockingQueue<>();
+            eventList = new LinkedList<>();
             eventList.add(orphanEvent);
             parentIdTORootOrphansEventsCache.put(parentId, eventList);
         } else {
@@ -379,8 +383,8 @@ public class TaskIndexer {
         return value;
     }
 
-    private static Set<String> getMissingParentTaskIds(Collection<Event> timbermillEvents, Collection<String> startEventsIds) {
-
+    private static Set<String> getMissingParentTaskIds(Collection<Event> timbermillEvents) {
+        Set<String> startEventsIds = timbermillEvents.stream().filter(Event::isStartEvent).map(Event::getTaskId).collect(Collectors.toSet());
         return timbermillEvents.stream()
                 .filter(e -> e.getParentId() != null && !startEventsIds.contains(e.getParentId()))
                 .map(Event::getParentId).collect(Collectors.toSet());

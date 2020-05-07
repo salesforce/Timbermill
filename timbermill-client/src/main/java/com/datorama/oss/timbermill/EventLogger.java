@@ -324,17 +324,4 @@ final class EventLogger {
 		return event.getTaskId();
 	}
 
-	private static class PrimaryParentIdPair {
-
-		private final String parentId;
-
-		PrimaryParentIdPair(String parentId) {
-
-			this.parentId = parentId;
-		}
-
-		String getParentId() {
-			return parentId;
-		}
-	}
 }

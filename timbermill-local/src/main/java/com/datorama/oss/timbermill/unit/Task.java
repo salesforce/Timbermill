@@ -147,8 +147,13 @@ public class Task {
 			if (e.getContext() != null && !e.getContext().isEmpty()) {
 				ctx.putAll(e.getContext());
 			}
-			if (e.isOrphan() != null && (orphan == null || orphan)) {
-				orphan = e.isOrphan();
+			if (e.isOrphan() != null){
+				if (orphan == null){
+					orphan = e.isOrphan();
+				}
+				else{
+					orphan = orphan || e.isOrphan();
+				}
 			}
 		}
 		ZonedDateTime startTime = getStartTime();
