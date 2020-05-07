@@ -4,13 +4,11 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,15 +136,14 @@ public class TaskIndexer {
         }
     }
 
-    private void updateAdoptedOrphans(Event parentEvent, Map<String, List<Event>> eventsMap) {
-        String taskId = parentEvent.getTaskId();
-        Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
+    private void updateAdoptedOrphans(Map<String, List<Event>> eventsMap, String parentTaskId) {
+        Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(parentTaskId);
 
-        parentIdTORootOrphansEventsCache.invalidate(taskId);
+        parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
         if (adoptedEvents != null) {
             populateWithContextValue(adoptedEvents);
             for (AdoptedEvent adoptedEvent : adoptedEvents) {
-                populateParentParams(adoptedEvent, null, Lists.newArrayList(parentEvent));
+                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
                 String adoptedId = adoptedEvent.getTaskId();
                 if (eventsMap.containsKey(adoptedId)){
                     eventsMap.get(adoptedId).add(adoptedEvent);
@@ -154,7 +151,7 @@ public class TaskIndexer {
                 else{
                     eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
                 }
-                updateAdoptedOrphans(adoptedEvent, eventsMap);
+                updateAdoptedOrphans(eventsMap, adoptedId);
             }
         }
 
@@ -165,6 +162,9 @@ public class TaskIndexer {
         Map<String, Task> tasks = this.es.getTasksByIds(null, taskIds, "Get adopted tasks context", CTX_FIELDS, EMPTY_ARRAY);
 
         adoptedEvent.forEach(e -> {
+            if (e.getContext() == null){
+                e.setContext(Maps.newHashMap());
+            }
             Task task = tasks.get(e.getTaskId());
             if (task != null){
                 for (Map.Entry<String, String> entry : task.getCtx().entrySet()) {
@@ -187,7 +187,7 @@ public class TaskIndexer {
             populateParentParams(event, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
         }
         if (hasAdoptedOrphans(event)) {
-            updateAdoptedOrphans(event, eventsMap);
+            updateAdoptedOrphans(eventsMap, event.getTaskId());
         }
     }
 
@@ -403,7 +403,9 @@ public class TaskIndexer {
                 }
                 Map<String, String> previousContext = previousEvent.getContext();
                 if (previousContext != null){
-                    context.putAll(previousContext);
+                    for (Map.Entry<String, String> entry : previousContext.entrySet()) {
+                        context.putIfAbsent(entry.getKey(), entry.getValue());
+                    }
 
                 }
                 Collection<String> previousPath = previousEvent.getParentsPath();
