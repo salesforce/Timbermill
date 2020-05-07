@@ -427,5 +427,10 @@ public class TaskIndexer {
         String getParentName() {
             return parentName;
         }
+
+    }
+
+    public Cache<String, Queue<Event>> getParentIdTORootOrphansEventsCache() {
+        return parentIdTORootOrphansEventsCache;
     }
 }

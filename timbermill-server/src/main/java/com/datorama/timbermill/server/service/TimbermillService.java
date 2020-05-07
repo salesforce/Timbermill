@@ -117,4 +117,12 @@ public class TimbermillService {
 			}
 		}
 	}
+
+	public int getEventsQueueSize() {
+		return eventsQueue.size();
+	}
+
+	public TaskIndexer getTaskIndexer() {
+		return taskIndexer;
+	}
 }
