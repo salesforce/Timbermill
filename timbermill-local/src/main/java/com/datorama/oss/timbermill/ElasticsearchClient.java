@@ -85,7 +85,8 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId",  CTX + ".*", "parentsPath", "name"};
+	public static final String[] CTX_FIELDS = {CTX + ".*"};
+	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final ExecutorService executorService;
@@ -196,7 +197,7 @@ public class ElasticsearchClient {
 
     Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		if (!tasksToFetch.isEmpty()) {
-			Map<String, Task> fetchedTasks = getTasksByIds(currentIndex, tasksToFetch, "Fetch previously indexed parent tasks", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+			Map<String, Task> fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
 					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
@@ -225,6 +226,21 @@ public class ElasticsearchClient {
         }
 		return getSingleTaskByIds(idsQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude);
     }
+
+	private Map<String, Task> getNonOrphansTasksByIds(Set<String> taskIds) {
+		IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
+		for (String taskId : taskIds) {
+			idsQueryBuilder.addIds(taskId);
+		}
+		TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("orphan", true);
+		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
+
+		boolQueryBuilder.filter(idsQueryBuilder);
+		boolQueryBuilder.filter(startedTaskQueryBuilder);
+		boolQueryBuilder.mustNot(termQueryBuilder);
+		return getSingleTaskByIds(boolQueryBuilder, currentIndex, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
         Map<String, Task> retMap = Maps.newHashMap();
@@ -289,6 +305,7 @@ public class ElasticsearchClient {
                 LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
 				isSucceeded =  true;
             }
+
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
         }

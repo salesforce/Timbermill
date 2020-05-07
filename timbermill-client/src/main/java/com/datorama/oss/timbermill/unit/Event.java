@@ -197,6 +197,11 @@ public abstract class Event{
 		return false;
 	}
 
+	@JsonIgnore
+	public boolean isAdoptedEvent(){
+		return false;
+	}
+
 
 
 	@JsonIgnore
@@ -231,7 +236,7 @@ public abstract class Event{
 	}
 
 	@JsonIgnore
-	public long estimatedSize() {
+	public int estimatedSize() {
 		int primaryIdLength = primaryId == null ? 0 : primaryId.length() +15; // "primaryId":"",
 		int taskIdLength = taskId == null ? 0 : taskId.length() + 12; // "taskId":"",
 		int nameLength = name == null ? 0 : name.length() + 10; // "name":"",

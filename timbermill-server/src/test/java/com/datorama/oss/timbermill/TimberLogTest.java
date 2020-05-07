@@ -47,6 +47,10 @@ public abstract class TimberLogTest {
 		Awaitility.await().atMost(60, TimeUnit.SECONDS).pollInterval(2, TimeUnit.SECONDS).until(callable);
 	}
 
+	static void assertNotOrphan(Task task){
+		assertTrue(task.isOrphan() == null || !task.isOrphan());
+	}
+
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {
 		String str1 = "str1";
 		String str2 = "str2";

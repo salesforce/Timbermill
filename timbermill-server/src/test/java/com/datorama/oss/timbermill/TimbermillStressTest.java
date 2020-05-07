@@ -144,7 +144,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
             Task orphanTask = client.getTaskById(orphanTaskId);
 
-            assertFalse(orphanTask.isOrphan());
+            TimberLogTest.assertNotOrphan(orphanTask);
             assertNotNull(orphanTask.getParentId());
             assertEquals(primaryTaskId, orphanTask.getPrimaryId());
             assertEquals(numOfParents - 1, orphanTask.getParentsPath().size());

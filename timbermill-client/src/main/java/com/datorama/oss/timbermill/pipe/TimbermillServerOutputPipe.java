@@ -125,7 +125,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         long startBatchTime = System.currentTimeMillis();
         List<Event> eventsToSend = new ArrayList<>();
         try {
-            long currentBatchSize = addEventFromBufferToList(eventsToSend);
+            int currentBatchSize = addEventFromBufferToList(eventsToSend);
             while(currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
                 currentBatchSize  += addEventFromBufferToList(eventsToSend);
             }
@@ -135,7 +135,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         return eventsToSend;
     }
 
-    private long addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException {
+    private int addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException {
         Event event = buffer.poll();
         if (event == null){
             Thread.sleep(100);

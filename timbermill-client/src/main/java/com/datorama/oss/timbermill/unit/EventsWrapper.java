@@ -28,8 +28,8 @@ public class EventsWrapper {
         this.events = events;
     }
 
-    public long estimatedSize() {
-        long i = 37;
+    public int estimatedSize() {
+        int i = 37;
         for (Event event : events) {
             i += event.estimatedSize() + 1;
         }
