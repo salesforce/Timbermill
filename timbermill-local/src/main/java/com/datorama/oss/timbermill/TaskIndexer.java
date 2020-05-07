@@ -50,7 +50,7 @@ public class TaskIndexer {
                 .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
                         notification -> {
                             if (notification.wasEvicted()){
-//                                LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
+                                LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
                             }
                         }).build();
     }
