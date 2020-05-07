@@ -197,7 +197,7 @@ public class ElasticsearchClient {
 
     Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		if (!tasksToFetch.isEmpty()) {
-			Map<String, Task> fetchedTasks = getNonOrphansTasksByIds(currentIndex, tasksToFetch, "Fetch previously indexed parent tasks", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+			Map<String, Task> fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
 					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
@@ -227,17 +227,19 @@ public class ElasticsearchClient {
 		return getSingleTaskByIds(idsQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude);
     }
 
-	public Map<String, Task> getNonOrphansTasksByIds(String index, Set<String> taskIds, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
+	private Map<String, Task> getNonOrphansTasksByIds(Set<String> taskIds) {
 		IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
 		for (String taskId : taskIds) {
 			idsQueryBuilder.addIds(taskId);
 		}
 		TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("orphan", true);
-
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
+
 		boolQueryBuilder.filter(idsQueryBuilder);
+		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(termQueryBuilder);
-		return getSingleTaskByIds(boolQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude);
+		return getSingleTaskByIds(boolQueryBuilder, currentIndex, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {

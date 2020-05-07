@@ -59,7 +59,51 @@ public class TimberLogAdvancedOrphansTest {
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         Task task = client.getTaskById(taskId);
-        Assert.assertFalse(task.isOrphan());
+        TimberLogTest.assertNotOrphan(task);
+        Assert.assertEquals(parentTaskId, task.getParentId());
+        Assert.assertEquals(parentTaskId, task.getPrimaryId());
+        Assert.assertEquals(1, task.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, task.getParentsPath().get(0));
+        Assert.assertEquals(ctx, task.getCtx().get(ctx));
+    }
+
+    public void testOrphanWithAdoptionParentWithNoStart() {
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        String ctx = CTX;
+        TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
+        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
+        TimberLoggerAdvanced.success(taskId);
+        waitForTask(taskId, TaskStatus.SUCCESS);
+        waitForTask(parentTaskId, TaskStatus.PARTIAL_INFO_ONLY);
+
+        TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
+        TimberLoggerAdvanced.success(parentTaskId);
+
+        waitForTask(parentTaskId, TaskStatus.SUCCESS);
+        Task task = client.getTaskById(taskId);
+        TimberLogTest.assertNotOrphan(task);
+        Assert.assertEquals(parentTaskId, task.getParentId());
+        Assert.assertEquals(parentTaskId, task.getPrimaryId());
+        Assert.assertEquals(1, task.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, task.getParentsPath().get(0));
+        Assert.assertEquals(ctx, task.getCtx().get(ctx));
+    }
+
+    public void testOrphanWithAdoptionParentWithNoStartDifferentBatch() {
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        String ctx = CTX;
+        TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
+        waitForTask(parentTaskId, TaskStatus.PARTIAL_INFO_ONLY);
+        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
+        TimberLoggerAdvanced.success(taskId);
+        waitForTask(taskId, TaskStatus.SUCCESS);
+
+        TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
+        TimberLoggerAdvanced.success(parentTaskId);
+
+        waitForTask(parentTaskId, TaskStatus.SUCCESS);
+        Task task = client.getTaskById(taskId);
+        TimberLogTest.assertNotOrphan(task);
         Assert.assertEquals(parentTaskId, task.getParentId());
         Assert.assertEquals(parentTaskId, task.getPrimaryId());
         Assert.assertEquals(1, task.getParentsPath().size());
@@ -93,7 +137,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(parentTaskId, parentTask.getPrimaryId());
         Assert.assertEquals(CTX, parentTask.getCtx().get(CTX));
 
-        Assert.assertFalse(task.isOrphan());
+        TimberLogTest.assertNotOrphan(task);
         Assert.assertEquals(parentTaskId, task.getParentId());
         Assert.assertEquals(parentTaskId, task.getPrimaryId());
         Assert.assertEquals(1, task.getParentsPath().size());
@@ -101,7 +145,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX, task.getCtx().get(CTX));
         Assert.assertEquals(CTX + 1, task.getCtx().get(CTX + 1));
 
-        Assert.assertFalse(orphanChildTask.isOrphan());
+        TimberLogTest.assertNotOrphan(orphanChildTask);
         Assert.assertEquals(taskId, orphanChildTask.getParentId());
         Assert.assertEquals(parentTaskId, orphanChildTask.getPrimaryId());
         Assert.assertEquals(2, orphanChildTask.getParentsPath().size());
@@ -173,7 +217,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task1.getParentsPath());
         Assert.assertEquals(ctx + "1", task1.getCtx().get(ctx +"1"));
 
-        Assert.assertTrue(task2.isOrphan() == null || !task2.isOrphan());
+        TimberLogTest.assertNotOrphan(task2);
         Assert.assertEquals(orphan1TaskId, task2.getParentId());
         Assert.assertEquals(orphan1TaskId, task2.getPrimaryId());
         Assert.assertEquals(1, task2.getParentsPath().size());
@@ -181,7 +225,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx + "1", task2.getCtx().get(ctx +"1"));
         Assert.assertEquals(ctx + "2", task2.getCtx().get(ctx +"2"));
 
-        Assert.assertFalse(task3.isOrphan());
+        TimberLogTest.assertNotOrphan(task3);
         Assert.assertEquals(orphan2TaskId, task3.getParentId());
         Assert.assertEquals(orphan1TaskId, task3.getPrimaryId());
         Assert.assertEquals(2, task3.getParentsPath().size());
@@ -191,7 +235,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx + "2", task3.getCtx().get(ctx +"2"));
         Assert.assertEquals(ctx + "3", task3.getCtx().get(ctx +"3"));
 
-        Assert.assertFalse(task41.isOrphan());
+        TimberLogTest.assertNotOrphan(task41);
         Assert.assertEquals(orphan3TaskId, task41.getParentId());
         Assert.assertEquals(orphan1TaskId, task41.getPrimaryId());
         Assert.assertEquals(3, task41.getParentsPath().size());
@@ -204,7 +248,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx + "41", task41.getCtx().get(ctx +"41"));
         Assert.assertNull(task41.getCtx().get(ctx +"42"));
 
-        Assert.assertFalse(task42.isOrphan());
+        TimberLogTest.assertNotOrphan(task42);
         Assert.assertEquals(orphan3TaskId, task42.getParentId());
         Assert.assertEquals(orphan1TaskId, task42.getPrimaryId());
         Assert.assertEquals(3, task42.getParentsPath().size());
@@ -301,7 +345,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task1.getParentsPath());
         Assert.assertEquals(CTX + "1", task1.getCtx().get(CTX +"1"));
 
-        Assert.assertTrue(task2.isOrphan() == null || !task2.isOrphan());
+        TimberLogTest.assertNotOrphan(task2);
         Assert.assertEquals(orphan1TaskId, task2.getParentId());
         Assert.assertEquals(orphan1TaskId, task2.getPrimaryId());
         Assert.assertEquals(1, task2.getParentsPath().size());
@@ -309,7 +353,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "1", task2.getCtx().get(CTX +"1"));
         Assert.assertEquals(CTX + "2", task2.getCtx().get(CTX +"2"));
 
-        Assert.assertFalse(task3.isOrphan());
+        TimberLogTest.assertNotOrphan(task3);
         Assert.assertEquals(orphan2TaskId, task3.getParentId());
         Assert.assertEquals(orphan1TaskId, task3.getPrimaryId());
         Assert.assertEquals(2, task3.getParentsPath().size());
@@ -319,7 +363,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "2", task3.getCtx().get(CTX +"2"));
         Assert.assertEquals(CTX + "3", task3.getCtx().get(CTX +"3"));
 
-        Assert.assertFalse(task4.isOrphan());
+        TimberLogTest.assertNotOrphan(task4);
         Assert.assertEquals(orphan3TaskId, task4.getParentId());
         Assert.assertEquals(orphan1TaskId, task4.getPrimaryId());
         Assert.assertEquals(3, task4.getParentsPath().size());
@@ -331,7 +375,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "3", task4.getCtx().get(CTX +"3"));
         Assert.assertEquals(CTX + "4", task4.getCtx().get(CTX +"4"));
 
-        Assert.assertFalse(task5.isOrphan());
+        TimberLogTest.assertNotOrphan(task5);
         Assert.assertEquals(orphan4TaskId, task5.getParentId());
         Assert.assertEquals(orphan1TaskId, task5.getPrimaryId());
         Assert.assertEquals(4, task5.getParentsPath().size());
@@ -345,7 +389,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "4", task5.getCtx().get(CTX +"4"));
         Assert.assertEquals(CTX + "5", task5.getCtx().get(CTX +"5"));
 
-        Assert.assertFalse(task6.isOrphan());
+        TimberLogTest.assertNotOrphan(task6);
         Assert.assertEquals(orphan5TaskId, task6.getParentId());
         Assert.assertEquals(orphan1TaskId, task6.getPrimaryId());
         Assert.assertEquals(5, task6.getParentsPath().size());
@@ -361,7 +405,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "5", task6.getCtx().get(CTX +"5"));
         Assert.assertEquals(CTX + "6", task6.getCtx().get(CTX +"6"));
 
-        Assert.assertFalse(task7.isOrphan());
+        TimberLogTest.assertNotOrphan(task7);
         Assert.assertEquals(orphan6TaskId, task7.getParentId());
         Assert.assertEquals(orphan1TaskId, task7.getPrimaryId());
         Assert.assertEquals(6, task7.getParentsPath().size());
@@ -465,7 +509,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task1.getParentsPath());
         Assert.assertEquals(CTX + "1", task1.getCtx().get(CTX +"1"));
 
-        Assert.assertTrue(task2.isOrphan() == null || !task2.isOrphan());
+        TimberLogTest.assertNotOrphan(task2);
         Assert.assertEquals(orphan1TaskId, task2.getParentId());
         Assert.assertEquals(orphan1TaskId, task2.getPrimaryId());
         Assert.assertEquals(1, task2.getParentsPath().size());
@@ -473,7 +517,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "1", task2.getCtx().get(CTX +"1"));
         Assert.assertEquals(CTX + "2", task2.getCtx().get(CTX +"2"));
 
-        Assert.assertFalse(task3.isOrphan());
+        TimberLogTest.assertNotOrphan(task3);
         Assert.assertEquals(orphan2TaskId, task3.getParentId());
         Assert.assertEquals(orphan1TaskId, task3.getPrimaryId());
         Assert.assertEquals(2, task3.getParentsPath().size());
@@ -483,7 +527,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "2", task3.getCtx().get(CTX +"2"));
         Assert.assertEquals(CTX + "3", task3.getCtx().get(CTX +"3"));
 
-        Assert.assertFalse(task4.isOrphan());
+        TimberLogTest.assertNotOrphan(task4);
         Assert.assertEquals(orphan3TaskId, task4.getParentId());
         Assert.assertEquals(orphan1TaskId, task4.getPrimaryId());
         Assert.assertEquals(3, task4.getParentsPath().size());
@@ -495,7 +539,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "3", task4.getCtx().get(CTX +"3"));
         Assert.assertEquals(CTX + "4", task4.getCtx().get(CTX +"4"));
 
-        Assert.assertFalse(task5.isOrphan());
+        TimberLogTest.assertNotOrphan(task5);
         Assert.assertEquals(orphan4TaskId, task5.getParentId());
         Assert.assertEquals(orphan1TaskId, task5.getPrimaryId());
         Assert.assertEquals(4, task5.getParentsPath().size());
@@ -509,7 +553,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "4", task5.getCtx().get(CTX +"4"));
         Assert.assertEquals(CTX + "5", task5.getCtx().get(CTX +"5"));
 
-        Assert.assertFalse(task6.isOrphan());
+        TimberLogTest.assertNotOrphan(task6);
         Assert.assertEquals(orphan5TaskId, task6.getParentId());
         Assert.assertEquals(orphan1TaskId, task6.getPrimaryId());
         Assert.assertEquals(5, task6.getParentsPath().size());
@@ -525,7 +569,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "5", task6.getCtx().get(CTX +"5"));
         Assert.assertEquals(CTX + "6", task6.getCtx().get(CTX +"6"));
 
-        Assert.assertFalse(task7.isOrphan());
+        TimberLogTest.assertNotOrphan(task7);
         Assert.assertEquals(orphan6TaskId, task7.getParentId());
         Assert.assertEquals(orphan1TaskId, task7.getPrimaryId());
         Assert.assertEquals(6, task7.getParentsPath().size());
@@ -577,11 +621,11 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
         Assert.assertNotNull(childTask.getParentsPath());
         Assert.assertFalse(childTask.getParentsPath().isEmpty());
-        Assert.assertFalse(childTask.isOrphan());
+        TimberLogTest.assertNotOrphan(childTask);
 
         Assert.assertEquals(parentTaskId, primaryTask.getPrimaryId());
         Assert.assertNull(primaryTask.getParentId());
         Assert.assertNull(primaryTask.getParentsPath());
-        Assert.assertTrue(primaryTask.isOrphan() == null || !primaryTask.isOrphan());
+        TimberLogTest.assertNotOrphan(primaryTask);
     }
 }
