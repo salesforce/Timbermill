@@ -371,13 +371,12 @@ public class ElasticsearchUtil {
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
 					taskIndexer.retrieveAndIndex(currentEvents, env);
-
-					//For refresh
-					try {
-						Thread.sleep(THREAD_SLEEP);
-					} catch (InterruptedException e) {
-						LOG.error("Error was thrown from TaskIndexer:", e);
-					}
+				}
+				//For refresh
+				try {
+					Thread.sleep(THREAD_SLEEP);
+				} catch (InterruptedException e) {
+					LOG.error("Error was thrown from TaskIndexer:", e);
 				}
 			} catch (RuntimeException e) {
 				LOG.error("Error was thrown from TaskIndexer:", e);
