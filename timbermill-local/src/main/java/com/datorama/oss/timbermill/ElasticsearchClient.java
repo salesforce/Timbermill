@@ -305,6 +305,7 @@ public class ElasticsearchClient {
                 LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
 				isSucceeded =  true;
             }
+
         } catch (Throwable t) {
 			handleBulkRequestFailure(dbBulkRequest,retryNum,null,t.getMessage());
         }
