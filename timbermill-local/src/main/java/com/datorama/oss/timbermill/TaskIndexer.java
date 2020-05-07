@@ -50,6 +50,9 @@ public class TaskIndexer {
         parentIdTORootOrphansEventsCache = cacheBuilder
                 .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
                         notification -> {
+                            if (notification.getKey().equals(missingParentTask)){
+                                missingParentTask = null;
+                            }
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
                             }
@@ -65,7 +68,7 @@ public class TaskIndexer {
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
 
         events.forEach(e -> {
-            if (missingParentTask != null && e.getTaskId().equals(missingParentTask)){
+            if (e.getTaskId().equals(missingParentTask)){
                 LOG.info("FOUND MISSING PARENT {}", missingParentTask);
                 missingParentTask = null;
             }
@@ -401,6 +404,7 @@ public class TaskIndexer {
 
     private static Set<String> getMissingParentTaskIds(Collection<Event> timbermillEvents) {
         Set<String> startEventsIds = timbermillEvents.stream().filter(Event::isStartEvent).map(Event::getTaskId).collect(Collectors.toSet());
+        LOG.info("ALL IDS {}", startEventsIds.toString());
         return timbermillEvents.stream()
                 .filter(e -> e.getParentId() != null && !startEventsIds.contains(e.getParentId()))
                 .map(Event::getParentId).collect(Collectors.toSet());
