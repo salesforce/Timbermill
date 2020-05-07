@@ -37,6 +37,7 @@ public class TaskIndexer {
     private final Collection<TaskLogPlugin> logPlugins;
     private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
+    private String missingParentTask;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
@@ -64,6 +65,13 @@ public class TaskIndexer {
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
 
         events.forEach(e -> {
+            if (missingParentTask != null && e.getTaskId().equals(missingParentTask)){
+                LOG.info("FOUND MISSING PARENT {}", missingParentTask);
+                missingParentTask = null;
+            }
+
+
+
             if (e.getName() != null && e.getName().equals(Constants.HEARTBEAT_TASK)){
                 heartbeatEvents.add(e);
             }
@@ -240,6 +248,14 @@ public class TaskIndexer {
             eventList = new LinkedList<>();
             eventList.add(orphanEvent);
             parentIdTORootOrphansEventsCache.put(parentId, eventList);
+
+            if (missingParentTask == null){
+                LOG.info("PARENT TASK {}", parentId);
+                missingParentTask = parentId;
+            }
+
+
+
         } else {
             eventList.add(orphanEvent);
         }
