@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill;
 
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -498,7 +497,7 @@ public class TaskIndexer {
 
     }
 
-    public Cache<String, Queue<Event>> getParentIdTORootOrphansEventsCache() {
+    public Cache<String, Queue<AdoptedEvent>> getParentIdTORootOrphansEventsCache() {
         return parentIdTORootOrphansEventsCache;
     }
 }

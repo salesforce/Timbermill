@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.datorama.oss.timbermill.unit.AdoptedEvent;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.cache.Cache;
 
@@ -52,7 +53,7 @@ public class KamonMonitorService {
 
 	private void reportOrphanMapStats() {
 		if (timbermillService!=  null){
-			final Cache<String, Queue<Event>> orphansEventsCache = timbermillService.getTaskIndexer().getParentIdTORootOrphansEventsCache();
+			final Cache<String, Queue<AdoptedEvent>> orphansEventsCache = timbermillService.getTaskIndexer().getParentIdTORootOrphansEventsCache();
 			orphanMapSizeHistogram.withoutTags().record(orphansEventsCache.size());
 			orphanEvictionCountHistogram.withoutTags().record(orphansEventsCache.stats().evictionCount());
 			orphanHitsCountHistogram.withoutTags().record(orphansEventsCache.stats().hitCount());
