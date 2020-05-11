@@ -239,7 +239,7 @@ public class ElasticsearchClient {
 		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(termQueryBuilder);
-		return getSingleTaskByIds(boolQueryBuilder, currentIndex, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
