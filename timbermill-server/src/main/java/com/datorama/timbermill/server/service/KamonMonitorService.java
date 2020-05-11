@@ -2,6 +2,8 @@ package com.datorama.timbermill.server.service;
 
 import java.util.Queue;
 
+import javax.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +12,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.datorama.oss.timbermill.unit.AdoptedEvent;
-import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.cache.Cache;
 
 import kamon.Kamon;
@@ -24,7 +25,7 @@ import kamon.metric.Metric;
  *   - orphan stats - size / eviction count / hit count
  */
 @Service
-@ConditionalOnProperty(name = "kamon.monitoring.enable", matchIfMissing = false, havingValue = "true")
+@ConditionalOnProperty(name = "KAMON.MONITORING.ENABLED", matchIfMissing = false, havingValue = "true")
 public class KamonMonitorService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(KamonMonitorService.class);
@@ -38,8 +39,12 @@ public class KamonMonitorService {
 
 	@Autowired
 	public KamonMonitorService(TimbermillService timbermillService) {
-		LOG.info("Init KamonMonitorService, will report data every {} mili-seconds",MONITOR_RATE_IN_MS);
 		this.timbermillService = timbermillService;
+	}
+
+	@PostConstruct void init(){
+		LOG.info("Init KamonMonitorService, will report data every {} mili-seconds",MONITOR_RATE_IN_MS);
+		Kamon.init();
 	}
 
 	@Scheduled(fixedRate = MONITOR_RATE_IN_MS,initialDelay = MONITOR_DELAY_IN_MS)
