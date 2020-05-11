@@ -298,7 +298,7 @@ public class ElasticsearchUtil {
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
 	private static String mergingCronExp;
-	private static Set<String> envsSet = Sets.newConcurrentHashSet();
+	private static Set<String> envsSet = Sets.newHashSet();
 	public static final String ELASTIC_SEARCH_CLIENT = "elastic_search_client";
 	private static final String SQLITE = "sqlite";
 

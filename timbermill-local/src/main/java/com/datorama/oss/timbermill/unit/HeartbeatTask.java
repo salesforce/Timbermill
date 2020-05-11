@@ -14,9 +14,9 @@ public class HeartbeatTask extends Task {
 
         setDateToDelete(e.getDateToDelete(daysRotation));
 
-        Map<String, String> eventContext = e.getContext();
+        Map<String, String> eventString = e.getStrings();
         Map<String, String> taskContext = this.getCtx();
-        taskContext.put(THREAD_NAME, eventContext.get(THREAD_NAME));
+        taskContext.put(THREAD_NAME, eventString.get(THREAD_NAME));
         setEnv(e.getEnv());
 
         Map<String, Number> eventMetrics = e.getMetrics();

@@ -26,8 +26,7 @@ public class TimbermillService {
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 	private static final int THREAD_SLEEP = 2000;
 	private TaskIndexer taskIndexer;
-	private static final int EVENT_QUEUE_CAPACITY = 10000000;
-	private final BlockingQueue<Event> eventsQueue = new LinkedBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+	private BlockingQueue<Event> eventsQueue;
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
@@ -52,6 +51,7 @@ public class TimbermillService {
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
 			@Value("${CACHE_MAX_SIZE:1000000}") int maximumCacheSize,
+			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
@@ -62,6 +62,7 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
 
+		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
 				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
@@ -110,7 +111,7 @@ public class TimbermillService {
 		return reachTerminationTimeout;
 	}
 
-	public void handleEvent(Collection<Event> events){
+	void handleEvent(Collection<Event> events){
 		for (Event event : events) {
 			if(!this.eventsQueue.offer(event)){
 				LOG.warn("Event {} was removed from the queue due to insufficient space", event.getTaskId());
@@ -118,11 +119,11 @@ public class TimbermillService {
 		}
 	}
 
-	public int getEventsQueueSize() {
+	int getEventsQueueSize() {
 		return eventsQueue.size();
 	}
 
-	public TaskIndexer getTaskIndexer() {
+	TaskIndexer getTaskIndexer() {
 		return taskIndexer;
 	}
 }

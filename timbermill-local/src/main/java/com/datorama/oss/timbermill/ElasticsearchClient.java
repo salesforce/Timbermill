@@ -196,16 +196,16 @@ public class ElasticsearchClient {
     }
 
     Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
+		Map<String, Task> fetchedTasks = Collections.emptyMap();
 		if (!tasksToFetch.isEmpty()) {
-			Map<String, Task> fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
+			fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
 					LOG.debug("Couldn't find missing parent task with ID {} in Elasticsearch", taskId);
 				}
 			}
-			return fetchedTasks;
 		}
-		return Collections.emptyMap();
+		return fetchedTasks;
 	}
 
     public Task getTaskById(String taskId){
@@ -258,7 +258,7 @@ public class ElasticsearchClient {
 		return retMap;
     }
 
-    void indexMetaDataTasks(String env, String... metadataEvents) {
+    void indexMetaDataTasks(String env, Collection<String> metadataEvents) {
         String index = createTimbermillAlias(env);
 
         BulkRequest bulkRequest = new BulkRequest();
@@ -269,7 +269,18 @@ public class ElasticsearchClient {
 		try {
 			runWithRetries(() -> client.bulk(bulkRequest, RequestOptions.DEFAULT) , 1, "Index metadata tasks");
 		} catch (MaxRetriesException e) {
-			LOG.error("Couldn't index metadata event with events " + Arrays.toString(metadataEvents) + " to elasticsearch cluster.");
+			LOG.error("Couldn't index metadata event with events {} to elasticsearch cluster.", metadataEvents.toString());
+		}
+	}
+
+	void indexMetaDataTask(String env, String metadataEvent) {
+		String index = createTimbermillAlias(env);
+
+		IndexRequest indexRequest = new IndexRequest(index, Constants.TYPE).source(metadataEvent, XContentType.JSON);
+		try {
+			runWithRetries(() -> client.index(indexRequest, RequestOptions.DEFAULT) , 1, "Index metadata tasks");
+		} catch (MaxRetriesException e) {
+			LOG.error("Couldn't index metadata event with events {} to elasticsearch cluster.", metadataEvent);
 		}
 	}
 
