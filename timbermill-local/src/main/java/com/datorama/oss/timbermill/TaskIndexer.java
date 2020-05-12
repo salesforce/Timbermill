@@ -106,6 +106,7 @@ public class TaskIndexer {
 
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
         Map<String, Task> previouslyIndexedParentTasks = getMissingParents(startEventsIds, parentIds);
+        LOG.info("Creating hierarchy");
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
@@ -171,6 +172,7 @@ public class TaskIndexer {
 
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
             Map<String, Task> previouslyIndexedParentTasks) {
+        LOG.info("Enriching {} start events", nodesMap.size());
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
         return getTasksFromEvents(eventsMap);
     }
