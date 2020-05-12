@@ -1,9 +1,11 @@
 package com.datorama.timbermill.server.service;
 
+import java.util.Map;
 import java.util.Queue;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.collections4.map.PassiveExpiringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,10 +60,8 @@ public class KamonMonitorService {
 
 	private void reportOrphanMapStats() {
 		if (timbermillService!=  null){
-			final Cache<String, Queue<AdoptedEvent>> orphansEventsCache = timbermillService.getTaskIndexer().getParentIdTORootOrphansEventsCache();
+			final Map<String, Queue<AdoptedEvent>> orphansEventsCache = timbermillService.getTaskIndexer().getMissingParentToOrphansMap();
 			orphanMapSizeHistogram.withoutTags().record(orphansEventsCache.size());
-			orphanEvictionCountHistogram.withoutTags().record(orphansEventsCache.stats().evictionCount());
-			orphanHitsCountHistogram.withoutTags().record(orphansEventsCache.stats().hitCount());
 		}
 	}
 
