@@ -300,7 +300,7 @@ public class ElasticsearchClient {
 		boolean isSucceeded = false;
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
+//		LOG.info("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 		if (retryNum > 0){
 			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfElasticSearchActionsTries, request.estimatedSizeInBytes());
 		}
@@ -313,7 +313,7 @@ public class ElasticsearchClient {
             	if (dbBulkRequest.getTimesFetched() > 0 ){
 					numOfSuccessfulBulksFromDisk +=1;
 				}
-                LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
+//                LOG.info("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
 				isSucceeded =  true;
             }
 

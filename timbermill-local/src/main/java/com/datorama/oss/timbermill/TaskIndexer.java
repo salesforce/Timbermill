@@ -68,10 +68,10 @@ public class TaskIndexer {
 
         events.forEach(e -> {
             //Orphan logging TODO remove
-            if (e.getTaskId().equals(missingParentTask)){
-                LOG.info("FOUND MISSING PARENT {}", missingParentTask);
-                missingParentTask = null;
-            }
+//            if (e.getTaskId().equals(missingParentTask)){
+//                LOG.info("FOUND MISSING PARENT {}", missingParentTask);
+//                missingParentTask = null;
+//            }
 
             if (e.getName() != null && e.getName().equals(Constants.HEARTBEAT_TASK)){
                 String heartbeatJson = GSON.toJson(new HeartbeatTask(e, daysRotation));
@@ -109,7 +109,9 @@ public class TaskIndexer {
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
+
         String index = es.createTimbermillAlias(env);
+        LOG.info("Indexing {} tasks to index {}", tasksMap.size(), index);
         es.index(tasksMap, index);
         es.rolloverIndex(index);
         LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
@@ -142,13 +144,14 @@ public class TaskIndexer {
 
     private Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds) {
         parentIds.removeAll(startEventsIds);
-
+        LOG.info("Fetching {} missing parents", parentIds.size());
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             previouslyIndexedParentTasks = this.es.fetchIndexedTasks(parentIds);
         } catch (Throwable t) {
             LOG.error("Error fetching indexed tasks from Elasticsearch", t);
         }
+        LOG.info("Fetched {} parents", previouslyIndexedParentTasks.size());
         return previouslyIndexedParentTasks;
     }
 
@@ -173,11 +176,13 @@ public class TaskIndexer {
     }
 
     private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
+        LOG.info("Creating tasks from {} events", eventsMap.size());
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
             Task task = new Task(eventEntry.getValue(), daysRotation);
             tasksMap.put(eventEntry.getKey(), task);
         }
+        LOG.info("Created {} tasks", tasksMap.size());
         return tasksMap;
     }
 
