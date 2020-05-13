@@ -194,18 +194,18 @@ public class TaskIndexer {
         if (missingParentToOrphansMap.containsKey(parentTaskId)) {
             Queue<AdoptedEvent> adoptedEvents = missingParentToOrphansMap.get(parentTaskId);
             missingParentToOrphansMap.remove(parentTaskId);
-            populateWithContextValue(adoptedEvents);
-            for (AdoptedEvent adoptedEvent : adoptedEvents) {
-                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
-                String adoptedId = adoptedEvent.getTaskId();
-                if (eventsMap.containsKey(adoptedId)){
-                    eventsMap.get(adoptedId).add(adoptedEvent);
-                }
-                else{
-                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
-                }
-                updateAdoptedOrphans(eventsMap, adoptedId);
-            }
+//            populateWithContextValue(adoptedEvents);
+//            for (AdoptedEvent adoptedEvent : adoptedEvents) {
+//                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
+//                String adoptedId = adoptedEvent.getTaskId();
+//                if (eventsMap.containsKey(adoptedId)){
+//                    eventsMap.get(adoptedId).add(adoptedEvent);
+//                }
+//                else{
+//                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
+//                }
+//                updateAdoptedOrphans(eventsMap, adoptedId);
+//            }
         }
 
     }
@@ -244,7 +244,7 @@ public class TaskIndexer {
         }
 //        //TODO return
         if (hasAdoptedOrphans(startEvent)) {
-//            updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
+            updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
         }
     }
 
