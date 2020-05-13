@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
-import org.apache.commons.collections4.map.PassiveExpiringMap;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +16,8 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -34,7 +35,7 @@ public class TaskIndexer {
     private static final String CTX = "ctx";
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private final Map<String, Queue<AdoptedEvent>> missingParentToOrphansMap;
+    private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
     private String missingParentTask;
 
@@ -42,7 +43,20 @@ public class TaskIndexer {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.es = es;
-        missingParentToOrphansMap = new TimbermillPassiveExpiringMap(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES, elasticsearchParams.getMaximumCacheSize());
+        CacheBuilder<String, Queue<AdoptedEvent>> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> {
+            int sum = value.stream().mapToInt(Event::estimatedSize).sum();
+            return key.length() + sum;
+        });
+        parentIdTORootOrphansEventsCache = cacheBuilder
+                .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
+                        notification -> {
+                            if (notification.getKey().equals(missingParentTask)){
+                                missingParentTask = null;
+                            }
+                            if (notification.wasEvicted()){
+                                LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
+                            }
+                        }).build();
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
@@ -191,9 +205,10 @@ public class TaskIndexer {
     }
 
     private void updateAdoptedOrphans(Map<String, List<Event>> eventsMap, String parentTaskId) {
-        if (missingParentToOrphansMap.containsKey(parentTaskId)) {
-            Queue<AdoptedEvent> adoptedEvents = missingParentToOrphansMap.get(parentTaskId);
-            missingParentToOrphansMap.remove(parentTaskId);
+        Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(parentTaskId);
+
+        if (adoptedEvents != null) {
+            parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
             populateWithContextValue(adoptedEvents);
             for (AdoptedEvent adoptedEvent : adoptedEvents) {
                 populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
@@ -250,7 +265,8 @@ public class TaskIndexer {
 
     private boolean hasAdoptedOrphans(Event event) {
         String taskId = event.getTaskId();
-        return missingParentToOrphansMap.containsKey(taskId) && (event.isOrphan() == null || !event.isOrphan());
+        Queue<AdoptedEvent> orphansEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
+        return orphansEvents != null && (event.isOrphan() == null || !event.isOrphan());
     }
 
     private void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
@@ -281,19 +297,19 @@ public class TaskIndexer {
     }
 
     private void addOrphanToCache(Event startEvent, String parentId) {
-        Queue<AdoptedEvent> eventList = missingParentToOrphansMap.get(parentId);
+        Queue<AdoptedEvent> eventList = parentIdTORootOrphansEventsCache.getIfPresent(parentId);
 
         AdoptedEvent orphanEvent = new AdoptedEvent(startEvent);
         if (eventList == null) {
             eventList = new LinkedList<>();
             eventList.add(orphanEvent);
-            missingParentToOrphansMap.put(parentId, eventList);
+            parentIdTORootOrphansEventsCache.put(parentId, eventList);
 
-//            if (missingParentTask == null){
-//                //TODO orphan log, delete
-//                LOG.info("PARENT TASK {}", parentId);
-//                missingParentTask = parentId;
-//            }
+            if (missingParentTask == null){
+                //TODO orphan log, delete
+                LOG.info("PARENT TASK {}", parentId);
+                missingParentTask = parentId;
+            }
         } else {
             eventList.add(orphanEvent);
         }
@@ -496,7 +512,7 @@ public class TaskIndexer {
 
     }
 
-    public Map<String, Queue<AdoptedEvent>> getMissingParentToOrphansMap() {
-        return missingParentToOrphansMap;
+    public Cache<String, Queue<AdoptedEvent>> getParentIdTORootOrphansEventsCache() {
+        return parentIdTORootOrphansEventsCache;
     }
 }
