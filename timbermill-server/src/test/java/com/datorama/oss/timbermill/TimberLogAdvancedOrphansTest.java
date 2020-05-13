@@ -113,8 +113,8 @@ public class TimberLogAdvancedOrphansTest {
 
     public void testOrphanWithComplexAdoption() {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
-        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(CTX + 1, CTX + 1));
+        String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId, LogParams.create().context(CTX + 1, CTX + 1));
+        TimberLoggerAdvanced.success(taskId);
         waitForTask(taskId, TaskStatus.SUCCESS);
 
         String orphanChildId = TimberLoggerAdvanced.start(ORPHAN_CHILD, taskId, LogParams.create().context(CTX + 2, CTX + 2));
