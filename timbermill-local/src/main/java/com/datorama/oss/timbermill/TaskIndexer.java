@@ -195,17 +195,17 @@ public class TaskIndexer {
             Queue<AdoptedEvent> adoptedEvents = missingParentToOrphansMap.get(parentTaskId);
             missingParentToOrphansMap.remove(parentTaskId);
 //            populateWithContextValue(adoptedEvents);
-//            for (AdoptedEvent adoptedEvent : adoptedEvents) {
-//                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
-//                String adoptedId = adoptedEvent.getTaskId();
-//                if (eventsMap.containsKey(adoptedId)){
-//                    eventsMap.get(adoptedId).add(adoptedEvent);
-//                }
-//                else{
-//                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
-//                }
-//                updateAdoptedOrphans(eventsMap, adoptedId);
-//            }
+            for (AdoptedEvent adoptedEvent : adoptedEvents) {
+                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
+                String adoptedId = adoptedEvent.getTaskId();
+                if (eventsMap.containsKey(adoptedId)){
+                    eventsMap.get(adoptedId).add(adoptedEvent);
+                }
+                else{
+                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
+                }
+                updateAdoptedOrphans(eventsMap, adoptedId);
+            }
         }
 
     }
