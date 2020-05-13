@@ -53,7 +53,7 @@ public class KamonMonitorService {
 	private void runMonitor() {
 		LOG.trace("KamonMonitorService running");
 		reportInputQueueParams();
-		reportOrphanMapStats();
+//		reportOrphanMapStats();
 		LOG.trace("KamonMonitorService finished");
 
 	}

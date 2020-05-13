@@ -242,10 +242,10 @@ public class TaskIndexer {
         else{
             startEvent.setPrimaryId(startEvent.getTaskId());
         }
-        //TODO return
-        if (hasAdoptedOrphans(startEvent)) {
-            updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
-        }
+//        //TODO return
+//        if (hasAdoptedOrphans(startEvent)) {
+//            updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
+//        }
     }
 
     private boolean hasAdoptedOrphans(Event event) {
