@@ -37,7 +37,6 @@ public class TaskIndexer {
     private final Collection<TaskLogPlugin> logPlugins;
     private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
     private long daysRotation;
-    private String missingParentTask;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
@@ -50,9 +49,6 @@ public class TaskIndexer {
         parentIdTORootOrphansEventsCache = cacheBuilder
                 .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
                         notification -> {
-                            if (notification.getKey().equals(missingParentTask)){
-                                missingParentTask = null;
-                            }
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
                             }
@@ -67,12 +63,6 @@ public class TaskIndexer {
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
 
         events.forEach(e -> {
-            //Orphan logging TODO remove
-//            if (e.getTaskId().equals(missingParentTask)){
-//                LOG.info("FOUND MISSING PARENT {}", missingParentTask);
-//                missingParentTask = null;
-//            }
-
             if (e.getName() != null && e.getName().equals(Constants.HEARTBEAT_TASK)){
                 String heartbeatJson = GSON.toJson(new HeartbeatTask(e, daysRotation));
                 heartbeatEvents.add(heartbeatJson);
@@ -97,7 +87,7 @@ public class TaskIndexer {
     }
 
     private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
-        //applyPlugins(timbermillEvents, env); TODO return plugins
+        applyPlugins(timbermillEvents, env);
 
         Map<String, DefaultMutableTreeNode> nodesMap = Maps.newHashMap();
         Set<String> startEventsIds = Sets.newHashSet();
@@ -209,7 +199,6 @@ public class TaskIndexer {
 
         if (adoptedEvents != null) {
             parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
-//            populateWithContextValue(adoptedEvents);
             for (AdoptedEvent adoptedEvent : adoptedEvents) {
                 populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
                 String adoptedId = adoptedEvent.getTaskId();
@@ -223,23 +212,6 @@ public class TaskIndexer {
             }
         }
 
-    }
-
-    private void populateWithContextValue(Queue<AdoptedEvent> adoptedEvent) {
-        Set<String> taskIds = adoptedEvent.stream().map(Event::getTaskId).collect(Collectors.toSet());
-        Map<String, Task> tasks = this.es.getTasksByIds(null, taskIds, "Get adopted tasks context", CTX_FIELDS, EMPTY_ARRAY);
-
-        adoptedEvent.forEach(e -> {
-            if (e.getContext() == null){
-                e.setContext(Maps.newHashMap());
-            }
-            Task task = tasks.get(e.getTaskId());
-            if (task != null){
-                for (Map.Entry<String, String> entry : task.getCtx().entrySet()) {
-                    e.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-                }
-            }
-        });
     }
 
     private void enrichStartEvent(Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks, Event startEvent) {
@@ -257,7 +229,6 @@ public class TaskIndexer {
         else{
             startEvent.setPrimaryId(startEvent.getTaskId());
         }
-        //TODO return
         if (hasAdoptedOrphans(startEvent)) {
             updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
         }
@@ -304,12 +275,6 @@ public class TaskIndexer {
             eventList = new LinkedList<>();
             eventList.add(orphanEvent);
             parentIdTORootOrphansEventsCache.put(parentId, eventList);
-
-            if (missingParentTask == null){
-                //TODO orphan log, delete
-                LOG.info("PARENT TASK {}", parentId);
-                missingParentTask = parentId;
-            }
         } else {
             eventList.add(orphanEvent);
         }

@@ -57,10 +57,10 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
         super.testSimpleTaskIndexerJob();
     }
 
-//    @Test
-//    public void testSwitchCasePlugin() {
-//        super.testSwitchCasePlugin();
-//    }
+    @Test
+    public void testSwitchCasePlugin() {
+        super.testSwitchCasePlugin();
+    }
 
     @Test
     public void testSpotWithParent(){
