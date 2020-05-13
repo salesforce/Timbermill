@@ -209,7 +209,7 @@ public class TaskIndexer {
 
         if (adoptedEvents != null) {
             parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
-            populateWithContextValue(adoptedEvents);
+//            populateWithContextValue(adoptedEvents);
             for (AdoptedEvent adoptedEvent : adoptedEvents) {
                 populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
                 String adoptedId = adoptedEvent.getTaskId();
