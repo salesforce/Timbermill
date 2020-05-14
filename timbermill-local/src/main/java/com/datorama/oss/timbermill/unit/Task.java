@@ -20,6 +20,7 @@ import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
+import static com.datorama.oss.timbermill.common.Constants.GSON;
 import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
 
 public class Task {
@@ -122,8 +123,7 @@ public class Task {
 					if (this.primaryId.equals(e.getTaskId())) {
 						this.primaryId = primaryId; // Override with actual primary id
 					} else if (!primaryId.equals(e.getTaskId())) {
-						List<String> evenTypeList = events.stream().map(ev -> ev.getClass().getSimpleName()).collect(Collectors.toList());
-						LOG.warn(evenTypeList.toString());
+						LOG.warn(GSON.toJson(events));
 						LOG.warn("Found different primaryId for same task. Flagged task [{}] as corrupted. primaryId 1 [{}], primaryId 2 [{}]", e.getTaskId(), this.primaryId, primaryId);
 						status = CORRUPTED;
 						string.put(CORRUPTED_REASON, "Different primaryIds");
@@ -134,8 +134,7 @@ public class Task {
 					this.parentsPath = parentsPath;
 				} else {
 					if (parentsPath != null && !parentsPath.equals(this.parentsPath)) {
-						List<String> evenTypeList = events.stream().map(ev -> ev.getClass().getSimpleName()).collect(Collectors.toList());
-						LOG.warn(evenTypeList.toString());
+						LOG.warn(GSON.toJson(events));
 						LOG.warn("Found different parentsPath for same task. Flagged task [{}] as corrupted. parentsPath 1 [{}], parentsPath 2 [{}]", e.getTaskId(), this.parentsPath, parentsPath);
 						status = CORRUPTED;
 						string.put(CORRUPTED_REASON, "Different parentsPaths");

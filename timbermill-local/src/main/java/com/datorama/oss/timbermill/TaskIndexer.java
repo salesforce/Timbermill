@@ -96,13 +96,11 @@ public class TaskIndexer {
 
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
         Map<String, Task> previouslyIndexedParentTasks = getMissingParents(startEventsIds, parentIds);
-        LOG.info("Creating hierarchy");
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
 
         String index = es.createTimbermillAlias(env);
-        LOG.info("Indexing {} tasks to index {}", tasksMap.size(), index);
         es.index(tasksMap, index);
         es.rolloverIndex(index);
         LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
@@ -162,19 +160,16 @@ public class TaskIndexer {
 
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
             Map<String, Task> previouslyIndexedParentTasks) {
-        LOG.info("Enriching {} start events", nodesMap.size());
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
         return getTasksFromEvents(eventsMap);
     }
 
     private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
-        LOG.info("Creating tasks from {} events", eventsMap.size());
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
             Task task = new Task(eventEntry.getValue(), daysRotation);
             tasksMap.put(eventEntry.getKey(), task);
         }
-        LOG.info("Created {} tasks", tasksMap.size());
         return tasksMap;
     }
 

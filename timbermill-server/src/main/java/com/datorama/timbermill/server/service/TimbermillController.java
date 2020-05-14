@@ -2,6 +2,9 @@ package com.datorama.timbermill.server.service;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -16,6 +19,8 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 
+import static com.datorama.oss.timbermill.common.Constants.GSON;
+
 @RestController
 public class TimbermillController {
 
@@ -28,6 +33,14 @@ public class TimbermillController {
 	public String ingestEvents(@RequestBody @Valid EventsWrapper eventsWrapper) {
 		Collection<Event> events = eventsWrapper.getEvents();
 		timbermillService.handleEvent(events);
+
+		Map<String, List<Event>> collect = events.stream().filter(e -> e.isStartEvent()).collect(Collectors.groupingBy(e -> e.getTaskId()));
+		for (Map.Entry<String, List<Event>> stringListEntry : collect.entrySet()) {
+			if (stringListEntry.getValue().size() > 1){
+				LOG.warn("More than 1 start events found for id {}", stringListEntry.getKey());
+				LOG.warn(GSON.toJson(stringListEntry.getValue()));
+			}
+		}
 		return "Event handled";
 	}
 
