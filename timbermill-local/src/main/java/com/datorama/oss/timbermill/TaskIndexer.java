@@ -22,9 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import static com.datorama.oss.timbermill.ElasticsearchClient.CTX_FIELDS;
 import static com.datorama.oss.timbermill.common.Constants.GSON;
-import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
 public class TaskIndexer {
 
@@ -93,8 +91,9 @@ public class TaskIndexer {
         Set<String> startEventsIds = Sets.newHashSet();
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
-
+        logErrorInEventsMap(timbermillEvents.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "handleTimbermillEvents1");
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
+        logErrorInEventsMap(eventsMap, "handleTimbermillEvents2");
         Map<String, Task> previouslyIndexedParentTasks = getMissingParents(startEventsIds, parentIds);
         connectNodesByParentId(nodesMap);
 
@@ -177,6 +176,7 @@ public class TaskIndexer {
         /*
          * Compute origins and down merge parameters from parent
          */
+        logErrorInEventsMap(eventsMap, "enrichStartEventsByOrder");
         for (DefaultMutableTreeNode node : nodes) {
             if (node.isRoot()) {
                 Enumeration enumeration = node.breadthFirstEnumeration();
@@ -185,6 +185,15 @@ public class TaskIndexer {
                     Event startEvent = (Event) curr.getUserObject();
                     enrichStartEvent(eventsMap, previouslyIndexedTasks, startEvent);
                 }
+            }
+        }
+    }
+
+    public static void logErrorInEventsMap(Map<String, List<Event>> eventsMap, String where) {
+        for (Map.Entry<String, List<Event>> stringListEntry : eventsMap.entrySet()) {
+            List<Event> value = stringListEntry.getValue();
+            if (value.stream().filter(e -> e.isStartEvent()).count() > 1){
+                LOG.warn("Too many start events in {} events: {}" ,where , GSON.toJson(value));
             }
         }
     }

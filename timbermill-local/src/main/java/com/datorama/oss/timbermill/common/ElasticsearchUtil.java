@@ -21,6 +21,7 @@ import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 
+import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -370,6 +371,7 @@ public class ElasticsearchUtil {
 					}
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
+					logErrorInEventsMap(currentEvents.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex");
 					taskIndexer.retrieveAndIndex(currentEvents, env);
 				}
 				//For refresh
