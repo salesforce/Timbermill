@@ -91,9 +91,7 @@ public class TaskIndexer {
         Set<String> startEventsIds = Sets.newHashSet();
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
-        logErrorInEventsMap(timbermillEvents.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "handleTimbermillEvents1");
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-        logErrorInEventsMap(eventsMap, "handleTimbermillEvents2");
         Map<String, Task> previouslyIndexedParentTasks = getMissingParents(startEventsIds, parentIds);
         connectNodesByParentId(nodesMap);
 
@@ -176,7 +174,6 @@ public class TaskIndexer {
         /*
          * Compute origins and down merge parameters from parent
          */
-        logErrorInEventsMap(eventsMap, "enrichStartEventsByOrder");
         for (DefaultMutableTreeNode node : nodes) {
             if (node.isRoot()) {
                 Enumeration enumeration = node.breadthFirstEnumeration();
