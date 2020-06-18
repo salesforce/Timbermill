@@ -241,7 +241,7 @@ public abstract class Event{
 		int taskIdLength = taskId == null ? 0 : taskId.length() + 12; // "taskId":"",
 		int nameLength = name == null ? 0 : name.length() + 10; // "name":"",
 		int parentIdLength = parentId == null ? 0 : parentId.length() + 14; // "parentId":"",
-		int envLength = env == null ? 0 : env.length() + 9; // "env":"",
+		int envLength = env == null ? 0 : env.length() + 8; // "env":"",
 
 		int stringsSize = strings == null ? 0 : getStringMapSize(strings) + 13; // "strings":{},
 		int textsSize = text == null ? 0 : getStringMapSize(text) + 10; // "text":{},
@@ -262,7 +262,7 @@ public abstract class Event{
 		for (String string : strings) {
 			size += string.length() + 3; //"",
 		}
-		return size;
+		return size - 1; // Last ,
 	}
 
 	@JsonIgnore
@@ -273,15 +273,63 @@ public abstract class Event{
 				size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
 			}
 		}
-		return size;
+		return size-1; // Last ,
 	}
 
 	@JsonIgnore
 	private int getNumberMapSize(Map<String, Number> map) {
 		int size = 0;
 		for (Map.Entry<String, Number> entry : map.entrySet()) {
-			size += entry.getKey().length() + 4; // "":,
+			size += entry.getKey().length() + (Math.log10(entry.getValue().doubleValue()) + 1) + 4; // "":,
 		}
-		return size;
+		return size - 1; // Last ,
+	}
+
+	@JsonIgnore public void cleanEvent(int maxCharsAllowedForNonAnalyzedFields, int maxCharsAllowedForAnalyzedFields) {
+		if (strings != null) {
+			if (strings.isEmpty()) {
+				strings = null;
+			} else {
+				trimLongValues(strings, maxCharsAllowedForNonAnalyzedFields);
+			}
+		}
+
+		if (context != null) {
+			if (context.isEmpty()){
+				context = null;
+			}
+			else {
+				trimLongValues(context, maxCharsAllowedForNonAnalyzedFields);
+			}
+		}
+
+		if (text != null) {
+			if (text.isEmpty()) {
+				text = null;
+			} else {
+				trimLongValues(text, maxCharsAllowedForAnalyzedFields);
+			}
+		}
+
+		if (metrics != null) {
+			if (metrics.isEmpty()) {
+				 metrics = null;
+			}
+		}
+
+		if (logs != null) {
+			if (logs.isEmpty()) {
+				logs = null;
+			}
+		}
+	}
+
+	private void trimLongValues(Map<String, String> map, int maxChars) {
+		for (Map.Entry<String, String> entry : map.entrySet()) {
+			String value = entry.getValue();
+			if (value != null && value.length() > maxChars) {
+				entry.setValue(value.substring(0, maxChars));
+			}
+		}
 	}
 }
