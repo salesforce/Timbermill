@@ -5,7 +5,7 @@ import com.datorama.oss.timbermill.common.Constants;
 public class TimbermillServerOutputPipeBuilder {
 	String timbermillServerUrl;
 	int maxEventsBatchSize = 2097152; // 2MB
-	int maxSecondsBeforeBatchTimeout = 3;
+	long maxSecondsBeforeBatchTimeout = 3;
 	int maxBufferSize = 200000;
 	int maxCharsAllowedForNonAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS;
 	int maxCharsAllowedForAnalyzedFields = Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS;
@@ -21,7 +21,7 @@ public class TimbermillServerOutputPipeBuilder {
 		return this;
 	}
 
-	public TimbermillServerOutputPipeBuilder maxSecondsBeforeBatchTimeout(int maxSecondsBeforeBatchTimeout) {
+	public TimbermillServerOutputPipeBuilder maxSecondsBeforeBatchTimeout(long maxSecondsBeforeBatchTimeout) {
 		this.maxSecondsBeforeBatchTimeout = maxSecondsBeforeBatchTimeout;
 		return this;
 	}

@@ -10,11 +10,10 @@ import org.junit.Test;
 
 import com.datorama.oss.timbermill.pipe.MockPipe;
 import com.datorama.oss.timbermill.unit.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
-import static com.datorama.oss.timbermill.common.Constants.*;
+import static com.datorama.oss.timbermill.common.Constants.EXCEPTION;
+import static com.datorama.oss.timbermill.common.Constants.LOG_WITHOUT_CONTEXT;
 import static org.junit.Assert.*;
 
 public class EventLoggerTest {
@@ -222,18 +221,5 @@ public class EventLoggerTest {
 		assertTrue(startEvent instanceof StartEvent);
 		assertTrue(endEvent instanceof SuccessEvent);
 		assertEquals(taskId, startEvent.getParentId());
-	}
-
-	@Test
-	public void testEstimateSize() throws JsonProcessingException {
-		LogParams params = LogParams.create().context("ctx", "ctx").context("ctx1", "ctx1").metric("metric", 7452).metric("metric1", 3265456).string("string", "string").string("string1", "string1").text("text1", "text1").text("text", "text");
-		el.startEvent(QUERY, params);
-		el.successEvent();
-		Awaitility.await().atMost(10, TimeUnit.SECONDS).until(() -> mockPipe.getCollectedEvents().size() == 2);
-		List<Event> events = mockPipe.getCollectedEvents();
-
-		Event startEvent = events.get(0);
-		Event successEvent = events.get(1);
-		assertEquals(new ObjectMapper().writeValueAsString(startEvent).length(), startEvent.estimatedSize());
 	}
 }

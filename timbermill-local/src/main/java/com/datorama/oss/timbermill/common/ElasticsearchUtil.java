@@ -361,8 +361,9 @@ public class ElasticsearchUtil {
 				es.retryFailedRequestsFromMemory();
 
 				Collection<Event> events = new ArrayList<>();
-				logErrorInEventsMap(eventsQueue.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex");
+				logErrorInEventsMap(eventsQueue.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex1");
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
+				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex2");
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();
@@ -372,6 +373,7 @@ public class ElasticsearchUtil {
 					}
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
+					logErrorInEventsMap(currentEvents.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex3");
 					taskIndexer.retrieveAndIndex(currentEvents, env);
 				}
 				//For refresh

@@ -5,7 +5,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -22,9 +25,13 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
+    private int maxCharsAllowedForNonAnalyzedFields;
+    private int maxCharsAllowedForAnalyzedFields;
     private URL timbermillServerUrl;
-    private SizedBoundEventsQueue buffer;
+    private LinkedBlockingQueue<Event> buffer;
     private Thread thread;
+    private int maxEventsBatchSize;
+    private long maxSecondsBeforeBatchTimeout;
 
     private TimbermillServerOutputPipe() {
     }
@@ -39,11 +46,15 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
-        buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout, builder.maxCharsAllowedForAnalyzedFields, builder.maxCharsAllowedForNonAnalyzedFields);
+        maxEventsBatchSize = builder.maxEventsBatchSize;
+        maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
+        maxCharsAllowedForNonAnalyzedFields = builder.maxCharsAllowedForNonAnalyzedFields;
+        maxCharsAllowedForAnalyzedFields = builder.maxCharsAllowedForAnalyzedFields;
+        buffer = new LinkedBlockingQueue<>(builder.maxBufferSize);
         thread = new Thread(() -> {
             do {
                 try {
-                    List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
+                    List<Event> eventsToSend = getEventsToSend();
                     if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
                         sendEvents(eventsWrapper);
@@ -108,6 +119,78 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         httpURLConnection.setConnectTimeout(HTTP_TIMEOUT);
         httpURLConnection.setReadTimeout(HTTP_TIMEOUT);
         return httpURLConnection;
+    }
+
+    private List<Event> getEventsToSend() {
+        long startBatchTime = System.currentTimeMillis();
+        List<Event> eventsToSend = new ArrayList<>();
+        try {
+            int currentBatchSize = addEventFromBufferToList(eventsToSend);
+            while(currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
+                currentBatchSize  += addEventFromBufferToList(eventsToSend);
+            }
+        } catch (InterruptedException e) {
+            // If blocking queue poll timed out send current batch
+        }
+        return eventsToSend;
+    }
+
+    private int addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException {
+        Event event = buffer.poll();
+        if (event == null){
+            Thread.sleep(100);
+            return 0;
+        }
+        cleanEvent(event);
+        eventsToSend.add(event);
+		return event.estimatedSize();
+    }
+
+	private void cleanEvent(Event event) {
+        Map<String, String> strings = event.getStrings();
+        if (strings.isEmpty()){
+			event.setStrings(null);
+		}
+		else{
+            trimLongValues(strings, "strings", maxCharsAllowedForNonAnalyzedFields);
+        }
+
+        Map<String, String> context = event.getContext();
+        if (context.isEmpty()){
+            event.setContext(null);
+        }
+        else {
+            trimLongValues(context, "context", maxCharsAllowedForNonAnalyzedFields);
+        }
+
+        Map<String, String> text = event.getText();
+        if (text.isEmpty()){
+            event.setText(null);
+        }
+        else {
+            trimLongValues(text, "text", maxCharsAllowedForAnalyzedFields);
+        }
+		if (event.getMetrics().isEmpty()){
+			event.setMetrics(null);
+		}
+		if (event.getLogs().isEmpty()){
+			event.setLogs(null);
+		}
+
+	}
+
+    private void trimLongValues(Map<String, String> map, String mapName, int maxChars) {
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            String value = entry.getValue();
+            if (value != null && value.length() > maxChars) {
+                LOG.debug("Entry with key {} under {} is over max character allowed {}", entry.getKey(), mapName, maxChars);
+                entry.setValue(value.substring(0, maxChars));
+            }
+        }
+    }
+
+    private boolean isExceededMaxTimeToWait(long startBatchTime) {
+        return System.currentTimeMillis() - startBatchTime > maxSecondsBeforeBatchTimeout * 1000;
     }
 
     @Override
