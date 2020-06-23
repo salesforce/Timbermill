@@ -66,8 +66,13 @@ public class TaskIndexer {
                 heartbeatEvents.add(heartbeatJson);
             }
             else{
-            	trimAllStrings(e);
-                timbermillEvents.add(e);
+                if (e.getTaskId() == null){
+                    LOG.warn("Task ID is null for event {}", GSON.toJson(e));
+                }
+                else {
+                    trimAllStrings(e);
+                    timbermillEvents.add(e);
+                }
             }
         });
 

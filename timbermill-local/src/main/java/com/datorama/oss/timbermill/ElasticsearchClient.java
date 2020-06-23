@@ -710,7 +710,8 @@ public class ElasticsearchClient {
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
-	 	if (failureMessage.contains("type=null_pointer_exception")){
+	 	LOG.warn("Bulk index of size {} has failed.", dbBulkRequest.getRequest().estimatedSizeInBytes());
+		if (failureMessage.contains("type=null_pointer_exception")){
 			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 			LOG.error("Null Pointer Exception Error in script. Requests:");
 			failedRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
@@ -746,9 +747,6 @@ public class ElasticsearchClient {
 	}
 
 	private DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
-		BulkRequest bulkRequest = dbBulkRequest.getRequest();
-		int numOfRequests = bulkRequest.numberOfActions();
-
 		if (bulkResponses != null){
 			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
 			BulkItemResponse[] responses = bulkResponses.getItems();
@@ -760,14 +758,9 @@ public class ElasticsearchClient {
 					failedRequestsBulk.add(requests.get(i));
 				}
 			}
-			LOG.info("Failed bulk remained with {} failed requests of {}.",requests.size(),numOfRequests);
-
 			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
 					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
-		} else {
-			// An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
-			LOG.info("All {} requests of bulk failed.", numOfRequests);
-		}
+		}  // if bulkResponses is null An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
 		return dbBulkRequest;
 	}
 
