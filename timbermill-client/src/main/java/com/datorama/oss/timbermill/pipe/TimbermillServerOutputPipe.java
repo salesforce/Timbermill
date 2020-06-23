@@ -7,7 +7,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.http.HttpHost;
@@ -25,8 +24,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
-    private int maxCharsAllowedForNonAnalyzedFields;
-    private int maxCharsAllowedForAnalyzedFields;
     private URL timbermillServerUrl;
     private LinkedBlockingQueue<Event> buffer;
     private Thread thread;
@@ -48,8 +45,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
         maxEventsBatchSize = builder.maxEventsBatchSize;
         maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
-        maxCharsAllowedForNonAnalyzedFields = builder.maxCharsAllowedForNonAnalyzedFields;
-        maxCharsAllowedForAnalyzedFields = builder.maxCharsAllowedForAnalyzedFields;
         buffer = new LinkedBlockingQueue<>(builder.maxBufferSize);
         thread = new Thread(() -> {
             do {
@@ -147,47 +142,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
 	private void cleanEvent(Event event) {
-        Map<String, String> strings = event.getStrings();
-        if (strings.isEmpty()){
-			event.setStrings(null);
-		}
-		else{
-            trimLongValues(strings, "strings", maxCharsAllowedForNonAnalyzedFields);
-        }
-
-        Map<String, String> context = event.getContext();
-        if (context.isEmpty()){
-            event.setContext(null);
-        }
-        else {
-            trimLongValues(context, "context", maxCharsAllowedForNonAnalyzedFields);
-        }
-
-        Map<String, String> text = event.getText();
-        if (text.isEmpty()){
-            event.setText(null);
-        }
-        else {
-            trimLongValues(text, "text", maxCharsAllowedForAnalyzedFields);
-        }
-		if (event.getMetrics().isEmpty()){
-			event.setMetrics(null);
-		}
-		if (event.getLogs().isEmpty()){
-			event.setLogs(null);
-		}
-
+        event.trimAllStrings();
 	}
-
-    private void trimLongValues(Map<String, String> map, String mapName, int maxChars) {
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            String value = entry.getValue();
-            if (value != null && value.length() > maxChars) {
-                LOG.debug("Entry with key {} under {} is over max character allowed {}", entry.getKey(), mapName, maxChars);
-                entry.setValue(value.substring(0, maxChars));
-            }
-        }
-    }
 
     private boolean isExceededMaxTimeToWait(long startBatchTime) {
         return System.currentTimeMillis() - startBatchTime > maxSecondsBeforeBatchTimeout * 1000;

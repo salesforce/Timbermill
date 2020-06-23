@@ -27,10 +27,7 @@ import static com.datorama.oss.timbermill.common.Constants.GSON;
 public class TaskIndexer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
-    private static final String TEXT = "text";
-    private static final String STRING = "string";
 
-    private static final String CTX = "ctx";
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
     private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
@@ -70,7 +67,7 @@ public class TaskIndexer {
                     LOG.warn("Task ID is null for event {}", GSON.toJson(e));
                 }
                 else {
-                    trimAllStrings(e);
+                    e.trimAllStrings();
                     timbermillEvents.add(e);
                 }
             }
@@ -194,7 +191,7 @@ public class TaskIndexer {
     public static void logErrorInEventsMap(Map<String, List<Event>> eventsMap, String where) {
         for (Map.Entry<String, List<Event>> stringListEntry : eventsMap.entrySet()) {
             List<Event> value = stringListEntry.getValue();
-            if (value.stream().filter(e -> e.isStartEvent()).count() > 1){
+            if (value.stream().filter(Event::isStartEvent).count() > 1){
                 LOG.warn("Too many start events in {} events: {}" ,where , GSON.toJson(value));
             }
         }
@@ -337,62 +334,6 @@ public class TaskIndexer {
         } catch (Throwable t) {
             LOG.error("Error running plugins", t);
         }
-    }
-
-    private void trimAllStrings(Event events) {
-            events.setStrings(getTrimmedLongValues(events.getStrings(), STRING, events));
-            events.setContext(getTrimmedLongValues(events.getContext(), CTX, events));
-            events.setText(getTrimmedLongValues(events.getText(), TEXT, events));
-            events.setMetrics(removeNaNs(events));
-    }
-
-    private Map<String, Number> removeNaNs(Event event) {
-        Map<String, Number> metrics = event.getMetrics();
-        Map<String, Number> newMetrics = Maps.newHashMap();
-        if (metrics != null) {
-            for (Map.Entry<String, Number> entry : metrics.entrySet()) {
-                Number value = entry.getValue();
-                String key = entry.getKey();
-                if (value != null) {
-					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
-						newMetrics.put(key, 0);
-						LOG.warn("NaN value for key {} in ID {}. Changed to 0", key, event.getTaskId());
-					} else {
-						newMetrics.put(key, value);
-					}
-				}
-            }
-        }
-        return newMetrics;
-    }
-
-    private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String type, Event event) {
-        Map<String, String> newMap = new HashMap<>();
-        if (oldMap != null) {
-            for (Map.Entry<String, String> entry : oldMap.entrySet()) {
-                String key = entry.getKey().replace(".", "_");
-                String value = trimIfNeededValue(type, key, entry.getValue(), event);
-                newMap.put(key, value);
-            }
-        }
-        return newMap;
-    }
-
-    private String trimIfNeededValue(String type, String key, String value, Event event) {
-        if (type.equals(TEXT)) {
-            value = trimValue(type, key, value, event, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
-        } else {
-            value = trimValue(type, key, value, event, Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
-        }
-        return value;
-    }
-
-    private String trimValue(String type, String key, String value, Event event, int maxChars) {
-        if (value.length() > maxChars) {
-            LOG.warn("Value starting with {} key {} under ID {} is  too long, trimmed to {} characters.", value.substring(0, 20), type + '.' + key, event.getTaskId(), maxChars);
-            value = value.substring(0, maxChars);
-        }
-        return value;
     }
 
     private static ParentProperties getParentProperties(Task parentIndexedTask, Collection<Event> parentCurrentEvent) {

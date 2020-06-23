@@ -1,17 +1,20 @@
 package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import javax.validation.constraints.NotNull;
 
+import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonDeserializer;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonSerializer;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.Maps;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
@@ -283,5 +286,67 @@ public abstract class Event{
 			size += entry.getKey().length() + 4; // "":,
 		}
 		return size;
+	}
+
+	@JsonIgnore
+	public void trimAllStrings() {
+		strings = getTrimmedLongValues(strings, Constants.STRING);
+		context = getTrimmedLongValues(context, Constants.CTX);
+		text = getTrimmedLongValues(text, Constants.TEXT);
+		metrics = removeNaNs();
+	}
+
+	@JsonIgnore
+	private Map<String, Number> removeNaNs() {
+		if (metrics != null) {
+			Map<String, Number> newMetrics = Maps.newHashMap();
+			for (Map.Entry<String, Number> entry : metrics.entrySet()) {
+				Number value = entry.getValue();
+				String key = entry.getKey();
+				if (value != null) {
+					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
+						newMetrics.put(key, 0);
+					} else {
+						newMetrics.put(key, value);
+					}
+				}
+			}
+			return newMetrics;
+		}
+		else {
+			return null;
+		}
+	}
+
+	@JsonIgnore
+	private Map<String, String> getTrimmedLongValues(Map<String, String> oldMap, String type) {
+		if (oldMap != null) {
+			Map<String, String> newMap = new HashMap<>();
+			for (Map.Entry<String, String> entry : oldMap.entrySet()) {
+				String key = entry.getKey().replace(".", "_");
+				String value = trimIfNeededValue(type, entry.getValue());
+				newMap.put(key, value);
+			}
+			return newMap;
+		}
+		else {
+			return null;
+		}
+	}
+
+	private String trimIfNeededValue(String type, String value) {
+		if (type.equals(Constants.TEXT)) {
+			value = trimValue(value, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
+		} else {
+			value = trimValue(value, Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+		}
+		return value;
+	}
+
+	private String trimValue(String value, int maxChars) {
+		if (value.length() > maxChars) {
+			value = value.substring(0, maxChars);
+		}
+		return value;
 	}
 }
