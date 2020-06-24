@@ -328,6 +328,9 @@ public class Task {
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
+		if (ctx != null && ctx.isEmpty()){
+			ctx = null;
+		}
 		if (string != null && string.isEmpty()){
 			string = null;
 		}
