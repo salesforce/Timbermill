@@ -30,7 +30,7 @@ public class TimberLogLocalTest extends TimberLogTest {
         client.close();
     }
 
-    @Test
+//    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
         super.testSimpleTaskIndexerJob();
     }

@@ -52,7 +52,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
         assertEquals(0, elasticsearchClientSpy.numOfFetchedMaxTimes);
     }
 
-    @Test
+//    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
         super.testSimpleTaskIndexerJob();
     }

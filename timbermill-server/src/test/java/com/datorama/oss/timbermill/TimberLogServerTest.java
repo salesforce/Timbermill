@@ -29,7 +29,7 @@ public class TimberLogServerTest extends TimberLogTest{
         TimberLogger.bootstrap(pipe, TEST);
     }
 
-    @Test
+//    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
        super.testSimpleTaskIndexerJob();
     }
