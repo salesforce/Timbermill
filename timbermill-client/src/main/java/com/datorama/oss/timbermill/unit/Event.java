@@ -290,10 +290,10 @@ public abstract class Event{
 
 	@JsonIgnore
 	public void trimAllStrings() {
-		strings = getTrimmedLongValues(strings, Constants.STRING);
-		context = getTrimmedLongValues(context, Constants.CTX);
-		text = getTrimmedLongValues(text, Constants.TEXT);
-		metrics = removeNaNs();
+//		strings = getTrimmedLongValues(strings, Constants.STRING);
+//		context = getTrimmedLongValues(context, Constants.CTX);
+//		text = getTrimmedLongValues(text, Constants.TEXT);
+//		metrics = removeNaNs();
 	}
 
 	@JsonIgnore
