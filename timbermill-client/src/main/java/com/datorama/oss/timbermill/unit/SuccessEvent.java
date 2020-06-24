@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill.unit;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.Maps;
 
 import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
@@ -23,27 +24,39 @@ public class SuccessEvent extends Event {
     @JsonIgnore
     @Override
     public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
-        return getTaskStatus(status, getStrings());
+        return getTaskStatus(status);
     }
 
-    private static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
+    private TaskStatus getTaskStatus(TaskStatus status) {
         if (status == TaskStatus.UNTERMINATED){
             return TaskStatus.SUCCESS;
         }
         else if (status == TaskStatus.PARTIAL_SUCCESS){
-            string.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
+            if (strings == null){
+                strings = Maps.newHashMap();
+            }
+            strings.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.SUCCESS){
-            string.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
+            if (strings == null){
+                strings = Maps.newHashMap();
+            }
+            strings.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.PARTIAL_ERROR){
-            string.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
+            if (strings == null){
+                strings = Maps.newHashMap();
+            }
+            strings.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.ERROR){
-            string.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
+            if (strings == null){
+                strings = Maps.newHashMap();
+            }
+            strings.put(Constants.CORRUPTED_REASON, Constants.ALREADY_CLOSED);
             return TaskStatus.CORRUPTED;
         }
         else if (status == TaskStatus.CORRUPTED){

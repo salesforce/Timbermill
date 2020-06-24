@@ -46,7 +46,7 @@ public abstract class Event{
 	private String parentId;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private Map<String, String> strings;
+	protected Map<String, String> strings;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private Map<String, String> text;
