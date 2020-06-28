@@ -18,7 +18,7 @@ import org.tmatesoft.sqljet.core.table.ISqlJetCursor;
 import org.tmatesoft.sqljet.core.table.ISqlJetTable;
 import org.tmatesoft.sqljet.core.table.SqlJetDb;
 
-import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 
 public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
@@ -42,7 +42,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable table;
 
-	public SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
+	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
@@ -82,7 +82,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximunInsertTriesException{
+	public void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException {
 		persistToDisk(dbBulkRequest,1000);
 	}
 
@@ -103,7 +103,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public boolean isCreatedSuccesfully() {
+	public boolean isCreatedSuccessfully() {
 		boolean ret = db != null;
 		if (!ret){
 			LOG.error("SQLite wasn't initialized successfully.");
@@ -131,7 +131,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	//region package methods
 
-	void persistToDisk(DbBulkRequest dbBulkRequest,long sleepTimeIfFails) throws MaximunInsertTriesException {
+	void persistToDisk(DbBulkRequest dbBulkRequest,long sleepTimeIfFails) throws MaximumInsertTriesException {
 		int retryNum = 0;
 
 		while (retryNum++ < maxInsertTries) {
@@ -153,7 +153,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				silentThreadSleep(sleepTimeIfFails);
 				sleepTimeIfFails*=2;
 				if (retryNum == maxInsertTries){
-					throw new MaximunInsertTriesException(maxInsertTries);
+					throw new MaximumInsertTriesException(maxInsertTries);
 				}
 			} finally {
 				silentDbCommit();

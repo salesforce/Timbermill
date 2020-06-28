@@ -33,7 +33,7 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
 
     @Test
     public void testOrphanWithAdoptionParentWithNoStart(){
-        super.testOrphanWithAdoptionParentWithNoStartDifferentBatch();
+        super.testOrphanWithAdoptionParentWithNoStart();
     }
 
     @Test

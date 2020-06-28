@@ -362,7 +362,7 @@ public class ElasticsearchUtil {
 
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
-				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy( e -> e.getTaskId())), "drainAndIndex");
+				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();

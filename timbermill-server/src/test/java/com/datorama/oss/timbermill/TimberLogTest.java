@@ -24,7 +24,6 @@ public abstract class TimberLogTest {
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
-	static final int failures = 2;
 
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";

@@ -4,17 +4,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 
 public interface DiskHandler {
 
 	List<DbBulkRequest> fetchAndDeleteFailedBulks();
 
-	void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximunInsertTriesException;
+	void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException;
 
 	boolean hasFailedBulks();
 
-	boolean isCreatedSuccesfully();
+	boolean isCreatedSuccessfully();
 
 	static Map<String, Object> buildDiskHandlerParams(int maxFetchedBulksInOneTime, int maxInsertTries, String locationInDisk) {
 		Map<String, Object> diskHandlerParams = new HashMap<>();

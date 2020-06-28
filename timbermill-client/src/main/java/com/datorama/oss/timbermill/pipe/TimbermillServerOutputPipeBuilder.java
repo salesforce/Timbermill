@@ -1,11 +1,9 @@
 package com.datorama.oss.timbermill.pipe;
 
-import com.datorama.oss.timbermill.common.Constants;
-
 public class TimbermillServerOutputPipeBuilder {
 	String timbermillServerUrl;
 	int maxEventsBatchSize = 2097152; // 2MB
-	long maxSecondsBeforeBatchTimeout = 3;
+	int maxSecondsBeforeBatchTimeout = 3;
 	int maxBufferSize = 200000;
 
 
@@ -19,7 +17,7 @@ public class TimbermillServerOutputPipeBuilder {
 		return this;
 	}
 
-	public TimbermillServerOutputPipeBuilder maxSecondsBeforeBatchTimeout(long maxSecondsBeforeBatchTimeout) {
+	public TimbermillServerOutputPipeBuilder maxSecondsBeforeBatchTimeout(int maxSecondsBeforeBatchTimeout) {
 		this.maxSecondsBeforeBatchTimeout = maxSecondsBeforeBatchTimeout;
 		return this;
 	}

@@ -1,12 +1,12 @@
 package com.datorama.oss.timbermill.unit;
 
+import java.time.ZonedDateTime;
+
+import javax.validation.constraints.NotNull;
+
 import com.datorama.oss.timbermill.common.Constants;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Maps;
-
-import javax.validation.constraints.NotNull;
-import java.time.ZonedDateTime;
-import java.util.Map;
 
 public class SuccessEvent extends Event {
     public SuccessEvent() {
