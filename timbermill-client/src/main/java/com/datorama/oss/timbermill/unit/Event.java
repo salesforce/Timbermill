@@ -244,7 +244,7 @@ public abstract class Event{
 		int taskIdLength = taskId == null ? 0 : taskId.length() + 12; // "taskId":"",
 		int nameLength = name == null ? 0 : name.length() + 10; // "name":"",
 		int parentIdLength = parentId == null ? 0 : parentId.length() + 14; // "parentId":"",
-		int envLength = env == null ? 0 : env.length() + 9; // "env":"",
+		int envLength = env == null ? 0 : env.length() + 8; // "env":"",
 
 		int stringsSize = strings == null ? 0 : getStringMapSize(strings) + 13; // "strings":{},
 		int textsSize = text == null ? 0 : getStringMapSize(text) + 10; // "text":{},
@@ -254,7 +254,7 @@ public abstract class Event{
 		int parentsPathSize = parentsPath == null ? 0 : stringListSize(parentsPath) + 14; // "parentPath":[],
 		int orphanSize = orphan == null ? 0 : 16; // "orphan":"true",
 		int dateToDeleteSize = dateToDelete == null ? 0 : 42; // "orphan":"true",
-		return 24 + // {"@type":"StartEvent", },
+		return this.getClass().getSimpleName().length() + 13 + // {"@type":"StartEvent",}
 				34 + // "time":"2020-02-03T16:40:03.898Z",
 				primaryIdLength + taskIdLength + nameLength + parentIdLength + envLength + stringsSize + textsSize + contextSize + metricsSize + logsSize + parentsPathSize + orphanSize + dateToDeleteSize;
 	}
@@ -265,7 +265,7 @@ public abstract class Event{
 		for (String string : strings) {
 			size += string.length() + 3; //"",
 		}
-		return size;
+		return Math.max(size-1, 0); // Last ,
 	}
 
 	@JsonIgnore
@@ -276,16 +276,16 @@ public abstract class Event{
 				size += entry.getKey().length() + entry.getValue().length() + 6; // "":"",
 			}
 		}
-		return size;
+		return Math.max(size-1, 0); // Last ,
 	}
 
 	@JsonIgnore
 	private int getNumberMapSize(Map<String, Number> map) {
 		int size = 0;
 		for (Map.Entry<String, Number> entry : map.entrySet()) {
-			size += entry.getKey().length() + 4; // "":,
+			size += entry.getKey().length() + (Math.log10(entry.getValue().doubleValue()) + 1) + 4; // "":,
 		}
-		return size;
+		return Math.max(size-1, 0); // Last ,
 	}
 
 	@JsonIgnore

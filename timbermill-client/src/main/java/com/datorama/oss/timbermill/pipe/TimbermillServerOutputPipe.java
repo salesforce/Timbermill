@@ -5,9 +5,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -25,10 +23,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
-    private LinkedBlockingQueue<Event> buffer;
+    private SizedBoundEventsQueue buffer;
     private Thread thread;
-    private int maxEventsBatchSize;
-    private long maxSecondsBeforeBatchTimeout;
 
     private TimbermillServerOutputPipe() {
     }
@@ -43,13 +39,11 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
-        maxEventsBatchSize = builder.maxEventsBatchSize;
-        maxSecondsBeforeBatchTimeout = builder.maxSecondsBeforeBatchTimeout;
-        buffer = new LinkedBlockingQueue<>(builder.maxBufferSize);
+        buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout);
         thread = new Thread(() -> {
             do {
                 try {
-                    List<Event> eventsToSend = getEventsToSend();
+                    List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
                     if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
                         sendEvents(eventsWrapper);
@@ -114,39 +108,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         httpURLConnection.setConnectTimeout(HTTP_TIMEOUT);
         httpURLConnection.setReadTimeout(HTTP_TIMEOUT);
         return httpURLConnection;
-    }
-
-    private List<Event> getEventsToSend() {
-        long startBatchTime = System.currentTimeMillis();
-        List<Event> eventsToSend = new ArrayList<>();
-        try {
-            int currentBatchSize = addEventFromBufferToList(eventsToSend);
-            while(currentBatchSize <= this.maxEventsBatchSize && !isExceededMaxTimeToWait(startBatchTime)) {
-                currentBatchSize  += addEventFromBufferToList(eventsToSend);
-            }
-        } catch (InterruptedException e) {
-            // If blocking queue poll timed out send current batch
-        }
-        return eventsToSend;
-    }
-
-    private int addEventFromBufferToList(List<Event> eventsToSend) throws InterruptedException {
-        Event event = buffer.poll();
-        if (event == null){
-            Thread.sleep(100);
-            return 0;
-        }
-        cleanEvent(event);
-        eventsToSend.add(event);
-		return event.estimatedSize();
-    }
-
-	private void cleanEvent(Event event) {
-        event.trimAllStrings();
-	}
-
-    private boolean isExceededMaxTimeToWait(long startBatchTime) {
-        return System.currentTimeMillis() - startBatchTime > maxSecondsBeforeBatchTimeout * 1000;
     }
 
     @Override

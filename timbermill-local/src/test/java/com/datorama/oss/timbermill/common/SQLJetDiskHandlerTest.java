@@ -13,7 +13,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 
 import static org.junit.Assert.*;
 
@@ -38,14 +38,14 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void hasFailedBulks() throws MaximunInsertTriesException {
+	public void hasFailedBulks() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
 		assertTrue(diskHandler.hasFailedBulks());
 	}
 
 	@Test
-	public void fetchFailedBulksAdvanced() throws MaximunInsertTriesException {
+	public void fetchFailedBulksAdvanced() throws MaximumInsertTriesException {
 
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
@@ -62,7 +62,7 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void fetchTimesCounter() throws MaximunInsertTriesException {
+	public void fetchTimesCounter() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
 		DbBulkRequest fetchedRequest = diskHandler.fetchAndDeleteFailedBulks().get(0);
@@ -72,7 +72,7 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void failedBulksAmount() throws MaximunInsertTriesException {
+	public void failedBulksAmount() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest;
 		int amount = 3;
 		for (int i = 0 ; i < amount ; i++){
@@ -90,14 +90,14 @@ public class SQLJetDiskHandlerTest {
 		dbBulkRequest.setRequest(null); // will cause insert to fail
 		try {
 			diskHandler.persistToDisk(dbBulkRequest,0);
-		} catch (MaximunInsertTriesException e){
+		} catch (MaximumInsertTriesException e){
 			thrown = true;
 		}
 		assertTrue(thrown);
 	}
 
 	@Test
-	public void persistManyBulks() throws MaximunInsertTriesException {
+	public void persistManyBulks() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest;
 		int extraBulks = 2;
 		for (int i = 0 ; i < maxFetchedBulks + extraBulks ; i++){
@@ -111,7 +111,7 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void dropAndRecreateTable() throws MaximunInsertTriesException {
+	public void dropAndRecreateTable() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistToDisk(dbBulkRequest);
 

@@ -1,8 +1,8 @@
 package com.datorama.oss.timbermill.common.exceptions;
 
-public class MaximunInsertTriesException extends Exception {
+public class MaximumInsertTriesException extends Exception {
 	private int maxTries;
-	public MaximunInsertTriesException(int maxTries) {
+	public MaximumInsertTriesException(int maxTries) {
 		this.maxTries = maxTries;
 	}
 

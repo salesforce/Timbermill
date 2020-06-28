@@ -215,9 +215,6 @@ public class LocalOutputPipe implements EventOutputPipe {
             this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
             return this;
         }
-        public Builder numOfTasksIndexTries(int numOfTasksIndexTries) {
-            return this;
-        }
 
         public Builder diskHandlerStrategy(String diskHandlerStrategy) {
             this.diskHandlerStrategy = diskHandlerStrategy;

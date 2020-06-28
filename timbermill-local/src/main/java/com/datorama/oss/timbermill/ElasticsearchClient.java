@@ -59,7 +59,7 @@ import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.DbBulkRequest;
 import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.exceptions.MaximunInsertTriesException;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
@@ -85,7 +85,6 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	public static final String[] CTX_FIELDS = {CTX + ".*"};
 	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
@@ -106,7 +105,7 @@ public class ElasticsearchClient {
 			String diskHandlerStrategy) {
 
 		this.diskHandler = getDiskHandler(diskHandlerStrategy, params);
-		if (diskHandler!=null && diskHandler.isCreatedSuccesfully()){
+		if (diskHandler!=null && diskHandler.isCreatedSuccessfully()){
 			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
 		}
 
@@ -148,7 +147,7 @@ public class ElasticsearchClient {
 		if (diskHandlerStrategy != null && !diskHandlerStrategy.toLowerCase().equals("none")){
 
 			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy, params);
-			if (!diskHandler.isCreatedSuccesfully()){
+			if (!diskHandler.isCreatedSuccessfully()){
 				diskHandler = null;
 			}
 		}
@@ -727,7 +726,7 @@ public class ElasticsearchClient {
 							if (dbBulkRequest.getTimesFetched() == 0) {
 								numOfBulksPersistedToDisk.incrementAndGet();
 							}
-						} catch (MaximunInsertTriesException e) {
+						} catch (MaximumInsertTriesException e) {
 							LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
 							numOfCouldNotBeInserted += 1;
 						}
