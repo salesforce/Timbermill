@@ -328,22 +328,6 @@ public class Task {
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
-		if (ctx != null && ctx.isEmpty()){
-			ctx = null;
-		}
-		if (string != null && string.isEmpty()){
-			string = null;
-		}
-		if (text != null && text.isEmpty()){
-			text = null;
-		}
-		if (metric != null && metric.isEmpty()){
-			metric = null;
-		}
-		if (StringUtils.isEmpty(log)){
-			log = null;
-		}
-
 		updateRequest.upsert(Constants.GSON.toJson(this), XContentType.JSON);
 
 		Map<String, Object> params = new HashMap<>();
