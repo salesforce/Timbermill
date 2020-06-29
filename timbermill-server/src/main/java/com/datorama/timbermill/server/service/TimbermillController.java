@@ -13,6 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
@@ -42,10 +45,12 @@ public class TimbermillController {
 		return "Event received";
 	}
 
-	@ExceptionHandler(Exception.class)
-	public void handleEmployeeNotFoundException(HttpServletRequest request, Exception ex) throws IOException {
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	@ResponseBody
+	public ResponseEntity<?> handleEmployeeNotFoundException(HttpServletRequest request, Exception ex) throws IOException {
 		ContentCachingRequestWrapper wrapper = (ContentCachingRequestWrapper) request;
 		String body = IOUtils.toString(wrapper.getContentAsByteArray(), wrapper.getCharacterEncoding());
 		LOG.error("Error parsing request. Body:\n " + body, ex);
+		return new ResponseEntity<>("Error parsing request: " + body, HttpStatus.BAD_REQUEST);
 	}
 }
