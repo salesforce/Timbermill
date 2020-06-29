@@ -11,9 +11,9 @@ class SizedBoundEventsQueue extends LinkedBlockingQueue<Event> {
 	private AtomicInteger size = new AtomicInteger(0);
 
 	private int maxSize;
-	private int maxSecondsBeforeBatchTimeout;
+	private long maxSecondsBeforeBatchTimeout;
 
-	SizedBoundEventsQueue(int maxSize, int maxSecondsBeforeBatchTimeout) {
+	SizedBoundEventsQueue(int maxSize, long maxSecondsBeforeBatchTimeout) {
 		this.maxSize = maxSize;
 		this.maxSecondsBeforeBatchTimeout = maxSecondsBeforeBatchTimeout;
 	}
