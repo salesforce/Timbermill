@@ -14,6 +14,7 @@
 
     <properties>
         <java.source-target.version>1.8</java.source-target.version>
+        <kamon.bundle.version>2.0.4</kamon.bundle.version>
     </properties>
 
     <licenses>
@@ -69,6 +70,24 @@
             <groupId>org.tmatesoft.sqljet</groupId>
             <artifactId>sqljet</artifactId>
             <version>1.1.13</version>
+        </dependency>
+        <!-- Kamon Monitoring -->
+        <dependency>
+            <groupId>io.kamon</groupId>
+            <artifactId>kamon-bundle_2.11</artifactId>
+            <version>${kamon.bundle.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.kamon</groupId>
+            <artifactId>kamon-datadog_2.11</artifactId>
+            <version>2.0.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+            </exclusions>
+
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>

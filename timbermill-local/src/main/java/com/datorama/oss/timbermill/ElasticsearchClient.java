@@ -272,18 +272,7 @@ public class ElasticsearchClient {
 		}
 	}
 
-	void indexMetaDataTask(String env, String metadataEvent) {
-		String index = createTimbermillAlias(env);
-
-		IndexRequest indexRequest = new IndexRequest(index, Constants.TYPE).source(metadataEvent, XContentType.JSON);
-		try {
-			runWithRetries(() -> client.index(indexRequest, RequestOptions.DEFAULT) , 1, "Index metadata tasks");
-		} catch (MaxRetriesException e) {
-			LOG.error("Couldn't index metadata event with events {} to elasticsearch cluster.", metadataEvent);
-		}
-	}
-
-    public void close(){
+	public void close(){
         try {
         	if (isWithPersistence()){
         		diskHandler.close();

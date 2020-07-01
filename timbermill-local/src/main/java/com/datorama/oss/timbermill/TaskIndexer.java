@@ -22,6 +22,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+import kamon.Kamon;
+import kamon.metric.Metric;
 import static com.datorama.oss.timbermill.common.Constants.GSON;
 
 public class TaskIndexer {
@@ -31,6 +33,9 @@ public class TaskIndexer {
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
     private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
+    private Metric.Histogram tasksFetchedHistogram = Kamon.histogram("timbermill2.tasks.fetched.histogram");
+    private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
+    private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
@@ -80,13 +85,12 @@ public class TaskIndexer {
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
-            IndexEvent indexEvent = handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents);
-            es.indexMetaDataTask(env, GSON.toJson(indexEvent));
+            handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents);
         }
         LOG.info("------------------ Batch End ------------------");
     }
 
-    private IndexEvent handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
+    private void handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
         applyPlugins(timbermillEvents, env);
 
         Map<String, DefaultMutableTreeNode> nodesMap = Maps.newHashMap();
@@ -103,7 +107,26 @@ public class TaskIndexer {
         es.index(tasksMap, index);
         es.rolloverIndex(index);
         LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
-        return new IndexEvent(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, ZonedDateTime.now(), timbermillEvents.size(), daysRotation);
+        reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size());
+    }
+
+    private void reportBatchMetrics(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize) {
+        ZonedDateTime now = ZonedDateTime.now();
+        long timesDuration = ElasticsearchUtil.getTimesDuration(taskIndexerStartTime, now);
+        reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, now);
+        reportToKamon(tasksFetchedSize, indexedTasksSize, timesDuration);
+    }
+
+    private void reportToKamon(int tasksFetchedSize, int indexedTasksSize, long duration) {
+        tasksFetchedHistogram.withoutTags().record(tasksFetchedSize);
+        tasksIndexedHistogram.withoutTags().record(indexedTasksSize);
+        batchDurationHistogram.withoutTags().record(duration);
+    }
+
+    private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now) {
+        IndexEvent indexEvent = new IndexEvent(env, tasksFetchedSize, taskIndexerStartTime, now, indexedTasksSize,  daysRotation,
+                timesDuration);
+        es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(indexEvent)));
     }
 
     private void populateCollections(Collection<Event> timbermillEvents, Map<String, DefaultMutableTreeNode> nodesMap, Set<String> startEventsIds, Set<String> parentIds,
@@ -329,7 +352,7 @@ public class TaskIndexer {
                 ZonedDateTime endTime = ZonedDateTime.now();
                 long duration = ElasticsearchUtil.getTimesDuration(startTime, endTime);
                 PluginApplierTask pluginApplierTask = new PluginApplierTask(env, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration, startTime, daysRotation);
-                es.indexMetaDataTask(env, GSON.toJson(pluginApplierTask));
+                es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(pluginApplierTask)));
             }
         } catch (Throwable t) {
             LOG.error("Error running plugins", t);
