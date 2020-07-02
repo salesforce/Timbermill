@@ -1,25 +1,29 @@
 package com.datorama.oss.timbermill.pipe;
 
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.ElasticsearchParams;
-import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.common.DiskHandler;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.unit.Event;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
+import com.datorama.oss.timbermill.cron.CronsRunner;
+import com.datorama.oss.timbermill.unit.Event;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
     private static final int EVENT_QUEUE_CAPACITY = 1000000;
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+    private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+    private final String mergingCronExp;
+    private DiskHandler diskHandler;
 
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
@@ -33,23 +37,16 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields, builder.persistentFetchCronExp
-        );
-
+        this.mergingCronExp = builder.mergingCronExp;
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
+        diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, params,
-                builder.diskHandlerStrategy
-        );
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
+                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields);
 
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
-        startWorkingThread();
-    }
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes, builder.daysRotation, esClient);
 
-    public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es) {
-        esClient = es;
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
+        CronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp);
         startWorkingThread();
     }
 
@@ -57,7 +54,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, taskIndexer, esClient);
+                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, esClient, mergingCronExp, diskHandler);
             }
             stoppedRunning = true;
         };
@@ -68,12 +65,19 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event e){
-        buffer.add(e);
+        if(!this.buffer.offer(e)){
+            if (!overflowedQueue.offer(e)){
+                LOG.error("OverflowedQueue is full, event {} was discarded", e.getTaskId());
+            }
+        }
     }
 
     public void close() {
         LOG.info("Gracefully shutting down Timbermill Server.");
-        taskIndexer.close();
+        if (diskHandler != null){
+            diskHandler.close();
+        }
+        esClient.close();
         keepRunning = false;
         while(!stoppedRunning){
             try {
@@ -120,7 +124,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0 0/1 1/1 * ? *";
-        private String persistentFetchCronExp = "0 0/10 * 1/1 * ? *";
+        private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
+        private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
         private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
@@ -246,8 +251,13 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder persistentFetchCronExp(String persistentFetchCronExp) {
-            this.persistentFetchCronExp = persistentFetchCronExp;
+        public Builder bulkPersistentFetchCronExp(String bulkPersistentFetchCronExp) {
+            this.bulkPersistentFetchCronExp = bulkPersistentFetchCronExp;
+            return this;
+        }
+
+        public Builder eventsPersistentFetchCronExp(String eventsPersistentFetchCronExp) {
+            this.eventsPersistentFetchCronExp = eventsPersistentFetchCronExp;
             return this;
         }
 

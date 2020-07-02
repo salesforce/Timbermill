@@ -40,7 +40,7 @@ public class TimbermillController {
 	public String ingestEvents(@RequestBody @Valid EventsWrapper eventsWrapper) {
 		executorService.submit(() -> {
 			Collection<Event> events = eventsWrapper.getEvents();
-			timbermillService.handleEvent(events);
+			timbermillService.handleEvents(events);
 		});
 		return "Event received";
 	}

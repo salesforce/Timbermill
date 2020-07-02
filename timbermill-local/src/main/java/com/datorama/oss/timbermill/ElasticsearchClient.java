@@ -56,8 +56,8 @@ import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.util.IOUtils;
 import com.datorama.oss.timbermill.common.Constants;
-import com.datorama.oss.timbermill.common.DbBulkRequest;
-import com.datorama.oss.timbermill.common.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Task;
@@ -97,17 +97,12 @@ public class ElasticsearchClient {
 	private int numOfElasticSearchActionsTries;
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
-	private DiskHandler diskHandler;
 	private int searchMaxSize;
+	private DiskHandler diskHandler;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, Map<String, Object> params,
-			String diskHandlerStrategy) {
-
-		this.diskHandler = getDiskHandler(diskHandlerStrategy, params);
-		if (diskHandler!=null && diskHandler.isCreatedSuccessfully()){
-			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
-		}
+			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
+			int maxTotalFields) {
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries);
 		this.indexBulkSize = indexBulkSize;
@@ -117,6 +112,7 @@ public class ElasticsearchClient {
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
+		this.diskHandler = diskHandler;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
@@ -140,19 +136,8 @@ public class ElasticsearchClient {
         }
 
         client = new RestHighLevelClient(builder);
+		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
-
-	private DiskHandler getDiskHandler(String diskHandlerStrategy, Map<String, Object> params) {
-		DiskHandler diskHandler = null;
-		if (diskHandlerStrategy != null && !diskHandlerStrategy.toLowerCase().equals("none")){
-
-			diskHandler = ElasticsearchUtil.getDiskHandler(diskHandlerStrategy, params);
-			if (!diskHandler.isCreatedSuccessfully()){
-				diskHandler = null;
-			}
-		}
-		return diskHandler;
-	}
 
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries) {
 		if (indexBulkSize < 1) {
@@ -274,9 +259,6 @@ public class ElasticsearchClient {
 
 	public void close(){
         try {
-        	if (isWithPersistence()){
-        		diskHandler.close();
-			}
             client.close();
         } catch (IOException e) {
             throw new ElasticsearchException(e);
@@ -284,7 +266,7 @@ public class ElasticsearchClient {
     }
 
     // return true iff execution of bulk finished successfully
-	private boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
+	public boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, int retryNum){
 		boolean isSucceeded = false;
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
@@ -447,7 +429,7 @@ public class ElasticsearchClient {
         return requests;
     }
 
-    public void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
+    private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
 		try {
 			putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 			puStoredScript();
@@ -707,11 +689,11 @@ public class ElasticsearchClient {
 	 	else {
 			if (retryNum >= numOfElasticSearchActionsTries) {
 				LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
-				if (isWithPersistence()) {
+				if (diskHandler != null) {
 					if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 						DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 						try {
-							diskHandler.persistToDisk(updatedDbBulkRequest);
+							diskHandler.persistBulkRequestToDisk(updatedDbBulkRequest);
 							if (dbBulkRequest.getTimesFetched() == 0) {
 								numOfBulksPersistedToDisk.incrementAndGet();
 							}
@@ -752,48 +734,13 @@ public class ElasticsearchClient {
 		return dbBulkRequest;
 	}
 
-	public boolean isWithPersistence() {
-		return diskHandler != null;
-	}
-
-	public boolean retryFailedRequestsFromDisk() {
-
-		dailyResetCounters();
-
-		boolean keepRunning = false;
-		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db since 00:00, {} couldn't be inserted to db since 00:00", numOfBulksPersistedToDisk,
-				numOfSuccessfulBulksFromDisk,
-				numOfFetchedMaxTimes, numOfCouldNotBeInserted);
-		if (diskHandler.hasFailedBulks()) {
-			keepRunning = true;
-			int successBulks = 0;
-			LOG.info("------------------ Retry Failed-Requests From Disk Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
-			if (failedRequestsFromDisk.size() == 0) {
-				keepRunning = false;
-			}
-			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!sendDbBulkRequest(dbBulkRequest, 0)) {
-					keepRunning = false;
-				}
-				else {
-					successBulks+=1;
-				}
-			}
-			LOG.info("------------------ Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ------------------",successBulks,failedRequestsFromDisk.size());
-		} else {
-			LOG.info("There are no failed bulks to fetch from disk");
-		}
-		return keepRunning;
-	}
-
 	List<Pair<DbBulkRequest, Integer>> memoryFailedRequestsAsList() {
 		List<Pair<DbBulkRequest, Integer>> list = Lists.newLinkedList();
 		failedRequests.drainTo(list);
 		return list;
 	}
 
-	private void dailyResetCounters() {
+	public void dailyResetCounters() {
 		// reset counters of persistence status
 		LocalTime now = LocalTime.now();
 		LocalTime start = LocalTime.parse("23:58:55");

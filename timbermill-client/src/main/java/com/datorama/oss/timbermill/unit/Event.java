@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.unit;
 
+import java.io.Serializable;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -26,7 +27,7 @@ import com.google.common.collect.Maps;
 		@JsonSubTypes.Type(value = SpotEvent.class, name = "SpotEvent")
 }
 )
-public abstract class Event{
+public abstract class Event implements Serializable {
 
 	public static final String EVENT_ID_DELIMITER = "___";
 

@@ -38,16 +38,17 @@ public class TaskIndexer {
     private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
-    public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-        this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
-        this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
+    public TaskIndexer(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, Integer daysRotation, ElasticsearchClient es) {
+
+        this.daysRotation = Math.max(daysRotation, 1);
+        this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         CacheBuilder<String, Queue<AdoptedEvent>> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> {
             int sum = value.stream().mapToInt(Event::estimatedSize).sum();
             return key.length() + sum;
         });
         parentIdTORootOrphansEventsCache = cacheBuilder
-                .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
+                .maximumWeight(maximumCacheSize).expireAfterWrite(maximumCacheMinutesHold, TimeUnit.MINUTES).removalListener(
                         notification -> {
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
@@ -409,10 +410,6 @@ public class TaskIndexer {
         }
 
         return new ParentProperties(primaryId, context, parentPath, parentName);
-    }
-
-    public void close() {
-        es.close();
     }
 
     private static class ParentProperties{
