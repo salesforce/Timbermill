@@ -19,6 +19,8 @@ import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
+	protected static ElasticsearchClient client;
+
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
@@ -29,14 +31,17 @@ public abstract class TimberLogTest {
 	private static final String SPOT = "Spot";
 	private String childTaskId;
 	private String childOfChildTaskId;
-	protected static ElasticsearchClient client;
 
-	public synchronized static void waitForTask(String taskId, TaskStatus status, ElasticsearchClient client) {
-		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && (client.getTaskById(taskId).getStatus() == status);
+	protected synchronized static void waitForTask(String taskId, TaskStatus status) {
+		waitForTask(taskId, status, client);
+	}
+
+	public synchronized static void waitForTask(String taskId, TaskStatus status, ElasticsearchClient esClient) {
+		Callable<Boolean> callable = () -> (esClient.getTaskById(taskId) != null) && (esClient.getTaskById(taskId).getStatus() == status);
 		waitForCallable(callable);
 	}
 
-	public static void waitForTasks(String taskId, int tasksAmounts, ElasticsearchClient client) {
+	public static void waitForTasks(String taskId, int tasksAmounts) {
 		Callable<Boolean> callable = () -> (client.getMultipleTasksByIds(taskId) != null) && (client.getMultipleTasksByIds(taskId).size() == tasksAmounts);
 		waitForCallable(callable);
 	}

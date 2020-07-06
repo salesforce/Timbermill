@@ -13,8 +13,6 @@ import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_UR
 
 public class TimberLogServerTest extends TimberLogTest{
 
-    private static ElasticsearchClient client;
-
     @BeforeClass
     public static void init()  {
         String timbermillUrl = System.getenv("TIMBERMILL_URL");
@@ -26,7 +24,7 @@ public class TimberLogServerTest extends TimberLogTest{
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000);
+                7, 100, 1000000000,3, 3, 1000,null ,1, 1, 4000);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).build();
         TimberLogger.bootstrap(pipe, TEST);
