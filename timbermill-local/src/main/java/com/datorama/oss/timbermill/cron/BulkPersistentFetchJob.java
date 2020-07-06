@@ -38,9 +38,9 @@ public class BulkPersistentFetchJob implements Job {
 		es.dailyResetCounters();
 
 		boolean keepRunning = false;
-//		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db since 00:00, {} couldn't be inserted to db since 00:00", numOfBulksPersistedToDisk, //todo fix
-//				numOfSuccessfulBulksFromDisk,
-//				numOfFetchedMaxTimes, numOfCouldNotBeInserted);
+		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db since 00:00, {} couldn't be inserted to db since 00:00", es.getNumOfBulksPersistedToDisk(),
+				es.getNumOfSuccessfulBulksFromDisk(),
+				es.getNumOfFetchedMaxTimes(), es.getNumOfCouldNotBeInserted());
 		if (diskHandler.hasFailedBulks()) {
 			keepRunning = true;
 			int successBulks = 0;

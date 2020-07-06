@@ -72,9 +72,9 @@ public class TimberLogAdvancedTest {
         String childTaskId = taskId2Arr[0];
         String ongoingTaskId = ongoingTaskIdArr[0];
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
+        TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS, client);
+        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS, client);
 
         Task task = client.getTaskById(taskId);
         assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
@@ -130,7 +130,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
 
         Task ongoingTask = client.getTaskById(taskId);
         assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
@@ -177,8 +177,8 @@ public class TimberLogAdvancedTest {
         String ongoingTaskId = Event.generateTaskId(ongoingTaskName);
         String taskId = testOutOfOrderWithParentTask1(ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName, ongoingTaskId, log1, log2, log3);
 
-        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS, client);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
 
         Task ongoingTask = client.getTaskById(ongoingTaskId);
         assertTask(ongoingTask, ongoingTaskName, true, true, taskId, taskId, TaskStatus.SUCCESS, EVENT);
@@ -239,7 +239,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.error(taskId, new Exception(exception), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
+        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR, client);
 
         Task ongoingTask = client.getTaskById(taskId);
 
@@ -289,7 +289,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
         waitForValueInContext(ctx2, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -338,7 +338,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
 
         Task ongoingTask = client.getTaskById(taskId);
         assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
@@ -386,7 +386,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
 
         Task ongoingTask = client.getTaskById(taskId);
         assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
@@ -434,7 +434,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS, client);
         waitForValueInContext(ctx2, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -477,7 +477,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS, client);
         waitForValueInContext(ctx2, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -515,7 +515,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.error(taskId, new Exception("exception"), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_ERROR);
+        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_ERROR, client);
         waitForValueInContext(ctx2, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -555,7 +555,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
 
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS);
+        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS, client);
         waitForValueInContext(ctx3, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -594,7 +594,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED, client);
         waitForValueInContext(ctx2, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -632,7 +632,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED, client);
         waitForValueInContext(ctx1, taskId);
 
         Task ongoingTask = client.getTaskById(taskId);
@@ -666,7 +666,7 @@ public class TimberLogAdvancedTest {
         String taskId = Event.generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1).logInfo(log2).logInfo(log3));
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_INFO_ONLY);
+        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_INFO_ONLY, client);
 
         Task ongoingTask = client.getTaskById(taskId);
         assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.PARTIAL_INFO_ONLY, false);
@@ -721,8 +721,8 @@ public class TimberLogAdvancedTest {
 
         TimberLoggerAdvanced.success(parentTaskId, LogParams.create());
 
-        TimberLogTest.waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForTask(taskId1Arr[0], TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(parentTaskId, TaskStatus.SUCCESS, client);
+        TimberLogTest.waitForTask(taskId1Arr[0], TaskStatus.SUCCESS, client);
 
         Task parentTask = client.getTaskById(parentTaskId);
         assertTaskPrimary(parentTask, ongoingTaskName, TaskStatus.SUCCESS, parentTaskId, true, true);
@@ -759,8 +759,8 @@ public class TimberLogAdvancedTest {
 
         String childTaskId = taskIdArr[0];
 
-        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS);
-        TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS, client);
+        TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS, client);
 
         Task childTask = client.getTaskById(childTaskId);
         assertTask(childTask, EVENT + '2', true, true, ongoingTaskId, ongoingTaskId, TaskStatus.SUCCESS, ongoingTaskName);
@@ -783,7 +783,7 @@ public class TimberLogAdvancedTest {
         }
 
         String finalTaskId = taskId;
-        TimberLogTest.waitForTask(finalTaskId, TaskStatus.SUCCESS);
+        TimberLogTest.waitForTask(finalTaskId, TaskStatus.SUCCESS, client);
 
         Task childTask = client.getTaskById(taskId);
         assertTaskPrimary(childTask, EVENT + '2', TaskStatus.SUCCESS, taskId, true, true);
@@ -803,7 +803,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, null);
@@ -824,7 +824,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, StartEvent.ALREADY_STARTED);
@@ -838,7 +838,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -852,7 +852,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -866,7 +866,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, StartEvent.ALREADY_STARTED);
@@ -879,7 +879,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, StartEvent.ALREADY_STARTED);
@@ -894,7 +894,7 @@ public class TimberLogAdvancedTest {
         String taskId = TimberLoggerAdvanced.start(id, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(id);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -908,7 +908,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -922,7 +922,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -937,7 +937,7 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -951,7 +951,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.success(taskId);
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -965,7 +965,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, ALREADY_CLOSED);
@@ -979,7 +979,7 @@ public class TimberLogAdvancedTest {
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
-        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
+        TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED, client);
 
         Task task = client.getTaskById(taskId);
         assertCorrupted(task, StartEvent.ALREADY_STARTED);

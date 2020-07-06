@@ -335,10 +335,12 @@ public class ElasticsearchUtil {
 	}
 
 	private static void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue, DiskHandler diskHandler) {
-		ArrayList<Event> events = Lists.newArrayList();
-		overflowedQueue.drainTo(events);
+		if (!overflowedQueue.isEmpty()) {
+			ArrayList<Event> events = Lists.newArrayList();
+			overflowedQueue.drainTo(events);
 
-		diskHandler.persistEventsToDisk(events);
+			diskHandler.persistEventsToDisk(events);
+		}
 
 
 	}

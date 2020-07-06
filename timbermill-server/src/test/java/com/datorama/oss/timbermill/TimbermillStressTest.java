@@ -90,7 +90,7 @@ public class TimbermillStressTest extends TimberLogTest{
         LOG.info("Running test {}", "simpleStressTest");
         Runnable simpleRunnable = () -> {
             String taskId = runSimpleStress();
-            waitForTask(taskId, TaskStatus.SUCCESS);
+            waitForTask(taskId, TaskStatus.SUCCESS, client);
         };
         runInParallel(simpleRunnable);
         assertEquals( numOfTasks * numOfThreads, client.countByName("simple_stress", env));
@@ -103,9 +103,9 @@ public class TimbermillStressTest extends TimberLogTest{
         Runnable advancedRunnable = () -> {
             List<String> tasksIds = createAdvanceTasks();
             String taskId = tasksIds.get(numOfTasks - 1);
-            waitForTask(taskId, TaskStatus.SUCCESS);
+            waitForTask(taskId, TaskStatus.SUCCESS, client);
             String childTaskId = createChildrenTasks(tasksIds);
-            waitForTask(childTaskId, TaskStatus.SUCCESS);
+            waitForTask(childTaskId, TaskStatus.SUCCESS, client);
             Task childTask = client.getTaskById(childTaskId);
             assertEquals(childTask.getCtx().get(CTX), childTask.getParentId());
         };
@@ -121,8 +121,8 @@ public class TimbermillStressTest extends TimberLogTest{
             Pair<String, String> parentOrphan = createOrphansStress();
             String parentTaskId = parentOrphan.getLeft();
             String orphanTaskId = parentOrphan.getRight();
-            waitForTask(parentTaskId, TaskStatus.SUCCESS);
-            waitForTask(orphanTaskId, TaskStatus.SUCCESS);
+            waitForTask(parentTaskId, TaskStatus.SUCCESS, client);
+            waitForTask(orphanTaskId, TaskStatus.SUCCESS, client);
             Task orphanTask = client.getTaskById(orphanTaskId);
             assertEquals(orphanTask.getCtx().get(CTX), orphanTask.getPrimaryId());
         };
@@ -139,8 +139,8 @@ public class TimbermillStressTest extends TimberLogTest{
             Pair<String, String> primaryOrphan = createStringOfOrphansStress();
             String primaryTaskId = primaryOrphan.getLeft();
             String orphanTaskId = primaryOrphan.getRight();
-            waitForTask(primaryTaskId, TaskStatus.SUCCESS);
-            waitForTask(orphanTaskId, TaskStatus.SUCCESS);
+            waitForTask(primaryTaskId, TaskStatus.SUCCESS, client);
+            waitForTask(orphanTaskId, TaskStatus.SUCCESS, client);
 
             Task orphanTask = client.getTaskById(orphanTaskId);
 
@@ -182,7 +182,7 @@ public class TimbermillStressTest extends TimberLogTest{
                 TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text18", "TEXT"));
                 TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text19", "TEXT"));
                 TimberLoggerAdvanced.logParams(taskId, LogParams.create().text("text20", "TEXT"));
-                waitForTask(taskId, TaskStatus.UNTERMINATED);
+                waitForTask(taskId, TaskStatus.UNTERMINATED, client);
                 TimberLoggerAdvanced.success(taskId);
             }
             else{

@@ -21,17 +21,19 @@ public class LocalOutputPipe implements EventOutputPipe {
     private static final int EVENT_QUEUE_CAPACITY = 1000000;
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
+
     private final String mergingCronExp;
+
     private DiskHandler diskHandler;
 
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
+
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
-
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
-
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
@@ -46,7 +48,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes, builder.daysRotation, esClient);
 
-        CronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp);
+        CronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp, buffer, overflowedQueue);
         startWorkingThread();
     }
 
@@ -100,7 +102,19 @@ public class LocalOutputPipe implements EventOutputPipe {
         this.esClient = esClient;
     }
 
+    public BlockingQueue<Event> getBuffer() {
+        return buffer;
+    }
+
+    public BlockingQueue<Event> getOverflowedQueue() {
+        return overflowedQueue;
+    }
+
+    public DiskHandler getDiskHandler() {
+        return diskHandler;
+    }
     public static class Builder {
+
 
         //DEFAULTS
         private int searchMaxSize = 1000;
@@ -264,6 +278,5 @@ public class LocalOutputPipe implements EventOutputPipe {
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);
         }
-
     }
 }

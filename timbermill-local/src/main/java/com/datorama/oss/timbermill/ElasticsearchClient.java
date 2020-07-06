@@ -113,6 +113,9 @@ public class ElasticsearchClient {
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
 		this.diskHandler = diskHandler;
+		if (diskHandler.isCreatedSuccessfully()) {
+			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
+		}
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
@@ -749,6 +752,22 @@ public class ElasticsearchClient {
 			numOfFetchedMaxTimes = 0;
 			numOfCouldNotBeInserted = 0;
 		}
+	}
+
+	public AtomicInteger getNumOfBulksPersistedToDisk() {
+		return numOfBulksPersistedToDisk;
+	}
+
+	public int getNumOfSuccessfulBulksFromDisk() {
+		return numOfSuccessfulBulksFromDisk;
+	}
+
+	public int getNumOfFetchedMaxTimes() {
+		return numOfFetchedMaxTimes;
+	}
+
+	public int getNumOfCouldNotBeInserted() {
+		return numOfCouldNotBeInserted;
 	}
 }
 

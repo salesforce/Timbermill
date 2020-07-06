@@ -101,11 +101,11 @@ public class SQLJetDiskHandler implements DiskHandler {
 		List<Event> events;
 
 		try {
-			LOG.info("Fetching events from SQLite...");
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
+				LOG.info("Fetching events from SQLite...");
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				allEvents.addAll(events);
 				if (deleteAfterFetch) {
@@ -115,7 +115,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount += events.size();
 			}
-			LOG.info("Fetched successfully. Number of fetched bulks: {}.",fetchedCount);
+			LOG.info("Fetched successfully. Number of fetched events: {}.",fetchedCount);
 		} catch (Exception e) {
 			LOG.error("Fetching has failed.",e);
 		} finally {

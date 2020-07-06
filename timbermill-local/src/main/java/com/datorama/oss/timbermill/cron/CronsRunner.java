@@ -1,5 +1,8 @@
 package com.datorama.oss.timbermill.cron;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.elasticsearch.common.Strings;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
@@ -8,9 +11,10 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.unit.Event;
 
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.DISK_HANDLER;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.OVERFLOWED_EVENTS_QUEUE;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -19,17 +23,15 @@ public class CronsRunner {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CronsRunner.class);
 
-	public static void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp) {
+	public static void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
+			BlockingQueue<Event> overFlowedEvents) {
 		if (diskHandler != null) {
-			if (diskHandler.isCreatedSuccessfully()) {
-				//			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount()); //TODO fix
-			}
 			if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
 				runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler);
 			}
 
 			if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
-				runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler);
+				runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents);
 			}
 		}
 		if (!Strings.isEmpty(deletionCronExp)) {
@@ -37,12 +39,15 @@ public class CronsRunner {
 		}
 	}
 
-	private static void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, DiskHandler diskHandler) {
+	private static void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, DiskHandler diskHandler, BlockingQueue<Event> buffer, BlockingQueue<Event> overFlowedEvents) {
 		try {
 			final StdSchedulerFactory sf = new StdSchedulerFactory();
 			Scheduler scheduler = sf.getScheduler();
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(DISK_HANDLER, diskHandler);
+			jobDataMap.put(EVENTS_QUEUE, buffer);
+			jobDataMap.put(OVERFLOWED_EVENTS_QUEUE, overFlowedEvents);
+
 			JobDetail job = newJob(EventsPersistentFetchJob.class)
 					.withIdentity("job3", "group3").usingJobData(jobDataMap)
 					.build();

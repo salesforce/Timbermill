@@ -29,11 +29,11 @@ public class TimberLogLocalTest extends TimberLogTest {
 
     @AfterClass
     public static void tearDown(){
+        TimberLogger.exit();
         pipe.close();
-        client.close();
     }
 
-//    @Test
+    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
         super.testSimpleTaskIndexerJob();
     }

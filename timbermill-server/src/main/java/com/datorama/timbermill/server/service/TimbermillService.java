@@ -82,7 +82,7 @@ public class TimbermillService {
 
 		taskIndexer = new TaskIndexer(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, daysRotation, es);
 
-		CronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp);
+		CronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp, eventsQueue, overflowedQueue);
 
 		startWorkingThread();
 	}

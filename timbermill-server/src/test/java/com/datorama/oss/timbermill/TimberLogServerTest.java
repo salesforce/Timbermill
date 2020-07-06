@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 import org.apache.commons.lang3.StringUtils;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -11,6 +12,8 @@ import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
 
 public class TimberLogServerTest extends TimberLogTest{
+
+    private static ElasticsearchClient client;
 
     @BeforeClass
     public static void init()  {
@@ -24,12 +27,17 @@ public class TimberLogServerTest extends TimberLogTest{
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000)
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).build();
         TimberLogger.bootstrap(pipe, TEST);
     }
 
-//    @Test
+    @AfterClass
+    public static void tearDown(){
+        TimberLogger.exit();
+    }
+
+    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
        super.testSimpleTaskIndexerJob();
     }
