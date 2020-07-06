@@ -97,12 +97,17 @@ public class ElasticsearchClient {
 	private int numOfElasticSearchActionsTries;
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
-	private int searchMaxSize;
 	private DiskHandler diskHandler;
+	private int searchMaxSize;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
 			int maxTotalFields) {
+
+		if (diskHandler!=null && diskHandler.isCreatedSuccessfully()){
+			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
+			this.diskHandler = diskHandler;
+		}
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries);
 		this.indexBulkSize = indexBulkSize;
@@ -112,10 +117,6 @@ public class ElasticsearchClient {
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
-		this.diskHandler = diskHandler;
-		if (diskHandler.isCreatedSuccessfully()) {
-			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
-		}
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
