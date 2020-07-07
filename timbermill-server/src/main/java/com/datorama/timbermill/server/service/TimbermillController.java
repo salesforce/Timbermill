@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -21,6 +22,8 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 @RestController
 public class TimbermillController {
@@ -28,17 +31,33 @@ public class TimbermillController {
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillController.class);
 
 	private static ExecutorService executorService;
+	private final Cache<String, String> idsCache;
 
 	@Autowired
 	private TimbermillService timbermillService;
 
 	public TimbermillController(@Value("${RECEIVING_THREAD:10}") int numOfThreads) {
+		CacheBuilder<String, String> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> key.length() + value.length());
+		idsCache = cacheBuilder
+				.maximumWeight(1000000) //1MB
+				.expireAfterWrite(10, TimeUnit.SECONDS)
+				.build();
 		executorService = Executors.newFixedThreadPool(numOfThreads);
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/events")
 	public String ingestEvents(@RequestBody @Valid EventsWrapper eventsWrapper) {
 		executorService.submit(() -> {
+			String eventsId = eventsWrapper.getId();
+			if (eventsId != null){
+				if (idsCache.getIfPresent(eventsId) != null){
+					LOG.warn("Got duplicated EventsWrapper {}", eventsWrapper);
+					return;
+				}
+				else{
+					idsCache.put(eventsId, eventsId);
+				}
+			}
 			Collection<Event> events = eventsWrapper.getEvents();
 			timbermillService.handleEvents(events);
 		});
