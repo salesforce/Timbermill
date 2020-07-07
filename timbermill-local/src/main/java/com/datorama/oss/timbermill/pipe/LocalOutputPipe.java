@@ -76,10 +76,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public void close() {
         LOG.info("Gracefully shutting down Timbermill Server.");
-        if (diskHandler != null){
-            diskHandler.close();
-        }
-        esClient.close();
         keepRunning = false;
         while(!stoppedRunning){
             try {
@@ -87,6 +83,10 @@ public class LocalOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }
+        if (diskHandler != null){
+            diskHandler.close();
+        }
+        esClient.close();
         LOG.info("Timbermill server was shut down.");
     }
 
