@@ -57,6 +57,7 @@ public class TaskIndexer {
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
         LOG.info("------------------ Batch Start ------------------");
+        parentIdTORootOrphansEventsCache.cleanUp();
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
 
         Collection<String> heartbeatEvents = new HashSet<>();

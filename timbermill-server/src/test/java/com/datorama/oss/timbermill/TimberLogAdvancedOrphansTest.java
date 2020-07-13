@@ -650,7 +650,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
 
         client.index(tasksMap, index);
-    //    waitForTask(childTaskId, (Task task) -> (task != null) && !task.isOrphan());
+
 
         try {
             sleep(2000 * 60);
