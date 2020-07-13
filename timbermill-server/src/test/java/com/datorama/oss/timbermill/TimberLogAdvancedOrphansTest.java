@@ -1,17 +1,20 @@
 package com.datorama.oss.timbermill;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 
-import com.datorama.oss.timbermill.unit.Event;
-import com.datorama.oss.timbermill.unit.LogParams;
-import com.datorama.oss.timbermill.unit.Task;
-import com.datorama.oss.timbermill.unit.TaskStatus;
+import com.datorama.oss.timbermill.unit.*;
+import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
+import static java.lang.Thread.sleep;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -627,5 +630,38 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(primaryTask.getParentId());
         Assert.assertNull(primaryTask.getParentsPath());
         TimberLogTest.assertNotOrphan(primaryTask);
+    }
+
+    public void testOrphanParentInexedOnOtherNodeSuccess() {
+
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context("ctx", "ctx"), null);
+        Event parentSuccessEvent = new SuccessEvent(parentTaskId, LogParams.create());
+        parentStartEvent.setEnv(EventLogger.get().getEnv());
+        parentSuccessEvent.setEnv(EventLogger.get().getEnv());
+
+        String index = client.createTimbermillAlias(parentStartEvent.getEnv());
+        Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1));
+
+        String childTaskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
+        TimberLoggerAdvanced.success(childTaskId);
+        waitForTask(childTaskId, TaskStatus.SUCCESS);
+        Task childTask = client.getTaskById(childTaskId);
+        TimberLogTest.assertOrphan(childTask);
+
+        client.index(tasksMap, index);
+    //    waitForTask(childTaskId, (Task task) -> (task != null) && !task.isOrphan());
+
+        try {
+            sleep(2000 * 60);
+        }catch (Exception e) {}
+
+        childTask = client.getTaskById(childTaskId);
+        TimberLogTest.assertNotOrphan(childTask);
+        Assert.assertEquals(parentTaskId, childTask.getParentId());
+        Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
+        Assert.assertEquals(1, childTask.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, childTask.getParentsPath().get(0));
+
     }
 }

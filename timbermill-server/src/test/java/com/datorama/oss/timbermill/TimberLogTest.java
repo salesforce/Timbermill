@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
@@ -37,6 +38,11 @@ public abstract class TimberLogTest {
 		waitForCallable(callable);
 	}
 
+	public static void waitForTask(String taskId, Predicate<Task> predicate) {
+		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && predicate.test(client.getTaskById(taskId));
+		waitForCallable(callable);
+	}
+
 	public static void waitForTasks(String taskId, int tasksAmounts) {
 		Callable<Boolean> callable = () -> (client.getMultipleTasksByIds(taskId) != null) && (client.getMultipleTasksByIds(taskId).size() == tasksAmounts);
 		waitForCallable(callable);
@@ -48,6 +54,10 @@ public abstract class TimberLogTest {
 
 	static void assertNotOrphan(Task task){
 		assertTrue(task.isOrphan() == null || !task.isOrphan());
+	}
+
+	static void assertOrphan(Task task){
+		assertFalse(task.isOrphan() == null || !task.isOrphan());
 	}
 
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {

@@ -324,4 +324,8 @@ final class EventLogger {
 		return event.getTaskId();
 	}
 
+	public String getEnv() {
+		return env;
+	}
+
 }
