@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -38,9 +39,9 @@ public abstract class TimberLogTest {
 		waitForCallable(callable);
 	}
 
-	public static void waitForTask(String taskId, Predicate<Task> predicate) {
-		Callable<Boolean> callable = () -> (client.getTaskById(taskId) != null) && predicate.test(client.getTaskById(taskId));
-		waitForCallable(callable);
+	public static void waitForTasksPredicate(Collection<String> taskIds, Predicate<Task> predicate, long timeout, TimeUnit unit) {
+		Callable<Boolean> callable = () -> taskIds.stream().allMatch(taskId -> client.getTaskById(taskId) != null && predicate.test(client.getTaskById(taskId)));
+		waitForCallable(callable, timeout, unit);
 	}
 
 	public static void waitForTasks(String taskId, int tasksAmounts) {
@@ -49,7 +50,11 @@ public abstract class TimberLogTest {
 	}
 
 	static void waitForCallable(Callable<Boolean> callable) {
-		Awaitility.await().atMost(60, TimeUnit.SECONDS).pollInterval(2, TimeUnit.SECONDS).until(callable);
+		waitForCallable(callable, 60, TimeUnit.SECONDS);
+	}
+
+	static void waitForCallable(Callable<Boolean> callable, long timeout, TimeUnit unit) {
+		Awaitility.await().atMost(timeout, unit).pollInterval(2, TimeUnit.SECONDS).until(callable);
 	}
 
 	static void assertNotOrphan(Task task){

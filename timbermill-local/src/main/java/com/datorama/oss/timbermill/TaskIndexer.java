@@ -51,6 +51,7 @@ public class TaskIndexer {
                         notification -> {
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
+                                notification.getValue().forEach(EventLogger.get()::submitEvent);
                             }
                         }).build();
     }
@@ -133,7 +134,7 @@ public class TaskIndexer {
     private void populateCollections(Collection<Event> timbermillEvents, Map<String, DefaultMutableTreeNode> nodesMap, Set<String> startEventsIds, Set<String> parentIds,
             Map<String, List<Event>> eventsMap) {
         timbermillEvents.forEach(event -> {
-            if (event.isStartEvent()){
+            if (event.isStartEvent() || event instanceof AdoptedEvent){
                 startEventsIds.add(event.getTaskId());
 
                 nodesMap.put(event.getTaskId(), new DefaultMutableTreeNode(event));

@@ -62,5 +62,8 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
     }
 
     @Test
-    public void testOrphanParentInexedOnOtherNodeSuccess() {super.testOrphanParentInexedOnOtherNodeSuccess(); }
+    public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(); }
+
+    @Test
+    public void testOrphanWithChainAdoptionFromDifferentNode() {super.testOrphanWithChainAdoptionFromDifferentNode(); }
 }

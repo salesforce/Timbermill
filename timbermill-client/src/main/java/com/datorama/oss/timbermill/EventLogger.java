@@ -318,13 +318,13 @@ final class EventLogger {
 		return sb.toString();
 	}
 
-	private String submitEvent(Event event) {
+	String submitEvent(Event event) {
 		event.setEnv(env);
 		eventOutputPipe.send(event);
 		return event.getTaskId();
 	}
 
-	public String getEnv() {
+	String getEnv() {
 		return env;
 	}
 

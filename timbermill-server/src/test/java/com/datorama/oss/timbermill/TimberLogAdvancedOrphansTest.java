@@ -2,7 +2,8 @@ package com.datorama.oss.timbermill;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
@@ -13,8 +14,8 @@ import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
+import static com.datorama.oss.timbermill.TimberLogTest.waitForTasksPredicate;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static java.lang.Thread.sleep;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -23,6 +24,7 @@ public class TimberLogAdvancedOrphansTest {
     private static final String CTX = "ctx";
     private static final String ORPHAN_CHILD = "orphan_child";
     private static ElasticsearchClient client;
+    private final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && !task.isOrphan();
 
     @BeforeClass
     public static void setUp() {
@@ -632,16 +634,18 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertNotOrphan(primaryTask);
     }
 
-    public void testOrphanParentInexedOnOtherNodeSuccess() {
+    public void testOrphanWithAdoptionFromDifferentNode() {
 
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
-        Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context("ctx", "ctx"), null);
+        Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
         Event parentSuccessEvent = new SuccessEvent(parentTaskId, LogParams.create());
         parentStartEvent.setEnv(EventLogger.get().getEnv());
         parentSuccessEvent.setEnv(EventLogger.get().getEnv());
 
         String index = client.createTimbermillAlias(parentStartEvent.getEnv());
-        Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1));
+        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
+        taskToIndex.setPrimaryId(parentTaskId);
+        Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
 
         String childTaskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
         TimberLoggerAdvanced.success(childTaskId);
@@ -650,11 +654,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
 
         client.index(tasksMap, index);
-
-
-        try {
-            sleep(2000 * 60);
-        }catch (Exception e) {}
+        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 13, TimeUnit.MINUTES);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
@@ -662,6 +662,55 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
         Assert.assertEquals(1, childTask.getParentsPath().size());
         Assert.assertEquals(ORPHAN_PARENT, childTask.getParentsPath().get(0));
+        Assert.assertEquals(CTX, childTask.getCtx().get(CTX));
+
+    }
+
+    public void testOrphanWithChainAdoptionFromDifferentNode() {
+
+        String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
+        Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
+        Event parentSuccessEvent = new SuccessEvent(parentTaskId, LogParams.create());
+        parentStartEvent.setEnv(EventLogger.get().getEnv());
+        parentSuccessEvent.setEnv(EventLogger.get().getEnv());
+
+
+        String orphanTaskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
+        TimberLoggerAdvanced.success(orphanTaskId);
+        TimberLogTest.waitForTask(orphanTaskId, TaskStatus.SUCCESS);
+        Task orphanTask = client.getTaskById(orphanTaskId);
+        TimberLogTest.assertOrphan(orphanTask);
+
+        String childTaskId = TimberLoggerAdvanced.start(ORPHAN_CHILD, orphanTaskId);
+        TimberLoggerAdvanced.success(childTaskId);
+        TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS);
+        Task childTask = client.getTaskById(childTaskId);
+        TimberLogTest.assertOrphan(childTask);
+
+        String index = client.createTimbermillAlias(parentStartEvent.getEnv());
+        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
+        taskToIndex.setPrimaryId(parentTaskId);
+        Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
+        client.index(tasksMap, index);
+        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 13, TimeUnit.MINUTES);
+
+        orphanTask = client.getTaskById(orphanTaskId);
+        TimberLogTest.assertNotOrphan(orphanTask);
+        Assert.assertEquals(parentTaskId, orphanTask.getParentId());
+        Assert.assertEquals(parentTaskId, orphanTask.getPrimaryId());
+        Assert.assertEquals(1, orphanTask.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, orphanTask.getParentsPath().get(0));
+        Assert.assertEquals(CTX, orphanTask.getCtx().get(CTX));
+
+        childTask = client.getTaskById(childTaskId);
+        TimberLogTest.assertNotOrphan(childTask);
+        Assert.assertEquals(orphanTaskId, childTask.getParentId());
+        Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
+        Assert.assertEquals(2, childTask.getParentsPath().size());
+        Assert.assertEquals(ORPHAN_PARENT, childTask.getParentsPath().get(0));
+        Assert.assertEquals(ORPHAN, childTask.getParentsPath().get(1));
+        Assert.assertEquals(CTX, childTask.getCtx().get(CTX));
+        Assert.assertEquals(CTX + "1", childTask.getCtx().get(CTX + "1"));
 
     }
 }

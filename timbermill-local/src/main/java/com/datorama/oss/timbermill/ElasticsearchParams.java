@@ -50,11 +50,11 @@ public class ElasticsearchParams {
 		return pluginsJson;
 	}
 
-	public int getMaximumCacheSize() {
+	int getMaximumCacheSize() {
 		return maximumCacheSize;
 	}
 
-	public int getMaximumCacheMinutesHold() {
+	int getMaximumCacheMinutesHold() {
 		return maximumCacheMinutesHold;
 	}
 

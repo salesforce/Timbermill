@@ -18,7 +18,6 @@ import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
 import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
-import com.datorama.oss.timbermill.unit.AdoptedEvent;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 

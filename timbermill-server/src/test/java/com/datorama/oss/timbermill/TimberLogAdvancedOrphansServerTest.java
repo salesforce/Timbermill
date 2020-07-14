@@ -55,7 +55,9 @@ public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphans
 	public void testStringOfOrphans(){
 		super.testStringOfOrphans();
 	}
+	@Test
+	public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(); }
 
 	@Test
-	public void testOrphanParentInexedOnOtherNodeSuccess() {super.testOrphanParentInexedOnOtherNodeSuccess(); }
+	public void testOrphanWithChainAdoptionFromDifferentNode() {super.testOrphanWithChainAdoptionFromDifferentNode(); }
 }
