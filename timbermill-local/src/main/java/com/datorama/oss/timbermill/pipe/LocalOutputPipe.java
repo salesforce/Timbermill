@@ -43,13 +43,13 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.diskHandlerStrategy
         );
 
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient, buffer);
         startWorkingThread();
     }
 
     public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es) {
         esClient = es;
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient, buffer);
         startWorkingThread();
     }
 

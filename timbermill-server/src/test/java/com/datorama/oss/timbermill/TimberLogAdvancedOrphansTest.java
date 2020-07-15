@@ -654,7 +654,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
 
         client.index(tasksMap, index);
-        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 3, TimeUnit.MINUTES);
+        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 4, TimeUnit.MINUTES);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
@@ -692,7 +692,7 @@ public class TimberLogAdvancedOrphansTest {
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
         client.index(tasksMap, index);
-        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 3, TimeUnit.MINUTES);
+        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 4, TimeUnit.MINUTES);
 
         orphanTask = client.getTaskById(orphanTaskId);
         TimberLogTest.assertNotOrphan(orphanTask);

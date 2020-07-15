@@ -303,7 +303,7 @@ public class ElasticsearchUtil {
 	public static final String ELASTIC_SEARCH_CLIENT = "elastic_search_client";
 	private static final String SQLITE = "sqlite";
 
-	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
+	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es, Queue<Event> eventQueue) {
 		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields());
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
 
@@ -317,7 +317,7 @@ public class ElasticsearchUtil {
 				runPersistentFetchCron(persistentFetchCronExp, es);
 			}
 		}
-		return new TaskIndexer(elasticsearchParams, es);
+		return new TaskIndexer(elasticsearchParams, es, eventQueue);
 	}
 
 	private static void runPersistentFetchCron(String persistentFetchCronExp, ElasticsearchClient es) {

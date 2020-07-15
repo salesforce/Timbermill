@@ -38,9 +38,9 @@ public class TaskIndexer {
     private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
     private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
-    private final Queue<AdoptedEvent> cacheEvictedEvents;
+    private final Queue<Event> eventQueue;
 
-    public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
+    public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es, Queue<Event> eventQueue) {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
         this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
         this.es = es;
@@ -48,13 +48,13 @@ public class TaskIndexer {
             int sum = value.stream().mapToInt(Event::estimatedSize).sum();
             return key.length() + sum;
         });
-        cacheEvictedEvents = new ConcurrentLinkedQueue<>();
+        this.eventQueue = eventQueue;
         parentIdTORootOrphansEventsCache = cacheBuilder
                 .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheSecondsHold(), TimeUnit.SECONDS).removalListener(
                         notification -> {
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
-                                cacheEvictedEvents.addAll(notification.getValue());
+                                this.eventQueue.addAll(notification.getValue());
                             }
                         }).build();
     }
@@ -87,9 +87,6 @@ public class TaskIndexer {
             this.es.indexMetaDataTasks(env, heartbeatEvents);
         }
 
-        while (!cacheEvictedEvents.isEmpty()) {
-            Optional.ofNullable(cacheEvictedEvents.poll()).ifPresent(timbermillEvents::add);
-        }
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {

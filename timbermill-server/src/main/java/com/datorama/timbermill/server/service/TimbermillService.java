@@ -72,7 +72,7 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, params, diskHandlerStrategy
 		);
 
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient, eventsQueue);
 		startWorkingThread(elasticsearchClient);
 	}
 
