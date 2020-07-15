@@ -234,7 +234,14 @@ public class EventLoggerTest {
 
 		Event startEvent = events.get(0);
 		Event successEvent = events.get(1);
-		assertEquals(new ObjectMapper().writeValueAsString(startEvent).length(), startEvent.estimatedSize());
-		assertEquals(new ObjectMapper().writeValueAsString(successEvent).length(), successEvent.estimatedSize());
+		assertTrue(closeEnoughSize(startEvent));
+		assertTrue(closeEnoughSize(successEvent));
+	}
+
+	private boolean closeEnoughSize(Event event) throws JsonProcessingException {
+		int actualSize = new ObjectMapper().writeValueAsString(event).length();
+		int estimatedSize = event.estimatedSize();
+
+		return Math.abs(actualSize - estimatedSize) < (actualSize / 20); //5%
 	}
 }
