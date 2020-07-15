@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill;
 
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -37,6 +38,7 @@ public class TaskIndexer {
     private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
     private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
+    private final Queue<AdoptedEvent> cacheEvictedEvents;
 
     public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
         this.daysRotation = Math.max(elasticsearchParams.getDaysRotation(), 1);
@@ -46,12 +48,13 @@ public class TaskIndexer {
             int sum = value.stream().mapToInt(Event::estimatedSize).sum();
             return key.length() + sum;
         });
+        cacheEvictedEvents = new ConcurrentLinkedQueue<>();
         parentIdTORootOrphansEventsCache = cacheBuilder
-                .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheMinutesHold(), TimeUnit.MINUTES).removalListener(
+                .maximumWeight(elasticsearchParams.getMaximumCacheSize()).expireAfterWrite(elasticsearchParams.getMaximumCacheSecondsHold(), TimeUnit.SECONDS).removalListener(
                         notification -> {
                             if (notification.wasEvicted()){
                                 LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
-                                notification.getValue().forEach(EventLogger.get()::submitEvent);
+                                cacheEvictedEvents.addAll(notification.getValue());
                             }
                         }).build();
     }
@@ -84,6 +87,9 @@ public class TaskIndexer {
             this.es.indexMetaDataTasks(env, heartbeatEvents);
         }
 
+        while (!cacheEvictedEvents.isEmpty()) {
+            Optional.ofNullable(cacheEvictedEvents.poll()).ifPresent(timbermillEvents::add);
+        }
         LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {

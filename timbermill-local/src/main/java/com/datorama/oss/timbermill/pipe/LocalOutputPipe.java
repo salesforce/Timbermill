@@ -33,7 +33,7 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes,
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeSeconds,
                 builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields, builder.persistentFetchCronExp
         );
 
@@ -102,7 +102,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
-        private int maxCacheHoldTimeMinutes = 60;
+        private int maxCacheHoldTimeSeconds = 60;
         private int maxCacheSize = 10000;
         private String elasticUrl = null;
         private String pluginsJson = "[]";
@@ -187,7 +187,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         public Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
-            this.maxCacheHoldTimeMinutes = maxCacheHoldTimeMinutes;
+            this.maxCacheHoldTimeSeconds = maxCacheHoldTimeMinutes;
             return this;
         }
 

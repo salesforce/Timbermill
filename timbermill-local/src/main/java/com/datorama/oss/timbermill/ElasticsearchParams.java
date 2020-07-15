@@ -3,7 +3,7 @@ package com.datorama.oss.timbermill;
 public class ElasticsearchParams {
 	private final String pluginsJson;
 	private final int maximumCacheSize;
-	private final int maximumCacheMinutesHold;
+	private final int maximumCacheSecondsHold;
 	private int numberOfShards;
 	private int numberOfReplicas;
 	private int daysRotation;
@@ -12,11 +12,11 @@ public class ElasticsearchParams {
 	private int maxTotalFields;
 	private String persistentFetchCronExp;
 
-	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, int numberOfShards,
+	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheSecondsHold, int numberOfShards,
 			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields, String persistentFetchCronExp) {
 		this.pluginsJson = pluginsJson;
 		this.maximumCacheSize = maximumCacheSize;
-		this.maximumCacheMinutesHold = maximumCacheMinutesHold;
+		this.maximumCacheSecondsHold = maximumCacheSecondsHold;
 		this.numberOfShards = numberOfShards;
 		this.numberOfReplicas = numberOfReplicas;
 		this.daysRotation = daysRotation;
@@ -54,8 +54,8 @@ public class ElasticsearchParams {
 		return maximumCacheSize;
 	}
 
-	int getMaximumCacheMinutesHold() {
-		return maximumCacheMinutesHold;
+	int getMaximumCacheSecondsHold() {
+		return maximumCacheSecondsHold;
 	}
 
 	int getDaysRotation() {
