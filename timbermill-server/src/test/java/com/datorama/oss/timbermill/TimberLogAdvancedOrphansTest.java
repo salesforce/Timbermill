@@ -23,6 +23,7 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN_PARENT = "orphan_parent";
     private static final String CTX = "ctx";
     private static final String ORPHAN_CHILD = "orphan_child";
+    private static final String TEST = "test";
     private static ElasticsearchClient client;
     private final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && !task.isOrphan();
 
@@ -639,10 +640,10 @@ public class TimberLogAdvancedOrphansTest {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
         Event parentSuccessEvent = new SuccessEvent(parentTaskId, LogParams.create());
-        parentStartEvent.setEnv(EventLogger.get().getEnv());
-        parentSuccessEvent.setEnv(EventLogger.get().getEnv());
+        parentStartEvent.setEnv(TEST);
+        parentSuccessEvent.setEnv(TEST);
 
-        String index = client.createTimbermillAlias(parentStartEvent.getEnv());
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
@@ -654,7 +655,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
 
         client.index(tasksMap, index);
-        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 4, TimeUnit.MINUTES);
+        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 2, TimeUnit.MINUTES);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
@@ -671,8 +672,8 @@ public class TimberLogAdvancedOrphansTest {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent =new StartEvent(parentTaskId,ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
         Event parentSuccessEvent = new SuccessEvent(parentTaskId, LogParams.create());
-        parentStartEvent.setEnv(EventLogger.get().getEnv());
-        parentSuccessEvent.setEnv(EventLogger.get().getEnv());
+        parentStartEvent.setEnv(TEST);
+        parentSuccessEvent.setEnv(TEST);
 
 
         String orphanTaskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
@@ -687,12 +688,12 @@ public class TimberLogAdvancedOrphansTest {
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
 
-        String index = client.createTimbermillAlias(parentStartEvent.getEnv());
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
         client.index(tasksMap, index);
-        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 4, TimeUnit.MINUTES);
+        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 2, TimeUnit.MINUTES);
 
         orphanTask = client.getTaskById(orphanTaskId);
         TimberLogTest.assertNotOrphan(orphanTask);
