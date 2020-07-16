@@ -101,7 +101,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		List<Event> events;
 
 		try {
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
+			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
@@ -235,7 +235,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 		try {
 			LOG.info("Fetching from SQLite...");
-			db.beginTransaction(SqlJetTransactionMode.WRITE);
+			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
