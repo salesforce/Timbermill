@@ -91,17 +91,17 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override public List<Event> fetchAndDeleteOverflowedEvents() {
-		return fetchAndDeleteOverflowedEvents(true);
+		return fetchOverflowedEvents(true);
 	}
 
-	private List<Event> fetchAndDeleteOverflowedEvents(boolean deleteAfterFetch) {
+	private List<Event> fetchOverflowedEvents(boolean deleteAfterFetch) {
 		List<Event> allEvents = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
 		List<Event> events;
 
 		try {
-			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
+			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
@@ -235,7 +235,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 		try {
 			LOG.info("Fetching from SQLite...");
-			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
+			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
