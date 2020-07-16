@@ -20,7 +20,7 @@ import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import com.datorama.oss.timbermill.common.Constants;
-import com.datorama.oss.timbermill.common.DbBulkRequest;
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Mockito.doReturn;
@@ -39,7 +39,7 @@ public class ElasticsearchClientTest {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000, 3, 3, 1000, null, null);
+				7, 100, 1000000000, 3, 3, 1000, null, 1, 1, 4000);
 	}
 
 	@Test

@@ -14,10 +14,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.common.DiskHandler;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
+import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.unit.Event;
 
 @Service
@@ -25,12 +26,16 @@ public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 	private static final int THREAD_SLEEP = 2000;
+	private final String mergingCronExp;
 	private TaskIndexer taskIndexer;
+	private final ElasticsearchClient es;
 	private BlockingQueue<Event> eventsQueue;
+	private BlockingQueue<Event> overflowedQueue;
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
+	private DiskHandler diskHandler;
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -52,35 +57,41 @@ public class TimbermillService {
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
 			@Value("${CACHE_MAX_SIZE:1000000}") int maximumCacheSize,
 			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
+			@Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${CACHE_MAX_HOLD_TIME_MINUTES:6}") int maximumCacheMinutesHold,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
-			@Value("${PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
+			@Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
+			@Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
+		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, numberOfShards,
-				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
+		this.mergingCronExp = mergingCronExp;
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
-		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, params, diskHandlerStrategy
-		);
+		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
+		es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize ,diskHandler, numberOfShards, numberOfReplicas,
+				maxTotalFields);
 
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
-		startWorkingThread(elasticsearchClient);
+		taskIndexer = new TaskIndexer(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, daysRotation, es);
+
+		CronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp, eventsQueue, overflowedQueue);
+
+		startWorkingThread();
 	}
 
-	private void startWorkingThread(ElasticsearchClient es) {
+	private void startWorkingThread() {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, es);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, es, mergingCronExp, diskHandler);
 			}
 			stoppedRunning = true;
 		};
@@ -99,7 +110,10 @@ public class TimbermillService {
 				Thread.sleep(THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
-		taskIndexer.close();
+		if (diskHandler != null){
+			diskHandler.close();
+		}
+		es.close();
 		LOG.info("Timbermill server was shut down.");
 	}
 
@@ -111,10 +125,12 @@ public class TimbermillService {
 		return reachTerminationTimeout;
 	}
 
-	void handleEvent(Collection<Event> events){
+	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
 			if(!this.eventsQueue.offer(event)){
-				LOG.warn("Event {} was removed from the queue due to insufficient space", event.getTaskId());
+				if (!overflowedQueue.offer(event)){
+					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+				}
 			}
 		}
 	}
