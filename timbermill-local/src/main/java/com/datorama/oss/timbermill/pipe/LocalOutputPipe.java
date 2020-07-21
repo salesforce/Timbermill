@@ -8,6 +8,7 @@ import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datorama.oss.timbermill.Bulker;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
@@ -21,19 +22,16 @@ public class LocalOutputPipe implements EventOutputPipe {
     private static final int EVENT_QUEUE_CAPACITY = 1000000;
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
-
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
-
     private final String mergingCronExp;
-
     private DiskHandler diskHandler;
-
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
-
+    private final CronsRunner cronsRunner;
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
+
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
@@ -44,11 +42,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
-                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields);
+                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker);
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes, builder.daysRotation, esClient);
-
-        CronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp, buffer, overflowedQueue);
+        cronsRunner = new CronsRunner();
+        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp, buffer, overflowedQueue);
         startWorkingThread();
     }
 
@@ -56,7 +54,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, esClient, mergingCronExp, diskHandler);
+                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
             }
             stoppedRunning = true;
         };
@@ -86,7 +84,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         if (diskHandler != null){
             diskHandler.close();
         }
-        esClient.close();
+        taskIndexer.close();
+        cronsRunner.close();
         LOG.info("Timbermill server was shut down.");
     }
 
@@ -96,10 +95,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public ElasticsearchClient getEsClient() {
         return esClient;
-    }
-
-    public void setEsClient(ElasticsearchClient esClient) {
-        this.esClient = esClient;
     }
 
     public BlockingQueue<Event> getBuffer() {
@@ -113,9 +108,10 @@ public class LocalOutputPipe implements EventOutputPipe {
     public DiskHandler getDiskHandler() {
         return diskHandler;
     }
+
     public static class Builder {
 
-
+        Bulker bulker;
         //DEFAULTS
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
@@ -274,6 +270,13 @@ public class LocalOutputPipe implements EventOutputPipe {
             this.eventsPersistentFetchCronExp = eventsPersistentFetchCronExp;
             return this;
         }
+
+        //Tests
+        public Builder bulker(Bulker bulker) {
+            this.bulker = bulker;
+            return this;
+        }
+
 
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);

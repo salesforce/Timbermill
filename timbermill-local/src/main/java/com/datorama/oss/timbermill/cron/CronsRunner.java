@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.cron;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.elasticsearch.common.Strings;
 import org.quartz.*;
@@ -14,7 +13,6 @@ import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.OVERFLOWED_EVENTS_QUEUE;
 import static org.quartz.CronScheduleBuilder.cronSchedule;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
@@ -22,51 +20,59 @@ import static org.quartz.TriggerBuilder.newTrigger;
 public class CronsRunner {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CronsRunner.class);
+	private Scheduler scheduler;
 
-	public static void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
+	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
 			BlockingQueue<Event> overFlowedEvents) {
-		if (diskHandler != null) {
-			if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
-				runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler);
-			}
-
-			if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
-				runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents);
-			}
-		}
-		if (!Strings.isEmpty(deletionCronExp)) {
-			runDeletionTaskCron(deletionCronExp, es);
-		}
-	}
-
-	private static void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, DiskHandler diskHandler, BlockingQueue<Event> buffer, BlockingQueue<Event> overFlowedEvents) {
+		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(DISK_HANDLER, diskHandler);
-			jobDataMap.put(EVENTS_QUEUE, buffer);
-			jobDataMap.put(OVERFLOWED_EVENTS_QUEUE, overFlowedEvents);
+			scheduler = sf.getScheduler();
+			if (diskHandler != null) {
+				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
+					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler, scheduler);
+				}
 
-			JobDetail job = newJob(EventsPersistentFetchJob.class)
-					.withIdentity("job3", "group3").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger3", "group3")
-					.withSchedule(cronSchedule(eventsPersistentFetchCronExp))
-					.build();
-
-			scheduler.scheduleJob(job, trigger);
+				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
+					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents, scheduler);
+				}
+			}
+			if (!Strings.isEmpty(deletionCronExp)) {
+				runDeletionTaskCron(deletionCronExp, es, scheduler);
+			}
 			scheduler.start();
 		} catch (SchedulerException e) {
-			LOG.error("Error occurred while fetching failed bulks from disk", e);
+			LOG.error("Could not start crons", e);
+			throw new RuntimeException(e);
 		}
 	}
 
-	private static void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, DiskHandler diskHandler) {
+	public void close(){
 		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
+			scheduler.shutdown();
+		} catch (SchedulerException e) {
+			LOG.error("Could not close scheduler", e);
+		}
+	}
+
+	private static void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, DiskHandler diskHandler, BlockingQueue<Event> buffer, BlockingQueue<Event> overFlowedEvents,
+		Scheduler scheduler) throws SchedulerException {
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(DISK_HANDLER, diskHandler);
+		jobDataMap.put(EVENTS_QUEUE, buffer);
+		jobDataMap.put(OVERFLOWED_EVENTS_QUEUE, overFlowedEvents);
+
+		JobDetail job = newJob(EventsPersistentFetchJob.class)
+				.withIdentity("job3", "group3").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger3", "group3")
+				.withSchedule(cronSchedule(eventsPersistentFetchCronExp))
+				.build();
+
+		scheduler.scheduleJob(job, trigger);
+	}
+
+	private static void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, DiskHandler diskHandler, Scheduler scheduler) throws SchedulerException {
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(CLIENT, es);
 			jobDataMap.put(DISK_HANDLER, diskHandler);
@@ -77,34 +83,21 @@ public class CronsRunner {
 					.withIdentity("trigger2", "group2")
 					.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
 					.build();
-
 			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while fetching failed bulks from disk", e);
-		}
 	}
 
-	private static void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es) {
-		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			JobDetail job = newJob(ExpiredTasksDeletionJob.class)
-					.withIdentity("job1", "group1").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger1", "group1")
-					.withSchedule(cronSchedule(deletionCronExp))
-					.build();
+	private static void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es, Scheduler scheduler) throws SchedulerException {
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		JobDetail job = newJob(ExpiredTasksDeletionJob.class)
+				.withIdentity("job1", "group1").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger1", "group1")
+				.withSchedule(cronSchedule(deletionCronExp))
+				.build();
 
-			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while deleting expired tasks", e);
-		}
-
+		scheduler.scheduleJob(job, trigger);
 	}
 
 }

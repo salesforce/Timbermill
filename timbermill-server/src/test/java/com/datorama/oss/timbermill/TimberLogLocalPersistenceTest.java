@@ -1,139 +1,121 @@
 package com.datorama.oss.timbermill;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.client.RequestOptions;
+import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
-import org.quartz.*;
 
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.cron.EventsPersistentFetchJob;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
-import com.datorama.oss.timbermill.unit.*;
-import com.google.common.collect.Maps;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-//@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.class)
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
-    private static ElasticsearchClient elasticsearchClientSpy;
+    private static LocalOutputPipe pipe;
 
-//    @BeforeClass
-    public static void init()  {
+    @BeforeClass
+    public static void init() throws IOException {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
-        LocalOutputPipe pipe = buildLocalOutputPipeForTest(elasticUrl);
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000,3, 3, 1000, null, 1, 1, 4000);
+                7, 100, 1000000000,3, 3, 1000, null, 1, 1, 4000, null);
+        pipe = buildLocalOutputPipeForTest(elasticUrl);
+
         TimberLogger.bootstrap(pipe, TEST);
     }
 
-//    @AfterClass
-    public static void tearDown(){
-    }
-
-//    @After
+    @After
     public void check(){
-        assertEquals(elasticsearchClientSpy.numOfBulksPersistedToDisk.get(), elasticsearchClientSpy.numOfSuccessfulBulksFromDisk);
-        assertEquals(0, elasticsearchClientSpy.numOfCouldNotBeInserted);
-        assertEquals(0, elasticsearchClientSpy.numOfFetchedMaxTimes);
+        ElasticsearchClient esClient = pipe.getEsClient();
+        assertNotEquals(0, esClient.numOfBulksPersistedToDisk.get());
+        assertEquals(esClient.numOfBulksPersistedToDisk.get(), esClient.numOfSuccessfulBulksFromDisk.get());
+        assertEquals(0, esClient.numOfCouldNotBeInserted.get());
+        assertEquals(0, esClient.numOfFetchedMaxTimes.get());
+        esClient.numOfBulksPersistedToDisk.set(0);
+        esClient.numOfSuccessfulBulksFromDisk.set(0);
     }
 
-//    @Test
+    @AfterClass
+    public static void tearDown(){
+        TimberLogger.exit();
+        pipe.close();
+    }
+
+    @Test
     public void testSimpleTaskIndexerJob() throws InterruptedException {
         super.testSimpleTaskIndexerJob();
     }
 
-//    @Test
+    @Test
     public void testSwitchCasePlugin() {
         super.testSwitchCasePlugin();
     }
 
-//    @Test
-    public void testSpotWithParent(){
-        super.testSpotWithParent();
-    }
-
-//    @Test
-    public void testSimpleTasksFromDifferentThreadsIndexerJob(){
-        super.testSimpleTasksFromDifferentThreadsIndexerJob();
-    }
-
-//    @Test
+    @Test
     public void testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob() {
         super.testSimpleTasksFromDifferentThreadsWithWrongParentIdIndexerJob();
     }
 
-//    @Test
-    public void testComplexTaskIndexerWithErrorTask() {
-        super.testComplexTaskIndexerWithErrorTask();
-    }
-
-//    @Test
+    @Test
     public void testTaskWithNullString() {
         super.testTaskWithNullString();
     }
 
-//    @Test
+    @Test
     public void testOverConstructor() {
         super.testOverConstructor();
     }
 
-//    @Test
+    @Test
     public void testOverConstructorException() {
        super.testOverConstructorException();
     }
 
-//    @Test
+    @Test
     public void testCorruptedInfoOnly() {
         super.testCorruptedInfoOnly();
     }
 
-//    @Test
+    @Test
     public void testOrphan() {
         super.testOrphan();
     }
 
-    public static LocalOutputPipe buildLocalOutputPipeForTest(String elasticUrl) {
-        LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("none").numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null).bulkPersistentFetchCronExp("0/5 * * 1/1 * ? *") // fetch every 2 seconds
+    public static LocalOutputPipe buildLocalOutputPipeForTest(String elasticUrl) throws IOException {
+        LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().numberOfShards(1).numberOfReplicas(0).url(elasticUrl).deletionCronExp(null).bulkPersistentFetchCronExp("0/5 * * 1/1 * ? *") // fetch every 2 seconds
                 .pluginsJson("[{\"class\":\"SwitchCasePlugin\",\"taskMatcher\":{\"name\":\""+ EVENT + "plugin" + "\"},\"searchField\":\"exception\",\"outputAttribute\":\"errorType\",\"switchCase\":[{\"match\":[\"TOO_MANY_SERVER_ROWS\"],\"output\":\"TOO_MANY_SERVER_ROWS\"},{\"match\":[\"PARAMETER_MISSING\"],\"output\":\"PARAMETER_MISSING\"},{\"match\":[\"Connections could not be acquired\",\"terminating connection due to administrator\",\"connect timed out\"],\"output\":\"DB_CONNECT\"},{\"match\":[\"did not fit in memory\",\"Insufficient resources to execute plan\",\"Query exceeded local memory limit\",\"ERROR: Plan memory limit exhausted\"],\"output\":\"DB_RESOURCES\"},{\"match\":[\"Invalid input syntax\",\"SQLSyntaxErrorException\",\"com.facebook.presto.sql.parser.ParsingException\",\"com.facebook.presto.sql.analyzer.SemanticException\",\"org.postgresql.util.PSQLException: ERROR: missing FROM-clause entry\",\"org.postgresql.util.PSQLException: ERROR: invalid input syntax\"],\"output\":\"DB_SQL_SYNTAX\"},{\"match\":[\"Execution canceled by operator\",\"InterruptedException\",\"Execution time exceeded run time cap\",\"TIME_OUT\",\"canceling statement due to user request\",\"Caused by: java.net.SocketTimeoutException: Read timed out\"],\"output\":\"DB_QUERY_TIME_OUT\"},{\"output\":\"DB_UNKNOWN\"}]}]");
-        LocalOutputPipe pipe = builder.build();
 
-        ElasticsearchClient elasticsearchClient = pipe.getEsClient();
-        elasticsearchClientSpy = Mockito.spy(elasticsearchClient);
-        try {
-            doAnswer((Answer<BulkResponse>) invocation -> {
-                Object[] args = invocation.getArguments();
-                DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
-                if (dbBulkRequest.getTimesFetched() < 1) {
-                    throw new RuntimeException();
-                }
-                // call real method
-                return elasticsearchClient.bulk(dbBulkRequest, (RequestOptions) args[1]);
-            }).when(elasticsearchClientSpy).bulk(any(), any());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        pipe.setEsClient(elasticsearchClientSpy);
-        return pipe;
+        Bulker bulker = client.getBulker();
+        Bulker bulkerMock = Mockito.spy(bulker);
+        Answer<BulkResponse> bulkResponseAnswer = invocation -> {
+            Object[] args = invocation.getArguments();
+            DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
+            if (dbBulkRequest.getTimesFetched() < 1) {
+                throw new RuntimeException();
+            }
+            // call real method
+            return (BulkResponse) invocation.callRealMethod();
+        };
+        doAnswer(bulkResponseAnswer).when(bulkerMock).bulk(any());
+        builder.bulker(bulkerMock);
+		return builder.build();
     }
 
 }

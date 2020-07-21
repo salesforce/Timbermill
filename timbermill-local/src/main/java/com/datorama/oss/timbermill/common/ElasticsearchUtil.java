@@ -302,7 +302,8 @@ public class ElasticsearchUtil {
 	private static Set<String> envsSet = Sets.newHashSet();
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
-			ElasticsearchClient es, String mergingCronExp, DiskHandler diskHandler) {
+			String mergingCronExp, DiskHandler diskHandler) {
+		ElasticsearchClient es = taskIndexer.getEs();
 		while (!eventsQueue.isEmpty() || es.hasFailedRequests() || !overflowedQueue.isEmpty()) {
 			try {
 				spillOverflownEventsToDisk(overflowedQueue, diskHandler);

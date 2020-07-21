@@ -28,7 +28,7 @@ public class TimberLogAdvancedOrphansTest {
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000);
+                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);
     }
 
     @AfterClass

@@ -36,7 +36,7 @@ public abstract class TimberLogTest {
 		waitForTask(taskId, status, client);
 	}
 
-	public synchronized static void waitForTask(String taskId, TaskStatus status, ElasticsearchClient esClient) {
+	synchronized static void waitForTask(String taskId, TaskStatus status, ElasticsearchClient esClient) {
 		Callable<Boolean> callable = () -> (esClient.getTaskById(taskId) != null) && (esClient.getTaskById(taskId).getStatus() == status);
 		waitForCallable(callable);
 	}

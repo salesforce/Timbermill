@@ -28,7 +28,6 @@ public class TimbermillService {
 	private static final int THREAD_SLEEP = 2000;
 	private final String mergingCronExp;
 	private TaskIndexer taskIndexer;
-	private final ElasticsearchClient es;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
 
@@ -36,6 +35,7 @@ public class TimbermillService {
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
 	private DiskHandler diskHandler;
+	private CronsRunner cronsRunner;
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -76,13 +76,13 @@ public class TimbermillService {
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
-		es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize ,diskHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields);
+		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
+				maxTotalFields, null);
 
 		taskIndexer = new TaskIndexer(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, daysRotation, es);
-
-		CronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp, eventsQueue, overflowedQueue);
+		cronsRunner = new CronsRunner();
+		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp, eventsQueue, overflowedQueue);
 
 		startWorkingThread();
 	}
@@ -91,7 +91,7 @@ public class TimbermillService {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, es, mergingCronExp, diskHandler);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
 			}
 			stoppedRunning = true;
 		};
@@ -113,7 +113,8 @@ public class TimbermillService {
 		if (diskHandler != null){
 			diskHandler.close();
 		}
-		es.close();
+		taskIndexer.close();
+		cronsRunner.close();
 		LOG.info("Timbermill server was shut down.");
 	}
 

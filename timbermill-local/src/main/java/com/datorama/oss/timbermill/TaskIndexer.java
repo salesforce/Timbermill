@@ -56,6 +56,14 @@ public class TaskIndexer {
                         }).build();
     }
 
+    public ElasticsearchClient getEs() {
+        return es;
+    }
+
+    public void close() {
+        es.close();
+    }
+
     public void retrieveAndIndex(Collection<Event> events, String env) {
         LOG.info("------------------ Batch Start ------------------");
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();

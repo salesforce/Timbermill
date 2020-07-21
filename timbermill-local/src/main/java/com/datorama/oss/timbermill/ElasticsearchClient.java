@@ -79,9 +79,9 @@ public class ElasticsearchClient {
 	public static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 	public AtomicInteger numOfBulksPersistedToDisk = new AtomicInteger(0);
-	public int numOfSuccessfulBulksFromDisk = 0;
-	public int numOfFetchedMaxTimes = 0;
-	public int numOfCouldNotBeInserted = 0;
+	public AtomicInteger numOfSuccessfulBulksFromDisk = new AtomicInteger(0);
+	public AtomicInteger numOfFetchedMaxTimes = new AtomicInteger(0);
+	public AtomicInteger numOfCouldNotBeInserted = new AtomicInteger(0);
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
@@ -98,13 +98,14 @@ public class ElasticsearchClient {
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private LinkedBlockingQueue<Pair<DbBulkRequest, Integer>> failedRequests = new LinkedBlockingQueue<>(100000);
 	private DiskHandler diskHandler;
+	private Bulker bulker;
 	private int searchMaxSize;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields) {
+			int maxTotalFields, Bulker bulker) {
 
-		if (diskHandler!=null && diskHandler.isCreatedSuccessfully()){
+		if (diskHandler != null && diskHandler.isCreatedSuccessfully()){
 			numOfBulksPersistedToDisk = new AtomicInteger(diskHandler.failedBulksAmount());
 			this.diskHandler = diskHandler;
 		}
@@ -140,6 +141,10 @@ public class ElasticsearchClient {
         }
 
         client = new RestHighLevelClient(builder);
+        if (bulker == null){
+        	bulker = new Bulker(client);
+		}
+        this.bulker = bulker;
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
 
@@ -279,13 +284,13 @@ public class ElasticsearchClient {
 			LOG.warn("Retry Number {}/{} for requests of size {}", retryNum, numOfElasticSearchActionsTries, request.estimatedSizeInBytes());
 		}
 		try {
-			BulkResponse responses = bulk(dbBulkRequest,RequestOptions.DEFAULT);
+			BulkResponse responses = bulk(dbBulkRequest);
 			if (responses.hasFailures()) {
 				handleBulkRequestFailure(dbBulkRequest,retryNum,responses,responses.buildFailureMessage());
             }
             else{
             	if (dbBulkRequest.getTimesFetched() > 0 ){
-					numOfSuccessfulBulksFromDisk +=1;
+					numOfSuccessfulBulksFromDisk.incrementAndGet();
 				}
                 LOG.debug("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
 				isSucceeded =  true;
@@ -298,8 +303,8 @@ public class ElasticsearchClient {
 	}
 
      // wrap bulk method as a not-final method in order that Mockito will able to mock it
-	 public BulkResponse bulk(DbBulkRequest request, RequestOptions requestOptions) throws IOException {
-		return client.bulk(request.getRequest(), requestOptions);
+	 BulkResponse bulk(DbBulkRequest request) throws IOException {
+		return bulker.bulk(request);
 	}
 
 	public void index(Map<String, Task> tasksMap, String index) {
@@ -685,7 +690,7 @@ public class ElasticsearchClient {
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
 	 	LOG.warn("Bulk index of size {} has failed.", dbBulkRequest.getRequest().estimatedSizeInBytes());
-		if (failureMessage.contains("type=null_pointer_exception")){
+		if (failureMessage != null && failureMessage.contains("type=null_pointer_exception")){
 			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 			LOG.error("Null Pointer Exception Error in script. Requests:");
 			failedRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
@@ -703,11 +708,11 @@ public class ElasticsearchClient {
 							}
 						} catch (MaximumInsertTriesException e) {
 							LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
-							numOfCouldNotBeInserted += 1;
+							numOfCouldNotBeInserted.incrementAndGet();
 						}
 					} else {
 						LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", dbBulkRequest.getId(), maxBulkIndexFetches);
-						numOfFetchedMaxTimes += 1;
+						numOfFetchedMaxTimes.incrementAndGet();
 					}
 				} else {
 					LOG.error("Tasks of failed bulk will not be indexed because it was fetched maximum times ({}).", maxBulkIndexFetches);
@@ -750,8 +755,8 @@ public class ElasticsearchClient {
 		LocalTime start = LocalTime.parse("23:58:55");
 		LocalTime stop = LocalTime.parse("23:59:05");
 		if (now.isAfter(start) && now.isBefore(stop)) {
-			numOfFetchedMaxTimes = 0;
-			numOfCouldNotBeInserted = 0;
+			numOfFetchedMaxTimes.set(0);
+			numOfCouldNotBeInserted.set(0);
 		}
 	}
 
@@ -760,15 +765,20 @@ public class ElasticsearchClient {
 	}
 
 	public int getNumOfSuccessfulBulksFromDisk() {
-		return numOfSuccessfulBulksFromDisk;
+		return numOfSuccessfulBulksFromDisk.get();
 	}
 
 	public int getNumOfFetchedMaxTimes() {
-		return numOfFetchedMaxTimes;
+		return numOfFetchedMaxTimes.get();
 	}
 
 	public int getNumOfCouldNotBeInserted() {
-		return numOfCouldNotBeInserted;
+		return numOfCouldNotBeInserted.get();
 	}
+
+	public Bulker getBulker() {
+		return bulker;
+	}
+
 }
 
