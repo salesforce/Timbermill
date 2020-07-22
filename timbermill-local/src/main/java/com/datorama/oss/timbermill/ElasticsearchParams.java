@@ -2,8 +2,6 @@ package com.datorama.oss.timbermill;
 
 public class ElasticsearchParams {
 	private final String pluginsJson;
-	private final int maximumCacheSize;
-	private final int maximumCacheSecondsHold;
 	private int numberOfShards;
 	private int numberOfReplicas;
 	private int daysRotation;
@@ -11,12 +9,13 @@ public class ElasticsearchParams {
 	private String mergingCronExp;
 	private int maxTotalFields;
 	private String persistentFetchCronExp;
+	private String parentsFetchCronExp;
+	private int orphansFetchPeriodMinutes;
 
-	public ElasticsearchParams(String pluginsJson, int maximumCacheSize, int maximumCacheSecondsHold, int numberOfShards,
-			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields, String persistentFetchCronExp) {
+	public ElasticsearchParams(String pluginsJson, int numberOfShards,
+			int numberOfReplicas, int daysRotation, String deletionCronExp, String mergingCronExp, int maxTotalFields,
+			String persistentFetchCronExp, String parentsFetchCronExp, int orphansFetchPeriodMinutes) {
 		this.pluginsJson = pluginsJson;
-		this.maximumCacheSize = maximumCacheSize;
-		this.maximumCacheSecondsHold = maximumCacheSecondsHold;
 		this.numberOfShards = numberOfShards;
 		this.numberOfReplicas = numberOfReplicas;
 		this.daysRotation = daysRotation;
@@ -24,6 +23,8 @@ public class ElasticsearchParams {
 		this.mergingCronExp = mergingCronExp;
 		this.maxTotalFields = maxTotalFields;
 		this.persistentFetchCronExp = persistentFetchCronExp;
+		this.parentsFetchCronExp = parentsFetchCronExp;
+		this.orphansFetchPeriodMinutes = orphansFetchPeriodMinutes;
 	}
 
 	public int getNumberOfShards() {
@@ -50,18 +51,12 @@ public class ElasticsearchParams {
 		return pluginsJson;
 	}
 
-	int getMaximumCacheSize() {
-		return maximumCacheSize;
-	}
-
-	int getMaximumCacheSecondsHold() {
-		return maximumCacheSecondsHold;
-	}
-
-	int getDaysRotation() {
-		return daysRotation;
-	}
+	public int getDaysRotation() { return daysRotation; }
 
 	public String getPersistentFetchCronExp() { return persistentFetchCronExp; }
+
+	public String getParentsFetchCronExp() {  return parentsFetchCronExp; }
+
+	public int getOrphansFetchPeriodMinutes() { return orphansFetchPeriodMinutes;}
 
 }

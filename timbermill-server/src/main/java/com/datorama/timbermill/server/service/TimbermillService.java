@@ -50,29 +50,29 @@ public class TimbermillService {
 			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
-			@Value("${CACHE_MAX_SIZE:1000000}") int maximumCacheSize,
 			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
-			@Value("${CACHE_MAX_HOLD_TIME_SECONDS:60}") int maximumCacheSecondsHold,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String persistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
-			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk) {
+			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
+			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 */10 * ? * *}") String orphansAdoptionsCronExp,
+			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes ){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, maximumCacheSize, maximumCacheSecondsHold, numberOfShards,
-				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp);
+		ElasticsearchParams elasticsearchParams = new ElasticsearchParams(pluginsJson, numberOfShards,
+				numberOfReplicas, daysRotation, deletionCronExp, mergingCronExp, maxTotalFields, persistentFetchCronExp, orphansAdoptionsCronExp, orphansFetchPeriodMinutes);
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		ElasticsearchClient elasticsearchClient = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, params, diskHandlerStrategy
 		);
 
-		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient, eventsQueue);
+		taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, elasticsearchClient);
 		startWorkingThread(elasticsearchClient);
 	}
 

@@ -1,14 +1,21 @@
 package com.datorama.oss.timbermill.unit;
 
+import java.util.Map;
+
 public class AdoptedEvent extends Event {
 
-	public AdoptedEvent(Event e) {
+	public AdoptedEvent(String taskId, Task t) {
 		this.setOrphan(false);
-		this.name = e.getName();
-		this.setEnv(e.getEnv());
-		this.taskId = e.getTaskId();
-		this.setParentId(e.getParentId());
-		this.setContext(e.getContext());
+		this.name = t.getName();
+		this.setEnv(t.getEnv());
+		this.taskId = taskId;
+		this.setParentId(t.getParentId());
+		this.setContext(t.getCtx());
+	}
+
+	public AdoptedEvent(Map.Entry<String, Task> entry) {
+		this(entry.getKey(), entry.getValue());
+
 	}
 
 	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status) {

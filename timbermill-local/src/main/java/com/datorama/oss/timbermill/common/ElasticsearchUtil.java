@@ -16,6 +16,7 @@ import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
+import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.cron.PersistentFetchJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
@@ -303,7 +304,7 @@ public class ElasticsearchUtil {
 	public static final String ELASTIC_SEARCH_CLIENT = "elastic_search_client";
 	private static final String SQLITE = "sqlite";
 
-	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es, Queue<Event> eventQueue) {
+	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
 		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields());
 		mergingCronExp = elasticsearchParams.getMergingCronExp();
 
@@ -317,7 +318,9 @@ public class ElasticsearchUtil {
 				runPersistentFetchCron(persistentFetchCronExp, es);
 			}
 		}
-		return new TaskIndexer(elasticsearchParams, es, eventQueue);
+
+		runParentsFetchCron(es, elasticsearchParams);
+		return new TaskIndexer(elasticsearchParams, es);
 	}
 
 	private static void runPersistentFetchCron(String persistentFetchCronExp, ElasticsearchClient es) {
@@ -439,6 +442,30 @@ public class ElasticsearchUtil {
 			scheduler.start();
 		} catch (SchedulerException e) {
 			LOG.error("Error occurred while merging partial tasks", e);
+		}
+
+	}
+
+	private static void runParentsFetchCron(ElasticsearchClient es, ElasticsearchParams elasticsearchParams) {
+		try {
+			final StdSchedulerFactory sf = new StdSchedulerFactory();
+			Scheduler scheduler = sf.getScheduler();
+			JobDataMap jobDataMap = new JobDataMap();
+			jobDataMap.put(ELASTIC_SEARCH_CLIENT, es);
+			jobDataMap.put("orphansFetchPeriodMinutes", elasticsearchParams.getOrphansFetchPeriodMinutes());
+			jobDataMap.put("days_rotation", elasticsearchParams.getDaysRotation());
+			JobDetail job = newJob(OrphansAdoptionJob.class)
+					.withIdentity("job3", "group3").usingJobData(jobDataMap)
+					.build();
+			CronTrigger trigger = newTrigger()
+					.withIdentity("trigger3", "group3")
+					.withSchedule(cronSchedule(elasticsearchParams.getParentsFetchCronExp()))
+					.build();
+
+			scheduler.scheduleJob(job, trigger);
+			scheduler.start();
+		} catch (SchedulerException e) {
+			LOG.error("Error occurred while fetchin parent tasks", e);
 		}
 
 	}

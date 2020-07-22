@@ -33,8 +33,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeSeconds,
-                builder.numberOfShards, builder.numberOfReplicas,  builder.daysRotation, builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields, builder.persistentFetchCronExp
+        ElasticsearchParams elasticsearchParams = new ElasticsearchParams(builder.pluginsJson, builder.numberOfShards, builder.numberOfReplicas, builder.daysRotation,
+                builder.deletionCronExp, builder.mergingCronExp, builder.maxTotalFields, builder.persistentFetchCronExp, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes
         );
 
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
@@ -43,13 +43,13 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.diskHandlerStrategy
         );
 
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient, buffer);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
         startWorkingThread();
     }
 
     public LocalOutputPipe(ElasticsearchParams elasticsearchParams,ElasticsearchClient es) {
         esClient = es;
-        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient, buffer);
+        taskIndexer = ElasticsearchUtil.bootstrap(elasticsearchParams, esClient);
         startWorkingThread();
     }
 
@@ -102,8 +102,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
-        private int maxCacheHoldTimeSeconds = 60;
-        private int maxCacheSize = 10000;
         private String elasticUrl = null;
         private String pluginsJson = "[]";
         private int daysRotation = 90;
@@ -125,6 +123,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
         private String locationInDisk = "/db";
+        private String orphansAdoptionsCronExp = "0 */10 * ? * *";
+        private int orphansFetchPeriodMinutes = 10;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -178,16 +178,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder elasticPassword(String elasticPassword) {
             this.elasticPassword = elasticPassword;
-            return this;
-        }
-
-        public Builder maxCacheSize(int maxCacheSize) {
-            this.maxCacheSize = maxCacheSize;
-            return this;
-        }
-
-        public Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
-            this.maxCacheHoldTimeSeconds = maxCacheHoldTimeMinutes;
             return this;
         }
 
@@ -248,6 +238,16 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder persistentFetchCronExp(String persistentFetchCronExp) {
             this.persistentFetchCronExp = persistentFetchCronExp;
+            return this;
+        }
+
+        public Builder orphansAdoptionsCronExp(String orphansAdoptionsCronExp) {
+            this.orphansAdoptionsCronExp = orphansAdoptionsCronExp;
+            return this;
+        }
+
+        public Builder orphansFetchPeriodMinutes(int orphansFetchPeriodMinutes) {
+            this.orphansFetchPeriodMinutes = orphansFetchPeriodMinutes;
             return this;
         }
 

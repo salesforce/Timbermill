@@ -39,8 +39,8 @@ public abstract class TimberLogTest {
 		waitForCallable(callable);
 	}
 
-	public static void waitForTasksPredicate(Collection<String> taskIds, Predicate<Task> predicate, long timeout, TimeUnit unit) {
-		Callable<Boolean> callable = () -> taskIds.stream().allMatch(taskId -> client.getTaskById(taskId) != null && predicate.test(client.getTaskById(taskId)));
+	public static void waitForTaskPredicate(String taskId, Predicate<Task> predicate, long timeout, TimeUnit unit) {
+		Callable<Boolean> callable = () -> client.getTaskById(taskId) != null && predicate.test(client.getTaskById(taskId));
 		waitForCallable(callable, timeout, unit);
 	}
 

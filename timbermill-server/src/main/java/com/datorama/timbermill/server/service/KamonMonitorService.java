@@ -58,10 +58,14 @@ public class KamonMonitorService {
 
 	private void reportOrphanMapStats() {
 		if (timbermillService!=  null){
+			//todo
+			/*
 			final Cache<String, Queue<AdoptedEvent>> orphansEventsCache = timbermillService.getTaskIndexer().getParentIdTORootOrphansEventsCache();
 			orphanMapSizeHistogram.withoutTags().record(orphansEventsCache.size());
 			orphanEvictionCountHistogram.withoutTags().record(orphansEventsCache.stats().evictionCount());
 			orphanHitsCountHistogram.withoutTags().record(orphansEventsCache.stats().hitCount());
+
+			 */
 		}
 	}
 

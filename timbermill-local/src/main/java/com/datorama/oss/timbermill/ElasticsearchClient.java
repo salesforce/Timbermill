@@ -77,6 +77,8 @@ import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 public class ElasticsearchClient {
 
 	public static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
+	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
+	private static final ExistsQueryBuilder PRIMARY_ID_QUERY = QueryBuilders.existsQuery("primaryId");
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 	public AtomicInteger numOfBulksPersistedToDisk = new AtomicInteger(0);
 	public int numOfSuccessfulBulksFromDisk = 0;
@@ -85,7 +87,7 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
+	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final ExecutorService executorService;
@@ -231,14 +233,28 @@ public class ElasticsearchClient {
 		for (String taskId : taskIds) {
 			idsQueryBuilder.addIds(taskId);
 		}
-		TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("orphan", true);
+		TermQueryBuilder termQueryBuilder = ORPHANS_QUERY;
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
+		ExistsQueryBuilder startedTaskQueryBuilder = PRIMARY_ID_QUERY;
 
 		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(termQueryBuilder);
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+	}
+
+	  public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
+		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+		TermQueryBuilder orphansQueryBuilder = ORPHANS_QUERY;
+		ExistsQueryBuilder startedTaskQueryBuilder = PRIMARY_ID_QUERY;
+		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(from).to("now").
+				timeZone(from.getZone().toString());
+
+		boolQueryBuilder.filter(latestItemsQuery);
+		boolQueryBuilder.filter(orphansQueryBuilder);
+		boolQueryBuilder.mustNot(startedTaskQueryBuilder);
+		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+
 	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {

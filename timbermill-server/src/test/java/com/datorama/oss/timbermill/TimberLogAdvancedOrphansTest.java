@@ -9,13 +9,22 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.JobExecutionContextImpl;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
 
+import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
-import static com.datorama.oss.timbermill.TimberLogTest.waitForTasksPredicate;
+import static com.datorama.oss.timbermill.TimberLogTest.waitForTaskPredicate;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.ELASTIC_SEARCH_CLIENT;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -26,6 +35,8 @@ public class TimberLogAdvancedOrphansTest {
     private static final String TEST = "test";
     private static ElasticsearchClient client;
     private final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && !task.isOrphan();
+    private static JobExecutionContextImpl context;
+    private static OrphansAdoptionJob orphansAdoptionJob;
 
     @BeforeClass
     public static void setUp() {
@@ -35,6 +46,16 @@ public class TimberLogAdvancedOrphansTest {
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3, 1000, null, null);
+
+        orphansAdoptionJob = new OrphansAdoptionJob();
+        JobDetail job = new JobDetailImpl();
+        JobDataMap jobDataMap = job.getJobDataMap();
+        jobDataMap.put(ELASTIC_SEARCH_CLIENT, client);
+        jobDataMap.put("orphansFetchPeriodMinutes", 2);
+        jobDataMap.put("days_rotation", 1);
+        OperableTrigger trigger = new SimpleTriggerImpl();
+        TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
+        context = new JobExecutionContextImpl(null, fireBundle, null);
     }
 
     @AfterClass
@@ -64,6 +85,8 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(parentTaskId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
+        orphansAdoptionJob.execute(context);
+        waitForTaskPredicate(taskId, notOrphanPredicate, 2, TimeUnit.MINUTES);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
         Assert.assertEquals(parentTaskId, task.getParentId());
@@ -619,6 +642,8 @@ public class TimberLogAdvancedOrphansTest {
                 }
             }
         }
+        orphansAdoptionJob.execute(context);
+        waitForTaskPredicate(taskId, notOrphanPredicate, 2, TimeUnit.MINUTES);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForTask(taskId, TaskStatus.SUCCESS);
         Task primaryTask = client.getTaskById(parentTaskId);
@@ -655,7 +680,8 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
 
         client.index(tasksMap, index);
-        waitForTasksPredicate(Collections.singleton(childTaskId), notOrphanPredicate, 2, TimeUnit.MINUTES);
+        orphansAdoptionJob.execute(context);
+        waitForTaskPredicate(childTaskId, notOrphanPredicate, 5, TimeUnit.MINUTES);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
@@ -693,7 +719,9 @@ public class TimberLogAdvancedOrphansTest {
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
         client.index(tasksMap, index);
-        waitForTasksPredicate(Lists.newArrayList(orphanTaskId, childTaskId), notOrphanPredicate, 2, TimeUnit.MINUTES);
+        orphansAdoptionJob.execute(context);
+        waitForTaskPredicate(orphanTaskId, notOrphanPredicate, 2, TimeUnit.MINUTES);
+        waitForTaskPredicate(childTaskId, notOrphanPredicate, 2, TimeUnit.MINUTES);
 
         orphanTask = client.getTaskById(orphanTaskId);
         TimberLogTest.assertNotOrphan(orphanTask);
