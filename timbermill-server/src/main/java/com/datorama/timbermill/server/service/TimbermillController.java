@@ -51,7 +51,7 @@ public class TimbermillController {
 			String eventsId = eventsWrapper.getId();
 			if (eventsId != null){
 				if (idsCache.getIfPresent(eventsId) != null){
-					LOG.warn("Got duplicated EventsWrapper {}", eventsWrapper);
+					LOG.warn("Got duplicated EventsWrapper {}", eventsWrapper.getEvents());
 					return;
 				}
 				else{
