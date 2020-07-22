@@ -76,17 +76,17 @@ public class CronsRunner {
 	}
 
 	private static void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, DiskHandler diskHandler, Scheduler scheduler) throws SchedulerException {
-		JobDataMap jobDataMap = new JobDataMap();
-		jobDataMap.put(CLIENT, es);
-		jobDataMap.put(DISK_HANDLER, diskHandler);
-		JobDetail job = newJob(BulkPersistentFetchJob.class)
-				.withIdentity("job2", "group2").usingJobData(jobDataMap)
-				.build();
-		CronTrigger trigger = newTrigger()
-				.withIdentity("trigger2", "group2")
-				.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
-				.build();
-		scheduler.scheduleJob(job, trigger);
+			JobDataMap jobDataMap = new JobDataMap();
+			jobDataMap.put(CLIENT, es);
+			jobDataMap.put(DISK_HANDLER, diskHandler);
+			JobDetail job = newJob(BulkPersistentFetchJob.class)
+					.withIdentity("job2", "group2").usingJobData(jobDataMap)
+					.build();
+			CronTrigger trigger = newTrigger()
+					.withIdentity("trigger2", "group2")
+					.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
+					.build();
+			scheduler.scheduleJob(job, trigger);
 	}
 
 	private static void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es, Scheduler scheduler) throws SchedulerException {

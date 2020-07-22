@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
@@ -300,7 +299,7 @@ public class ElasticsearchUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
-	private static final Set<String> envsSet = Sets.newHashSet();
+	private static Set<String> envsSet = Sets.newHashSet();
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
 			String mergingCronExp, DiskHandler diskHandler) {
