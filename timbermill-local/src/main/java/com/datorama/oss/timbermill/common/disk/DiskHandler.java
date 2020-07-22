@@ -1,16 +1,19 @@
-package com.datorama.oss.timbermill.common;
+package com.datorama.oss.timbermill.common.disk;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
+import com.datorama.oss.timbermill.unit.Event;
 
 public interface DiskHandler {
 
 	List<DbBulkRequest> fetchAndDeleteFailedBulks();
 
-	void persistToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException;
+	List<Event> fetchAndDeleteOverflowedEvents();
+
+	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException;
+
+	void persistEventsToDisk(ArrayList<Event> events);
 
 	boolean hasFailedBulks();
 

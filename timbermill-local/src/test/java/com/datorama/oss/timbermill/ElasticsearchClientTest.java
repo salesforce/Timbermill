@@ -9,7 +9,6 @@ import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.junit.AfterClass;
@@ -20,7 +19,7 @@ import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import com.datorama.oss.timbermill.common.Constants;
-import com.datorama.oss.timbermill.common.DbBulkRequest;
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Mockito.doReturn;
@@ -39,14 +38,14 @@ public class ElasticsearchClientTest {
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
 		elasticsearchClient = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000, 3, 3, 1000, null, null);
+				7, 100, 1000000000, 3, 3, 1000, null, 1, 1, 4000, null);
 	}
 
 	@Test
 	public void failAllOfRequestsOfBulk() throws IOException {
 		int amountOfRequestsInBulk = 5;
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
-		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
 
@@ -59,7 +58,7 @@ public class ElasticsearchClientTest {
 	public void failSomeOfRequestsOfBulk() throws IOException {
 		int amountOfRequestsInBulk = 2;
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
-		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
 		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
@@ -73,7 +72,7 @@ public class ElasticsearchClientTest {
 	@Test
 	public void successAllOfRequestsOfBulk() throws IOException {
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(2);
-		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
 		makeItemSuccess(bulkResponse,0);
 		makeItemSuccess(bulkResponse,1);

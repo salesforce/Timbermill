@@ -6,20 +6,17 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
-import org.elasticsearch.common.Strings;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.ElasticsearchParams;
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.cron.ExpiredTasksDeletionJob;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
-import com.datorama.oss.timbermill.cron.PersistentFetchJob;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
@@ -29,6 +26,9 @@ import static org.quartz.TriggerBuilder.newTrigger;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
+	public static final String DISK_HANDLER = "disk_handler";
+	public static final String EVENTS_QUEUE = "events_queue";
+	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
 	public static final int THREAD_SLEEP = 2000;
 	public static final String SCRIPT =
 			"if (params.orphan != null && !params.orphan) {"
@@ -299,68 +299,14 @@ public class ElasticsearchUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
-	private static String mergingCronExp;
 	private static Set<String> envsSet = Sets.newHashSet();
-	public static final String ELASTIC_SEARCH_CLIENT = "elastic_search_client";
-	private static final String SQLITE = "sqlite";
 
-	public static TaskIndexer bootstrap(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-		es.bootstrapElasticsearch(elasticsearchParams.getNumberOfShards(), elasticsearchParams.getNumberOfReplicas(), elasticsearchParams.getMaxTotalFields());
-		mergingCronExp = elasticsearchParams.getMergingCronExp();
-
-		String deletionCronExp = elasticsearchParams.getDeletionCronExp();
-		if (!Strings.isEmpty(deletionCronExp)) {
-			runDeletionTaskCron(deletionCronExp, es);
-		}
-		if (es.isWithPersistence()) {
-			String persistentFetchCronExp = elasticsearchParams.getPersistentFetchCronExp();
-			if (!Strings.isEmpty(persistentFetchCronExp)) {
-				runPersistentFetchCron(persistentFetchCronExp, es);
-			}
-		}
-
-		runParentsFetchCron(es, elasticsearchParams);
-		return new TaskIndexer(elasticsearchParams, es);
-	}
-
-	private static void runPersistentFetchCron(String persistentFetchCronExp, ElasticsearchClient es) {
-		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(ELASTIC_SEARCH_CLIENT, es);
-			JobDetail job = newJob(PersistentFetchJob.class)
-					.withIdentity("job2", "group2").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger2", "group2")
-					.withSchedule(cronSchedule(persistentFetchCronExp))
-					.build();
-
-			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while fetching failed bulks from disk", e);
-		}
-	}
-
-	public static DiskHandler getDiskHandler(String diskHandlerStrategy, Map<String, Object> params)  {
-		String strategy = diskHandlerStrategy.toLowerCase();
-		if (strategy.equals(SQLITE)){
-			return new SQLJetDiskHandler(
-					(int)params.get(SQLJetDiskHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
-					(int)params.get(SQLJetDiskHandler.MAX_INSERT_TRIES),
-					(String) params.get(SQLJetDiskHandler.LOCATION_IN_DISK)
-			);
-		}
-		else{
-			throw new RuntimeException("Unsupported disk handler strategy " + diskHandlerStrategy);
-		}
-	}
-
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, ElasticsearchClient es) {
-		while (!eventsQueue.isEmpty() || es.hasFailedRequests()) {
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
+			String mergingCronExp, DiskHandler diskHandler) {
+		ElasticsearchClient es = taskIndexer.getEs();
+		while (!eventsQueue.isEmpty() || es.hasFailedRequests() || !overflowedQueue.isEmpty()) {
 			try {
+				spillOverflownEventsToDisk(overflowedQueue, diskHandler);
 				es.retryFailedRequestsFromMemory();
 
 				Collection<Event> events = new ArrayList<>();
@@ -371,7 +317,7 @@ public class ElasticsearchUtil {
 					String env = eventsPerEnv.getKey();
 					if (!envsSet.contains(env)) {
 						envsSet.add(env);
-						runPartialMergingTasksCron(env, es);
+						runPartialMergingTasksCron(env, es, mergingCronExp);
 					}
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
@@ -387,6 +333,16 @@ public class ElasticsearchUtil {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}
 		}
+	}
+
+	private static void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue, DiskHandler diskHandler) {
+		if (!overflowedQueue.isEmpty()) {
+			ArrayList<Event> events = Lists.newArrayList();
+			overflowedQueue.drainTo(events);
+
+			diskHandler.persistEventsToDisk(events);
+		}
+
 
 	}
 
@@ -402,29 +358,7 @@ public class ElasticsearchUtil {
 		return String.format("%06d", serialNumber);
 	}
 
-	private static void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es) {
-		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			JobDetail job = newJob(ExpiredTasksDeletionJob.class)
-					.withIdentity("job1", "group1").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger1", "group1")
-					.withSchedule(cronSchedule(deletionCronExp))
-					.build();
-
-			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while deleting expired tasks", e);
-		}
-
-	}
-
-	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es) {
+	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es, String mergingCronExp) {
 		try {
 			final StdSchedulerFactory sf = new StdSchedulerFactory();
 			Scheduler scheduler = sf.getScheduler();

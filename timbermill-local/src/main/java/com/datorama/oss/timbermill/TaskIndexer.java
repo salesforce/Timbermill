@@ -44,6 +44,14 @@ public class TaskIndexer {
         return Math.max(daysRotationParam, 1);
     }
 
+    public ElasticsearchClient getEs() {
+        return es;
+    }
+
+    public void close() {
+        es.close();
+    }
+
     public void retrieveAndIndex(Collection<Event> events, String env) {
         LOG.info("------------------ Batch Start ------------------");
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
@@ -393,10 +401,6 @@ public class TaskIndexer {
         }
 
         return new ParentProperties(primaryId, context, parentPath, parentName);
-    }
-
-    public void close() {
-        es.close();
     }
 
     private static class ParentProperties{

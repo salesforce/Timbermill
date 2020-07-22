@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -9,6 +10,11 @@ public class TimberLogAdvancedServerTest extends TimberLogAdvancedTest {
     @BeforeClass
     public static void init() {
         TimberLogServerTest.init();
+    }
+
+    @AfterClass
+    public static void tearDown(){
+        TimberLogServerTest.tearDown();
     }
 
     @Test
