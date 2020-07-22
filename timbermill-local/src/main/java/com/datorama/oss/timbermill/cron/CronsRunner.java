@@ -23,7 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents) {
+			BlockingQueue<Event> overFlowedEvents, String parentFetchCronExp, int orphansFetchPeriodMinutes, int daysRotation) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			scheduler = sf.getScheduler();
@@ -39,6 +39,9 @@ public class CronsRunner {
 			if (!Strings.isEmpty(deletionCronExp)) {
 				runDeletionTaskCron(deletionCronExp, es, scheduler);
 			}
+			if (!Strings.isEmpty(parentFetchCronExp)) {
+				runParentsFetchCron(parentFetchCronExp, es, orphansFetchPeriodMinutes, daysRotation, scheduler);
+			}
 			scheduler.start();
 		} catch (SchedulerException e) {
 			LOG.error("Could not start crons", e);
@@ -46,7 +49,7 @@ public class CronsRunner {
 		}
 	}
 
-	public void close(){
+	public void close() {
 		try {
 			scheduler.shutdown();
 		} catch (SchedulerException e) {
@@ -73,17 +76,17 @@ public class CronsRunner {
 	}
 
 	private static void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, DiskHandler diskHandler, Scheduler scheduler) throws SchedulerException {
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			jobDataMap.put(DISK_HANDLER, diskHandler);
-			JobDetail job = newJob(BulkPersistentFetchJob.class)
-					.withIdentity("job2", "group2").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger2", "group2")
-					.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
-					.build();
-			scheduler.scheduleJob(job, trigger);
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(DISK_HANDLER, diskHandler);
+		JobDetail job = newJob(BulkPersistentFetchJob.class)
+				.withIdentity("job2", "group2").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger2", "group2")
+				.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
+				.build();
+		scheduler.scheduleJob(job, trigger);
 	}
 
 	private static void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es, Scheduler scheduler) throws SchedulerException {
@@ -97,6 +100,22 @@ public class CronsRunner {
 				.withSchedule(cronSchedule(deletionCronExp))
 				.build();
 
+		scheduler.scheduleJob(job, trigger);
+	}
+
+	private static void runParentsFetchCron(String parentsFetchCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
+		final StdSchedulerFactory sf = new StdSchedulerFactory();
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put("orphansFetchPeriodMinutes", orphansFetchPeriodMinutes);
+		jobDataMap.put("days_rotation", daysRotation);
+		JobDetail job = newJob(OrphansAdoptionJob.class)
+				.withIdentity("job3", "group3").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger3", "group3")
+				.withSchedule(cronSchedule(parentsFetchCronExp))
+				.build();
 		scheduler.scheduleJob(job, trigger);
 	}
 

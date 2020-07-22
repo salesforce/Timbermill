@@ -34,9 +34,10 @@ public class TaskIndexer {
     private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
-    public TaskIndexer(ElasticsearchParams elasticsearchParams, ElasticsearchClient es) {
-        this.daysRotation = calculateDaysRotation(elasticsearchParams.getDaysRotation());
-        this.logPlugins = PluginsConfig.initPluginsFromJson(elasticsearchParams.getPluginsJson());
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es) {
+
+        this.daysRotation = calculateDaysRotation(daysRotation);
+        this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
     }
 

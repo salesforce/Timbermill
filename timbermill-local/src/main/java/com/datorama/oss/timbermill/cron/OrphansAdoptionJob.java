@@ -19,7 +19,7 @@ public class OrphansAdoptionJob implements Job {
 
 		if (currentlyRunning.compareAndSet(false, true)) {
 			LOG.info("OrphansAdoptionJob started...");
-			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.ELASTIC_SEARCH_CLIENT);
+			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
 			int orphansFetchPeriodMinutes = context.getJobDetail().getJobDataMap().getInt("orphansFetchPeriodMinutes");
 			int daysRotationParam = context.getJobDetail().getJobDataMap().getInt("days_rotation");
 			TaskIndexer.handleAdoptions(es, orphansFetchPeriodMinutes, daysRotationParam);

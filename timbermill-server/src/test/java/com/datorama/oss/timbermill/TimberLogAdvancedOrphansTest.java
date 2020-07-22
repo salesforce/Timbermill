@@ -17,6 +17,7 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
@@ -24,7 +25,6 @@ import com.google.common.collect.Lists;
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
 import static com.datorama.oss.timbermill.TimberLogTest.waitForTaskPredicate;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.ELASTIC_SEARCH_CLIENT;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -45,12 +45,12 @@ public class TimberLogAdvancedOrphansTest {
             elasticUrl = DEFAULT_ELASTICSEARCH_URL;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000, null, null);
+                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
         JobDataMap jobDataMap = job.getJobDataMap();
-        jobDataMap.put(ELASTIC_SEARCH_CLIENT, client);
+        jobDataMap.put(ElasticsearchUtil.CLIENT, client);
         jobDataMap.put("orphansFetchPeriodMinutes", 2);
         jobDataMap.put("days_rotation", 1);
         OperableTrigger trigger = new SimpleTriggerImpl();

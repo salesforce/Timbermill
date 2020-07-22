@@ -1,5 +1,14 @@
 package com.datorama.oss.timbermill.pipe;
 
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+import org.elasticsearch.ElasticsearchException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.datorama.oss.timbermill.Bulker;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
@@ -35,9 +44,10 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes, builder.daysRotation, esClient);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
-        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp, buffer, overflowedQueue);
+        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
+                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes, builder.daysRotation);
         startWorkingThread();
     }
 

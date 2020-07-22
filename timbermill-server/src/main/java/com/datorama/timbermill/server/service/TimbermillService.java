@@ -80,9 +80,10 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null);
 
-		taskIndexer = new TaskIndexer(pluginsJson, maximumCacheSize, maximumCacheMinutesHold, daysRotation, es);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
-		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp, eventsQueue, overflowedQueue);
+		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation);
 
 		startWorkingThread();
 	}

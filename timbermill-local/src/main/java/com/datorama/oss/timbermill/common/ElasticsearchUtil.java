@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
@@ -299,7 +300,7 @@ public class ElasticsearchUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
-	private static Set<String> envsSet = Sets.newHashSet();
+	private static final Set<String> envsSet = Sets.newHashSet();
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
 			String mergingCronExp, DiskHandler diskHandler) {
@@ -376,30 +377,6 @@ public class ElasticsearchUtil {
 			scheduler.start();
 		} catch (SchedulerException e) {
 			LOG.error("Error occurred while merging partial tasks", e);
-		}
-
-	}
-
-	private static void runParentsFetchCron(ElasticsearchClient es, ElasticsearchParams elasticsearchParams) {
-		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(ELASTIC_SEARCH_CLIENT, es);
-			jobDataMap.put("orphansFetchPeriodMinutes", elasticsearchParams.getOrphansFetchPeriodMinutes());
-			jobDataMap.put("days_rotation", elasticsearchParams.getDaysRotation());
-			JobDetail job = newJob(OrphansAdoptionJob.class)
-					.withIdentity("job3", "group3").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger3", "group3")
-					.withSchedule(cronSchedule(elasticsearchParams.getParentsFetchCronExp()))
-					.build();
-
-			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while fetchin parent tasks", e);
 		}
 
 	}
