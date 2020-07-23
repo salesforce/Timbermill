@@ -6,10 +6,21 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.JobExecutionContextImpl;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
+import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
@@ -30,6 +41,9 @@ public abstract class TimberLogTest {
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
+	private static OrphansAdoptionJob orphansAdoptionJob;
+	private static JobExecutionContextImpl context;
+	static final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && (task.isOrphan() == null || !task.isOrphan());
 	private String childTaskId;
 	private String childOfChildTaskId;
 
@@ -66,6 +80,33 @@ public abstract class TimberLogTest {
 
 	static void assertOrphan(Task task){
 		assertFalse(task.isOrphan() == null || !task.isOrphan());
+	}
+
+	protected static void init(EventOutputPipe pipe) {
+		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+		if (StringUtils.isEmpty(elasticUrl)){
+			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+		}
+
+		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+				7, 100, 1000000000,3, 3, 1000,null ,1, 1, 4000, null);
+		orphansAdoptionJob = new OrphansAdoptionJob();
+		JobDetail job = new JobDetailImpl();
+		JobDataMap jobDataMap = job.getJobDataMap();
+		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
+		jobDataMap.put("orphansFetchPeriodMinutes", 2);
+		jobDataMap.put("days_rotation", 1);
+		OperableTrigger trigger = new SimpleTriggerImpl();
+		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
+		context = new JobExecutionContextImpl(null, fireBundle, null);
+
+		TimberLogger.bootstrap(pipe, TEST);
+
+	}
+
+	protected static void tearDown(EventOutputPipe pipe) {
+		TimberLogger.exit();
+		pipe.close();
 	}
 
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {
@@ -313,6 +354,10 @@ public abstract class TimberLogTest {
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 
+		orphansAdoptionJob.execute(context);
+		waitForTaskPredicate(taskId1, notOrphanPredicate, 2, TimeUnit.MINUTES);
+		waitForTaskPredicate(taskId2, notOrphanPredicate, 2, TimeUnit.MINUTES);
+
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
 		assertEquals(context1, task1.getCtx().get(context1));
@@ -351,6 +396,9 @@ public abstract class TimberLogTest {
 		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
+		orphansAdoptionJob.execute(context);
+		waitForTaskPredicate(taskId1, notOrphanPredicate, 2, TimeUnit.MINUTES);
+		waitForTaskPredicate(taskId2, notOrphanPredicate, 2, TimeUnit.MINUTES);
 
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);

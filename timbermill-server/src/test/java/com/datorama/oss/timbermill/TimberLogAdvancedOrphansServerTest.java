@@ -28,11 +28,6 @@ public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphans
 	}
 
 	@Test
-	public void testOrphanWithAdoptionParentWithNoStartDifferentBatch(){
-		super.testOrphanWithAdoptionParentWithNoStartDifferentBatch();
-	}
-
-	@Test
 	public void testOrphanWithAdoptionParentWithNoStart(){
 		super.testOrphanWithAdoptionParentWithNoStart();
 	}
@@ -53,14 +48,10 @@ public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphans
 	}
 
 	@Test
-	public void testOrphanWithAdoptionDifferentBatches(){
-		super.testOrphanWithAdoptionDifferentBatches();
-	}
-
-	@Test
 	public void testStringOfOrphans(){
 		super.testStringOfOrphans();
 	}
+
 	@Test
 	public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(); }
 

@@ -110,10 +110,10 @@ public class CronsRunner {
 		jobDataMap.put("orphansFetchPeriodMinutes", orphansFetchPeriodMinutes);
 		jobDataMap.put("days_rotation", daysRotation);
 		JobDetail job = newJob(OrphansAdoptionJob.class)
-				.withIdentity("job3", "group3").usingJobData(jobDataMap)
+				.withIdentity("job4", "group4").usingJobData(jobDataMap)
 				.build();
 		CronTrigger trigger = newTrigger()
-				.withIdentity("trigger3", "group3")
+				.withIdentity("trigger4", "group4")
 				.withSchedule(cronSchedule(parentsFetchCronExp))
 				.build();
 		scheduler.scheduleJob(job, trigger);

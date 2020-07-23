@@ -64,6 +64,12 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }));
     }
 
+    public void close() {
+        LOG.info("Gracefully shutting down Timbermill output pipe.");
+        keepRunning = false;
+        LOG.info("Timbermill server was output pipe.");
+    }
+
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
         byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
