@@ -32,7 +32,7 @@ public class CronsRunner {
 					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler, scheduler);
 				}
 
-				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
+				if (!Strings.isEmpty(eventsPersistentFetchCronExp)) {
 					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents, scheduler);
 				}
 			}
@@ -104,7 +104,6 @@ public class CronsRunner {
 	}
 
 	private static void runParentsFetchCron(String parentsFetchCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
-		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
 		jobDataMap.put("orphansFetchPeriodMinutes", orphansFetchPeriodMinutes);
