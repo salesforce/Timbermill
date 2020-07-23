@@ -1,4 +1,5 @@
 package com.datorama.oss.timbermill.annotation;
+import org.springframework.context.annotation.Configuration;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -7,6 +8,7 @@ import org.aspectj.lang.annotation.Aspect;
 import com.datorama.oss.timbermill.TimberLogger;
 
 @Aspect
+@Configuration
 public class TimberLogAspect {
 
     @Around("(execution(* *(..)) || execution(*.new(..))) && @annotation(timberLogAnnotation)")
