@@ -30,6 +30,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     TimbermillServerOutputPipe(TimbermillServerOutputPipeBuilder builder){
+        keepRunning = true;
         if (builder.timbermillServerUrl == null){
             throw new RuntimeException("Must enclose the Timbermill server URL");
         }
@@ -68,6 +69,12 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         LOG.info("Gracefully shutting down Timbermill output pipe.");
         keepRunning = false;
         LOG.info("Timbermill server was output pipe.");
+        while (thread.isAlive()){
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+            }
+        }
     }
 
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {

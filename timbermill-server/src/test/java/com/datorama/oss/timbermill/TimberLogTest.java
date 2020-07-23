@@ -104,9 +104,8 @@ public abstract class TimberLogTest {
 
 	}
 
-	protected static void tearDown(EventOutputPipe pipe) {
+	protected static void tearDown() {
 		TimberLogger.exit();
-		pipe.close();
 	}
 
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {

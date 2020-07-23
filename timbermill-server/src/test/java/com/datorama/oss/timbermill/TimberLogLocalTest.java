@@ -27,7 +27,7 @@ public class TimberLogLocalTest extends TimberLogTest {
 
     @AfterClass
     public static void tearDown(){
-        TimberLogTest.tearDown(pipe);
+        TimberLogTest.tearDown();
     }
 
     @Test
