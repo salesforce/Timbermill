@@ -130,7 +130,7 @@ public class TaskIndexer {
     private void populateCollections(Collection<Event> timbermillEvents, Map<String, DefaultMutableTreeNode> nodesMap, Set<String> startEventsIds, Set<String> parentIds,
             Map<String, List<Event>> eventsMap) {
         timbermillEvents.forEach(event -> {
-            if (event.isStartEvent() || event instanceof AdoptedEvent){
+            if (event.isStartEvent() /* not needed after removing the orphands queue || event instanceof AdoptedEvent*/ ){
                 startEventsIds.add(event.getTaskId());
 
                 nodesMap.put(event.getTaskId(), new DefaultMutableTreeNode(event));

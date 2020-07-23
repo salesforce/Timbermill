@@ -65,8 +65,8 @@ public class TimbermillService {
 			@Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
-			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
-			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 */10 * ? * *}") String orphansAdoptionsCronExp,
+			@Value("${LOCATION_IN_DISK:/Users/gshemer/db}") String locationInDisk,
+			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
 			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes ){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);

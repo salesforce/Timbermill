@@ -49,7 +49,7 @@ public class CronsRunner {
 		}
 	}
 
-	public void close() {
+	public void close(){
 		try {
 			scheduler.shutdown();
 		} catch (SchedulerException e) {
