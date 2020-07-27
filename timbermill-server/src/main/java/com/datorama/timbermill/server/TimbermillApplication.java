@@ -7,9 +7,15 @@ import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactor
 import org.springframework.boot.web.servlet.server.ServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+
+import com.datorama.oss.timbermill.annotation.TimberLogAspect;
 
 @SpringBootApplication
-@ComponentScan("com.datorama")
+@ComponentScan(value = "com.datorama", excludeFilters = {@ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        value = {TimberLogAspect.class})
+})
 public class TimbermillApplication {
 
     @Bean
