@@ -64,10 +64,10 @@ public class OrphansAdoptionJob implements Job {
 		Map<String, Task> adoptedTasksMap = TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation);
 
 		Map<String, Map<String, Task>> tasksPerEnv = Maps.newHashMap();
-		adoptedTasksMap.forEach((taskId, value) -> {
-			String env = value.getEnv();
+		adoptedTasksMap.forEach((taskId, task) -> {
+			String env = task.getEnv();
 			tasksPerEnv.computeIfAbsent(env, s -> Maps.newHashMap());
-			tasksPerEnv.get(env).put(taskId, value);
+			tasksPerEnv.get(env).put(taskId, task);
 		});
 
 		tasksPerEnv.forEach((env,tasks) -> {

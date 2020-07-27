@@ -17,7 +17,6 @@ import kamon.metric.Metric;
  * it is off by default.
  * current reported metrics are:
  *   - input queue size
- *   - orphan stats - fetched / adopted / running time
  */
 @Service
 @ConditionalOnProperty(name = "KAMON.MONITORING.ENABLED", matchIfMissing = false, havingValue = "true")

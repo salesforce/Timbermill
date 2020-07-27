@@ -240,7 +240,7 @@ public class ElasticsearchClient {
 			idsQueryBuilder.addIds(taskId);
 		}
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");;
+		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
 
 		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
