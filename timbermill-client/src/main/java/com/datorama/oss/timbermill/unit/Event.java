@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 public abstract class Event implements Serializable {
 
 	public static final String EVENT_ID_DELIMITER = "___";
+	public static final String TIMBERMILL2 = "timbermill2";
 
 	protected String taskId;
 
@@ -212,7 +213,11 @@ public abstract class Event implements Serializable {
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return name + EVENT_ID_DELIMITER + uuid;
+		return addTimbermill2Suffix(name + EVENT_ID_DELIMITER + uuid);
+	}
+
+	public static String addTimbermill2Suffix(String string) {
+		return string + "_" + TIMBERMILL2;
 	}
 
 	public String getEnv() {
