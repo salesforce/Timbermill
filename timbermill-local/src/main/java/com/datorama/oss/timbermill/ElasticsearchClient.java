@@ -712,7 +712,7 @@ public class ElasticsearchClient {
 	}
 
 	 void handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int retryNum, BulkResponse responses ,String failureMessage){
-	 	LOG.warn("Bulk index of size {} has failed.", dbBulkRequest.getRequest().estimatedSizeInBytes());
+	 	LOG.warn("Bulk index of size {} has failed. Failure message: {}", dbBulkRequest.getRequest().estimatedSizeInBytes(), failureMessage);
 		if (failureMessage != null && failureMessage.contains("type=null_pointer_exception")){
 			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 			LOG.error("Null Pointer Exception Error in script. Requests:");
