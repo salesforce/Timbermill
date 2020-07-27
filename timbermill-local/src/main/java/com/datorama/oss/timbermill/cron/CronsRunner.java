@@ -106,8 +106,8 @@ public class CronsRunner {
 	private static void runParentsFetchCron(String parentsFetchCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
-		jobDataMap.put("orphansFetchPeriodMinutes", orphansFetchPeriodMinutes);
-		jobDataMap.put("days_rotation", daysRotation);
+		jobDataMap.put(ORPHANS_FETCH_PERIOD_MINUTES, orphansFetchPeriodMinutes);
+		jobDataMap.put(DAYS_ROTATION, daysRotation);
 		JobDetail job = newJob(OrphansAdoptionJob.class)
 				.withIdentity("job4", "group4").usingJobData(jobDataMap)
 				.build();

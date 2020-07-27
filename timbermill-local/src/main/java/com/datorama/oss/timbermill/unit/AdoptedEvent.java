@@ -1,7 +1,5 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.util.Map;
-
 public class AdoptedEvent extends Event {
 
 	public AdoptedEvent(String taskId, Task t) {
@@ -11,11 +9,6 @@ public class AdoptedEvent extends Event {
 		this.taskId = taskId;
 		this.setParentId(t.getParentId());
 		this.setContext(t.getCtx());
-	}
-
-	public AdoptedEvent(Map.Entry<String, Task> entry) {
-		this(entry.getKey(), entry.getValue());
-
 	}
 
 	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status) {

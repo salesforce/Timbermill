@@ -96,7 +96,7 @@ public class TaskIndexer {
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(this.es, startEventsIds, parentIds);
+        Map<String, Task> previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
@@ -130,7 +130,7 @@ public class TaskIndexer {
     private void populateCollections(Collection<Event> timbermillEvents, Map<String, DefaultMutableTreeNode> nodesMap, Set<String> startEventsIds, Set<String> parentIds,
             Map<String, List<Event>> eventsMap) {
         timbermillEvents.forEach(event -> {
-            if (event.isStartEvent() /* not needed after removing the orphands queue || event instanceof AdoptedEvent*/ ){
+            if (event.isStartEvent()){
                 startEventsIds.add(event.getTaskId());
 
                 nodesMap.put(event.getTaskId(), new DefaultMutableTreeNode(event));
@@ -149,19 +149,6 @@ public class TaskIndexer {
 
 
         });
-    }
-
-    private static Map<String, Task> getMissingParents(ElasticsearchClient es, Set<String> startEventsIds, Set<String> parentIds) {
-        parentIds.removeAll(startEventsIds);
-        LOG.info("Fetching {} missing parents", parentIds.size());
-        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
-        try {
-            previouslyIndexedParentTasks = es.fetchIndexedTasks(parentIds);
-        } catch (Throwable t) {
-            LOG.error("Error fetching indexed tasks from Elasticsearch", t);
-        }
-        LOG.info("Fetched {} parents", previouslyIndexedParentTasks.size());
-        return previouslyIndexedParentTasks;
     }
 
     private void connectNodesByParentId(Map<String, DefaultMutableTreeNode> nodesMap) {
@@ -184,7 +171,7 @@ public class TaskIndexer {
         return getTasksFromEvents(eventsMap, daysRotation);
     }
 
-    private static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation) {
+    public static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
             Task task = new Task(eventEntry.getValue(), daysRotation);
@@ -218,43 +205,6 @@ public class TaskIndexer {
         }
     }
 
-    public static void handleAdoptions(ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation) {
-        Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minusMinutes(orphansFetchPeriodMinutes));
-        LOG.info("retrieved {} orphans", retrievedOrphans.size());
-        Set<String> orphansIds = retrievedOrphans.keySet();
-        Set<String> parentsIds = retrievedOrphans.values().stream().map(Task::getParentId).collect(Collectors.toSet());
-        Map<String, Task> fetchedParents = TaskIndexer.getMissingParents(es, orphansIds, parentsIds);
-        Map<String, List<AdoptedEvent>> orphansByParentId = retrievedOrphans.entrySet().stream().map(AdoptedEvent::new).collect(Collectors.groupingBy(AdoptedEvent::getParentId));
-        Map<String, List<Event>> adoptedOrphans =  adoptOrphanEvents(orphansByParentId, fetchedParents);
-        Map<String,Task> tasksMap = getTasksFromEvents(adoptedOrphans, daysRotation);
-
-        Map<String, List<Map.Entry<String, Task>>> tasksPerEnv =  tasksMap.entrySet().stream().collect(Collectors.groupingBy(entry -> entry.getValue().getEnv()));
-
-        tasksPerEnv.entrySet().forEach((envAndTasks -> {
-            String index = es.createTimbermillAlias(envAndTasks.getKey());
-            es.index(envAndTasks.getValue().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)), index);
-        }));
-
-        LOG.info("adopted {} orphans", retrievedOrphans.size());
-    }
-
-    public static Map<String, List<Event>> adoptOrphanEvents(Map<String, List<AdoptedEvent>> orphansByParent, Map<String, Task> fetchedParents) {
-        Map<String, List<Event>> eventsMap = Maps.newHashMap();
-        fetchedParents.keySet().forEach(taskId -> updateAdoptedOrphans(orphansByParent, eventsMap, fetchedParents, taskId));
-        return eventsMap;
-    }
-
-    private static void updateAdoptedOrphans(Map<String, List<AdoptedEvent>> adoptedEventsByParent, Map<String, List<Event>> eventsMap, Map<String, Task> fetchedParents, String parentTaskId) {
-        Optional.ofNullable(adoptedEventsByParent.get(parentTaskId)).ifPresent(adoptedEvents ->
-                adoptedEvents.forEach(adoptedEvent -> {
-            populateParentParams(adoptedEvent, fetchedParents.get(parentTaskId), eventsMap.get(parentTaskId));
-            String adoptedId = adoptedEvent.getTaskId();
-            eventsMap.computeIfAbsent(adoptedId, ignore -> Lists.newArrayList());
-            eventsMap.get(adoptedId).add(adoptedEvent);
-            updateAdoptedOrphans(adoptedEventsByParent, eventsMap, fetchedParents, adoptedId);
-        }));
-    }
-
     private void enrichStartEvent(Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks, Event startEvent) {
         String parentId = startEvent.getParentId();
         if (parentId != null) {
@@ -271,8 +221,7 @@ public class TaskIndexer {
         }
     }
 
-
-    private static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
+    public static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
         List<String> parentsPath =  new ArrayList<>();
         String primaryId = parentProperties.getPrimaryId();

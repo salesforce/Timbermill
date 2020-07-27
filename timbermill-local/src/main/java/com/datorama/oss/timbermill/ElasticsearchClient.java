@@ -2,8 +2,8 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.ZonedDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,9 +56,9 @@ import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.util.IOUtils;
 import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
@@ -78,7 +78,6 @@ public class ElasticsearchClient {
 
 	public static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
 	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
-	private static final ExistsQueryBuilder PRIMARY_ID_QUERY = QueryBuilders.existsQuery("primaryId");
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 	public AtomicInteger numOfBulksPersistedToDisk = new AtomicInteger(0);
 	public AtomicInteger numOfSuccessfulBulksFromDisk = new AtomicInteger(0);
@@ -150,6 +149,19 @@ public class ElasticsearchClient {
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
 
+    public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds) {
+        parentIds.removeAll(startEventsIds);
+        LOG.info("Fetching {} missing parents", parentIds.size());
+        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
+        try {
+            previouslyIndexedParentTasks = fetchIndexedTasks(parentIds);
+        } catch (Throwable t) {
+            LOG.error("Error fetching indexed tasks from Elasticsearch", t);
+        }
+        LOG.info("Fetched {} parents", previouslyIndexedParentTasks.size());
+        return previouslyIndexedParentTasks;
+    }
+
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries) {
 		if (indexBulkSize < 1) {
 			throw new RuntimeException("Index bulk size property should be larger than 0");
@@ -190,7 +202,7 @@ public class ElasticsearchClient {
         this.oldIndex = oldIndex;
     }
 
-    Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
+    private Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		Map<String, Task> fetchedTasks = Collections.emptyMap();
 		if (!tasksToFetch.isEmpty()) {
 			fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
@@ -227,26 +239,21 @@ public class ElasticsearchClient {
 		for (String taskId : taskIds) {
 			idsQueryBuilder.addIds(taskId);
 		}
-		TermQueryBuilder termQueryBuilder = ORPHANS_QUERY;
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		ExistsQueryBuilder startedTaskQueryBuilder = PRIMARY_ID_QUERY;
+		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");;
 
 		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
-		boolQueryBuilder.mustNot(termQueryBuilder);
+		boolQueryBuilder.mustNot(ORPHANS_QUERY);
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
-	  public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
+	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		TermQueryBuilder orphansQueryBuilder = ORPHANS_QUERY;
-		ExistsQueryBuilder startedTaskQueryBuilder = PRIMARY_ID_QUERY;
-		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(from).to("now").
-				timeZone(from.getZone().toString());
+		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(from).to("now").timeZone(from.getZone().toString());
 
 		boolQueryBuilder.filter(latestItemsQuery);
-		boolQueryBuilder.filter(orphansQueryBuilder);
-		boolQueryBuilder.mustNot(startedTaskQueryBuilder);
+		boolQueryBuilder.filter(ORPHANS_QUERY);
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 
 	}
@@ -487,7 +494,7 @@ public class ElasticsearchClient {
 		runWithRetries(() -> client.indices().putTemplate(request, RequestOptions.DEFAULT), 1, "Put Timbermill Index Template");
     }
 
-    String createTimbermillAlias(String env) {
+    public String createTimbermillAlias(String env) {
         String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
 		String initialIndex = getInitialIndex(timbermillAlias);
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(timbermillAlias);
