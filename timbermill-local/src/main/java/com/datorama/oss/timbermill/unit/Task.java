@@ -28,6 +28,7 @@ public class Task {
 	private static final Logger LOG = LoggerFactory.getLogger(Task.class);
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
+	private static final int RETRIES_ON_CONFLICT = 1;
 
 	private String env;
 
@@ -335,6 +336,7 @@ public class Task {
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
 		updateRequest.upsert(Constants.GSON.toJson(this), XContentType.JSON);
+		updateRequest = updateRequest.retryOnConflict(RETRIES_ON_CONFLICT);
 
 		Map<String, Object> params = new HashMap<>();
 		if (getStartTime() != null) {
