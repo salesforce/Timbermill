@@ -28,6 +28,7 @@ public class Task {
 	private static final Logger LOG = LoggerFactory.getLogger(Task.class);
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
+	private static final int RETRIES_ON_CONFLICT = 3;
 
 	private String env;
 
@@ -165,6 +166,12 @@ public class Task {
 				LOG.warn("More than 1 adopted events. Events {}", adoptedEvents);
 			}
 			for (Event adoptedEvent : adoptedEvents) {
+				String env = adoptedEvent.getEnv();
+				if (this.env == null || this.env.equals(env)) {
+					this.env = env;
+				} else {
+					throw new RuntimeException("Timbermill events with same id must have same env " + this.env + " !=" + env);
+				}
 				String primaryId = adoptedEvent.getPrimaryId();
 				if (primaryId == null) {
 					LOG.warn("No primary ID for adopted event. Adopted {} \n Task {}", adoptedEvent.toString(), this.toString());
@@ -329,6 +336,7 @@ public class Task {
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
 		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
 		updateRequest.upsert(Constants.GSON.toJson(this), XContentType.JSON);
+		updateRequest = updateRequest.retryOnConflict(RETRIES_ON_CONFLICT);
 
 		Map<String, Object> params = new HashMap<>();
 		if (getStartTime() != null) {

@@ -8,10 +8,11 @@ import org.junit.Test;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
 
 public class TimberLogServerTest extends TimberLogTest{
+
+    private static TimbermillServerOutputPipe pipe;
 
     @BeforeClass
     public static void init()  {
@@ -19,20 +20,14 @@ public class TimberLogServerTest extends TimberLogTest{
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
-        String elasticUrl = System.getenv("ELASTICSEARCH_URL");
-        if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
-        }
-        client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000,3, 3, 1000,null ,1, 1, 4000, null);
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
+        pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).build();
-        TimberLogger.bootstrap(pipe, TEST);
+        TimberLogTest.init(pipe);
     }
 
     @AfterClass
     public static void tearDown(){
-        TimberLogger.exit();
+        TimberLogTest.tearDown();
     }
 
     @Test

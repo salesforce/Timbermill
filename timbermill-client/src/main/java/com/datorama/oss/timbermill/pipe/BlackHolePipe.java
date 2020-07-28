@@ -12,4 +12,8 @@ public class BlackHolePipe implements EventOutputPipe {
 		return 0;
 	}
 
+	@Override public void close() {
+		//Do nothing
+	}
+
 }

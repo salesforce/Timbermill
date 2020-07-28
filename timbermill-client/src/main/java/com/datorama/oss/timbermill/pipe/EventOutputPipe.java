@@ -7,4 +7,6 @@ public interface EventOutputPipe {
     void send(Event e);
 
     int getCurrentBufferSize();
+
+    void close();
 }
