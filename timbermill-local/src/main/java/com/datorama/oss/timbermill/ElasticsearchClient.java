@@ -302,8 +302,8 @@ public class ElasticsearchClient {
 			} catch (Throwable t) {
 				stopTrying = handleBulkRequestFailure(dbBulkRequest,tryNum,null,t.getMessage());
 			}
+			tryNum++;
 		}
-
 		return isSucceeded;
 	}
 
