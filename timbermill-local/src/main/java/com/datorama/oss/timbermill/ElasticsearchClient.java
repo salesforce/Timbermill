@@ -691,7 +691,7 @@ public class ElasticsearchClient {
 			stopTrying = true;
 		}
 
-		else if (tryNum == numOfElasticSearchActionsTries) {
+		else if (tryNum == numOfElasticSearchActionsTries + 1) {
 			// finishing to retry - if persistence is defined then try to persist the failed requests
 			LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
 			stopTrying = true;
