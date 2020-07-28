@@ -47,9 +47,7 @@ public class ElasticsearchClientTest {
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
 		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
-		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
-
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk, bulkNewSize);
 	}
@@ -61,9 +59,8 @@ public class ElasticsearchClientTest {
 		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
-		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
 
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk-1, bulkNewSize);
 		Assert.assertNotEquals(successItemId, fetchedBulkRequest.getRequest().requests().get(0).id());
@@ -76,22 +73,21 @@ public class ElasticsearchClientTest {
 
 		makeItemSuccess(bulkResponse,0);
 		makeItemSuccess(bulkResponse,1);
-		elasticsearchClient.handleBulkRequestFailure(bulkRequest, 0, bulkResponse, "");
 
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.memoryFailedRequestsAsList().get(0).getKey();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(0, bulkNewSize);
 	}
 
 	@AfterClass
-	public static void tearDown(){
+	public static void tearDown() {
 		elasticsearchClient.close();
 	}
 
 	// make bulk's item #itemNumber to not fail
-	private String makeItemSuccess(BulkResponse bulkResponse,int itemNumber) {
+	private String makeItemSuccess(BulkResponse bulkResponse, int itemNumber) {
 		BulkItemResponse spy = spy(bulkResponse.getItems()[itemNumber]);
-		bulkResponse.getItems()[itemNumber]=spy;
+		bulkResponse.getItems()[itemNumber] = spy;
 		doReturn(false).when(spy).isFailed();
 		return spy.getId();
 	}
@@ -108,9 +104,12 @@ public class ElasticsearchClientTest {
 
 	private DbBulkRequest createMockDbBulkRequest(int amountOfRequestsInBulk) {
 		BulkRequest bulkRequest = new BulkRequest();
-		for (int i = 0 ; i < amountOfRequestsInBulk ; i++){
+		for (int i = 0; i < amountOfRequestsInBulk; i++) {
 			bulkRequest.add(createMockRequest());
 		}
 		return new DbBulkRequest(bulkRequest);
 	}
+
+
 }
+

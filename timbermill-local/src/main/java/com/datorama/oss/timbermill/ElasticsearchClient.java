@@ -280,29 +280,30 @@ public class ElasticsearchClient {
 		int numberOfActions = request.numberOfActions();
 		BulkResponse responses;
 		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
-		for (int tryNum = 1 ; tryNum <= numOfElasticSearchActionsTries ; tryNum++){
+		int tryNum = 1;
+		while (!stopTrying) {
 			// continuous tries to send bulk request
 			try {
 				responses = bulk(dbBulkRequest);
 				if (responses.hasFailures()) {
+					// FAILURE
 					stopTrying = handleBulkRequestFailure(dbBulkRequest,tryNum,responses,responses.buildFailureMessage());
-					if (stopTrying) break;
-					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses); // TODO remove it if doing it in handleBulkRequestFailure
+					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 				}
 				else{
+					// SUCCESS
 					LOG.debug("Batch of size {}{} finished successfully. Took: {} millis.", numberOfActions, dbBulkRequest.getTimesFetched() > 0 ? ", that was fetched from disk," : "", responses.getTook().millis());
 					isSucceeded =  true;
+					stopTrying = true;
 					if (dbBulkRequest.getTimesFetched() > 0 ){
 						numOfSuccessfulBulksFromDisk.incrementAndGet();
 					}
-					break;
 				}
 			} catch (Throwable t) {
 				stopTrying = handleBulkRequestFailure(dbBulkRequest,tryNum,null,t.getMessage());
-				if (stopTrying) break;
 			}
-
 		}
+
 		return isSucceeded;
 	}
 
@@ -315,13 +316,14 @@ public class ElasticsearchClient {
         Collection<Pair<Future, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index);
 
         for (Pair<Future, DbBulkRequest> futureRequest : futuresRequests) {
-            try {
+			try {
 				futureRequest.getLeft().get();
-            } catch (InterruptedException | ExecutionException e) {
-                LOG.error("An error was thrown while indexing a batch", e);
-                // todo Notice: The futureRequest.getLeft().get() command will do the retry itself and persist to disk, so need to ask Eden what to do here if there is InterruptedException
-                // failedRequests.offer(Pair.of(futureRequest.getRight(), 0)); TODO ask Eden it this is the right behavior
-            }
+			} catch (InterruptedException e) {
+				LOG.error("An error was thrown while indexing a batch, going to retry", e);
+				sendDbBulkRequest(futureRequest.getRight());
+			} catch (ExecutionException e) {
+				LOG.error("An error was thrown while indexing a batch", e);
+			}
         }
     }
 
@@ -676,29 +678,31 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-	 boolean handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int tryNum, BulkResponse responses ,String failureMessage){
+	boolean handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int tryNum, BulkResponse responses, String failureMessage) {
 		boolean stopTrying = false;
-		LOG.warn("Try number {}/{} for requests of size {} has failed.", tryNum, numOfElasticSearchActionsTries, dbBulkRequest.getRequest().estimatedSizeInBytes());
-		if (failureMessage != null && failureMessage.contains("type=null_pointer_exception")){
+		LOG.warn("Try number {}/{} for requests of size {} has failed, failure message: {}.", tryNum, numOfElasticSearchActionsTries, dbBulkRequest.getRequest().estimatedSizeInBytes(),
+				failureMessage);
+
+		if (failureMessage != null && failureMessage.contains("type=null_pointer_exception")) {
+			// there is NPE, need to stop retries
 			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 			LOG.error("Null Pointer Exception Error in script. Requests:");
 			failedRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
 			stopTrying = true;
-	 	}
-	 	else {
-			if (tryNum == numOfElasticSearchActionsTries) {
-				LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
-				if (diskHandler != null) {
-					usePersistence(dbBulkRequest, responses);
-				} else {
-					LOG.error("Tasks of failed bulk will not be indexed (no persistence).");
-				}
+		}
+
+		else if (tryNum == numOfElasticSearchActionsTries) {
+			// finishing to retry - if persistence is defined then try to persist the failed requests
+			LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
+			stopTrying = true;
+			if (diskHandler != null) {
+				usePersistence(dbBulkRequest, responses);
 			} else {
-				LOG.warn("Failed while trying to bulk index tasks, failure message: {}. Going to retry.", failureMessage);
-				// DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses); // TODO change the bulk itself
+				LOG.error("Tasks of failed bulk will not be indexed (no persistence).");
 			}
 		}
-	 	return stopTrying;
+
+		return stopTrying;
 	}
 
 	private void usePersistence(DbBulkRequest dbBulkRequest, BulkResponse responses) {
@@ -719,8 +723,9 @@ public class ElasticsearchClient {
 		}
 	}
 
-	private DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+	public DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
 		if (bulkResponses != null){
+			// if bulkResponses is null - an exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
 			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
 			BulkItemResponse[] responses = bulkResponses.getItems();
 
@@ -731,9 +736,9 @@ public class ElasticsearchClient {
 					failedRequestsBulk.add(requests.get(i));
 				}
 			}
-			dbBulkRequest.setRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
+			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
 					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
-		}  // if bulkResponses is null An exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
+		}
 		return dbBulkRequest;
 	}
 

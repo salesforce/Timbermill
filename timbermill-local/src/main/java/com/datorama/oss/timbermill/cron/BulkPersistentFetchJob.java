@@ -50,7 +50,7 @@ public class BulkPersistentFetchJob implements Job {
 				keepRunning = false;
 			}
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!es.sendDbBulkRequest(dbBulkRequest, 0)) {
+				if (!es.sendDbBulkRequest(dbBulkRequest)) {
 					keepRunning = false;
 				}
 				else {
