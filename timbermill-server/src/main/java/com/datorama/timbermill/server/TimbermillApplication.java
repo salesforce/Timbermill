@@ -6,16 +6,8 @@ import org.springframework.boot.web.embedded.tomcat.TomcatConnectorCustomizer;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.servlet.server.ServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
-
-import com.datorama.oss.timbermill.annotation.TimberLogAspect;
 
 @SpringBootApplication
-@ComponentScan(value = "com.datorama", excludeFilters = {@ComponentScan.Filter(
-        type = FilterType.ASSIGNABLE_TYPE,
-        value = {TimberLogAspect.class})
-})
 public class TimbermillApplication {
 
     @Bean
