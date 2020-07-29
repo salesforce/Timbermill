@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill;
 
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -16,8 +15,6 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -32,28 +29,20 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private final Cache<String, Queue<AdoptedEvent>> parentIdTORootOrphansEventsCache;
     private Metric.Histogram tasksFetchedHistogram = Kamon.histogram("timbermill2.tasks.fetched.histogram");
     private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
     private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
-    public TaskIndexer(String pluginsJson, int maximumCacheSize, int maximumCacheMinutesHold, Integer daysRotation, ElasticsearchClient es) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es) {
 
-        this.daysRotation = Math.max(daysRotation, 1);
+        this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
-        CacheBuilder<String, Queue<AdoptedEvent>> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> {
-            int sum = value.stream().mapToInt(Event::estimatedSize).sum();
-            return key.length() + sum;
-        });
-        parentIdTORootOrphansEventsCache = cacheBuilder
-                .maximumWeight(maximumCacheSize).expireAfterWrite(maximumCacheMinutesHold, TimeUnit.MINUTES).removalListener(
-                        notification -> {
-                            if (notification.wasEvicted()){
-                                LOG.warn("Event {} was evicted from the cache due to {}", notification.getKey(), notification.getCause());
-                            }
-                        }).build();
+    }
+
+    public static int calculateDaysRotation(int daysRotationParam) {
+        return Math.max(daysRotationParam, 1);
     }
 
     public ElasticsearchClient getEs() {
@@ -107,7 +96,7 @@ public class TaskIndexer {
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(startEventsIds, parentIds);
+        Map<String, Task> previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
@@ -162,19 +151,6 @@ public class TaskIndexer {
         });
     }
 
-    private Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds) {
-        parentIds.removeAll(startEventsIds);
-        LOG.info("Fetching {} missing parents", parentIds.size());
-        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
-        try {
-            previouslyIndexedParentTasks = this.es.fetchIndexedTasks(parentIds);
-        } catch (Throwable t) {
-            LOG.error("Error fetching indexed tasks from Elasticsearch", t);
-        }
-        LOG.info("Fetched {} parents", previouslyIndexedParentTasks.size());
-        return previouslyIndexedParentTasks;
-    }
-
     private void connectNodesByParentId(Map<String, DefaultMutableTreeNode> nodesMap) {
         for (DefaultMutableTreeNode treeNode : nodesMap.values()) {
 
@@ -192,10 +168,10 @@ public class TaskIndexer {
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
             Map<String, Task> previouslyIndexedParentTasks) {
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
-        return getTasksFromEvents(eventsMap);
+        return getTasksFromEvents(eventsMap, daysRotation);
     }
 
-    private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
+    public static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
             Task task = new Task(eventEntry.getValue(), daysRotation);
@@ -229,33 +205,12 @@ public class TaskIndexer {
         }
     }
 
-    private void updateAdoptedOrphans(Map<String, List<Event>> eventsMap, String parentTaskId) {
-        Queue<AdoptedEvent> adoptedEvents = parentIdTORootOrphansEventsCache.getIfPresent(parentTaskId);
-
-        if (adoptedEvents != null) {
-            parentIdTORootOrphansEventsCache.invalidate(parentTaskId);
-            for (AdoptedEvent adoptedEvent : adoptedEvents) {
-                populateParentParams(adoptedEvent, null, eventsMap.get(parentTaskId));
-                String adoptedId = adoptedEvent.getTaskId();
-                if (eventsMap.containsKey(adoptedId)){
-                    eventsMap.get(adoptedId).add(adoptedEvent);
-                }
-                else{
-                    eventsMap.put(adoptedId, Lists.newArrayList(adoptedEvent));
-                }
-                updateAdoptedOrphans(eventsMap, adoptedId);
-            }
-        }
-
-    }
-
     private void enrichStartEvent(Map<String, List<Event>> eventsMap, Map<String, Task> previouslyIndexedTasks, Event startEvent) {
         String parentId = startEvent.getParentId();
         if (parentId != null) {
             if (isOrphan(startEvent, previouslyIndexedTasks, eventsMap)){
                 startEvent.setOrphan(true);
                 startEvent.setPrimaryId(null);
-                addOrphanToCache(startEvent, parentId);
             }
             else {
                 populateParentParams(startEvent, previouslyIndexedTasks.get(parentId), eventsMap.get(parentId));
@@ -264,18 +219,9 @@ public class TaskIndexer {
         else{
             startEvent.setPrimaryId(startEvent.getTaskId());
         }
-        if (hasAdoptedOrphans(startEvent)) {
-            updateAdoptedOrphans(eventsMap, startEvent.getTaskId());
-        }
     }
 
-    private boolean hasAdoptedOrphans(Event event) {
-        String taskId = event.getTaskId();
-        Queue<AdoptedEvent> orphansEvents = parentIdTORootOrphansEventsCache.getIfPresent(taskId);
-        return orphansEvents != null && (event.isOrphan() == null || !event.isOrphan());
-    }
-
-    private void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
+    public static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
         List<String> parentsPath =  new ArrayList<>();
         String primaryId = parentProperties.getPrimaryId();
@@ -299,19 +245,6 @@ public class TaskIndexer {
 
         if(!parentsPath.isEmpty()) {
             event.setParentsPath(parentsPath);
-        }
-    }
-
-    private void addOrphanToCache(Event startEvent, String parentId) {
-        Queue<AdoptedEvent> eventList = parentIdTORootOrphansEventsCache.getIfPresent(parentId);
-
-        AdoptedEvent orphanEvent = new AdoptedEvent(startEvent);
-        if (eventList == null) {
-            eventList = new LinkedList<>();
-            eventList.add(orphanEvent);
-            parentIdTORootOrphansEventsCache.put(parentId, eventList);
-        } else {
-            eventList.add(orphanEvent);
         }
     }
 
@@ -452,7 +385,4 @@ public class TaskIndexer {
 
     }
 
-    public Cache<String, Queue<AdoptedEvent>> getParentIdTORootOrphansEventsCache() {
-        return parentIdTORootOrphansEventsCache;
-    }
 }

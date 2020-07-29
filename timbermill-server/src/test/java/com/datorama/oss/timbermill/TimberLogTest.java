@@ -4,11 +4,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.JobExecutionContextImpl;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
+import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
@@ -19,16 +31,17 @@ import static org.junit.Assert.*;
 
 public abstract class TimberLogTest {
 
-	protected static ElasticsearchClient client;
-
 	static final String TEST = "test";
 	static final String EVENT = "Event";
 	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
-
+	static final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && (task.isOrphan() == null || !task.isOrphan());
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
+	protected static ElasticsearchClient client;
+	private static OrphansAdoptionJob orphansAdoptionJob;
+	private static JobExecutionContextImpl context;
 	private String childTaskId;
 	private String childOfChildTaskId;
 
@@ -38,6 +51,11 @@ public abstract class TimberLogTest {
 
 	synchronized static void waitForTask(String taskId, TaskStatus status, ElasticsearchClient esClient) {
 		Callable<Boolean> callable = () -> (esClient.getTaskById(taskId) != null) && (esClient.getTaskById(taskId).getStatus() == status);
+		waitForCallable(callable);
+	}
+
+	static void waitForTaskPredicate(String taskId, Predicate<Task> predicate) {
+		Callable<Boolean> callable = () -> client.getTaskById(taskId) != null && predicate.test(client.getTaskById(taskId));
 		waitForCallable(callable);
 	}
 
@@ -52,6 +70,76 @@ public abstract class TimberLogTest {
 
 	static void assertNotOrphan(Task task){
 		assertTrue(task.isOrphan() == null || !task.isOrphan());
+	}
+
+	static void assertOrphan(Task task){
+		assertFalse(task.isOrphan() == null || !task.isOrphan());
+	}
+
+	protected static void init(EventOutputPipe pipe) {
+		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
+		if (StringUtils.isEmpty(elasticUrl)){
+			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+		}
+
+		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
+				7, 100, 1000000000,3, 3, 1000,null ,1, 1, 4000, null);
+		orphansAdoptionJob = new OrphansAdoptionJob();
+		JobDetail job = new JobDetailImpl();
+		JobDataMap jobDataMap = job.getJobDataMap();
+		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
+		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 2);
+		jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
+		OperableTrigger trigger = new SimpleTriggerImpl();
+		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
+		context = new JobExecutionContextImpl(null, fireBundle, null);
+
+		TimberLogger.bootstrap(pipe, TEST);
+
+	}
+
+	protected static void tearDown() {
+		TimberLogger.exit();
+	}
+
+	static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
+		assertEquals(name, task.getName());
+		assertEquals(status, task.getStatus());
+		assertNotNull(task.getStartTime());
+		if (shouldHaveEndTime){
+			assertNotNull(task.getEndTime());
+		}
+		else{
+			assertNull(task.getEndTime());
+		}
+
+		if (shouldBeComplete) {
+			assertNotNull(task.getDuration());
+		} else {
+			assertNull(task.getDuration());
+		}
+		assertEquals(primaryId, task.getPrimaryId());
+		assertEquals(parentId, task.getParentId());
+
+		List<String> parentsPath = task.getParentsPath();
+		if (parentId == null || (parents.length == 0)){
+			assertNull(parentsPath);
+		}
+		else {
+			assertNotNull(parentsPath);
+			assertEquals(parents.length, parentsPath.size());
+			for (String parent : parents) {
+				assertTrue(parentsPath.contains(parent));
+			}
+		}
+	}
+
+	static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
+		assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status);
+	}
+
+	static void assertTaskCorrupted(Task task, String name, TaskStatus status, boolean shouldHaveEndTime) {
+		assertTask(task, name, shouldHaveEndTime, false, null, null, status);
 	}
 
 	protected void testSimpleTaskIndexerJob() throws InterruptedException {
@@ -167,7 +255,6 @@ public abstract class TimberLogTest {
 		String taskId2 = testSpotWithParentTimberLog2(context2, taskIdSpot, taskId1);
 		return Pair.of(taskId1, taskId2);
 	}
-
 
 	@TimberLogTask(name = EVENT + '2')
 	private String testSpotWithParentTimberLog2(String context2, String[] taskIdSpot, String taskId1) {
@@ -299,6 +386,10 @@ public abstract class TimberLogTest {
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 
+		orphansAdoptionJob.execute(context);
+		waitForTaskPredicate(taskId1, notOrphanPredicate);
+		waitForTaskPredicate(taskId2, notOrphanPredicate);
+
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
 		assertEquals(context1, task1.getCtx().get(context1));
@@ -337,6 +428,9 @@ public abstract class TimberLogTest {
 		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
+		orphansAdoptionJob.execute(context);
+		waitForTaskPredicate(taskId1, notOrphanPredicate);
+		waitForTaskPredicate(taskId2, notOrphanPredicate);
 
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
@@ -472,45 +566,5 @@ public abstract class TimberLogTest {
 		String taskId = TimberLogger.start("testOrphan", "testOrphanParent", LogParams.create());
 		TimberLogger.success();
 		return taskId;
-	}
-
-	static void assertTask(Task task, String name, boolean shouldHaveEndTime, boolean shouldBeComplete, String primaryId, String parentId, TaskStatus status, String... parents) {
-		assertEquals(name, task.getName());
-		assertEquals(status, task.getStatus());
-		assertNotNull(task.getStartTime());
-		if (shouldHaveEndTime){
-			assertNotNull(task.getEndTime());
-		}
-		else{
-			assertNull(task.getEndTime());
-		}
-
-		if (shouldBeComplete) {
-			assertNotNull(task.getDuration());
-		} else {
-			assertNull(task.getDuration());
-		}
-		assertEquals(primaryId, task.getPrimaryId());
-		assertEquals(parentId, task.getParentId());
-
-		List<String> parentsPath = task.getParentsPath();
-		if (parentId == null || (parents.length == 0)){
-			assertNull(parentsPath);
-		}
-		else {
-			assertNotNull(parentsPath);
-			assertEquals(parents.length, parentsPath.size());
-			for (String parent : parents) {
-				assertTrue(parentsPath.contains(parent));
-			}
-		}
-	}
-
-	static void assertTaskPrimary(Task task, String name, TaskStatus status, String primaryId, boolean shouldHaveEndTime, boolean shouldBeComplete) {
-		assertTask(task, name, shouldHaveEndTime, shouldBeComplete, primaryId, null, status);
-	}
-
-	static void assertTaskCorrupted(Task task, String name, TaskStatus status, boolean shouldHaveEndTime) {
-		assertTask(task, name, shouldHaveEndTime, false, null, null, status);
 	}
 }

@@ -44,9 +44,10 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.maxCacheSize, builder.maxCacheHoldTimeMinutes, builder.daysRotation, esClient);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
-        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient, builder.deletionCronExp, buffer, overflowedQueue);
+        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
+                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes, builder.daysRotation);
         startWorkingThread();
     }
 
@@ -116,8 +117,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
-        private int maxCacheHoldTimeMinutes = 60;
-        private int maxCacheSize = 10000;
         private String elasticUrl = null;
         private String pluginsJson = "[]";
         private int daysRotation = 90;
@@ -140,6 +139,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
         private String locationInDisk = "/db";
+        private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
+        private int orphansFetchPeriodMinutes = 10;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -193,16 +194,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder elasticPassword(String elasticPassword) {
             this.elasticPassword = elasticPassword;
-            return this;
-        }
-
-        public Builder maxCacheSize(int maxCacheSize) {
-            this.maxCacheSize = maxCacheSize;
-            return this;
-        }
-
-        public Builder maxCacheHoldTimeMinutes(int maxCacheHoldTimeMinutes) {
-            this.maxCacheHoldTimeMinutes = maxCacheHoldTimeMinutes;
             return this;
         }
 
@@ -277,6 +268,15 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
+        public Builder orphansAdoptionsCronExp(String orphansAdoptionsCronExp) {
+            this.orphansAdoptionsCronExp = orphansAdoptionsCronExp;
+            return this;
+        }
+
+        public Builder orphansFetchPeriodMinutes(int orphansFetchPeriodMinutes) {
+            this.orphansFetchPeriodMinutes = orphansFetchPeriodMinutes;
+            return this;
+        }
 
         public LocalOutputPipe build() {
             return new LocalOutputPipe(this);

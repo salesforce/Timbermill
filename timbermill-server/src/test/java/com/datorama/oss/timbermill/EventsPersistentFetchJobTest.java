@@ -32,7 +32,7 @@ public class EventsPersistentFetchJobTest {
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
 		}
-		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl);
+		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").orphansAdoptionsCronExp("").bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("");
 		pipe = builder.build();
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
