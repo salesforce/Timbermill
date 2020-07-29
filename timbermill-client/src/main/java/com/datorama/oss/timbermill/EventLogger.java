@@ -198,7 +198,8 @@ final class EventLogger {
 	}
 
 	void addIdToContext(String ongoingTaskId) {
-		taskIdStack.push(ongoingTaskId);
+		String timbermill2Id = alignTimbermill2Id(ongoingTaskId);
+		taskIdStack.push(timbermill2Id);
 	}
 
 	void removeIdFromContext(String ongoingTaskId) {
