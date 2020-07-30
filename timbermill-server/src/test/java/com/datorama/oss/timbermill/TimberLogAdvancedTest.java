@@ -16,6 +16,8 @@ import com.datorama.oss.timbermill.unit.*;
 import static com.datorama.oss.timbermill.TimberLogTest.*;
 import static com.datorama.oss.timbermill.common.Constants.*;
 import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
+import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
+import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;
 import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
@@ -828,7 +830,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskStartSuccessSuccess(boolean withUpdate) throws InterruptedException {
@@ -842,7 +844,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartSuccessError(boolean withUpdate) throws InterruptedException {
@@ -856,7 +858,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartStartSuccess(boolean withUpdate) throws InterruptedException {
@@ -870,7 +872,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskStartStart(boolean withUpdate) throws InterruptedException {
@@ -883,7 +885,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskSuccessStartSuccess(boolean withUpdate) throws InterruptedException {
@@ -898,7 +900,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskSuccessSuccess(boolean withUpdate) throws InterruptedException {
@@ -912,7 +914,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskSuccessError(boolean withUpdate) throws InterruptedException {
@@ -926,7 +928,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorStartSuccess(boolean withUpdate) throws InterruptedException {
@@ -941,7 +943,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorSuccess(boolean withUpdate) throws InterruptedException {
@@ -955,7 +957,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorError(boolean withUpdate) throws InterruptedException {
@@ -969,7 +971,7 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartErrorStart(boolean withUpdate) throws InterruptedException {
@@ -983,6 +985,6 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 }

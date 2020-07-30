@@ -25,7 +25,7 @@ public class SpotEvent extends Event {
 
     @JsonIgnore
     @Override
-    public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
+    public TaskStatus getStatusFromExistingStatus(TaskStatus status, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName) {
         return this.status;
     }
 

@@ -1,17 +1,19 @@
 package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
-import java.util.Map;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.Maps;
 
 import javax.validation.constraints.NotNull;
 
 public class StartEvent extends Event {
 
-    public static final String ALREADY_STARTED = "ALREADY_STARTED";
+    public static final String ALREADY_STARTED_DIFFERENT_PARENT = "ALREADY_STARTED_DIFFERENT_PARENT";
+    public static final String ALREADY_STARTED_DIFFERENT_NAME = "ALREADY_STARTED_DIFFERENT_NAME";
+    public static final String ALREADY_STARTED_DIFFERENT_START_TIME = "ALREADY_STARTED_DIFFERENT_START_TIME";
 
     public StartEvent() {
     }
@@ -22,34 +24,39 @@ public class StartEvent extends Event {
 
     @JsonIgnore
     @Override
-    public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
-        return getTaskStatus(status, getStrings());
-    }
-
-    private static TaskStatus getTaskStatus(TaskStatus status, Map<String, String> string) {
-        if (status == TaskStatus.UNTERMINATED){
-            string.put(Constants.CORRUPTED_REASON, ALREADY_STARTED);
-            return TaskStatus.CORRUPTED;
+    public TaskStatus getStatusFromExistingStatus(TaskStatus taskStatus, ZonedDateTime taskStartTime, ZonedDateTime taskEndTime, String taskParentId, String taskName) {
+        if (taskStatus == TaskStatus.UNTERMINATED || taskStatus == TaskStatus.SUCCESS || taskStatus == TaskStatus.ERROR){
+            return handleAlreadyStarted(taskStartTime, taskName, taskParentId, taskStatus);
         }
-        else if (status == TaskStatus.PARTIAL_SUCCESS){
+        else if (taskStatus == TaskStatus.PARTIAL_SUCCESS){
             return TaskStatus.SUCCESS;
         }
-        else if (status == TaskStatus.SUCCESS){
-            string.put(Constants.CORRUPTED_REASON, ALREADY_STARTED);
-            return TaskStatus.CORRUPTED;
-        }
-        else if (status == TaskStatus.PARTIAL_ERROR){
+        else if (taskStatus == TaskStatus.PARTIAL_ERROR){
             return TaskStatus.ERROR;
         }
-        else if (status == TaskStatus.ERROR){
-            string.put(Constants.CORRUPTED_REASON, ALREADY_STARTED);
-            return TaskStatus.CORRUPTED;
-        }
-        else if (status == TaskStatus.CORRUPTED){
+        else if (taskStatus == TaskStatus.CORRUPTED){
             return TaskStatus.CORRUPTED;
         }
         else {
             return TaskStatus.UNTERMINATED;
+        }
+    }
+
+    private TaskStatus handleAlreadyStarted(ZonedDateTime taskStartTime, String taskName, String taskParentId, TaskStatus taskStatus) {
+        if (strings == null){
+            strings = Maps.newHashMap();
+        }
+        if (taskStartTime != null && !taskStartTime.equals(this.time)) {
+            strings.put(Constants.CORRUPTED_REASON, ALREADY_STARTED_DIFFERENT_START_TIME);
+            return TaskStatus.CORRUPTED;
+        } else if (taskName != null && !taskName.equals(this.name)) {
+            strings.put(Constants.CORRUPTED_REASON, ALREADY_STARTED_DIFFERENT_NAME);
+            return TaskStatus.CORRUPTED;
+        } else if (taskParentId != null && !taskParentId.equals(this.parentId)) {
+            strings.put(Constants.CORRUPTED_REASON, ALREADY_STARTED_DIFFERENT_PARENT);
+            return TaskStatus.CORRUPTED;
+        } else {
+            return taskStatus;
         }
     }
 

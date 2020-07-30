@@ -23,27 +23,22 @@ public class ErrorEvent extends Event {
 
     @JsonIgnore
     @Override
-    public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
-        if (status == TaskStatus.UNTERMINATED){
+    public TaskStatus getStatusFromExistingStatus(TaskStatus taskStatus, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName) {
+        if (taskStatus == TaskStatus.UNTERMINATED){
             return TaskStatus.ERROR;
         }
-        else if (status == TaskStatus.PARTIAL_SUCCESS || status == TaskStatus.SUCCESS || status == TaskStatus.PARTIAL_ERROR || status == TaskStatus.ERROR){
-            updateStringsWithReason();
-            return TaskStatus.CORRUPTED;
+        else if (taskStatus == TaskStatus.PARTIAL_SUCCESS || taskStatus == TaskStatus.SUCCESS){
+            return SuccessEvent.handleDifferentCloseStatus(strings);
         }
-        else if (status == TaskStatus.CORRUPTED){
+        else if (taskStatus == TaskStatus.PARTIAL_ERROR || taskStatus == TaskStatus.ERROR){
+            return SuccessEvent.handleAlreadyClosed(this.time, taskEndTime, strings, taskStatus);
+        }
+        else if (taskStatus == TaskStatus.CORRUPTED){
             return TaskStatus.CORRUPTED;
         }
         else {
             return TaskStatus.PARTIAL_ERROR;
         }
-    }
-
-    private void updateStringsWithReason() {
-        if (strings == null) {
-            strings = Maps.newHashMap();
-        }
-        strings.put(CORRUPTED_REASON, ALREADY_CLOSED);
     }
 
 }

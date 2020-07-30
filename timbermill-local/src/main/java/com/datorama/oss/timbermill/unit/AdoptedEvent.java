@@ -1,5 +1,7 @@
 package com.datorama.oss.timbermill.unit;
 
+import java.time.ZonedDateTime;
+
 public class AdoptedEvent extends Event {
 
 	public AdoptedEvent(String taskId, Task t) {
@@ -11,7 +13,7 @@ public class AdoptedEvent extends Event {
 		this.setContext(t.getCtx());
 	}
 
-	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status) {
+	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName) {
 		return null;
 	}
 

@@ -45,7 +45,7 @@ public abstract class Event implements Serializable {
 	protected String name;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private String parentId;
+	protected String parentId;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected Map<String, String> strings;
@@ -195,7 +195,7 @@ public abstract class Event implements Serializable {
     }
 
     @JsonIgnore
-	public abstract TaskStatus getStatusFromExistingStatus(TaskStatus status);
+	public abstract TaskStatus getStatusFromExistingStatus(TaskStatus status, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName);
 
 	@JsonIgnore
     public boolean isStartEvent(){

@@ -15,7 +15,6 @@ public final class Constants {
 	public static final String EXCEPTION = "exception";
 	public static final String TYPE = "_doc";
 	public static final String TIMBERMILL_SCRIPT = "timbermill-script";
-	public static final String ALREADY_CLOSED = "ALREADY_CLOSED";
 	public static final String CORRUPTED_REASON = "corruptedReason";
 	public static final int MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS = 16384;
 	public static final int MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS = 900000;

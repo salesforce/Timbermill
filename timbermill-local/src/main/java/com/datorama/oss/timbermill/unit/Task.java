@@ -29,6 +29,8 @@ public class Task {
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
 	private static final int RETRIES_ON_CONFLICT = 3;
+	public static final String REGULAR = "REGULAR";
+	public static final String ADOPTED = "ADOPTED";
 
 	private String env;
 
@@ -52,10 +54,10 @@ public class Task {
 	}
 
 	public Task(List<Event> events, long daysRotation) {
-		Map<String, List<Event>> collect = events.stream().collect(Collectors.groupingBy(e -> e.isAdoptedEvent() ? "ADOPTED" : "REGULAR"));
+		Map<String, List<Event>> collect = events.stream().collect(Collectors.groupingBy(e -> e.isAdoptedEvent() ? ADOPTED : REGULAR));
 
-		if (collect.containsKey("REGULAR")) {
-			for (Event e : collect.get("REGULAR")) {
+		if (collect.containsKey(REGULAR)) {
+			for (Event e : collect.get(REGULAR)) {
 				String env = e.getEnv();
 				if (this.env == null || this.env.equals(env)) {
 					this.env = env;
@@ -72,6 +74,7 @@ public class Task {
 				ZonedDateTime startTime = e.getTime();
 				ZonedDateTime endTime = e.getEndTime();
 
+
 				if (this.name == null) {
 					this.name = name;
 				}
@@ -81,7 +84,7 @@ public class Task {
 				} else if (parentId != null && !this.parentId.equals(parentId)) {
 					LOG.warn("Found different parentId for same task. Flagged task [{}] as corrupted. parentId 1 [{}], parentId 2 [{}]", e.getTaskId(), this.parentId, parentId);
 					status = CORRUPTED;
-					string.put(CORRUPTED_REASON, "Different parentIds");
+					string.put(CORRUPTED_REASON, "DIFFERENT_PARENT");
 				}
 
 				if (getStartTime() == null) {
@@ -92,12 +95,12 @@ public class Task {
 					setEndTime(endTime);
 				}
 
+				status = e.getStatusFromExistingStatus(this.status, getStartTime(), getEndTime(), this.parentId, this.name);
 				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
 				if (dateToDelete != null) {
 					this.setDateToDelete(dateToDelete);
 				}
 
-				status = e.getStatusFromExistingStatus(this.status);
 
 				if (e.getStrings() != null && !e.getStrings().isEmpty()) {
 					string.putAll(e.getStrings());
@@ -160,8 +163,8 @@ public class Task {
 			setDuration(duration);
 		}
 
-		if (collect.containsKey("ADOPTED")) {
-			List<Event> adoptedEvents = collect.get("ADOPTED");
+		if (collect.containsKey(ADOPTED)) {
+			List<Event> adoptedEvents = collect.get(ADOPTED);
 			if (adoptedEvents.size() > 1) {
 				LOG.warn("More than 1 adopted events. Events {}", adoptedEvents);
 			}
