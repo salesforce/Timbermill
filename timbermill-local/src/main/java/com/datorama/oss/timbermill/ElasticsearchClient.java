@@ -273,35 +273,45 @@ public class ElasticsearchClient {
 
     // return true iff execution of bulk finished successfully
 	public boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest){
-		boolean isSucceeded = false, stopTrying = false;
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
-		int tryNum = 1;
-		while (!stopTrying) {
+		long requestSize = request.estimatedSizeInBytes();
+		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, requestSize);
+
+		for (int tryNum = 0 ; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
 			// continuous tries to send bulk request
 			try {
 				BulkResponse responses = bulk(dbBulkRequest);
 				if (responses.hasFailures()) {
 					// FAILURE
-					stopTrying = handleBulkRequestFailure(dbBulkRequest,tryNum,responses,responses.buildFailureMessage());
+					LOG.warn("Try number {}/{} for requests of size {} has failed, failure message: {}.", tryNum + 1, numOfElasticSearchActionsTries, requestSize, responses.buildFailureMessage());
 					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
+					if (shouldStopRetry(responses.buildFailureMessage())) {
+						reportStopRetry(dbBulkRequest);
+						return false;
+					}
 				}
 				else{
 					// SUCCESS
 					LOG.debug("Batch of size {} finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
-					isSucceeded =  true;
-					stopTrying = true;
 					if (dbBulkRequest.getTimesFetched() > 0 ){
 						tasksFetchedFromDiskCounter.withTag("outcome","success").record(1);
 					}
+					return true;
 				}
 			} catch (Throwable t) {
-				stopTrying = handleBulkRequestFailure(dbBulkRequest,tryNum,null,t.getMessage());
+				// EXCEPTION
+				LOG.warn("Try number {}/{} for requests of size {} has failed, failure message: {}.", tryNum + 1, numOfElasticSearchActionsTries, requestSize, t.getMessage());
+				if (shouldStopRetry(t.getMessage())) {
+					reportStopRetry(dbBulkRequest);
+					return false;
+				}
 			}
-			tryNum++;
 		}
-		return isSucceeded;
+		// finishing to retry - if persistence is defined then try to persist the failed requests
+		LOG.error("Reached maximum retries ({}) attempt to index.", numOfElasticSearchActionsTries);
+		tryPersistBulkRequest(dbBulkRequest);
+		return false;
 	}
 
 	// wrap bulk method as a not-final method in order that Mockito will able to mock it
@@ -675,34 +685,7 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-	private boolean handleBulkRequestFailure(DbBulkRequest dbBulkRequest, int tryNum, BulkResponse responses, String failureMessage) {
-		boolean stopTrying = false;
-		LOG.warn("Try number {}/{} for requests of size {} has failed, failure message: {}.", tryNum, numOfElasticSearchActionsTries, dbBulkRequest.getRequest().estimatedSizeInBytes(),
-				failureMessage);
-
-		if (blackListException(failureMessage)) {
-			// need to stop retries
-			DbBulkRequest failedRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
-			LOG.error("Black list's exception in script. Requests:");
-			failedRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
-			stopTrying = true;
-		}
-
-		else if (tryNum > numOfElasticSearchActionsTries) {
-			// finishing to retry - if persistence is defined then try to persist the failed requests
-			LOG.error("Reached maximum retries ({}) attempt to index. Failure message: {}", numOfElasticSearchActionsTries, failureMessage);
-			stopTrying = true;
-			if (diskHandler != null) {
-				persistBulkRequest(dbBulkRequest, responses);
-			} else {
-				LOG.error("Tasks of failed bulk will not be indexed (no persistence).");
-			}
-		}
-
-		return stopTrying;
-	}
-
-	private boolean blackListException(String failureMessage) {
+	private boolean shouldStopRetry(String failureMessage) {
 		if (failureMessage != null){
 			for (String ex : blackListExceptions){
 				if (failureMessage.contains(ex)){
@@ -713,18 +696,27 @@ public class ElasticsearchClient {
 		return false;
 	}
 
-	private void persistBulkRequest(DbBulkRequest dbBulkRequest, BulkResponse responses) {
-		if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
-			DbBulkRequest updatedDbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
-			try {
-				diskHandler.persistBulkRequestToDisk(updatedDbBulkRequest);
-			} catch (MaximumInsertTriesException e) {
-				LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
-				// numOfCouldNotBeInserted.incrementAndGet(); TODO - do we need this?
+	private void reportStopRetry(DbBulkRequest dbBulkRequest) {
+		LOG.error("Black list's exception in script. Requests:");
+		dbBulkRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
+	}
+
+	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest) {
+		if (diskHandler != null) {
+			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
+				try {
+					diskHandler.persistBulkRequestToDisk(dbBulkRequest);
+				} catch (MaximumInsertTriesException e) {
+					LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
+					// numOfCouldNotBeInserted.incrementAndGet(); TODO - do we need this?
+				}
+			} else {
+				LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", dbBulkRequest.getId(), maxBulkIndexFetches);
+				tasksFetchedFromDiskCounter.withTag("outcome", "failure").record(1);
 			}
-		} else {
-			LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", dbBulkRequest.getId(), maxBulkIndexFetches);
-			tasksFetchedFromDiskCounter.withTag("outcome","failure").record(1);
+		}
+		else {
+			LOG.error("Tasks of failed bulk will not be indexed (no persistence).");
 		}
 	}
 

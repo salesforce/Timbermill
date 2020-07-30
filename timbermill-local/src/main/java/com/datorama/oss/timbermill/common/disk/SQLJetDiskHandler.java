@@ -198,6 +198,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	@Override public long failedBulksAmount() {
 		try {
+			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
 			ISqlJetCursor resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 			return resultCursor.getRowCount();
 		} catch (SqlJetException e) {
