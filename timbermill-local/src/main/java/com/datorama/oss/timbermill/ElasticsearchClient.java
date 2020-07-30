@@ -557,10 +557,10 @@ public class ElasticsearchClient {
 				ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
-					LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
+					LOG.error("Couldn't clear scroll id " + scrollId + " for " + functionDescription  +" in index " + index);
 				}
 			} catch (Throwable e) {
-				LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
+				LOG.error("Couldn't clear scroll id " + scrollId + " for " + functionDescription  +" in index " + index, e);
 			}
 		}
 		catch (MaxRetriesException e) {

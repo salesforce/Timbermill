@@ -340,7 +340,7 @@ public class ElasticsearchUtil {
 	private static void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue, DiskHandler diskHandler) {
 		if (!overflowedQueue.isEmpty()) {
 			ArrayList<Event> events = Lists.newArrayList();
-			overflowedQueue.drainTo(events);
+			overflowedQueue.drainTo(events, MAX_ELEMENTS * 10);
 
 			diskHandler.persistEventsToDisk(events);
 		}
