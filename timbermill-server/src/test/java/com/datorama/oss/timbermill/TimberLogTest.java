@@ -457,7 +457,7 @@ public abstract class TimberLogTest {
 		waitForTask(taskId[0], TaskStatus.SUCCESS, client);
 
 		Task task = client.getTaskById(taskId[0]);
-		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS);
+		assertTask(task, EVENT, true, true, null, "bla_timbermill2", TaskStatus.SUCCESS);
 	}
 
 	@TimberLogTask(name = EVENT)

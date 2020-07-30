@@ -87,6 +87,8 @@ public class Task {
 					string.put(CORRUPTED_REASON, "DIFFERENT_PARENT");
 				}
 
+				status = e.getStatusFromExistingStatus(this.status, getStartTime(), getEndTime(), this.parentId, this.name);
+
 				if (getStartTime() == null) {
 					setStartTime(startTime);
 				}
@@ -95,7 +97,6 @@ public class Task {
 					setEndTime(endTime);
 				}
 
-				status = e.getStatusFromExistingStatus(this.status, getStartTime(), getEndTime(), this.parentId, this.name);
 				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
 				if (dateToDelete != null) {
 					this.setDateToDelete(dateToDelete);

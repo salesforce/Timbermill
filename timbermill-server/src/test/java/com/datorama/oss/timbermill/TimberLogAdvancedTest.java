@@ -803,6 +803,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
@@ -825,6 +828,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -838,6 +844,9 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.success(taskId);
 
@@ -853,6 +862,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -865,6 +877,9 @@ public class TimberLogAdvancedTest {
         String taskId = TimberLoggerAdvanced.start(EVENT);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
@@ -880,6 +895,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -893,6 +911,9 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.success(id);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         String taskId = TimberLoggerAdvanced.start(id, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(id);
@@ -909,6 +930,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -923,6 +947,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -936,6 +963,9 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
@@ -952,6 +982,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -966,6 +999,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
@@ -979,6 +1015,9 @@ public class TimberLogAdvancedTest {
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 

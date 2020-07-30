@@ -10,7 +10,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Maps;
 
 public class SuccessEvent extends Event {
-    public static final String ALREADY_CLOSED_DIFFERENT_CLOSE_TIME = "ALREADY_CLOSED_DIFFERENT_START_TIME";
+    public static final String ALREADY_CLOSED_DIFFERENT_CLOSE_TIME = "ALREADY_CLOSED_DIFFERENT_CLOSE_TIME";
     public static final String ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS = "ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS";
 
     public SuccessEvent() {
