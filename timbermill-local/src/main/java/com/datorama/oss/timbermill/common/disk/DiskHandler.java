@@ -27,7 +27,7 @@ public interface DiskHandler {
 		return diskHandlerParams;
 	}
 
-	int failedBulksAmount();
+	long failedBulksAmount();
 
 	void close();
 }

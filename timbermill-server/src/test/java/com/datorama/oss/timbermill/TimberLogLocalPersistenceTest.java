@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -17,8 +16,6 @@ import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 
@@ -39,17 +36,6 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
         pipe = buildLocalOutputPipeForTest(elasticUrl);
 
         TimberLogger.bootstrap(pipe, TEST);
-    }
-
-    @After
-    public void check(){
-        ElasticsearchClient esClient = pipe.getEsClient();
-        assertNotEquals(0, esClient.numOfBulksPersistedToDisk.get());
-        assertEquals(esClient.numOfBulksPersistedToDisk.get(), esClient.numOfSuccessfulBulksFromDisk.get());
-        assertEquals(0, esClient.numOfCouldNotBeInserted.get());
-        assertEquals(0, esClient.numOfFetchedMaxTimes.get());
-        esClient.numOfBulksPersistedToDisk.set(0);
-        esClient.numOfSuccessfulBulksFromDisk.set(0);
     }
 
     @AfterClass
