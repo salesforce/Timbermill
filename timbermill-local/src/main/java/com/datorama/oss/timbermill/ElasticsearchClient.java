@@ -301,7 +301,6 @@ public class ElasticsearchClient {
 		long requestSize = request.estimatedSizeInBytes();
 		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, requestSize);
 
-		// continuous tries to send bulk request
 		try {
 			BulkResponse responses = bulk(dbBulkRequest);
 			if (responses.hasFailures()) {

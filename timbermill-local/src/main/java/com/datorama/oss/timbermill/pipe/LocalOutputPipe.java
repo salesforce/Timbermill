@@ -138,7 +138,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String diskHandlerStrategy = "sqlite";
         private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
-        private String locationInDisk = "/db";
+        private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
         private int orphansFetchPeriodMinutes = 10;
 
