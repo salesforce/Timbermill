@@ -2,9 +2,11 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -47,7 +49,7 @@ public class ElasticsearchClientTest {
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
 		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk, bulkNewSize);
 	}
@@ -60,7 +62,7 @@ public class ElasticsearchClientTest {
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
 
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(amountOfRequestsInBulk-1, bulkNewSize);
 		Assert.assertNotEquals(successItemId, fetchedBulkRequest.getRequest().requests().get(0).id());
@@ -74,7 +76,7 @@ public class ElasticsearchClientTest {
 		makeItemSuccess(bulkResponse,0);
 		makeItemSuccess(bulkResponse,1);
 
-		DbBulkRequest fetchedBulkRequest = elasticsearchClient.extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
 		int bulkNewSize = fetchedBulkRequest.size();
 		Assert.assertEquals(0, bulkNewSize);
 	}
@@ -110,6 +112,23 @@ public class ElasticsearchClientTest {
 		return new DbBulkRequest(bulkRequest);
 	}
 
+	private DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+		if (bulkResponses != null){
+			// if bulkResponses is null - an exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
+			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
+			BulkItemResponse[] responses = bulkResponses.getItems();
 
+			BulkRequest failedRequestsBulk = new BulkRequest();
+			int length = requests.size();
+			for (int i = 0 ; i < length; i++){
+				if (responses[i].isFailed()){
+					failedRequestsBulk.add(requests.get(i));
+				}
+			}
+			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
+					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
+		}
+		return dbBulkRequest;
+	}
 }
 
