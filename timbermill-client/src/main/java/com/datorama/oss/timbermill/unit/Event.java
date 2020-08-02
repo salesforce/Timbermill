@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 public abstract class Event implements Serializable {
 
 	public static final String EVENT_ID_DELIMITER = "___";
+	public static final String TIMBERMILL2 = "timbermill2";
 
 	protected String taskId;
 
@@ -44,7 +45,7 @@ public abstract class Event implements Serializable {
 	protected String name;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private String parentId;
+	protected String parentId;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	protected Map<String, String> strings;
@@ -194,7 +195,7 @@ public abstract class Event implements Serializable {
     }
 
     @JsonIgnore
-	public abstract TaskStatus getStatusFromExistingStatus(TaskStatus status);
+	public abstract TaskStatus getStatusFromExistingStatus(TaskStatus status, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName);
 
 	@JsonIgnore
     public boolean isStartEvent(){
@@ -212,7 +213,11 @@ public abstract class Event implements Serializable {
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return name + EVENT_ID_DELIMITER + uuid;
+		return addTimbermill2Suffix(name + EVENT_ID_DELIMITER + uuid);
+	}
+
+	public static String addTimbermill2Suffix(String string) {
+		return string + "_" + TIMBERMILL2;
 	}
 
 	public String getEnv() {
@@ -284,7 +289,14 @@ public abstract class Event implements Serializable {
 	private int getNumberMapSize(Map<String, Number> map) {
 		int size = 0;
 		for (Map.Entry<String, Number> entry : map.entrySet()) {
-			size += entry.getKey().length() + (Math.log10(entry.getValue().doubleValue()) + 1) + 4; // "":,
+			if(entry != null){
+				if (entry.getKey() != null){
+					size += entry.getKey().length();
+				}
+				if (entry.getValue() != null) {
+					size += (Math.log10(entry.getValue().doubleValue()) + 1) + 4; // "":,
+				}
+			}
 		}
 		return Math.max(size-1, 0); // Last ,
 	}

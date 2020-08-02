@@ -37,6 +37,10 @@ public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 		return delegate.getCurrentBufferSize();
 	}
 
+	@Override public void close() {
+		delegate.close();
+	}
+
 	public void initCounters() {
 		eventsAmount.set(0);
 		totalSubmitDuration.set(0);

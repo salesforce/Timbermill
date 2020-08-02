@@ -10,7 +10,7 @@ public class HeartbeatTask extends Task {
     public HeartbeatTask(Event e, long daysRotation) {
         setStartTime(e.getTime());
         setName(e.getName());
-        setStatus(e.getStatusFromExistingStatus(null));
+        setStatus(TaskStatus.SUCCESS);
 
         setDateToDelete(e.getDateToDelete(daysRotation));
 

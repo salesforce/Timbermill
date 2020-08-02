@@ -23,7 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents) {
+			BlockingQueue<Event> overFlowedEvents, String parentFetchCronExp, int orphansFetchPeriodMinutes, int daysRotation) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			scheduler = sf.getScheduler();
@@ -32,12 +32,15 @@ public class CronsRunner {
 					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler, scheduler);
 				}
 
-				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
+				if (!Strings.isEmpty(eventsPersistentFetchCronExp)) {
 					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents, scheduler);
 				}
 			}
 			if (!Strings.isEmpty(deletionCronExp)) {
 				runDeletionTaskCron(deletionCronExp, es, scheduler);
+			}
+			if (!Strings.isEmpty(parentFetchCronExp)) {
+				runParentsFetchCron(parentFetchCronExp, es, orphansFetchPeriodMinutes, daysRotation, scheduler);
 			}
 			scheduler.start();
 		} catch (SchedulerException e) {
@@ -97,6 +100,21 @@ public class CronsRunner {
 				.withSchedule(cronSchedule(deletionCronExp))
 				.build();
 
+		scheduler.scheduleJob(job, trigger);
+	}
+
+	private static void runParentsFetchCron(String parentsFetchCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(ORPHANS_FETCH_PERIOD_MINUTES, orphansFetchPeriodMinutes);
+		jobDataMap.put(DAYS_ROTATION, daysRotation);
+		JobDetail job = newJob(OrphansAdoptionJob.class)
+				.withIdentity("job4", "group4").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger4", "group4")
+				.withSchedule(cronSchedule(parentsFetchCronExp))
+				.build();
 		scheduler.scheduleJob(job, trigger);
 	}
 

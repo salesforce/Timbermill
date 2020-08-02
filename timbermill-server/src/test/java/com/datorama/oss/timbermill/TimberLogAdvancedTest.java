@@ -15,6 +15,9 @@ import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
 import static com.datorama.oss.timbermill.common.Constants.*;
+import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
+import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
+import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;
 import static org.junit.Assert.*;
 
 public class TimberLogAdvancedTest {
@@ -800,6 +803,9 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
@@ -822,12 +828,15 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskStartSuccessSuccess(boolean withUpdate) throws InterruptedException {
@@ -836,12 +845,15 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartSuccessError(boolean withUpdate) throws InterruptedException {
@@ -850,12 +862,15 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartStartSuccess(boolean withUpdate) throws InterruptedException {
@@ -863,13 +878,16 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskStartStart(boolean withUpdate) throws InterruptedException {
@@ -877,19 +895,25 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 
     void testIncorrectTaskSuccessStartSuccess(boolean withUpdate) throws InterruptedException {
-        String id = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String id = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.success(id);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         String taskId = TimberLoggerAdvanced.start(id, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(id);
@@ -897,42 +921,51 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskSuccessSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskSuccessError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorStartSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
         TimberLoggerAdvanced.success(taskId);
@@ -940,35 +973,41 @@ public class TimberLogAdvancedTest {
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.success(taskId);
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS);
     }
 
     void testIncorrectTaskErrorError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID();
+        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
+        }
+        else {
+            Thread.sleep(3);
         }
         TimberLoggerAdvanced.error(taskId, new Exception());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, ALREADY_CLOSED);
+        assertCorrupted(task, ALREADY_CLOSED_DIFFERENT_CLOSE_TIME);
     }
 
     void testIncorrectTaskStartErrorStart(boolean withUpdate) throws InterruptedException {
@@ -977,11 +1016,14 @@ public class TimberLogAdvancedTest {
         if (withUpdate) {
             Thread.sleep(3000);
         }
+        else {
+            Thread.sleep(3);
+        }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 
         TimberLogTest.waitForTask(taskId, TaskStatus.CORRUPTED);
 
         Task task = client.getTaskById(taskId);
-        assertCorrupted(task, StartEvent.ALREADY_STARTED);
+        assertCorrupted(task, StartEvent.ALREADY_STARTED_DIFFERENT_START_TIME);
     }
 }

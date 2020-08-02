@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -76,21 +77,22 @@ import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 public class ElasticsearchClient {
 
 	public static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
+	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private Metric.Histogram tasksFetchedFromDiskCounter = Kamon.histogram("timbermill2.tasks.fetched.from.disk.counter");
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	private static final String[] PARENT_FIELD_TO_FETCH = { "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
+	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
     private final int indexBulkSize;
     private final ExecutorService executorService;
-	private final int numOfElasticSearchActionsTries;
-	private long maxIndexAge;
+    private long maxIndexAge;
     private long maxIndexSizeInGB;
     private long maxIndexDocs;
     private String currentIndex;
     private String oldIndex;
+	private final int numOfElasticSearchActionsTries;
 	private IndexRetryManager retryManager;
 	private Bulker bulker;
 	private int searchMaxSize;
@@ -109,9 +111,9 @@ public class ElasticsearchClient {
 		this.maxIndexAge = maxIndexAge;
         this.maxIndexSizeInGB = maxIndexSizeInGB;
         this.maxIndexDocs = maxIndexDocs;
-        this.executorService = Executors.newFixedThreadPool(indexingThreads);
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
-		HttpHost httpHost = HttpHost.create(elasticUrl);
+        this.executorService = Executors.newFixedThreadPool(indexingThreads);
+        HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
         if (!StringUtils.isEmpty(awsRegion)){
@@ -139,6 +141,19 @@ public class ElasticsearchClient {
         this.bulker = bulker;
 		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker,tasksFetchedFromDiskCounter);
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
+    }
+
+    public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds) {
+        parentIds.removeAll(startEventsIds);
+        LOG.info("Fetching {} missing parents", parentIds.size());
+        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
+        try {
+            previouslyIndexedParentTasks = fetchIndexedTasks(parentIds);
+        } catch (Throwable t) {
+            LOG.error("Error fetching indexed tasks from Elasticsearch", t);
+        }
+        LOG.info("Fetched {} parents", previouslyIndexedParentTasks.size());
+        return previouslyIndexedParentTasks;
     }
 
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries) {
@@ -181,7 +196,7 @@ public class ElasticsearchClient {
         this.oldIndex = oldIndex;
     }
 
-    Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
+    private Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		Map<String, Task> fetchedTasks = Collections.emptyMap();
 		if (!tasksToFetch.isEmpty()) {
 			fetchedTasks = getNonOrphansTasksByIds(tasksToFetch);
@@ -218,14 +233,26 @@ public class ElasticsearchClient {
 		for (String taskId : taskIds) {
 			idsQueryBuilder.addIds(taskId);
 		}
-		TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("orphan", true);
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
 
 		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
-		boolQueryBuilder.mustNot(termQueryBuilder);
+		boolQueryBuilder.mustNot(ORPHANS_QUERY);
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+	}
+
+	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
+		Set<String> envsToFilterOn = getIndexedEnvs();
+		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(from).to("now").timeZone(from.getZone().toString());
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
+
+		boolQueryBuilder.filter(latestItemsQuery);
+		boolQueryBuilder.filter(ORPHANS_QUERY);
+		boolQueryBuilder.filter(envsQuery);
+		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
+
 	}
 
     public Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
@@ -461,7 +488,7 @@ public class ElasticsearchClient {
 		runWithRetries(() -> client.indices().putTemplate(request, RequestOptions.DEFAULT), 1, "Put Timbermill Index Template");
     }
 
-    String createTimbermillAlias(String env) {
+    public String createTimbermillAlias(String env) {
         String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
 		String initialIndex = getInitialIndex(timbermillAlias);
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(timbermillAlias);
@@ -524,10 +551,10 @@ public class ElasticsearchClient {
 				ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
-					LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
+					LOG.error("Couldn't clear scroll id " + scrollId + " for " + functionDescription  +" in index " + index);
 				}
 			} catch (Throwable e) {
-				LOG.error("Couldn't clear scroll id [{}] for fetching partial tasks in index [{}]", scrollId, index);
+				LOG.error("Couldn't clear scroll id " + scrollId + " for " + functionDescription  +" in index " + index, e);
 			}
 		}
 		catch (MaxRetriesException e) {
@@ -661,10 +688,13 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
+	public Set<String> getIndexedEnvs() {
+		return ElasticsearchUtil.getEnvSet();
+	}
+
 	public Bulker getBulker() {
 		return bulker;
 	}
 
 }
-
 
