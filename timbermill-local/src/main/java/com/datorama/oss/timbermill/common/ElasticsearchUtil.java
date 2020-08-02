@@ -323,6 +323,10 @@ public class ElasticsearchUtil {
 
 	private static Set<String> envsSet = Sets.newHashSet();
 
+	public static Set<String> getEnvSet() {
+		return envsSet;
+	}
+
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
 			String mergingCronExp, DiskHandler diskHandler) {
 		ElasticsearchClient es = taskIndexer.getEs();

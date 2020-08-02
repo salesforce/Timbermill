@@ -249,11 +249,14 @@ public class ElasticsearchClient {
 	}
 
 	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
+		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(from).to("now").timeZone(from.getZone().toString());
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
 		boolQueryBuilder.filter(latestItemsQuery);
 		boolQueryBuilder.filter(ORPHANS_QUERY);
+		boolQueryBuilder.filter(envsQuery);
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 
 	}
@@ -781,6 +784,10 @@ public class ElasticsearchClient {
 			numOfFetchedMaxTimes.set(0);
 			numOfCouldNotBeInserted.set(0);
 		}
+	}
+
+	public Set<String> getIndexedEnvs() {
+		return ElasticsearchUtil.getEnvSet();
 	}
 
 	public AtomicInteger getNumOfBulksPersistedToDisk() {
