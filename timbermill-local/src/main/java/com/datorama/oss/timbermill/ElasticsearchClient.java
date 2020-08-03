@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -81,7 +80,7 @@ public class ElasticsearchClient {
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
-	private Metric.Histogram tasksFetchedFromDiskCounter = Kamon.histogram("timbermill2.tasks.fetched.from.disk.counter");
+	private Metric.Histogram tasksFetchedFromDiskHistogram = Kamon.histogram("timbermill2.tasks.fetched.from.disk.counter");
 	private static final String TTL_FIELD = "meta.dateToDelete";
 	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
@@ -139,7 +138,7 @@ public class ElasticsearchClient {
         	bulker = new Bulker(client);
 		}
         this.bulker = bulker;
-		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker,tasksFetchedFromDiskCounter);
+		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker, tasksFetchedFromDiskHistogram);
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
 
@@ -308,7 +307,7 @@ public class ElasticsearchClient {
 			}
 			LOG.debug("Batch of size {} finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
 			if (dbBulkRequest.getTimesFetched() > 0 ){
-				tasksFetchedFromDiskCounter.withTag("outcome","success").record(1);
+				tasksFetchedFromDiskHistogram.withTag("outcome","success").record(1);
 			}
 			return true;
 		} catch (Throwable t) {
