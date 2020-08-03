@@ -114,7 +114,7 @@ public class IndexRetryManager {
 					diskHandler.persistBulkRequestToDisk(dbBulkRequest);
 				} catch (MaximumInsertTriesException e) {
 					LOG.error("Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", e.getMaximumTriesNumber());
-					// numOfCouldNotBeInserted.incrementAndGet(); TODO - do we need this monitor?
+					tasksFetchedFromDiskCounter.withTag("outcome", "error").record(1);
 				}
 			} else {
 				LOG.error("Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", dbBulkRequest.getId(), maxBulkIndexFetches);
