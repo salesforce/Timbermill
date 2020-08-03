@@ -297,15 +297,14 @@ public class ElasticsearchClient {
 	public boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest) {
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		long requestSize = request.estimatedSizeInBytes();
-		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, requestSize);
+		LOG.debug("Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", numberOfActions, request.estimatedSizeInBytes());
 
 		try {
 			BulkResponse responses = bulk(dbBulkRequest);
 			if (responses.hasFailures()) {
 				return retryManager.retrySendDbBulkRequest(dbBulkRequest,responses,responses.buildFailureMessage());
 			}
-			LOG.debug("Batch of size {} finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
+			LOG.debug("Batch of {} index requests finished successfully. Took: {} millis.", numberOfActions, responses.getTook().millis());
 			if (dbBulkRequest.getTimesFetched() > 0 ){
 				tasksFetchedFromDiskHistogram.withTag("outcome","success").record(1);
 			}

@@ -37,7 +37,6 @@ public class IndexRetryManager {
 	public boolean retrySendDbBulkRequest(DbBulkRequest dbBulkRequest, BulkResponse responses, String failureMessage){
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		long requestSize = request.estimatedSizeInBytes();
 
 		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 		if (shouldStopRetry(failureMessage)) {
@@ -52,7 +51,7 @@ public class IndexRetryManager {
 				if (retryResponse.hasFailures()) {
 					// FAILURE
 					failureMessage = retryResponse.buildFailureMessage();
-					LOG.warn("Retry number {}/{} for requests of size {} has failed, failure message: {}.", retryNum, numOfElasticSearchActionsTries, requestSize, failureMessage);
+					LOG.warn("Retry number {}/{} for requests of size {} has failed, failure message: {}.", retryNum, numOfElasticSearchActionsTries, request.estimatedSizeInBytes(), failureMessage);
 					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, retryResponse);
 					if (shouldStopRetry(failureMessage)) {
 						reportStopRetry(dbBulkRequest,failureMessage);
@@ -61,7 +60,7 @@ public class IndexRetryManager {
 				}
 				else{
 					// SUCCESS
-					LOG.debug("Batch of size {} finished successfully. Took: {} millis.", numberOfActions, retryResponse.getTook().millis());
+					LOG.debug("Batch of {} index requests finished successfully. Took: {} millis.", numberOfActions, retryResponse.getTook().millis());
 					if (dbBulkRequest.getTimesFetched() > 0 ){
 						tasksFetchedFromDiskCounter.withTag("outcome","success").record(1);
 					}
@@ -70,7 +69,7 @@ public class IndexRetryManager {
 			} catch (Throwable t) {
 				// EXCEPTION
 				failureMessage = t.getMessage();
-				LOG.warn("Retry number {}/{} for requests of size {} has failed, failure message: {}.", retryNum, numOfElasticSearchActionsTries, requestSize, failureMessage);
+				LOG.warn("Retry number {}/{} for requests of size {} has failed, failure message: {}.", retryNum, numOfElasticSearchActionsTries, request.estimatedSizeInBytes(), failureMessage);
 				if (shouldStopRetry(failureMessage)) {
 					reportStopRetry(dbBulkRequest,failureMessage);
 					return false;
