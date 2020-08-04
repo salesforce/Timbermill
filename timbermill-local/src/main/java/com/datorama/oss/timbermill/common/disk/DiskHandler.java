@@ -29,6 +29,8 @@ public interface DiskHandler {
 
 	long failedBulksAmount();
 
+	long overFlowedEventsAmount();
+
 	void close();
 }
 

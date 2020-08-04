@@ -80,7 +80,7 @@ public class ElasticsearchClient {
 	public static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
-	private Metric.Histogram tasksFetchedFromDiskHistogram = Kamon.histogram("timbermill2.tasks.fetched.from.disk.counter");
+	private Metric.Histogram tasksFetchedFromDiskHistogram = Kamon.histogram("timbermill2.tasks.fetched.from.disk.histogram");
 	private static final String TTL_FIELD = "meta.dateToDelete";
 	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
@@ -693,5 +693,8 @@ public class ElasticsearchClient {
 		return bulker;
 	}
 
+	public IndexRetryManager getRetryManager() {
+		return retryManager;
+	}
 }
 

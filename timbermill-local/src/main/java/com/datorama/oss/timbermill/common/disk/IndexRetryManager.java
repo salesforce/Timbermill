@@ -83,31 +83,7 @@ public class IndexRetryManager {
 	}
 
 
-	private DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
-		if (bulkResponses != null){
-			// if bulkResponses is null - an exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
-			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
-			BulkItemResponse[] responses = bulkResponses.getItems();
-
-			BulkRequest failedRequestsBulk = new BulkRequest();
-			int length = requests.size();
-			for (int i = 0 ; i < length; i++){
-				if (responses[i].isFailed()){
-					failedRequestsBulk.add(requests.get(i));
-				}
-			}
-			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
-					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
-		}
-		return dbBulkRequest;
-	}
-
-	private void reportStopRetry(DbBulkRequest dbBulkRequest, String failureMessage) {
-		LOG.error("Black list's exception in script: {}. Requests:",failureMessage);
-		dbBulkRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
-	}
-
-	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest) {
+	public void tryPersistBulkRequest(DbBulkRequest dbBulkRequest) {
 		if (diskHandler != null) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 				try {
@@ -141,4 +117,35 @@ public class IndexRetryManager {
 		return false;
 	}
 
+	private static void reportStopRetry(DbBulkRequest dbBulkRequest, String failureMessage) {
+		LOG.error("Black list's exception in script. Exception {}, Requests:",failureMessage);
+		dbBulkRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
+	}
+
+	public static DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+		if (bulkResponses != null){
+			// if bulkResponses is null - an exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
+			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
+			BulkItemResponse[] responses = bulkResponses.getItems();
+
+			BulkRequest failedRequestsBulk = new BulkRequest();
+			int length = requests.size();
+			for (int i = 0 ; i < length; i++){
+				if (responses[i].isFailed()){
+					failedRequestsBulk.add(requests.get(i));
+				}
+			}
+			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())
+					.setTimesFetched(dbBulkRequest.getTimesFetched()).setInsertTime(dbBulkRequest.getInsertTime());
+		}
+		return dbBulkRequest;
+	}
+
+	public DiskHandler getDiskHandler() {
+		return diskHandler;
+	}
+
+	public void setDiskHandler(DiskHandler diskHandler) {
+		this.diskHandler = diskHandler;
+	}
 }
