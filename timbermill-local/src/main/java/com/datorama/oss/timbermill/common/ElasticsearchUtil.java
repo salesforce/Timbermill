@@ -26,12 +26,14 @@ import static org.quartz.TriggerBuilder.newTrigger;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
+	public static final String ENVIRONMENT = "env";
 	public static final String DISK_HANDLER = "disk_handler";
 	public static final String EVENTS_QUEUE = "events_queue";
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
 	public static final int THREAD_SLEEP = 2000;
 	public static final String DAYS_ROTATION = "daysRotation";
 	public static final String ORPHANS_FETCH_PERIOD_MINUTES = "orphansFetchPeriodMinutes";
+	public static final String PARTIAL_TASKS_FETCH_PERIOD_HOURS = "partialsFetchPeriodHours";
 	public static final String SCRIPT =
 					  "if (params.orphan != null && !params.orphan) {"
 					+ "    ctx._source.orphan = false;"
@@ -325,7 +327,7 @@ public class ElasticsearchUtil {
 	}
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
-			String mergingCronExp, DiskHandler diskHandler) {
+			String mergingCronExp, DiskHandler diskHandler, int partialsFetchPeriodHours) {
 		ElasticsearchClient es = taskIndexer.getEs();
 		while (!eventsQueue.isEmpty() || !overflowedQueue.isEmpty()) {
 			try {
@@ -339,7 +341,7 @@ public class ElasticsearchUtil {
 					String env = eventsPerEnv.getKey();
 					if (!envsSet.contains(env)) {
 						envsSet.add(env);
-						runPartialMergingTasksCron(env, es, mergingCronExp);
+						runPartialMergingTasksCron(env, es, mergingCronExp, partialsFetchPeriodHours);
 					}
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
@@ -380,12 +382,14 @@ public class ElasticsearchUtil {
 		return String.format("%06d", serialNumber);
 	}
 
-	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es, String mergingCronExp) {
+	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es, String mergingCronExp, int partialsFetchPeriodHours) {
 		try {
 			final StdSchedulerFactory sf = new StdSchedulerFactory();
 			Scheduler scheduler = sf.getScheduler();
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(CLIENT, es);
+			jobDataMap.put(ENVIRONMENT, env);
+			jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_HOURS, partialsFetchPeriodHours);
 			JobDetail job = newJob(TasksMergerJobs.class)
 					.withIdentity("job" + env, "group" + env).usingJobData(jobDataMap)
 					.build();

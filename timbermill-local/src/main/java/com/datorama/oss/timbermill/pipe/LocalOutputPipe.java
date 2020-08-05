@@ -24,6 +24,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private final String mergingCronExp;
+    private final int partialsFetchPeriodHours;
     private DiskHandler diskHandler;
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
@@ -38,6 +39,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         this.mergingCronExp = builder.mergingCronExp;
+        this.partialsFetchPeriodHours = builder.partialsFetchPeriodHours;
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
@@ -55,7 +57,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
+                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, mergingCronExp, diskHandler, partialsFetchPeriodHours);
             }
             stoppedRunning = true;
         };
@@ -141,6 +143,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
         private int orphansFetchPeriodMinutes = 10;
+        private int partialsFetchPeriodHours = 1;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;

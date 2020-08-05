@@ -27,6 +27,7 @@ public class TimbermillService {
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 	private static final int THREAD_SLEEP = 2000;
 	private final String mergingCronExp;
+	private final int partialsFetchPeriodHours;
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
@@ -67,12 +68,14 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
-			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes ){
+			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes,
+			@Value("${PARTIAL_TASKS_FETCH_PERIOD_HOURS:1}") int partialsFetchPeriodHours){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		this.mergingCronExp = mergingCronExp;
+		this.partialsFetchPeriodHours = partialsFetchPeriodHours;
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
@@ -92,7 +95,7 @@ public class TimbermillService {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, mergingCronExp, diskHandler, partialsFetchPeriodHours);
 			}
 			stoppedRunning = true;
 		};

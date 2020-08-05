@@ -23,7 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents, String parentFetchCronExp, int orphansFetchPeriodMinutes, int daysRotation) {
+			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int orphansFetchPeriodMinutes, int daysRotation) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			scheduler = sf.getScheduler();
@@ -39,8 +39,8 @@ public class CronsRunner {
 			if (!Strings.isEmpty(deletionCronExp)) {
 				runDeletionTaskCron(deletionCronExp, es, scheduler);
 			}
-			if (!Strings.isEmpty(parentFetchCronExp)) {
-				runParentsFetchCron(parentFetchCronExp, es, orphansFetchPeriodMinutes, daysRotation, scheduler);
+			if (!Strings.isEmpty(orphansAdoptionCronExp)) {
+				runOrphansAdoptionCron(orphansAdoptionCronExp, es, orphansFetchPeriodMinutes, daysRotation, scheduler);
 			}
 			scheduler.start();
 		} catch (SchedulerException e) {
@@ -103,7 +103,7 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private static void runParentsFetchCron(String parentsFetchCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
+	private static void runOrphansAdoptionCron(String orphansAdoptionCronExp, ElasticsearchClient es, int orphansFetchPeriodMinutes, int daysRotation, Scheduler scheduler) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
 		jobDataMap.put(ORPHANS_FETCH_PERIOD_MINUTES, orphansFetchPeriodMinutes);
@@ -113,7 +113,7 @@ public class CronsRunner {
 				.build();
 		CronTrigger trigger = newTrigger()
 				.withIdentity("trigger4", "group4")
-				.withSchedule(cronSchedule(parentsFetchCronExp))
+				.withSchedule(cronSchedule(orphansAdoptionCronExp))
 				.build();
 		scheduler.scheduleJob(job, trigger);
 	}

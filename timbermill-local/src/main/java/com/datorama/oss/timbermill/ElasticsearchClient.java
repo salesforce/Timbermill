@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -31,9 +33,6 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
-import org.elasticsearch.client.tasks.GetTaskRequest;
-import org.elasticsearch.client.tasks.GetTaskResponse;
-import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -41,7 +40,6 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
-import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.search.Scroll;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -68,7 +66,7 @@ import com.google.gson.internal.LazilyParsedNumber;
 
 import kamon.Kamon;
 import kamon.metric.Metric;
-
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.ENVIRONMENT;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
 import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
@@ -95,6 +93,10 @@ public class ElasticsearchClient {
 	private IndexRetryManager retryManager;
 	private Bulker bulker;
 	private int searchMaxSize;
+
+	private final ReadWriteLock indexRolloverValuesAccessController;
+	private final Metric.Counter partialTasksFetchedCounter= Kamon.counter("timbermill2.partial.tasks.fetched.counter");
+	private final Metric.Counter partialTasksMigratedCounter= Kamon.counter("timbermill2.partial.tasks.migrated.counter");
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
@@ -140,6 +142,7 @@ public class ElasticsearchClient {
         this.bulker = bulker;
 		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker, tasksFetchedFromDiskHistogram);
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
+		this.indexRolloverValuesAccessController = new ReentrantReadWriteLock();
     }
 
     public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds) {
@@ -179,21 +182,28 @@ public class ElasticsearchClient {
 		}
 	}
 
-	public String getCurrentIndex() {
+	public boolean doesIndexAlreadyRolledOver() {
+		indexRolloverValuesAccessController.readLock().lock();
+		boolean result = null != oldIndex;
+		indexRolloverValuesAccessController.readLock().unlock();
+		return  result;
+	}
+
+	public String unsafeGetCurrentIndex() {
         return currentIndex;
     }
 
-    public String getOldIndex() {
+    public String unsafeGetOldIndex() {
         return oldIndex;
     }
 
-    public void setCurrentIndex(String currentIndex) {
-        this.currentIndex = currentIndex;
-    }
-
-    public void setOldIndex(String oldIndex) {
-        this.oldIndex = oldIndex;
-    }
+    public void setRollOveredIndicesValues(String oldIndex, String currentIndex) {
+		//blocking
+		indexRolloverValuesAccessController.writeLock().lock();
+		this.currentIndex = currentIndex;
+		this.oldIndex = oldIndex;
+		indexRolloverValuesAccessController.writeLock().unlock();
+	}
 
     private Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch) {
 		Map<String, Task> fetchedTasks = Collections.emptyMap();
@@ -343,67 +353,49 @@ public class ElasticsearchClient {
 			RolloverResponse rolloverResponse = (RolloverResponse) runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), 1, "Rollover alias " + timbermillAlias);
 			if (rolloverResponse.isRolledOver()){
 				LOG.info("Index {} rolled over, new index is [{}]", rolloverResponse.getOldIndex(), rolloverResponse.getNewIndex());
+				setRollOveredIndicesValues(rolloverResponse.getOldIndex(), rolloverResponse.getNewIndex());
 
-				currentIndex = rolloverResponse.getNewIndex();
-				oldIndex = rolloverResponse.getOldIndex();
-
-				moveTasksFromOldToNewIndex();
 			}
 		} catch (Exception e) {
 			LOG.error("Could not rollovered index " + timbermillAlias);
 		}
     }
 
-	private void moveTasksFromOldToNewIndex() {
-		boolean success = reindexPartialTasks();
-		if (success) {
-			deleteByQuery(oldIndex, PARTIALS_QUERY.toString());
+	public int migrateTasksToNewIndex(String env, ZonedDateTime fromTime) {
+		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
+		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(fromTime).to("now").timeZone(fromTime.getZone().toString());
+		TermsQueryBuilder envQuery = QueryBuilders.termsQuery("env", env);
+
+		boolQueryBuilder.filter(latestItemsQuery);
+		boolQueryBuilder.filter(envQuery);
+		boolQueryBuilder.filter(PARTIALS_QUERY);
+
+		indexRolloverValuesAccessController.readLock().lock();
+		String oldIndex = this.oldIndex;
+		String currentIndex = this.currentIndex;
+		indexRolloverValuesAccessController.readLock().unlock();
+
+		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, oldIndex, currentIndex, env));
+		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, currentIndex, oldIndex, env));
+		indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldIndex, currentIndex);
+		partialTasksMigratedCounter.withTag(ENVIRONMENT, env).increment(tasksToMigrateIntoNewIndex.size());
+
+		return tasksToMigrateIntoNewIndex.size();
+	}
+
+	private Map<String,Task> findMatchingTasksToMigrate(BoolQueryBuilder queryBuilder, String indexOfPartials, String indexOfMatchingTasks, String env) {
+		Map<String, Task> previousIndexMatchingTasks = Maps.newHashMap();
+		String functionDescription = "Migrate old tasks to new index";
+		Map<String, Task> singleTaskByIds = getSingleTaskByIds(queryBuilder, indexOfPartials, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS);
+		if (!singleTaskByIds.isEmpty()) {
+			partialTasksFetchedCounter.withTag(ENVIRONMENT, env).increment(singleTaskByIds.size());
+			previousIndexMatchingTasks = getTasksByIds(indexOfMatchingTasks, singleTaskByIds.keySet(), functionDescription, ALL_TASK_FIELDS, EMPTY_ARRAY);
 		}
+		return previousIndexMatchingTasks;
 	}
 
-	private boolean reindexPartialTasks() {
-		ReindexRequest reindexRequest = new ReindexRequest();
-		reindexRequest.setSourceIndices(oldIndex);
-		reindexRequest.setDestIndex(currentIndex);
-		reindexRequest.setConflicts("proceed");
-		reindexRequest.setSourceQuery(PARTIALS_QUERY);
-
-		try {
-			TaskSubmissionResponse taskSubmissionResponse = (TaskSubmissionResponse) runWithRetries(() -> client.submitReindexTask(reindexRequest, RequestOptions.DEFAULT), 1, "Reindex partials tasks from old index to new");
-			String task = taskSubmissionResponse.getTask();
-
-			LOG.info("Reindexing partials tasks from old index [{}] to new index [{}]. Task ID: {}", oldIndex, currentIndex, task);
-			boolean keepPolling = true;
-			ZonedDateTime startTime = ZonedDateTime.now();
-			while (keepPolling && timeoutPolling(startTime)){
-				String[] split = task.split(":");
-				if (split.length != 2){
-					LOG.error("Failed migration after rollover");
-					return false;
-				}
-				GetTaskRequest getTaskRequest = new GetTaskRequest(split[0], Long.parseLong(split[1]));
-				Optional<GetTaskResponse> optionalResponse = client.tasks().get(getTaskRequest, RequestOptions.DEFAULT);
-				if (optionalResponse.isPresent()){
-					GetTaskResponse taskResponse =  optionalResponse.get();
-					keepPolling = !taskResponse.isCompleted();
-				}
-				else{
-					LOG.error("Failed migration after rollover");
-					return false;
-				}
-			}
-		} catch (Exception e) {
-			LOG.error("Failed migration after rollover");
-			return false;
-		}
-		return true;
-	}
-
-	private boolean timeoutPolling(ZonedDateTime startTime) {
-		return ZonedDateTime.now().minusMinutes(10).isBefore(startTime);
-	}
-
-	public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks) {
+	public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks, String oldIndex, String currentIndex) {
 		if (!previousIndexPartialTasks.isEmpty()) {
 			LOG.info("Starting migration between old index [{}] and new index [{}]", oldIndex, currentIndex);
 			index(previousIndexPartialTasks, currentIndex);
@@ -497,7 +489,7 @@ public class ElasticsearchClient {
 				Alias alias = new Alias(timbermillAlias);
 				request.alias(alias);
 				runWithRetries(() -> client.indices().create(request, RequestOptions.DEFAULT), 1, "Create index alias " + timbermillAlias + " for index " + initialIndex);
-				currentIndex = initialIndex;
+				setRollOveredIndicesValues(null, initialIndex);
 			}
 		} catch (MaxRetriesException e){
 			LOG.error("Failed creating Timbermill Alias " + timbermillAlias + ", going to use index " + initialIndex);
