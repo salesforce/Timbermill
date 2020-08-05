@@ -27,7 +27,9 @@ public interface DiskHandler {
 		return diskHandlerParams;
 	}
 
-	int failedBulksAmount();
+	long failedBulksAmount();
+
+	long overFlowedEventsAmount();
 
 	void close();
 }

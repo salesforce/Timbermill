@@ -35,12 +35,7 @@ public class BulkPersistentFetchJob implements Job {
 
 	private static boolean retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler) {
 
-		es.dailyResetCounters();
-
 		boolean keepRunning = false;
-		LOG.info("Persistence Status: {} persisted to disk, {} re-processed successfully, {} failed after max retries from db since 00:00, {} couldn't be inserted to db since 00:00", es.getNumOfBulksPersistedToDisk(),
-				es.getNumOfSuccessfulBulksFromDisk(),
-				es.getNumOfFetchedMaxTimes(), es.getNumOfCouldNotBeInserted());
 		if (diskHandler.hasFailedBulks()) {
 			keepRunning = true;
 			int successBulks = 0;
@@ -50,7 +45,7 @@ public class BulkPersistentFetchJob implements Job {
 				keepRunning = false;
 			}
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!es.sendDbBulkRequest(dbBulkRequest, 0)) {
+				if (!es.sendDbBulkRequest(dbBulkRequest)) {
 					keepRunning = false;
 				}
 				else {

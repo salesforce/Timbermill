@@ -327,10 +327,9 @@ public class ElasticsearchUtil {
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
 			String mergingCronExp, DiskHandler diskHandler) {
 		ElasticsearchClient es = taskIndexer.getEs();
-		while (!eventsQueue.isEmpty() || es.hasFailedRequests() || !overflowedQueue.isEmpty()) {
+		while (!eventsQueue.isEmpty() || !overflowedQueue.isEmpty()) {
 			try {
 				spillOverflownEventsToDisk(overflowedQueue, diskHandler);
-				es.retryFailedRequestsFromMemory();
 
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
