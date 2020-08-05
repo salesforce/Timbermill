@@ -364,7 +364,6 @@ public abstract class Event implements Serializable {
 		if (value.length() > maxChars) {
 			value = value.substring(0, maxChars);
 			LOG.info("trimming value which begins with {} because it's too large,",value.substring(0,1000));
-			throw new RuntimeException();
 		}
 		return value;
 	}
