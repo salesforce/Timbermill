@@ -578,7 +578,7 @@ public class ElasticsearchClient {
 			}
 			else{
 				LOG.error("Reached maximum retries (" + numOfElasticSearchActionsTries + ") attempts for [" + functionDescription + "]", e);
-				throw new MaxRetriesException();
+				throw new MaxRetriesException(e);
 			}
 		}
 	}
