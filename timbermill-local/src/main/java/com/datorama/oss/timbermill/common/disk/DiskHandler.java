@@ -1,6 +1,9 @@
 package com.datorama.oss.timbermill.common.disk;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
@@ -28,6 +31,8 @@ public interface DiskHandler {
 	}
 
 	long failedBulksAmount();
+
+	long overFlowedEventsAmount();
 
 	void close();
 }
