@@ -22,6 +22,9 @@ import org.tmatesoft.sqljet.core.table.SqlJetDb;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
 
+import kamon.Kamon;
+import kamon.metric.Metric;
+
 public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
@@ -48,6 +51,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
+	private Metric.Gauge currentDataInDiskGauge = Kamon.gauge("timbermill2.data.in.disk.gauge");
+
 
 	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
@@ -75,8 +80,13 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.createTable(CREATE_EVENT_TABLE);
 			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
 			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
-			LOG.info("SQLite was created successfully");
+
+			// update kamon guage (counter)
+			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
+			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
+
 			silentDbCommit();
+			LOG.info("SQLite was created successfully");
 		} catch (Exception e) {
 			LOG.error("Creation of DB has failed",e);
 			silentCloseDb();
@@ -115,6 +125,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount += events.size();
 			}
+			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).decrement(fetchedCount); // removed events from db
 			LOG.info("Fetched successfully. Number of fetched events: {}.",fetchedCount);
 		} catch (Exception e) {
 			LOG.error("Fetching has failed.",e);
@@ -135,6 +146,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			overFlowedEventsTable.insert(serializeEvents(events), DateTime.now().toString());
 			LOG.info("List of {} overflowed events was inserted successfully to disk.", events.size());
+			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).increment();
 		} catch (Exception e) {
 			LOG.error("Insertion of overflowed events has failed. Events: "+ events.toString() , e);
 		} finally {
@@ -189,8 +201,26 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	@Override public int failedBulksAmount() {
-		return fetchFailedBulks(false).size();
+	@Override public long failedBulksAmount() {
+		try {
+			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
+			ISqlJetCursor resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
+			return resultCursor.getRowCount();
+		} catch (SqlJetException e) {
+			LOG.error("Table row count has failed.",e);
+			return 0;
+		}
+	}
+
+	@Override public long overFlowedEventsAmount() {
+		try {
+			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
+			ISqlJetCursor resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
+			return resultCursor.getRowCount();
+		} catch (SqlJetException e) {
+			LOG.error("Table row count has failed.",e);
+			return 0;
+		}
 	}
 
 	// endregion
@@ -202,18 +232,22 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 		while (retryNum++ < maxInsertTries) {
 			try {
+
 				if (dbBulkRequest.getTimesFetched() > 0) {
 					int timesFetched = dbBulkRequest.getTimesFetched();
 					LOG.info("Inserting bulk request with id: {} to disk, that was fetched {} {}.", dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
 				} else {
 					LOG.info("Inserting bulk request to disk for the first time.");
 				}
+
 				db.beginTransaction(SqlJetTransactionMode.WRITE);
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				failedBulkTable.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
 				LOG.info("Bulk request was inserted successfully to disk.");
+				currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).increment();
 				break; // if arrived here then insertion succeeded, no need to retry again
+
 			} catch (Exception e) {
 				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
 				silentThreadSleep(sleepTimeIfFails);
@@ -248,6 +282,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount++;
 			}
+			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).decrement(fetchedCount); // removed request from db
 			LOG.info("Fetched successfully. Number of fetched bulks: {}.",fetchedCount);
 		} catch (Exception e) {
 			LOG.error("Fetching has failed.",e);

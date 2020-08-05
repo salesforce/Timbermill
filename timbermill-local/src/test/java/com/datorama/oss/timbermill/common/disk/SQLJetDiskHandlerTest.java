@@ -8,10 +8,7 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
@@ -33,8 +30,8 @@ public class SQLJetDiskHandlerTest {
 		diskHandler.close();
 	}
 
-	@AfterClass
-	public static void tearDown(){
+	@After
+	public void tearDown(){
 		diskHandler.close();
 	}
 
