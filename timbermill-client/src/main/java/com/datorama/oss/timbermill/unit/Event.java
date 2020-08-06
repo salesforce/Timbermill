@@ -362,7 +362,7 @@ public abstract class Event implements Serializable {
 
 	private String trimValue(String type, String key, String value, int maxChars) {
 		if (value.length() > maxChars) {
-			LOG.info("Value for key {}.{} is too large, trimmed to {} chars. Value starts with {}", type, key, maxChars, value.substring(0, 100));
+			LOG.debug("Value for key {}.{} is too large, trimmed to {} chars. Value starts with: {}", type, key, maxChars, value.substring(0, 100));
 			value = value.substring(0, maxChars);
 		}
 		return value;
