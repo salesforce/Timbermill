@@ -11,7 +11,7 @@ Timbermill collects all events sent to it, processes them, and sends them to you
 Timbermill logs are not just lines of text, they are `Tasks`.
 
 
-`Task` characteristics:
+`[Task](https://github.com/datorama/Timbermill/wiki/Task)` characteristics:
   * Represented by a specific `name`.
   * Has a unique ID.
   * Represents multiple `Events` that where called for it.
@@ -68,7 +68,7 @@ Timbermill is designed to be plug-and-play out-of-the-box.
  ![Alt text](hello.png?raw=true "Kibana")
  
 
-* A custom Elasticsearch URL (along with other [configurations](timbermill.configurations)) can be defined using `LocalOutputPipeConfig`.
+* A custom Elasticsearch URL (along with other [configurations](https://github.com/datorama/Timbermill/wiki/Setup#bootstrapping-client)) can be defined using `LocalOutputPipeConfig`.
 
 ```
 LocalOutputPipeConfig.Builder builder = new LocalOutputPipeConfig.Builder().url("https://elasticsearch:9200");
