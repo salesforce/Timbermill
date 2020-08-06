@@ -341,7 +341,7 @@ public abstract class Event implements Serializable {
 			Map<String, String> newMap = new HashMap<>();
 			for (Map.Entry<String, String> entry : oldMap.entrySet()) {
 				String key = entry.getKey().replace(".", "_");
-				String value = trimIfNeededValue(type, entry.getValue());
+				String value = trimIfNeededValue(type, key, entry.getValue());
 				newMap.put(key, value);
 			}
 			return newMap;
@@ -351,19 +351,19 @@ public abstract class Event implements Serializable {
 		}
 	}
 
-	private String trimIfNeededValue(String type, String value) {
+	private String trimIfNeededValue(String type, String key, String value) {
 		if (type.equals(Constants.TEXT)) {
-			value = trimValue(value, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
+			value = trimValue(type, key, value, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
 		} else {
-			value = trimValue(value, Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
+			value = trimValue(type, key, value, Constants.MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS);
 		}
 		return value;
 	}
 
-	private String trimValue(String value, int maxChars) {
+	private String trimValue(String type, String key, String value, int maxChars) {
 		if (value.length() > maxChars) {
+			LOG.info("Value for key {}.{} is too large, trimmed to {} chars. Value starts with {}", type, key, maxChars, value.substring(0, 100));
 			value = value.substring(0, maxChars);
-			LOG.info("trimming too large value (has length of {} while the limit is {}) which begins with {},", value.length(), maxChars, value.substring(0, 1000));
 		}
 		return value;
 	}
