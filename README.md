@@ -34,55 +34,14 @@ Every task in Timbermill points to a parent task and automatically keeps importa
 * More!
 
 
-### Getting Started
+### [Getting Started](https://github.com/datorama/Timbermill/wiki/Setup)
 
 #### Requirements
 * Elasticsearch cluster
 * Java project (1.8+)
 * Add dependency to maven
 
-    
-        <dependencies>
-            <dependency>
-                 <groupId>com.datorama</groupId>
-                 <artifactId>timbermill-client</artifactId>
-                 <version>2.1.0</version>
-            </dependency>
-            ...
-        </dependencies>
-             
-        <build>
-            <plugins>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>aspectj-maven-plugin</artifactId>
-                    <version>1.11</version>
-                    <configuration>
-                        <showWeaveInfo>true</showWeaveInfo>
-                        <complianceLevel>1.8</complianceLevel>
-                        <aspectLibraries>
-                            <aspectLibrary>
-                                <groupId>com.datorama.oss</groupId>
-                                <artifactId>timbermill-client</artifactId>
-                            </aspectLibrary>
-                        </aspectLibraries>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <phase>process-sources</phase>
-                            <goals>
-                                <goal>compile</goal>
-                                <goal>test-compile</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                ...
-            </plugins>
-        </build>
-
-
-#### How to use Timbermill
+#### [How to use Timbermill](https://github.com/datorama/Timbermill/wiki/Usage)
 
 Timbermill is designed to be plug-and-play out-of-the-box.  
  
@@ -119,5 +78,5 @@ TimberLog.bootstrap(config);
 
 #### What can I do next?
  
- Get familiar with our [wiki](timbermill.wiki) so you get a better sense on how to properly use Timbermill.
+ Get familiar with our [wiki](https://github.com/datorama/Timbermill/wiki) so you get a better sense on how to properly use Timbermill.
  
