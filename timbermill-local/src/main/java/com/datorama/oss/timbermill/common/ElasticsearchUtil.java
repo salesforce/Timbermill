@@ -26,7 +26,7 @@ import static org.quartz.TriggerBuilder.newTrigger;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
-	public static final String ENVIRONMENT = "env";
+	public static final String ENVIRONMENT = "job_env";
 	public static final String DISK_HANDLER = "disk_handler";
 	public static final String EVENTS_QUEUE = "events_queue";
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
