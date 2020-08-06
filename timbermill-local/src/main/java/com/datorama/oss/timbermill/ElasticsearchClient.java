@@ -395,7 +395,7 @@ public class ElasticsearchClient {
 		return previousIndexMatchingTasks;
 	}
 
-	public void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks, String oldIndex, String currentIndex) {
+	private void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks, String oldIndex, String currentIndex) {
 		if (!previousIndexPartialTasks.isEmpty()) {
 			LOG.info("Starting migration between old index [{}] and new index [{}]", oldIndex, currentIndex);
 			index(previousIndexPartialTasks, currentIndex);
