@@ -66,7 +66,6 @@ import com.google.gson.internal.LazilyParsedNumber;
 
 import kamon.Kamon;
 import kamon.metric.Metric;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.ENVIRONMENT;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
 import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
@@ -361,14 +360,14 @@ public class ElasticsearchClient {
 		}
     }
 
-	public int migrateTasksToNewIndex(String env, ZonedDateTime fromTime) {
+	public int migrateTasksToNewIndex(Set<String> env, ZonedDateTime fromTime) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		RangeQueryBuilder latestItemsQuery = QueryBuilders.rangeQuery("meta.taskBegin").from(fromTime).to("now").timeZone(fromTime.getZone().toString());
-		TermsQueryBuilder envQuery = QueryBuilders.termsQuery("env", env);
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", getIndexedEnvs());
 
 		boolQueryBuilder.filter(latestItemsQuery);
-		boolQueryBuilder.filter(envQuery);
+		boolQueryBuilder.filter(envsQuery);
 		boolQueryBuilder.filter(PARTIALS_QUERY);
 
 		indexRolloverValuesAccessController.readLock().lock();
@@ -376,20 +375,20 @@ public class ElasticsearchClient {
 		String currentIndex = this.currentIndex;
 		indexRolloverValuesAccessController.readLock().unlock();
 
-		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, oldIndex, currentIndex, env));
-		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, currentIndex, oldIndex, env));
+		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, oldIndex, currentIndex));
+		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(boolQueryBuilder, currentIndex, oldIndex));
 		indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldIndex, currentIndex);
-		partialTasksMigratedCounter.withTag(ENVIRONMENT, env).increment(tasksToMigrateIntoNewIndex.size());
+		partialTasksMigratedCounter.withoutTags().increment(tasksToMigrateIntoNewIndex.size());
 
 		return tasksToMigrateIntoNewIndex.size();
 	}
 
-	private Map<String,Task> findMatchingTasksToMigrate(BoolQueryBuilder queryBuilder, String indexOfPartials, String indexOfMatchingTasks, String env) {
+	private Map<String,Task> findMatchingTasksToMigrate(BoolQueryBuilder queryBuilder, String indexOfPartials, String indexOfMatchingTasks) {
 		Map<String, Task> previousIndexMatchingTasks = Maps.newHashMap();
 		String functionDescription = "Migrate old tasks to new index";
 		Map<String, Task> singleTaskByIds = getSingleTaskByIds(queryBuilder, indexOfPartials, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS);
 		if (!singleTaskByIds.isEmpty()) {
-			partialTasksFetchedCounter.withTag(ENVIRONMENT, env).increment(singleTaskByIds.size());
+			partialTasksFetchedCounter.withoutTags().increment(singleTaskByIds.size());
 			previousIndexMatchingTasks = getTasksByIds(indexOfMatchingTasks, singleTaskByIds.keySet(), functionDescription, ALL_TASK_FIELDS, EMPTY_ARRAY);
 		}
 		return previousIndexMatchingTasks;

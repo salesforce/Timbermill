@@ -49,7 +49,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
-                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes, builder.daysRotation);
+                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes,
+                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours);
         startWorkingThread();
     }
 
@@ -57,7 +58,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, mergingCronExp, diskHandler, partialsFetchPeriodHours);
+                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, diskHandler);
             }
             stoppedRunning = true;
         };

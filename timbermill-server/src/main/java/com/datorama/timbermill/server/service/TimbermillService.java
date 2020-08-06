@@ -86,7 +86,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation, mergingCronExp, partialsFetchPeriodHours);
 
 		startWorkingThread();
 	}
@@ -95,7 +95,7 @@ public class TimbermillService {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, mergingCronExp, diskHandler, partialsFetchPeriodHours);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, diskHandler);
 			}
 			stoppedRunning = true;
 		};

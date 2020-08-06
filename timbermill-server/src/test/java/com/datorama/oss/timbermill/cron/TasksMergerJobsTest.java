@@ -58,7 +58,6 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		String previousIndex = TIMBERMILL_INDEX_PREFIX + "-test-old";
 		TimberLogTest.client.setRollOveredIndicesValues(previousIndex, currentIndex);
 		jobDataMap.put(CLIENT, TimberLogTest.client);
-		jobDataMap.put(ENVIRONMENT, TEST);
 		jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_HOURS, 1);
 		OperableTrigger trigger = new SimpleTriggerImpl();
 		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);

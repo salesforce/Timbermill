@@ -34,8 +34,10 @@ public class OrphansAdoptionJob implements Job {
 	private final Metric.Counter orphansAdoptedCounter= Kamon.counter("timbermill2.orphans.adopted.counter");
 	private final Metric.Timer orphansJobLatency = Kamon.timer("timbermill2.orphans.job.latency.timer");
 
+	private final Random rand = new Random();
+
 	@Override public void execute(JobExecutionContext context) {
-		int secondsToWait = new Random().nextInt(10);
+		int secondsToWait = rand.nextInt(10);
 		try {
 			Thread.sleep(secondsToWait * 1000);
 		} catch (InterruptedException ignored) {}

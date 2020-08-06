@@ -1,7 +1,9 @@
 package com.datorama.oss.timbermill.cron;
 
 import java.time.ZonedDateTime;
+import java.util.Random;
 
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
@@ -15,23 +17,27 @@ import kamon.Kamon;
 import kamon.metric.Metric;
 import kamon.metric.Timer;
 
-
+@DisallowConcurrentExecution
 public class TasksMergerJobs implements Job {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TasksMergerJobs.class);
 
 	private final Metric.Timer partialsJobLatency = Kamon.timer("timbermill2.partial.tasks.job.latency.timer");
+	private final Random rand = new Random();
 
 	@Override public void execute(JobExecutionContext context) {
 
 		JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
-		String env = jobDataMap.getString(ElasticsearchUtil.ENVIRONMENT);
 		int partialsFetchPeriod = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_HOURS);
 		if (client.doesIndexAlreadyRolledOver()){
-			Timer.Started started = partialsJobLatency.withTag(ElasticsearchUtil.ENVIRONMENT, env).start();
+			int secondsToWait = rand.nextInt(10);
+			try {
+				Thread.sleep(secondsToWait * 1000);
+			} catch (InterruptedException ignored) {}
+			Timer.Started started = partialsJobLatency.withoutTags().start();
 			LOG.info("About to merge partial tasks between indices");
-			int size = client.migrateTasksToNewIndex(env, ZonedDateTime.now().minusHours(partialsFetchPeriod));
+			int size = client.migrateTasksToNewIndex(client.getIndexedEnvs(), ZonedDateTime.now().minusHours(partialsFetchPeriod));
 			LOG.info("Finished merging {} partial tasks.", size);
 			started.stop();
 		}
