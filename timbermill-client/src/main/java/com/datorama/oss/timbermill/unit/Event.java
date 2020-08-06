@@ -9,6 +9,9 @@ import java.util.UUID;
 
 import javax.validation.constraints.NotNull;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonDeserializer;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonSerializer;
@@ -33,6 +36,7 @@ public abstract class Event implements Serializable {
 	public static final String TIMBERMILL2 = "timbermill2";
 
 	protected String taskId;
+	private static final Logger LOG = LoggerFactory.getLogger(Event.class);
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)
@@ -359,6 +363,7 @@ public abstract class Event implements Serializable {
 	private String trimValue(String value, int maxChars) {
 		if (value.length() > maxChars) {
 			value = value.substring(0, maxChars);
+			LOG.info("trimming too large value (has length of {} while the limit is {}) which begins with {},", value.length(), maxChars, value.substring(0, 1000));
 		}
 		return value;
 	}
