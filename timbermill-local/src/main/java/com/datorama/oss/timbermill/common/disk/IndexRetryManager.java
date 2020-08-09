@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill.common.disk;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -118,8 +119,8 @@ public class IndexRetryManager {
 	}
 
 	private static void reportStopRetry(DbBulkRequest dbBulkRequest, String failureMessage) {
-		LOG.error("Black list's exception in script. Exception {}, Requests:",failureMessage);
-		dbBulkRequest.getRequest().requests().forEach(r -> LOG.error(r.toString()));
+		LOG.error("Black list's exception in script. Exception {}, Requests: {}",failureMessage, dbBulkRequest.getRequest().requests().
+				stream().map(DocWriteRequest::toString).collect(Collectors.joining(", ", "[", "]")));
 	}
 
 	public static DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {

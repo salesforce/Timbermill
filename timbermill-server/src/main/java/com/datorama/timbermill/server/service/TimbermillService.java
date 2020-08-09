@@ -69,6 +69,7 @@ public class TimbermillService {
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
 			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes,
+			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
 			@Value("${PARTIAL_TASKS_FETCH_PERIOD_HOURS:1}") int partialsFetchPeriodHours){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -86,7 +87,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation, mergingCronExp, partialsFetchPeriodHours);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation, mergingCronExp, partialsFetchPeriodHours, partialOrphansGracePeriodMinutes);
 
 		startWorkingThread();
 	}

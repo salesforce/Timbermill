@@ -50,7 +50,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes,
-                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours);
+                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours, builder.partialOrphansGracePeriodMinutes);
         startWorkingThread();
     }
 
@@ -144,6 +144,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
         private int orphansFetchPeriodMinutes = 10;
+        private int partialOrphansGracePeriodMinutes = 5;
         private int partialsFetchPeriodHours = 1;
 
         public Builder url(String elasticUrl) {
