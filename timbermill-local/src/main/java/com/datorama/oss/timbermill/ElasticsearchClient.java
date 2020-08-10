@@ -250,25 +250,24 @@ public class ElasticsearchClient {
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
-	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime orphansStartingFrom, ZonedDateTime excludePartialTasksStartingFrom) {
+	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
 		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder orphansRangeQuery = buildRangeQuerySince(orphansStartingFrom);
-		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(excludePartialTasksStartingFrom);
+		RangeQueryBuilder orphansRangeQuery = buildRangeQuerySince(from);
+		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(from);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
-		BoolQueryBuilder partialOrphansQuery = QueryBuilders.boolQuery();
-		partialOrphansQuery.must(PARTIALS_QUERY);
-		partialOrphansQuery.must(orphansRangeQuery);
-		partialOrphansQuery.mustNot(partialOrphansRangeQuery);
+		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
+		orphansWithoutPartialLimitationQuery.must(orphansRangeQuery);
+		orphansWithoutPartialLimitationQuery.mustNot(partialOrphansRangeQuery);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
-		partialOrphansQuery.mustNot(PARTIALS_QUERY);
-		partialOrphansQuery.must(partialOrphansRangeQuery);
+		orphansWithoutPartialLimitationQuery.mustNot(PARTIALS_QUERY);
+		orphansWithoutPartialLimitationQuery.must(partialOrphansRangeQuery);
 
 		finalOrphansQuery.filter(ORPHANS_QUERY);
 		finalOrphansQuery.filter(envsQuery);
-		finalOrphansQuery.should(partialOrphansQuery);
+		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
 		return getSingleTaskByIds(finalOrphansQuery, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
@@ -372,11 +371,11 @@ public class ElasticsearchClient {
 		}
     }
 
-	public int migrateTasksToNewIndex(Set<String> envs, ZonedDateTime fromTime) {
+	public int migrateTasksToNewIndex(ZonedDateTime fromTime) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		RangeQueryBuilder latestItemsQuery = buildRangeQuerySince(fromTime);
-		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envs);
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", getIndexedEnvs());
 
 		boolQueryBuilder.filter(latestItemsQuery);
 		boolQueryBuilder.filter(envsQuery);

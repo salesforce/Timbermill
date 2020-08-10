@@ -49,7 +49,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
-                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes,
+                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
                 builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours, builder.partialOrphansGracePeriodMinutes);
         startWorkingThread();
     }
@@ -135,7 +135,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxTotalFields = 4000;
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
-        private String mergingCronExp = "0 0 0/1 1/1 * ? *";
+        private String mergingCronExp = null;
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
@@ -143,7 +143,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private int orphansFetchPeriodMinutes = 10;
         private int partialOrphansGracePeriodMinutes = 5;
         private int partialsFetchPeriodHours = 1;
 
@@ -275,11 +274,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder orphansAdoptionsCronExp(String orphansAdoptionsCronExp) {
             this.orphansAdoptionsCronExp = orphansAdoptionsCronExp;
-            return this;
-        }
-
-        public Builder orphansFetchPeriodMinutes(int orphansFetchPeriodMinutes) {
-            this.orphansFetchPeriodMinutes = orphansFetchPeriodMinutes;
             return this;
         }
 

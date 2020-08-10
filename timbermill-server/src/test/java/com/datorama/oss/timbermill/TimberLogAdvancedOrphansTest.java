@@ -47,7 +47,6 @@ public class TimberLogAdvancedOrphansTest {
         JobDetail job = new JobDetailImpl();
         JobDataMap jobDataMap = job.getJobDataMap();
         jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-        jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 2);
         jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 1);
         jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
         OperableTrigger trigger = new SimpleTriggerImpl();

@@ -37,7 +37,7 @@ public class TasksMergerJobs implements Job {
 			} catch (InterruptedException ignored) {}
 			Timer.Started started = partialsJobLatency.withoutTags().start();
 			LOG.info("About to merge partial tasks between indices");
-			int size = client.migrateTasksToNewIndex(client.getIndexedEnvs(), ZonedDateTime.now().minusHours(partialsFetchPeriod));
+			int size = client.migrateTasksToNewIndex(ZonedDateTime.now().minusHours(partialsFetchPeriod));
 			LOG.info("Finished merging {} partial tasks.", size);
 			started.stop();
 		}

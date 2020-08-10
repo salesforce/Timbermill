@@ -45,16 +45,15 @@ public class OrphansAdoptionJob implements Job {
 		Timer.Started started = orphansJobLatency.withoutTags().start();
 		LOG.info("OrphansAdoptionJob started...");
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
-		int orphansFetchPeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES);
 		int partialOrphansGracePeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
 		int daysRotationParam = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.DAYS_ROTATION);
-		handleAdoptions(es, orphansFetchPeriodMinutes, partialOrphansGracePeriodMinutes, daysRotationParam);
+		handleAdoptions(es, partialOrphansGracePeriodMinutes, daysRotationParam);
 		LOG.info("OrphansAdoptionJob ended...");
 		started.stop();
 	}
 
-	private void handleAdoptions(ElasticsearchClient es, int orphansFetchPeriodMinutes, int partialOrphansGracePeriodMinutes, int daysRotation) {
-		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minusMinutes(orphansFetchPeriodMinutes), ZonedDateTime.now().minusMinutes(partialOrphansGracePeriodMinutes) );
+	private void handleAdoptions(ElasticsearchClient es, int partialOrphansGracePeriodMinutes, int daysRotation) {
+		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minusMinutes(partialOrphansGracePeriodMinutes) );
 		LOG.info("Retrieved {} orphans", retrievedOrphans.size());
 		orphansFetchedCounter.withoutTags().increment(retrievedOrphans.size());
 		Set<String> orphansIds = retrievedOrphans.keySet();
