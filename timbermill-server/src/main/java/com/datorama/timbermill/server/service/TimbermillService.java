@@ -1,6 +1,5 @@
 package com.datorama.timbermill.server.service;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -69,15 +68,15 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
-			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_DURATION:PT5M}") Duration partialOrphansGracePeriodDuration,
-			@Value("${ORPHANS_FETCH_DURATION:PT1H}") Duration orphansFetchDuration,
-			@Value("${PARTIAL_TASKS_FETCH_PERIOD_HOURS:1}") int partialsFetchPeriodHours){
+			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
+			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
+			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 		this.mergingCronExp = mergingCronExp;
-		this.partialsFetchPeriodHours = partialsFetchPeriodHours;
+		this.partialsFetchPeriodHours = partialsFetchPeriodMinutes;
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
@@ -88,7 +87,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodHours, partialOrphansGracePeriodDuration, orphansFetchDuration);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodMinutes, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 
 		startWorkingThread();
 	}

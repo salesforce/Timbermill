@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -250,11 +249,11 @@ public class ElasticsearchClient {
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
-	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime partialTasksGraceDuration, ZonedDateTime orphansFetchDuration) {
+	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes) {
 		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(partialTasksGraceDuration);
-		RangeQueryBuilder orphansWithoutPartialLimitationQuery = buildRangeQuerySince(orphansFetchDuration, partialTasksGraceDuration);
+		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(partialTasksGraceMinutes);
+		RangeQueryBuilder orphansWithoutPartialLimitationQuery = buildRangeQuerySince(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
@@ -367,10 +366,10 @@ public class ElasticsearchClient {
 		}
     }
 
-	public int migrateTasksToNewIndex(ZonedDateTime fromTime) {
+	public int migrateTasksToNewIndex(int relativeMinutes) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-		RangeQueryBuilder latestItemsQuery = buildRangeQuerySince(fromTime);
+		RangeQueryBuilder latestItemsQuery = buildRangeQuerySince(relativeMinutes);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", getIndexedEnvs());
 
 		boolQueryBuilder.filter(latestItemsQuery);
@@ -683,11 +682,14 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-	private RangeQueryBuilder buildRangeQuerySince(ZonedDateTime from) {
-		return buildRangeQuerySince(from, null);
+	private RangeQueryBuilder buildRangeQuerySince(int relativeMinutesFrom) {
+		return buildRangeQuerySince(relativeMinutesFrom, 0);
 	}
-    private RangeQueryBuilder buildRangeQuerySince(ZonedDateTime from, ZonedDateTime to) {
-		return QueryBuilders.rangeQuery("meta.taskBegin").from(from).to(to == null ? "now" : to).timeZone(from.getZone().toString());
+    private RangeQueryBuilder buildRangeQuerySince(int relativeMinutesFrom, int relativeMinutesTo) {
+		return QueryBuilders.rangeQuery("meta.taskBegin").from(buildElasticRelativeTime(relativeMinutesFrom)).to(relativeMinutesTo == 0 ? "now" : buildElasticRelativeTime(relativeMinutesTo));
+	}
+	private String buildElasticRelativeTime(int minutes) {
+		return "now - "+ minutes + "m";
 	}
 
 	public Set<String> getIndexedEnvs() {

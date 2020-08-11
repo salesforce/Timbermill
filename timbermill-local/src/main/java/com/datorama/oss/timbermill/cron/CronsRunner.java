@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 
 import org.elasticsearch.common.Strings;
@@ -24,8 +23,8 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp, int partialsFetchPeriodHours,
-			Duration partialOrphansGracePeriodDuration, Duration orphansFetchDuration) {
+			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp, int partialsFetchPeriodMinutes,
+			int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
@@ -42,10 +41,10 @@ public class CronsRunner {
 				runDeletionTaskCron(deletionCronExp, es);
 			}
 			if (!Strings.isEmpty(orphansAdoptionCronExp)) {
-				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodDuration, orphansFetchDuration);
+				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 			}
 			if (!Strings.isEmpty(mergingCronExp)) {
-				runPartialMergingTasksCron(es, mergingCronExp, partialsFetchPeriodHours);
+				runPartialMergingTasksCron(es, mergingCronExp, partialsFetchPeriodMinutes);
 			}
 			scheduler.start();
 		} catch (SchedulerException e) {
@@ -109,11 +108,11 @@ public class CronsRunner {
 	}
 
 	private void runOrphansAdoptionCron(String orphansAdoptionCronExp, ElasticsearchClient es,
-			int daysRotation, Duration partialOrphansGracePeriodDuration, Duration orphansFetchDuration) throws SchedulerException {
+			int daysRotation, int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
-		jobDataMap.put(PARTIAL_ORPHANS_GRACE_PERIOD_DURATION, partialOrphansGracePeriodDuration);
-		jobDataMap.put(ORPHANS_FETCH_DURATION, orphansFetchDuration);
+		jobDataMap.put(PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, partialOrphansGracePeriodMinutes);
+		jobDataMap.put(ORPHANS_FETCH_PERIOD_MINUTES, orphansFetchMinutes);
 		jobDataMap.put(DAYS_ROTATION, daysRotation);
 		JobDetail job = newJob(OrphansAdoptionJob.class)
 				.withIdentity("job4", "group4").usingJobData(jobDataMap)
@@ -125,10 +124,10 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp, int partialsFetchPeriodHours) throws SchedulerException{
+	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp, int partialsFetchPeriodMinutes) throws SchedulerException{
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(CLIENT, es);
-			jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_HOURS, partialsFetchPeriodHours);
+			jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_MINUTES, partialsFetchPeriodMinutes);
 			JobDetail job = newJob(TasksMergerJobs.class)
 					.withIdentity("job5", "group5").usingJobData(jobDataMap)
 					.build();

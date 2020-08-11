@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.time.ZonedDateTime;
 import java.util.Random;
 
 import org.quartz.DisallowConcurrentExecution;
@@ -29,7 +28,7 @@ public class TasksMergerJobs implements Job {
 
 		JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
-		int partialsFetchPeriod = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_HOURS);
+		int partialsFetchPeriodMinutes = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_MINUTES);
 		if (client.doesIndexAlreadyRolledOver()){
 			int secondsToWait = rand.nextInt(10);
 			try {
@@ -37,7 +36,7 @@ public class TasksMergerJobs implements Job {
 			} catch (InterruptedException ignored) {}
 			Timer.Started started = partialsJobLatency.withoutTags().start();
 			LOG.info("About to merge partial tasks between indices");
-			int size = client.migrateTasksToNewIndex(ZonedDateTime.now().minusHours(partialsFetchPeriod));
+			int size = client.migrateTasksToNewIndex(partialsFetchPeriodMinutes);
 			LOG.info("Finished merging {} partial tasks.", size);
 			started.stop();
 		}

@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -40,7 +39,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         this.mergingCronExp = builder.mergingCronExp;
-        this.partialsFetchPeriodHours = builder.partialsFetchPeriodHours;
+        this.partialsFetchPeriodHours = builder.partialsFetchPeriodMinutes;
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
@@ -51,7 +50,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
-                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours, builder.partialOrphansGracePeriodDuration, builder.orphansFetchDuration);
+                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodMinutes, builder.partialOrphansGracePeriodMinutes, builder.orphansFetchPeriodMinutes);
         startWorkingThread();
     }
 
@@ -144,9 +143,9 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private Duration partialOrphansGracePeriodDuration = Duration.ofMinutes(5);
-        private Duration orphansFetchDuration = Duration.ofHours(1);
-        private int partialsFetchPeriodHours = 1;
+        private int partialOrphansGracePeriodMinutes = 5;
+        private int orphansFetchPeriodMinutes = 60;
+        private int partialsFetchPeriodMinutes = 60;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;

@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -89,9 +88,8 @@ public abstract class TimberLogTest {
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
 		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_DURATION, Duration.ofMinutes(5));
-		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_DURATION, Duration.ofHours(1));
-		org.joda.time.Duration.standardMinutes(5);
+		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 5);
+		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 60);
 		jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
 		OperableTrigger trigger = new SimpleTriggerImpl();
 		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);

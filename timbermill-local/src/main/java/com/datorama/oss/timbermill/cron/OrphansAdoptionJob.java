@@ -1,7 +1,5 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.time.Duration;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -46,16 +44,16 @@ public class OrphansAdoptionJob implements Job {
 		Timer.Started started = orphansJobLatency.withoutTags().start();
 		LOG.info("OrphansAdoptionJob started...");
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
-		Duration partialOrphansGraceDuration = (Duration) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_DURATION);
-		Duration orphansFetchDuration = (Duration) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.ORPHANS_FETCH_DURATION);
+		int partialOrphansGraceMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
+		int orphansFetchPeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES);
 		int daysRotationParam = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.DAYS_ROTATION);
-		handleAdoptions(es, partialOrphansGraceDuration, orphansFetchDuration, daysRotationParam);
+		handleAdoptions(es, partialOrphansGraceMinutes, orphansFetchPeriodMinutes, daysRotationParam);
 		LOG.info("OrphansAdoptionJob ended...");
 		started.stop();
 	}
 
-	private void handleAdoptions(ElasticsearchClient es, Duration partialOrphansGraceDuration, Duration orphansFetchDuration, int daysRotation) {
-		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minus(partialOrphansGraceDuration), ZonedDateTime.now().minus(orphansFetchDuration));
+	private void handleAdoptions(ElasticsearchClient es, int partialOrphansGraceMinutes, int orphansFetchMinutes, int daysRotation) {
+		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(partialOrphansGraceMinutes, orphansFetchMinutes);
 		LOG.info("Retrieved {} orphans", retrievedOrphans.size());
 		orphansFetchedCounter.withoutTags().increment(retrievedOrphans.size());
 		Set<String> orphansIds = retrievedOrphans.keySet();
