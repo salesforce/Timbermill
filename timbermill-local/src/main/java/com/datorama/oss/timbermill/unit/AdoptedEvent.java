@@ -4,6 +4,8 @@ import java.time.ZonedDateTime;
 
 public class AdoptedEvent extends Event {
 
+	private String index;
+
 	public AdoptedEvent(String taskId, Task t) {
 		this.setOrphan(false);
 		this.name = t.getName();
@@ -11,6 +13,7 @@ public class AdoptedEvent extends Event {
 		this.taskId = taskId;
 		this.setParentId(t.getParentId());
 		this.setContext(t.getCtx());
+		this.index = t.getIndex();
 	}
 
 	@Override public TaskStatus getStatusFromExistingStatus(TaskStatus status, ZonedDateTime startTime, ZonedDateTime taskEndTime, String taskParentId, String taskName) {
@@ -20,4 +23,6 @@ public class AdoptedEvent extends Event {
 	@Override public boolean isAdoptedEvent(){
 		return true;
 	}
+
+	@Override public String getIndex() { return index; }
 }

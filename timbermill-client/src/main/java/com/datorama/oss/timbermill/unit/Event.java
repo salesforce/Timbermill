@@ -212,6 +212,8 @@ public abstract class Event implements Serializable {
 	}
 
 
+	@JsonIgnore
+	public String getIndex() { return null; }
 
 	@JsonIgnore
 	public static String generateTaskId(String name) {
