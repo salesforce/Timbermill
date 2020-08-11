@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.cron;
 
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -45,15 +46,16 @@ public class OrphansAdoptionJob implements Job {
 		Timer.Started started = orphansJobLatency.withoutTags().start();
 		LOG.info("OrphansAdoptionJob started...");
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
-		int partialOrphansGracePeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
+		Duration partialOrphansGraceDuration = (Duration) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_DURATION);
+		Duration orphansFetchDuration = (Duration) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.ORPHANS_FETCH_DURATION);
 		int daysRotationParam = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.DAYS_ROTATION);
-		handleAdoptions(es, partialOrphansGracePeriodMinutes, daysRotationParam);
+		handleAdoptions(es, partialOrphansGraceDuration, orphansFetchDuration, daysRotationParam);
 		LOG.info("OrphansAdoptionJob ended...");
 		started.stop();
 	}
 
-	private void handleAdoptions(ElasticsearchClient es, int partialOrphansGracePeriodMinutes, int daysRotation) {
-		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minusMinutes(partialOrphansGracePeriodMinutes) );
+	private void handleAdoptions(ElasticsearchClient es, Duration partialOrphansGraceDuration, Duration orphansFetchDuration, int daysRotation) {
+		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(ZonedDateTime.now().minus(partialOrphansGraceDuration), ZonedDateTime.now().minus(orphansFetchDuration));
 		LOG.info("Retrieved {} orphans", retrievedOrphans.size());
 		orphansFetchedCounter.withoutTags().increment(retrievedOrphans.size());
 		Set<String> orphansIds = retrievedOrphans.keySet();

@@ -24,7 +24,8 @@ public class ElasticsearchUtil {
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
 	public static final int THREAD_SLEEP = 2000;
 	public static final String DAYS_ROTATION = "days_rotation";
-	public static final String PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES = "partial_orphans_grace_period_minutes";
+	public static final String PARTIAL_ORPHANS_GRACE_PERIOD_DURATION = "partial_orphans_grace_period_duration";
+	public static final String ORPHANS_FETCH_DURATION = "orphans_fetch_duration";
 	public static final String PARTIAL_TASKS_FETCH_PERIOD_HOURS = "partials_fetch_period_hours";
 	public static final String SCRIPT =
 					  "if (params.orphan != null && !params.orphan) {"

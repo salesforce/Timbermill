@@ -250,16 +250,12 @@ public class ElasticsearchClient {
 		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY);
 	}
 
-	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime partialTasksGracePeriod) {
+	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime partialTasksGraceDuration, ZonedDateTime orphansFetchDuration) {
 		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(partialTasksGracePeriod);
-		RangeQueryBuilder orphansRangeQuery = buildRangeQuerySince(ZonedDateTime.now().minusHours(1));//todo
+		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(partialTasksGraceDuration);
+		RangeQueryBuilder orphansWithoutPartialLimitationQuery = buildRangeQuerySince(orphansFetchDuration, partialTasksGraceDuration);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
-
-		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
-		orphansWithoutPartialLimitationQuery.mustNot(partialOrphansRangeQuery);
-		orphansWithoutPartialLimitationQuery.must(orphansRangeQuery);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
 		nonPartialOrphansQuery.mustNot(PARTIALS_QUERY);
@@ -687,8 +683,11 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-    private RangeQueryBuilder buildRangeQuerySince(ZonedDateTime zonedDateTime) {
-		return QueryBuilders.rangeQuery("meta.taskBegin").from(zonedDateTime).to("now").timeZone(zonedDateTime.getZone().toString());
+	private RangeQueryBuilder buildRangeQuerySince(ZonedDateTime from) {
+		return buildRangeQuerySince(from, null);
+	}
+    private RangeQueryBuilder buildRangeQuerySince(ZonedDateTime from, ZonedDateTime to) {
+		return QueryBuilders.rangeQuery("meta.taskBegin").from(from).to(to == null ? "now" : to).timeZone(from.getZone().toString());
 	}
 
 	public Set<String> getIndexedEnvs() {

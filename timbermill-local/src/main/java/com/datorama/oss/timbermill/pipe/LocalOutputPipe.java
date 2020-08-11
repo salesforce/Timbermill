@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.pipe;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -50,7 +51,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
-                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours, builder.partialOrphansGracePeriodMinutes);
+                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodHours, builder.partialOrphansGracePeriodDuration, builder.orphansFetchDuration);
         startWorkingThread();
     }
 
@@ -143,7 +144,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private int partialOrphansGracePeriodMinutes = 5;
+        private Duration partialOrphansGracePeriodDuration = Duration.ofMinutes(5);
+        private Duration orphansFetchDuration = Duration.ofHours(1);
         private int partialsFetchPeriodHours = 1;
 
         public Builder url(String elasticUrl) {

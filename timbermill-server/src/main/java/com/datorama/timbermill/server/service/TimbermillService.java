@@ -1,5 +1,6 @@
 package com.datorama.timbermill.server.service;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -68,7 +69,8 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
-			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
+			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_DURATION:PT5M}") Duration partialOrphansGracePeriodDuration,
+			@Value("${ORPHANS_FETCH_DURATION:PT1H}") Duration orphansFetchDuration,
 			@Value("${PARTIAL_TASKS_FETCH_PERIOD_HOURS:1}") int partialsFetchPeriodHours){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -86,7 +88,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodHours, partialOrphansGracePeriodMinutes);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodHours, partialOrphansGracePeriodDuration, orphansFetchDuration);
 
 		startWorkingThread();
 	}

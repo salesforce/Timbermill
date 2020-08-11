@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.cron;
 
+import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 
 import org.elasticsearch.common.Strings;
@@ -24,7 +25,7 @@ public class CronsRunner {
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
 			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp, int partialsFetchPeriodHours,
-			int partialOrphansGracePeriodMinutes) {
+			Duration partialOrphansGracePeriodDuration, Duration orphansFetchDuration) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
@@ -41,7 +42,7 @@ public class CronsRunner {
 				runDeletionTaskCron(deletionCronExp, es);
 			}
 			if (!Strings.isEmpty(orphansAdoptionCronExp)) {
-				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodMinutes);
+				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodDuration, orphansFetchDuration);
 			}
 			if (!Strings.isEmpty(mergingCronExp)) {
 				runPartialMergingTasksCron(es, mergingCronExp, partialsFetchPeriodHours);
@@ -108,10 +109,11 @@ public class CronsRunner {
 	}
 
 	private void runOrphansAdoptionCron(String orphansAdoptionCronExp, ElasticsearchClient es,
-			int daysRotation, int partialOrphansGracePeriodMinutes) throws SchedulerException {
+			int daysRotation, Duration partialOrphansGracePeriodDuration, Duration orphansFetchDuration) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
-		jobDataMap.put(PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, partialOrphansGracePeriodMinutes);
+		jobDataMap.put(PARTIAL_ORPHANS_GRACE_PERIOD_DURATION, partialOrphansGracePeriodDuration);
+		jobDataMap.put(ORPHANS_FETCH_DURATION, orphansFetchDuration);
 		jobDataMap.put(DAYS_ROTATION, daysRotation);
 		JobDetail job = newJob(OrphansAdoptionJob.class)
 				.withIdentity("job4", "group4").usingJobData(jobDataMap)
