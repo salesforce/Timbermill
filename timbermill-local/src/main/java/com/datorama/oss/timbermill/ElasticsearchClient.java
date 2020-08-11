@@ -253,12 +253,10 @@ public class ElasticsearchClient {
 	public Map<String, Task> getLatestOrphanIndexed(ZonedDateTime from) {
 		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder orphansRangeQuery = buildRangeQuerySince(from);
 		RangeQueryBuilder partialOrphansRangeQuery = buildRangeQuerySince(from);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
 		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
-		orphansWithoutPartialLimitationQuery.must(orphansRangeQuery);
 		orphansWithoutPartialLimitationQuery.mustNot(partialOrphansRangeQuery);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
