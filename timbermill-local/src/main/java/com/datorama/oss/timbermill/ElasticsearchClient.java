@@ -260,8 +260,8 @@ public class ElasticsearchClient {
 		orphansWithoutPartialLimitationQuery.mustNot(partialOrphansRangeQuery);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
-		orphansWithoutPartialLimitationQuery.mustNot(PARTIALS_QUERY);
-		orphansWithoutPartialLimitationQuery.must(partialOrphansRangeQuery);
+		nonPartialOrphansQuery.mustNot(PARTIALS_QUERY);
+		nonPartialOrphansQuery.must(partialOrphansRangeQuery);
 
 		finalOrphansQuery.filter(ORPHANS_QUERY);
 		finalOrphansQuery.filter(envsQuery);
