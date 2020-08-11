@@ -135,7 +135,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxTotalFields = 4000;
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
-        private String mergingCronExp = null;
+        private String mergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
