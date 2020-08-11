@@ -367,4 +367,13 @@ public abstract class Event implements Serializable {
 		}
 		return value;
 	}
+
+	public void fixErrors() {
+		if (this.taskId.endsWith("_timbermill2_timbermill2")){
+			this.taskId = this.taskId.replace("_timbermill2_timbermill2", "_timbermill2");
+		}
+		if (this.parentId.endsWith("_timbermill2_timbermill2")){
+			this.parentId = this.parentId.replace("_timbermill2_timbermill2", "_timbermill2");
+		}
+	}
 }
