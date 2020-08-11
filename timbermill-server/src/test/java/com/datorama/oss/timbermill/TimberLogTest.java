@@ -90,7 +90,8 @@ public abstract class TimberLogTest {
 		JobDataMap jobDataMap = job.getJobDataMap();
 		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
 		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_DURATION, Duration.ofMinutes(5));
-		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_DURATION, Duration.ofHours(1));
+		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_DURATION, Duration.ofHours(1));
+		org.joda.time.Duration.standardMinutes(5);
 		jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
 		OperableTrigger trigger = new SimpleTriggerImpl();
 		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
