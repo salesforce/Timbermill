@@ -32,6 +32,7 @@ public class Task {
 	public static final String REGULAR = "REGULAR";
 	public static final String ADOPTED = "ADOPTED";
 
+	private String index;
 	private String env;
 
 	private String name;
@@ -197,6 +198,7 @@ public class Task {
 					}
 				}
 				orphan = false;
+				index = adoptedEvent.getIndex();
 			}
 		}
 	}
@@ -327,6 +329,14 @@ public class Task {
 
 	public void setEnv(String env) {
 		this.env = env;
+	}
+
+	public String getIndex() {
+		return index;
+	}
+
+	public void setIndex(String index) {
+		this.index = index;
 	}
 
 	public Boolean isOrphan() {

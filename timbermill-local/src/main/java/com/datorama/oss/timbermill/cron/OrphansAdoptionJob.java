@@ -65,15 +65,14 @@ public class OrphansAdoptionJob implements Job {
 		Map<String, List<Event>> adoptedOrphans = adoptOrphanEvents(orphansByParentId, fetchedParents);
 		Map<String, Task> adoptedTasksMap = TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation);
 
-		Map<String, Map<String, Task>> tasksPerEnv = Maps.newHashMap();
+		Map<String, Map<String, Task>> tasksPerIndex = Maps.newHashMap();
 		adoptedTasksMap.forEach((taskId, task) -> {
-			String env = task.getEnv();
-			tasksPerEnv.computeIfAbsent(env, s -> Maps.newHashMap());
-			tasksPerEnv.get(env).put(taskId, task);
+			String index = task.getIndex();
+			tasksPerIndex.computeIfAbsent(index, s -> Maps.newHashMap());
+			tasksPerIndex.get(index).put(taskId, task);
 		});
 
-		tasksPerEnv.forEach((env,tasks) -> {
-			String index = es.createTimbermillAlias(env);
+		tasksPerIndex.forEach((index,tasks) -> {
 			es.index(tasks, index);
 			orphansAdoptedCounter.withoutTags().increment(tasks.size());
 		});

@@ -505,6 +505,7 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(childTaskId, TaskStatus.SUCCESS);
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
+        String orphanIndex = childTask.getIndex();
 
         client.index(tasksMap, index);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
@@ -513,6 +514,7 @@ public class TimberLogAdvancedOrphansTest {
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
+        Assert.assertEquals(childTask.getIndex(), orphanIndex);
         Assert.assertEquals(parentTaskId, childTask.getParentId());
         Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
         Assert.assertEquals(1, childTask.getParentsPath().size());

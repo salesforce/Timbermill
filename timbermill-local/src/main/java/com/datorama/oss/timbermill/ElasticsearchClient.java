@@ -588,6 +588,7 @@ public class ElasticsearchClient {
 				String sourceAsString = searchHit.getSourceAsString();
 				Task task = Constants.GSON.fromJson(sourceAsString, Task.class);
 				fixMetrics(task);
+				task.setIndex(searchHit.getIndex());
 				String id = searchHit.getId();
 				if (!tasks.containsKey(id)){
 					tasks.put(id, Lists.newArrayList(task));
