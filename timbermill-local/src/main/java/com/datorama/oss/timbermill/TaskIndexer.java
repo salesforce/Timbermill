@@ -70,6 +70,7 @@ public class TaskIndexer {
                     LOG.warn("Task ID is null for event {}", GSON.toJson(e));
                 }
                 else {
+                	e.fixErrors();
                     e.trimAllStrings();
                     timbermillEvents.add(e);
                 }
