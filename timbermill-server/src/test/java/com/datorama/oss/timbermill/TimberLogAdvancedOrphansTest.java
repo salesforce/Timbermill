@@ -33,6 +33,7 @@ public class TimberLogAdvancedOrphansTest {
     private static ElasticsearchClient client;
     private static JobExecutionContextImpl context;
     private static OrphansAdoptionJob orphansAdoptionJob;
+    private String flowId = "test";
 
     @BeforeClass
     public static void setUp() {
@@ -495,7 +496,7 @@ public class TimberLogAdvancedOrphansTest {
         parentStartEvent.setEnv(TEST);
         parentSuccessEvent.setEnv(TEST);
 
-        String index = client.createTimbermillAlias(TEST);
+        String index = client.createTimbermillAlias(TEST, flowId);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
@@ -507,7 +508,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
         String orphanIndex = childTask.getIndex();
 
-        client.index(tasksMap, index);
+        client.index(tasksMap, index, flowId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
         waitForTaskPredicate(childTaskId, notOrphanPredicate);
@@ -544,11 +545,11 @@ public class TimberLogAdvancedOrphansTest {
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
 
-        String index = client.createTimbermillAlias(TEST);
+        String index = client.createTimbermillAlias(TEST, flowId);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
-        client.index(tasksMap, index);
+        client.index(tasksMap, index, flowId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);

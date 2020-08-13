@@ -68,6 +68,12 @@ public class StartEvent extends Event {
 
     @JsonIgnore
     @Override
+    public ZonedDateTime getStartTime() {
+        return time;
+    }
+
+    @JsonIgnore
+    @Override
     ZonedDateTime getDateToDelete(long defaultDaysRotation) {
         return TimbermillDatesUtils.getDateToDeleteWithDefault(defaultDaysRotation, this.dateToDelete);
     }

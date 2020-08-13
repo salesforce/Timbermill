@@ -7,15 +7,15 @@ import com.datorama.oss.timbermill.unit.Event;
 
 public interface DiskHandler {
 
-	List<DbBulkRequest> fetchAndDeleteFailedBulks();
+	List<DbBulkRequest> fetchAndDeleteFailedBulks(String flowId);
 
-	List<Event> fetchAndDeleteOverflowedEvents();
+	List<Event> fetchAndDeleteOverflowedEvents(String flowId);
 
-	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException;
+	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) throws MaximumInsertTriesException;
 
 	void persistEventsToDisk(ArrayList<Event> events);
 
-	boolean hasFailedBulks();
+	boolean hasFailedBulks(String flowId);
 
 	boolean isCreatedSuccessfully();
 

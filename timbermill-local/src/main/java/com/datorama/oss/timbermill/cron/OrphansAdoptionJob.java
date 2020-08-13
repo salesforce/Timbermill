@@ -1,9 +1,6 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.quartz.DisallowConcurrentExecution;
@@ -29,7 +26,7 @@ import kamon.metric.Timer;
 public class OrphansAdoptionJob implements Job {
 	private static final Logger LOG = LoggerFactory.getLogger(OrphansAdoptionJob.class);
 
-	private final Metric.Counter orphansFetchedCounter= Kamon.counter("timbermill2.orphans.fetched.counter");
+	private final Metric.Counter orphansFoundCounter = Kamon.counter("timbermill2.orphans.found.counter");
 	private final Metric.Counter orphansAdoptedCounter= Kamon.counter("timbermill2.orphans.adopted.counter");
 	private final Metric.Timer orphansJobLatency = Kamon.timer("timbermill2.orphans.job.latency.timer");
 
@@ -42,30 +39,24 @@ public class OrphansAdoptionJob implements Job {
 		} catch (InterruptedException ignored) {}
 
 		Timer.Started started = orphansJobLatency.withoutTags().start();
-		LOG.info("OrphansAdoptionJob started...");
+		String flowId = UUID.randomUUID().toString();
+		LOG.info("Flow ID: [{}]. Orphans Adoption Job started.", flowId);
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
 		int partialOrphansGraceMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
 		int orphansFetchPeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES);
 		int daysRotationParam = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.DAYS_ROTATION);
-		handleAdoptions(es, partialOrphansGraceMinutes, orphansFetchPeriodMinutes, daysRotationParam);
-		LOG.info("OrphansAdoptionJob ended...");
+		handleAdoptions(es, partialOrphansGraceMinutes, orphansFetchPeriodMinutes, daysRotationParam, flowId);
+		LOG.info("Flow ID: [{}]. Orphans Adoption Job ended.", flowId);
 		started.stop();
 	}
 
-	private void handleAdoptions(ElasticsearchClient es, int partialOrphansGraceMinutes, int orphansFetchMinutes, int daysRotation) {
-		Map<String, Task> retrievedOrphans = es.getLatestOrphanIndexed(partialOrphansGraceMinutes, orphansFetchMinutes);
-		LOG.info("Retrieved {} orphans", retrievedOrphans.size());
-		orphansFetchedCounter.withoutTags().increment(retrievedOrphans.size());
-		Set<String> orphansIds = retrievedOrphans.keySet();
-		Set<String> parentsIds = retrievedOrphans.values().stream().map(Task::getParentId).collect(Collectors.toSet());
-		Map<String, Task> fetchedParents = es.getMissingParents(orphansIds, parentsIds);
-		Map<String, List<AdoptedEvent>> orphansByParentId = retrievedOrphans.entrySet().stream().map(entry -> new AdoptedEvent(entry.getKey(), entry.getValue())).
-				collect(Collectors.groupingBy(AdoptedEvent::getParentId));
-
-		Map<String, List<Event>> adoptedOrphans = adoptOrphanEvents(orphansByParentId, fetchedParents);
-		Map<String, Task> adoptedTasksMap = TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation);
+	private void handleAdoptions(ElasticsearchClient es, int partialOrphansGraceMinutes, int orphansFetchMinutes, int daysRotation, String flowId) {
+		Map<String, Task> latestOrphan = es.getLatestOrphanIndexed(partialOrphansGraceMinutes, orphansFetchMinutes, flowId);
+		Map<String, Task> fetchedParents = fetchAdoptingParents(es, latestOrphan, flowId);
+		Map<String, Task> adoptedTasksMap = enrichAdoptedOrphans(latestOrphan, fetchedParents, daysRotation);
 
 		Map<String, Map<String, Task>> tasksPerIndex = Maps.newHashMap();
+
 		adoptedTasksMap.forEach((taskId, task) -> {
 			String index = task.getIndex();
 			tasksPerIndex.computeIfAbsent(index, s -> Maps.newHashMap());
@@ -73,11 +64,26 @@ public class OrphansAdoptionJob implements Job {
 		});
 
 		tasksPerIndex.forEach((index,tasks) -> {
-			es.index(tasks, index);
-			orphansAdoptedCounter.withoutTags().increment(tasks.size());
+			es.index(tasks, index, flowId);
 		});
 
-		LOG.info("Adopted {} orphans", retrievedOrphans.size());
+		orphansAdoptedCounter.withoutTags().increment(adoptedTasksMap.size());
+		orphansFoundCounter.withoutTags().increment(latestOrphan.size());
+		LOG.info("Flow ID: [{}]. Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), tasksPerIndex.size());
+	}
+
+	private Map<String, Task> enrichAdoptedOrphans(Map<String, Task> latestOrphan, Map<String, Task> fetchedParents, int daysRotation) {
+		Map<String, List<AdoptedEvent>> orphansByParentId = latestOrphan.entrySet().stream().map(entry -> new AdoptedEvent(entry.getKey(), entry.getValue())).
+				collect(Collectors.groupingBy(AdoptedEvent::getParentId));
+
+		Map<String, List<Event>> adoptedOrphans = adoptOrphanEvents(orphansByParentId, fetchedParents);
+		return TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation);
+	}
+
+	private Map<String, Task> fetchAdoptingParents(ElasticsearchClient es, Map<String, Task> latestOrphan, String flowId) {
+		Set<String> orphansIds = latestOrphan.keySet();
+		Set<String> parentsIds = latestOrphan.values().stream().map(Task::getParentId).collect(Collectors.toSet());
+		return es.getMissingParents(orphansIds, parentsIds, flowId);
 	}
 
 	private Map<String, List<Event>> adoptOrphanEvents(Map<String, List<AdoptedEvent>> orphansByParent, Map<String, Task> fetchedParents) {

@@ -18,6 +18,7 @@ import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
 import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 
@@ -51,7 +52,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 	@After
 	public void checkTaskFailedAndPersisted() throws MaximumInsertTriesException {
-		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any());
+		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), any(), anyInt());
 	}
 
 	@AfterClass

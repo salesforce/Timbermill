@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.cron;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -21,37 +22,42 @@ public class BulkPersistentFetchJob implements Job {
 	private static final Logger LOG = LoggerFactory.getLogger(BulkPersistentFetchJob.class);
 
 	@Override public void execute(JobExecutionContext context) {
-			LOG.info("Cron is fetching from disk...");
+		DiskHandler diskHandler = (DiskHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
+		if (diskHandler != null) {
+			String flowId = UUID.randomUUID().toString();
+			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job started.", flowId);
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
-			DiskHandler diskHandler = (DiskHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
 			boolean runNextBulk = true;
 			while (runNextBulk) {
-				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler);
+				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
 			}
+			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job ended.", flowId);
+		}
 	}
 
-	private static boolean retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler) {
-
+	private static boolean retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler, String flowId) {
 		boolean keepRunning = false;
-		if (diskHandler.hasFailedBulks()) {
+		if (diskHandler.hasFailedBulks(flowId)) {
 			keepRunning = true;
 			int successBulks = 0;
-			LOG.info("------------------ Retry Failed-Requests From Disk Start ------------------");
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk Start ####", flowId);
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler. fetchAndDeleteFailedBulks(flowId);
 			if (failedRequestsFromDisk.size() == 0) {
 				keepRunning = false;
 			}
+			int bulkNum = 1;
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!es.sendDbBulkRequest(dbBulkRequest)) {
+				if (!es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum)) {
 					keepRunning = false;
 				}
 				else {
-					successBulks+=1;
+					successBulks += 1;
 				}
+				bulkNum++;
 			}
-			LOG.info("------------------ Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ------------------",successBulks,failedRequestsFromDisk.size());
+			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
 		} else {
-			LOG.info("There are no failed bulks to fetch from disk");
+			LOG.info("Flow ID: [{}]. There are no failed bulks to fetch from disk", flowId);
 		}
 		return keepRunning;
 	}

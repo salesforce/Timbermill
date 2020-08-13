@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.cron;
 
 import java.util.Random;
+import java.util.UUID;
 
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -35,9 +36,10 @@ public class TasksMergerJobs implements Job {
 				Thread.sleep(secondsToWait * 1000);
 			} catch (InterruptedException ignored) {}
 			Timer.Started started = partialsJobLatency.withoutTags().start();
-			LOG.info("About to merge partial tasks between indices");
-			int size = client.migrateTasksToNewIndex(partialsFetchPeriodMinutes);
-			LOG.info("Finished merging {} partial tasks.", size);
+			String flowId = UUID.randomUUID().toString();
+			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job started.", flowId);
+			client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
+			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job ended.", flowId);
 			started.stop();
 		}
 	}

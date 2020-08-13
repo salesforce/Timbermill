@@ -2,10 +2,7 @@ package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -72,8 +69,7 @@ public class Task {
 
 				String parentId = e.getParentId();
 
-				ZonedDateTime startTime = e.getTime();
-				ZonedDateTime endTime = e.getEndTime();
+
 
 
 				if (this.name == null) {
@@ -89,6 +85,9 @@ public class Task {
 				}
 
 				status = e.getStatusFromExistingStatus(this.status, getStartTime(), getEndTime(), this.parentId, this.name);
+
+				ZonedDateTime startTime = e.getStartTime();
+				ZonedDateTime endTime = e.getEndTime();
 
 				if (getStartTime() == null) {
 					setStartTime(startTime);
@@ -158,6 +157,15 @@ public class Task {
 				}
 			}
 		}
+
+		if (getStartTime() == null){
+			Optional<Event> optionalEvent = events.stream().findAny();
+			if (optionalEvent.isPresent()){
+				Event event = optionalEvent.get();
+				setStartTime(event.getTime());
+			}
+		}
+
 		ZonedDateTime startTime = getStartTime();
 		ZonedDateTime endTime = getEndTime();
 		if (isComplete()){

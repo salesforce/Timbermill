@@ -22,5 +22,6 @@ public final class Constants {
 	public static final String STRING = "string";
 	public static final String CTX = "ctx";
 	public static final String SQLITE = "sqlite";
+	public static final String TIMBERMILL_2_FAILED_TASKS_FETCHED_FROM_DISK_HISTOGRAM = "timbermill2.failed.tasks.fetched.from.disk.histogram";
 }
 

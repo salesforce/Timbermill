@@ -1017,7 +1017,7 @@ public class TimberLogAdvancedTest {
             Thread.sleep(3000);
         }
         else {
-            Thread.sleep(3);
+            Thread.sleep(300);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 

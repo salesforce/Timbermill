@@ -19,6 +19,13 @@ public class SpotEvent extends Event {
     }
 
     @JsonIgnore
+    @Override
+    public ZonedDateTime getStartTime() {
+        return time;
+    }
+
+    @JsonIgnore
+    @Override
     public ZonedDateTime getEndTime() {
         return time;
     }

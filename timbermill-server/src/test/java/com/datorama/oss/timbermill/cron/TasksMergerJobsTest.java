@@ -42,6 +42,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 	private static final String TEST = "test";
 	private static JobExecutionContextImpl context;
 	private static TasksMergerJobs tasksMergerJobs;
+	private static String flowId = "test";
 
 	@BeforeClass
 	public static void init() {
@@ -87,9 +88,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -136,9 +137,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -186,9 +187,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.PARTIAL_SUCCESS);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -232,9 +233,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -281,9 +282,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -331,9 +332,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.PARTIAL_ERROR);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -380,9 +381,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.SUCCESS);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -433,9 +434,9 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex());
+		TimberLogTest.client.index(oldTasks, TimberLogTest.client.unsafeGetOldIndex(), flowId);
 		TimberLogTest.waitForTask(id, TaskStatus.ERROR);
-		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex());
+		TimberLogTest.client.index(newTasks, TimberLogTest.client.unsafeGetCurrentIndex(), flowId);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
