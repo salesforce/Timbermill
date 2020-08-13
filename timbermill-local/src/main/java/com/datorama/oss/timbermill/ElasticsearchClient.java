@@ -55,6 +55,7 @@ import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -91,6 +92,8 @@ public class ElasticsearchClient {
 	private IndexRetryManager retryManager;
 	private Bulker bulker;
 	private int searchMaxSize;
+	private final int scrollLimitation;
+	private final int scrollTimeoutSeconds;
 
 	private final ReadWriteLock indexRolloverValuesAccessController;
 	private final Metric.Counter partialTasksFetchedCounter= Kamon.counter("timbermill2.partial.tasks.fetched.counter");
@@ -98,13 +101,13 @@ public class ElasticsearchClient {
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields, Bulker bulker) {
+			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
 		}
 
-		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries);
+		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation, scrollTimeoutSeconds);
 		this.indexBulkSize = indexBulkSize;
 		this.searchMaxSize = searchMaxSize;
 		this.maxIndexAge = maxIndexAge;
@@ -112,6 +115,8 @@ public class ElasticsearchClient {
         this.maxIndexDocs = maxIndexDocs;
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
+        this.scrollLimitation = scrollLimitation;
+        this.scrollTimeoutSeconds = scrollTimeoutSeconds;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
@@ -156,7 +161,8 @@ public class ElasticsearchClient {
         return previouslyIndexedParentTasks;
     }
 
-	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries) {
+	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
+			int scrollLimitation, int scrollTimeoutSeconds) {
 		if (indexBulkSize < 1) {
 			throw new RuntimeException("Index bulk size property should be larger than 0");
 		}
@@ -177,6 +183,12 @@ public class ElasticsearchClient {
 		}
 		if (numOfElasticSearchActionsTries < 0) {
 			throw new RuntimeException("Max elasticsearch actions tries property should not be below 0");
+		}
+		if (scrollLimitation < 0) {
+			throw new RuntimeException("Elasticsearch scroll limitation property should not be below 0");
+		}
+		if (scrollTimeoutSeconds < 1) {
+			throw new RuntimeException("Elasticsearch scroll timeout limitayion  property should not be below 1");
 		}
 	}
 
@@ -535,14 +547,28 @@ public class ElasticsearchClient {
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
 			boolean keepScrolling = searchHits != null && searchHits.length > 0;
-			while (keepScrolling) {
+			Stopwatch stopWatch = Stopwatch.createUnstarted();
+			int numOfScrollsPerformed = 0;
+			boolean timeoutReached = false;
+			boolean numOfScrollsReached = false;
+			while (keepScrolling && !timeoutReached && !numOfScrollsReached) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
 				scrollRequest.scroll(scroll);
+				stopWatch.start();
 				SearchResponse scrollResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription);
+				stopWatch.stop();
 				scrollId = scrollResponse.getScrollId();
 				searchResponses.add(scrollResponse);
 				SearchHit[] scrollHits = scrollResponse.getHits().getHits();
+				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
+				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
 				keepScrolling = scrollHits != null && scrollHits.length > 0;
+				if (timeoutReached && keepScrolling) {
+					LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
+				}
+				if (numOfScrollsReached && keepScrolling) {
+					LOG.error("Scrolls amount  limit of [{} seconds] reached", scrollLimitation);
+				}
 			}
 			ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
 			clearScrollRequest.addScrollId(scrollId);
