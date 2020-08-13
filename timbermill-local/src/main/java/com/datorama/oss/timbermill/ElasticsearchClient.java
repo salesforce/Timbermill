@@ -253,15 +253,20 @@ public class ElasticsearchClient {
 		Set<String> envsToFilterOn = getIndexedEnvs();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder partialOrphansRangeQuery = buildRelativeRangeQuery(partialTasksGraceMinutes);
-		RangeQueryBuilder orphansWithoutPartialLimitationQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
+		RangeQueryBuilder allOrphansRangeQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
 		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
+		nonPartialOrphansQuery.filter(ORPHANS_QUERY);
+		nonPartialOrphansQuery.filter(envsQuery);
+		nonPartialOrphansQuery.filter(partialOrphansRangeQuery);
 		nonPartialOrphansQuery.mustNot(PARTIALS_QUERY);
-		nonPartialOrphansQuery.must(partialOrphansRangeQuery);
 
-		finalOrphansQuery.filter(ORPHANS_QUERY);
-		finalOrphansQuery.filter(envsQuery);
+		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
+		orphansWithoutPartialLimitationQuery.filter(ORPHANS_QUERY);
+		orphansWithoutPartialLimitationQuery.filter(envsQuery);
+		orphansWithoutPartialLimitationQuery.filter(allOrphansRangeQuery);
+
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
