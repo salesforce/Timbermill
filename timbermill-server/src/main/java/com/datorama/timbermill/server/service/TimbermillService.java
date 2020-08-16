@@ -71,7 +71,7 @@ public class TimbermillService {
 			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
 			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
 			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes,
-			@Value("${SCROLL_LIMITATION:1}") int scrollLimitation,
+			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 			@Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
