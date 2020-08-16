@@ -41,7 +41,8 @@ public class TimberLogAdvancedOrphansTest {
             elasticUrl = "http://localhost:9200";
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);
+                7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
+                4000, null, 10, 60);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
