@@ -17,7 +17,6 @@ import com.google.common.collect.Maps;
 
 import static com.datorama.oss.timbermill.TimberLogTest.TEST;
 import static com.datorama.oss.timbermill.TimberLogTest.assertTask;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.assertEquals;
 
@@ -30,13 +29,15 @@ public class EventsPersistentFetchJobTest {
 	public static void init()  {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
-			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+			elasticUrl = "http://localhost:9200";
 		}
-		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").orphansAdoptionsCronExp("").bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("");
+		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").orphansAdoptionsCronExp("").
+				bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("").mergingCronExp("");
 		pipe = builder.build();
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000,3, 3, 1000, null, 1, 1, 4000, null);
+				7, 100, 1000000000,3, 3, 1000, null, 1, 1,
+				4000, null, 10, 60);
 		TimberLogger.bootstrap(pipe, TEST);
 	}
 

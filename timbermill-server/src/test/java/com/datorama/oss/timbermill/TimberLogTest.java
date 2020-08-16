@@ -79,16 +79,18 @@ public abstract class TimberLogTest {
 	protected static void init(EventOutputPipe pipe) {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
-			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+			elasticUrl = "http://localhost:9200";
 		}
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000,3, 3, 1000,null ,1, 1, 4000, null);
+				7, 100, 1000000000,3, 3, 1000,null ,1, 1,
+				4000, null, 10 , 60);
 		orphansAdoptionJob = new OrphansAdoptionJob();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
 		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 2);
+		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 5);
+		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 60);
 		jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
 		OperableTrigger trigger = new SimpleTriggerImpl();
 		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);

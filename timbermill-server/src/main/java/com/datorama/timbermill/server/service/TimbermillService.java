@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
@@ -25,8 +26,8 @@ import com.datorama.oss.timbermill.unit.Event;
 public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
+
 	private static final int THREAD_SLEEP = 2000;
-	private final String mergingCronExp;
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
@@ -58,7 +59,7 @@ public class TimbermillService {
 			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 			@Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
-			@Value("${MERGING_CRON_EXPRESSION:0 0 0/1 1/1 * ? *}") String mergingCronExp,
+			@Value("${MERGING_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
@@ -67,23 +68,26 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
-			@Value("${ORPHANS_FETCH_PERIOD_MINUTES:10}") int orphansFetchPeriodMinutes ){
+			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
+			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
+			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes,
+			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
+			@Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		this.mergingCronExp = mergingCronExp;
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields, null);
+				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds);
 
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, orphansFetchPeriodMinutes, daysRotation);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodMinutes, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 
 		startWorkingThread();
 	}
@@ -92,7 +96,7 @@ public class TimbermillService {
 		Runnable eventsHandler = () -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, diskHandler);
 			}
 			stoppedRunning = true;
 		};
@@ -133,15 +137,13 @@ public class TimbermillService {
 				if (!overflowedQueue.offer(event)){
 					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
 				}
+				else {
+					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+				}
+			}
+			else{
+				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
 			}
 		}
-	}
-
-	int getEventsQueueSize() {
-		return eventsQueue.size();
-	}
-
-	TaskIndexer getTaskIndexer() {
-		return taskIndexer;
 	}
 }

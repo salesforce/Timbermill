@@ -1,13 +1,10 @@
 package com.datorama.oss.timbermill.unit;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.collect.Maps;
-
-import javax.validation.constraints.NotNull;
 import java.time.ZonedDateTime;
 
-import static com.datorama.oss.timbermill.common.Constants.*;
-import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
+import javax.validation.constraints.NotNull;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class ErrorEvent extends Event {
     public ErrorEvent() {

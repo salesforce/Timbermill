@@ -21,7 +21,6 @@ import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -33,21 +32,24 @@ public class TimberLogAdvancedOrphansTest {
     private static ElasticsearchClient client;
     private static JobExecutionContextImpl context;
     private static OrphansAdoptionJob orphansAdoptionJob;
+    private String flowId = "test";
 
     @BeforeClass
     public static void setUp() {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);
+                7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
+                4000, null, 10, 60);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
         JobDataMap jobDataMap = job.getJobDataMap();
         jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-        jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 2);
+        jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 5);
+        jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 60);
         jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
         OperableTrigger trigger = new SimpleTriggerImpl();
         TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
@@ -494,7 +496,7 @@ public class TimberLogAdvancedOrphansTest {
         parentStartEvent.setEnv(TEST);
         parentSuccessEvent.setEnv(TEST);
 
-        String index = client.createTimbermillAlias(TEST);
+        String index = client.createTimbermillAlias(TEST, flowId);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
@@ -504,14 +506,16 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(childTaskId, TaskStatus.SUCCESS);
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
+        String orphanIndex = childTask.getIndex();
 
-        client.index(tasksMap, index);
+        client.index(tasksMap, index, flowId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
         waitForTaskPredicate(childTaskId, notOrphanPredicate);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
+        Assert.assertEquals(childTask.getIndex(), orphanIndex);
         Assert.assertEquals(parentTaskId, childTask.getParentId());
         Assert.assertEquals(parentTaskId, childTask.getPrimaryId());
         Assert.assertEquals(1, childTask.getParentsPath().size());
@@ -541,11 +545,11 @@ public class TimberLogAdvancedOrphansTest {
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
 
-        String index = client.createTimbermillAlias(TEST);
+        String index = client.createTimbermillAlias(TEST, flowId);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
-        client.index(tasksMap, index);
+        client.index(tasksMap, index, flowId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);

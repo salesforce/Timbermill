@@ -26,9 +26,9 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
-import static org.junit.Assert.*;
+import static com.datorama.oss.timbermill.TimberLogServerTest.DEFAULT_TIMBERMILL_URL;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @Ignore
 public class TimbermillStressTest extends TimberLogTest{
@@ -62,7 +62,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
 
         String awsRegion = System.getenv("ELASTICSEARCH_AWS_REGION");
@@ -70,7 +70,8 @@ public class TimbermillStressTest extends TimberLogTest{
             awsRegion = null;
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, awsRegion, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);
+                7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
+                4000, null, 10, 60);
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();

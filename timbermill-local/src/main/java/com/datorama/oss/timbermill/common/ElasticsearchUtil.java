@@ -6,23 +6,16 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
-import org.quartz.*;
-import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.cron.TasksMergerJobs;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
-import static org.quartz.CronScheduleBuilder.cronSchedule;
-import static org.quartz.JobBuilder.newJob;
-import static org.quartz.TriggerBuilder.newTrigger;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
@@ -30,8 +23,10 @@ public class ElasticsearchUtil {
 	public static final String EVENTS_QUEUE = "events_queue";
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
 	public static final int THREAD_SLEEP = 2000;
-	public static final String DAYS_ROTATION = "daysRotation";
-	public static final String ORPHANS_FETCH_PERIOD_MINUTES = "orphansFetchPeriodMinutes";
+	public static final String DAYS_ROTATION = "days_rotation";
+	public static final String PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES = "partial_orphans_grace_period_minutes";
+	public static final String ORPHANS_FETCH_PERIOD_MINUTES = "orphans_fetch_period_minutes";
+	public static final String PARTIAL_TASKS_FETCH_PERIOD_MINUTES = "partials_fetch_period_minutes";
 	public static final String SCRIPT =
 					  "if (params.orphan != null && !params.orphan) {"
 					+ "    ctx._source.orphan = false;"
@@ -318,29 +313,25 @@ public class ElasticsearchUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 
-	private static Set<String> envsSet = Sets.newHashSet();
+	private static final Set<String> envsSet = Sets.newHashSet();
 
 	public static Set<String> getEnvSet() {
 		return envsSet;
 	}
 
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer,
-			String mergingCronExp, DiskHandler diskHandler) {
-		ElasticsearchClient es = taskIndexer.getEs();
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer, DiskHandler diskHandler) {
 		while (!eventsQueue.isEmpty() || !overflowedQueue.isEmpty()) {
 			try {
 				spillOverflownEventsToDisk(overflowedQueue, diskHandler);
 
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
+				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();
-					if (!envsSet.contains(env)) {
-						envsSet.add(env);
-						runPartialMergingTasksCron(env, es, mergingCronExp);
-					}
+					envsSet.add(env);
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
 					taskIndexer.retrieveAndIndex(currentEvents, env);
@@ -361,7 +352,7 @@ public class ElasticsearchUtil {
 		if (!overflowedQueue.isEmpty()) {
 			ArrayList<Event> events = Lists.newArrayList();
 			overflowedQueue.drainTo(events, MAX_ELEMENTS * 10);
-
+			KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 			diskHandler.persistEventsToDisk(events);
 		}
 
@@ -380,25 +371,4 @@ public class ElasticsearchUtil {
 		return String.format("%06d", serialNumber);
 	}
 
-	private static void runPartialMergingTasksCron(String env, ElasticsearchClient es, String mergingCronExp) {
-		try {
-			final StdSchedulerFactory sf = new StdSchedulerFactory();
-			Scheduler scheduler = sf.getScheduler();
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			JobDetail job = newJob(TasksMergerJobs.class)
-					.withIdentity("job" + env, "group" + env).usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger" + env, "group" + env)
-					.withSchedule(cronSchedule(mergingCronExp))
-					.build();
-
-			scheduler.scheduleJob(job, trigger);
-			scheduler.start();
-		} catch (SchedulerException e) {
-			LOG.error("Error occurred while merging partial tasks", e);
-		}
-
-	}
 }

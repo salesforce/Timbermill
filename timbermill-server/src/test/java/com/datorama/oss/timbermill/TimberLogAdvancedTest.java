@@ -4,17 +4,15 @@ import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
-import org.junit.AfterClass;
-
-
 import org.apache.commons.lang3.StringUtils;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
-import static com.datorama.oss.timbermill.common.Constants.*;
+import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
 import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;
@@ -28,11 +26,12 @@ public class TimberLogAdvancedTest {
     public static void setUp() {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3 , 3, 1000,null ,1, 1, 4000, null);
+                7, 100, 1000000000, 3 , 3, 1000,null ,1, 1,
+                4000, null, 10, 60);
     }
 
     @AfterClass
@@ -1017,7 +1016,7 @@ public class TimberLogAdvancedTest {
             Thread.sleep(3000);
         }
         else {
-            Thread.sleep(3);
+            Thread.sleep(300);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 

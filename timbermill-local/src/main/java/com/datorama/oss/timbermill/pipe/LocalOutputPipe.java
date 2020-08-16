@@ -24,6 +24,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private final String mergingCronExp;
+    private final int partialsFetchPeriodHours;
     private DiskHandler diskHandler;
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
@@ -38,16 +39,18 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         this.mergingCronExp = builder.mergingCronExp;
+        this.partialsFetchPeriodHours = builder.partialsFetchPeriodMinutes;
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
-                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker);
+                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds);
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
-                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp, builder.orphansFetchPeriodMinutes, builder.daysRotation);
+                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
+                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodMinutes, builder.partialOrphansGracePeriodMinutes, builder.orphansFetchPeriodMinutes);
         startWorkingThread();
     }
 
@@ -55,7 +58,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Runnable eventsHandler = () -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, mergingCronExp, diskHandler);
+                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, diskHandler);
             }
             stoppedRunning = true;
         };
@@ -132,7 +135,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxTotalFields = 4000;
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
-        private String mergingCronExp = "0 0 0/1 1/1 * ? *";
+        private String mergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
@@ -140,7 +143,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private int orphansFetchPeriodMinutes = 10;
+        private int partialOrphansGracePeriodMinutes = 5;
+        private int orphansFetchPeriodMinutes = 60;
+        private int partialsFetchPeriodMinutes = 60;
+        private int scrollLimitation = 1000;
+        private int scrollTimeoutSeconds = 60;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -273,8 +280,13 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder orphansFetchPeriodMinutes(int orphansFetchPeriodMinutes) {
-            this.orphansFetchPeriodMinutes = orphansFetchPeriodMinutes;
+        public Builder scrollLimitation(int scrollLimitation) {
+            this.scrollLimitation = scrollLimitation;
+            return this;
+        }
+
+        public Builder scrollTimeoutSeconds(int scrollTimeoutSeconds) {
+            this.scrollTimeoutSeconds = scrollTimeoutSeconds;
             return this;
         }
 
