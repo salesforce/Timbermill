@@ -79,7 +79,7 @@ public abstract class TimberLogTest {
 	protected static void init(EventOutputPipe pipe) {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
-			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+			elasticUrl = "http://localhost:9200";
 		}
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,

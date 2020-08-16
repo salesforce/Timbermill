@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
@@ -19,9 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import kamon.Kamon;
-import kamon.metric.Metric;
-import static com.datorama.oss.timbermill.common.Constants.GSON;
+import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 
 public class TaskIndexer {
 
@@ -29,9 +28,6 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private Metric.Histogram tasksFetchedHistogram = Kamon.histogram("timbermill2.tasks.fetched.histogram");
-    private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
-    private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es) {
@@ -41,12 +37,8 @@ public class TaskIndexer {
         this.es = es;
     }
 
-    public static int calculateDaysRotation(int daysRotationParam) {
+    private static int calculateDaysRotation(int daysRotationParam) {
         return Math.max(daysRotationParam, 1);
-    }
-
-    public ElasticsearchClient getEs() {
-        return es;
     }
 
     public void close() {
@@ -54,8 +46,10 @@ public class TaskIndexer {
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
-        LOG.info("------------------ Batch Start ------------------");
+        String flowId = "Task Indexer - " + UUID.randomUUID().toString();
+        LOG.info("Flow ID: [{}] #### Batch Start ####", flowId);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
+        LOG.info("Flow ID: [{}]. {} events to be handled in current batch", flowId, events.size());
 
         Collection<String> heartbeatEvents = new HashSet<>();
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
@@ -67,10 +61,10 @@ public class TaskIndexer {
             }
             else{
                 if (e.getTaskId() == null){
-                    LOG.warn("Task ID is null for event {}", GSON.toJson(e));
+                    LOG.warn("Flow ID: [{}]. Task ID is null for event {}", flowId, GSON.toJson(e));
                 }
                 else {
-                	e.fixErrors();
+                    e.fixErrors();
                     e.trimAllStrings();
                     timbermillEvents.add(e);
                 }
@@ -78,54 +72,54 @@ public class TaskIndexer {
         });
 
         if (!heartbeatEvents.isEmpty()) {
-            this.es.indexMetaDataTasks(env, heartbeatEvents);
+            this.es.indexMetaDataTasks(env, heartbeatEvents, flowId);
         }
-
-        LOG.info("{} events to handle in current batch", timbermillEvents.size());
 
         if (!timbermillEvents.isEmpty()) {
-            handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents);
+            handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents, flowId);
         }
-        LOG.info("------------------ Batch End ------------------");
+        LOG.info("Flow ID: [{}] #### Batch End ####", flowId);
     }
 
-    private void handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
-        applyPlugins(timbermillEvents, env);
+    private void handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents, String flowId) {
+        applyPlugins(timbermillEvents, env, flowId);
 
         Map<String, DefaultMutableTreeNode> nodesMap = Maps.newHashMap();
         Set<String> startEventsIds = Sets.newHashSet();
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-        Map<String, Task> previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds);
+        Map<String, Task> previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
 
-        String index = es.createTimbermillAlias(env);
-        es.index(tasksMap, index);
-        es.rolloverIndex(index);
-        LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
-        reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size());
+        String index = es.createTimbermillAlias(env, flowId);
+        es.index(tasksMap, index, flowId);
+        if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
+            es.rolloverIndex(index, flowId);
+        }
+        LOG.info("Flow ID: [{}]. {} missing parent tasks were fetched and {} tasks were indexed to elasticsearch", flowId, previouslyIndexedParentTasks.size() , tasksMap.size());
+        reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
     }
 
-    private void reportBatchMetrics(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize) {
+    private void reportBatchMetrics(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, String flowId) {
         ZonedDateTime now = ZonedDateTime.now();
         long timesDuration = ElasticsearchUtil.getTimesDuration(taskIndexerStartTime, now);
-        reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, now);
+        reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, now, flowId);
         reportToKamon(tasksFetchedSize, indexedTasksSize, timesDuration);
     }
 
     private void reportToKamon(int tasksFetchedSize, int indexedTasksSize, long duration) {
-        tasksFetchedHistogram.withoutTags().record(tasksFetchedSize);
-        tasksIndexedHistogram.withoutTags().record(indexedTasksSize);
-        batchDurationHistogram.withoutTags().record(duration);
+        KamonConstants.MISSING_PARENTS_TASKS_FETCHED_HISTOGRAM.withoutTags().record(tasksFetchedSize);
+        KamonConstants.TASKS_INDEXED_HISTOGRAM.withoutTags().record(indexedTasksSize);
+        KamonConstants.BATCH_DURATION_HISTOGRAM.withoutTags().record(duration);
     }
 
-    private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now) {
+    private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now, String flowId) {
         IndexEvent indexEvent = new IndexEvent(env, tasksFetchedSize, taskIndexerStartTime, now, indexedTasksSize,  daysRotation,
                 timesDuration);
-        es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(indexEvent)));
+        es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(indexEvent)), flowId);
     }
 
     private void populateCollections(Collection<Event> timbermillEvents, Map<String, DefaultMutableTreeNode> nodesMap, Set<String> startEventsIds, Set<String> parentIds,
@@ -147,8 +141,6 @@ public class TaskIndexer {
                 List<Event> events = eventsMap.get(event.getTaskId());
                 events.add(event);
             }
-
-
         });
     }
 
@@ -264,7 +256,7 @@ public class TaskIndexer {
                 if (eventsMap.get(parentId).stream().anyMatch(Event::isStartEvent)){
                     List<Event> parentEvents = eventsMap.get(parentId).stream().filter(Event::isStartEvent).collect(Collectors.toList());
                     if (parentEvents.size() != 1){
-                        LOG.warn("Problem with parent events. Events: {}", GSON.toJson(parentEvents));
+                        LOG.warn("Too many parents found for parent ID [{}] child task ID [{}]. Events: {}", parentId, event.getTaskId(), GSON.toJson(parentEvents));
                     }
                     for (Event e : parentEvents) {
                         if (e.isOrphan() != null && e.isOrphan()){
@@ -278,7 +270,7 @@ public class TaskIndexer {
         }
     }
 
-    private void applyPlugins(Collection<Event> events, String env) {
+    private void applyPlugins(Collection<Event> events, String env, String flowId) {
         try {
             for (TaskLogPlugin plugin : logPlugins) {
                 ZonedDateTime startTime = ZonedDateTime.now();
@@ -295,7 +287,7 @@ public class TaskIndexer {
                 ZonedDateTime endTime = ZonedDateTime.now();
                 long duration = ElasticsearchUtil.getTimesDuration(startTime, endTime);
                 PluginApplierTask pluginApplierTask = new PluginApplierTask(env, plugin.getName(), plugin.getClass().getSimpleName(), status, exception, endTime, duration, startTime, daysRotation);
-                es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(pluginApplierTask)));
+                es.indexMetaDataTasks(env, Lists.newArrayList(GSON.toJson(pluginApplierTask)), flowId);
             }
         } catch (Throwable t) {
             LOG.error("Error running plugins", t);

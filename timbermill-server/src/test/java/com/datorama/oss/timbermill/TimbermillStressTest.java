@@ -26,8 +26,7 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
+import static com.datorama.oss.timbermill.TimberLogServerTest.DEFAULT_TIMBERMILL_URL;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -63,7 +62,7 @@ public class TimbermillStressTest extends TimberLogTest{
 
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
 
         String awsRegion = System.getenv("ELASTICSEARCH_AWS_REGION");

@@ -17,7 +17,6 @@ import com.google.common.collect.Maps;
 
 import static com.datorama.oss.timbermill.TimberLogTest.TEST;
 import static com.datorama.oss.timbermill.TimberLogTest.assertTask;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.assertEquals;
 
@@ -30,7 +29,7 @@ public class EventsPersistentFetchJobTest {
 	public static void init()  {
 		String elasticUrl = System.getenv("ELASTICSEARCH_URL");
 		if (StringUtils.isEmpty(elasticUrl)){
-			elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+			elasticUrl = "http://localhost:9200";
 		}
 		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").orphansAdoptionsCronExp("").
 				bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("").mergingCronExp("");

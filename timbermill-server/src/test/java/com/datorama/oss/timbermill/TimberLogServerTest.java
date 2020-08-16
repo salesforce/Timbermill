@@ -8,11 +8,9 @@ import org.junit.Test;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_TIMBERMILL_URL;
-
 public class TimberLogServerTest extends TimberLogTest{
 
-    private static TimbermillServerOutputPipe pipe;
+	static final String DEFAULT_TIMBERMILL_URL = "http://localhost:8484";
 
     @BeforeClass
     public static void init()  {
@@ -20,7 +18,7 @@ public class TimberLogServerTest extends TimberLogTest{
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
-        pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).build();
         TimberLogTest.init(pipe);
     }

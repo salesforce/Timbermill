@@ -19,11 +19,9 @@ import org.tmatesoft.sqljet.core.table.ISqlJetCursor;
 import org.tmatesoft.sqljet.core.table.ISqlJetTable;
 import org.tmatesoft.sqljet.core.table.SqlJetDb;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
-
-import kamon.Kamon;
-import kamon.metric.Metric;
 
 public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
@@ -51,8 +49,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
-	private Metric.Gauge currentDataInDiskGauge = Kamon.gauge("timbermill2.data.in.disk.gauge");
-
 
 	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
@@ -82,8 +78,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
 
 			// update kamon guage (counter)
-			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
 
 			silentDbCommit();
 			LOG.info("SQLite was created successfully");
@@ -96,15 +92,11 @@ public class SQLJetDiskHandler implements DiskHandler {
 	//region public methods
 
 	@Override
-	public List<DbBulkRequest> fetchAndDeleteFailedBulks() {
-		return fetchFailedBulks(true);
+	public List<DbBulkRequest> fetchAndDeleteFailedBulks(String flowId) {
+		return fetchFailedBulks(true, flowId);
 	}
 
-	@Override public List<Event> fetchAndDeleteOverflowedEvents() {
-		return fetchOverflowedEvents(true);
-	}
-
-	private List<Event> fetchOverflowedEvents(boolean deleteAfterFetch) {
+	@Override public List<Event> fetchAndDeleteOverflowedEvents(String flowId) {
 		List<Event> allEvents = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
@@ -114,21 +106,22 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
-			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
-				LOG.info("Fetching events from SQLite...");
+			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
+				LOG.info("Flow ID: [{}]. Fetching overflowed events from SQLite.", flowId);
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				allEvents.addAll(events);
-				if (deleteAfterFetch) {
-					resultCursor.delete(); // also do next
-				}else {
-					resultCursor.next();
-				}
+				resultCursor.delete(); // also do next
 				fetchedCount += events.size();
+				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).decrement(); // removed events from db
 			}
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).decrement(fetchedCount); // removed events from db
-			LOG.info("Fetched successfully. Number of fetched events: {}.",fetchedCount);
+			if (fetchedCount > 0) {
+				LOG.info("Flow ID: [{}]. Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
+			}
+			else {
+				LOG.info("Flow ID: [{}]. There are no overflowed events to fetch from disk.", flowId);
+			}
 		} catch (Exception e) {
-			LOG.error("Fetching has failed.",e);
+			LOG.error("Flow ID: ["+ flowId +"]. Fetching of overflowed events has failed.",e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
@@ -137,8 +130,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest) throws MaximumInsertTriesException {
-		persistBulkRequestToDisk(dbBulkRequest,1000);
+	public void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) throws MaximumInsertTriesException {
+		persistBulkRequestToDisk(dbBulkRequest,1000, flowId, bulkNum);
 	}
 
 	@Override public void persistEventsToDisk(ArrayList<Event> events) {
@@ -146,7 +139,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			overFlowedEventsTable.insert(serializeEvents(events), DateTime.now().toString());
 			LOG.info("List of {} overflowed events was inserted successfully to disk.", events.size());
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).increment();
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).increment();
 		} catch (Exception e) {
 			LOG.error("Insertion of overflowed events has failed. Events: "+ events.toString() , e);
 		} finally {
@@ -163,7 +156,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public boolean hasFailedBulks()  {
+	public boolean hasFailedBulks(String flowId)  {
 		boolean returnValue = false;
 		ISqlJetCursor resultCursor = null;
 		try {
@@ -171,7 +164,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
 		} catch (Exception e) {
-			LOG.error("Checking how many bulks are in SQLite has failed.");
+			LOG.error("Flow ID: [{}]. Checking how many bulks are in SQLite has failed.", flowId);
 		} finally {
 			closeCursor(resultCursor);
 		}
@@ -227,32 +220,37 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	//region package methods
 
-	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails) throws MaximumInsertTriesException {
-		int retryNum = 0;
+	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, String flowId, int bulkNum) throws MaximumInsertTriesException {
+		int timesFetched = dbBulkRequest.getTimesFetched();
+		if (timesFetched > 0) {
+			LOG.info("Flow ID: [{}]. Bulk #{}. Inserting bulk request with id: {} to disk, that was fetched {} {}.", flowId, bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
+		} else {
+			LOG.info("Flow ID: [{}]. Bulk #{}. Inserting bulk request to disk for the first time.", flowId, bulkNum);
+		}
 
-		while (retryNum++ < maxInsertTries) {
+		for (int tryNum = 1; tryNum <= maxInsertTries; tryNum++) {
+			if (tryNum > 1){
+				LOG.info("Flow ID: [{}]. Bulk #{}. Started try # {}/{} to persist a bulk", flowId, bulkNum, tryNum, maxInsertTries);
+			}
 			try {
-
-				if (dbBulkRequest.getTimesFetched() > 0) {
-					int timesFetched = dbBulkRequest.getTimesFetched();
-					LOG.info("Inserting bulk request with id: {} to disk, that was fetched {} {}.", dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
-				} else {
-					LOG.info("Inserting bulk request to disk for the first time.");
-				}
-
 				db.beginTransaction(SqlJetTransactionMode.WRITE);
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				failedBulkTable.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
-						dbBulkRequest.getInsertTime(), dbBulkRequest.getTimesFetched());
-				LOG.info("Bulk request was inserted successfully to disk.");
-				currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).increment();
+						dbBulkRequest.getInsertTime(), timesFetched);
+				LOG.info("Flow ID: [{}]. Bulk #{}. Try # {}. Bulk request was inserted successfully to disk.", flowId, bulkNum, tryNum);
+				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).increment();
 				break; // if arrived here then insertion succeeded, no need to retry again
 
 			} catch (Exception e) {
-				LOG.error("Insertion of bulk has failed for the {}th time. Error message: {}",retryNum, e);
-				silentThreadSleep(sleepTimeIfFails);
-				sleepTimeIfFails*=2;
-				if (retryNum == maxInsertTries){
+				LOG.error("Flow ID: [" + flowId + "]. Bulk #" + bulkNum + ". Try # " + tryNum + "/" + maxInsertTries + " to persist a bulk has failed.", e);
+
+				try {
+					Thread.sleep(sleepTimeIfFails);
+				} catch (InterruptedException ex) {
+				}
+
+				sleepTimeIfFails *= 2;
+				if (tryNum >= maxInsertTries){
 					throw new MaximumInsertTriesException(maxInsertTries);
 				}
 			} finally {
@@ -261,14 +259,14 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch) {
+	List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch, String flowId) {
 		List<DbBulkRequest> dbBulkRequests = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
 		DbBulkRequest dbBulkRequest;
 
 		try {
-			LOG.info("Fetching from SQLite...");
+			LOG.info("Flow ID: [{}]. Fetching failed bulks from SQLite.", flowId);
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
@@ -277,15 +275,15 @@ public class SQLJetDiskHandler implements DiskHandler {
 				dbBulkRequests.add(dbBulkRequest);
 				if (deleteAfterFetch) {
 					resultCursor.delete(); // also do next
+					KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).decrement(); // removed request from db
 				}else {
 					resultCursor.next();
 				}
 				fetchedCount++;
 			}
-			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).decrement(fetchedCount); // removed request from db
-			LOG.info("Fetched successfully. Number of fetched bulks: {}.",fetchedCount);
+			LOG.info("Flow ID: [{}]. Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
 		} catch (Exception e) {
-			LOG.error("Fetching has failed.",e);
+			LOG.error("Flow ID: [" + flowId + "]. Fetching failed bulks has failed.", e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
@@ -354,14 +352,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 				LOG.error("Closing SQLite has failed",e);
 			}
 			db = null;
-		}
-	}
-
-	private void silentThreadSleep(long sleepTime) {
-		try {
-			Thread.sleep(sleepTime);
-		} catch (Exception e) {
-			LOG.warn("Making thread sleep has failed",e);
 		}
 	}
 

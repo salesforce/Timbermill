@@ -13,7 +13,6 @@ import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;
@@ -27,7 +26,7 @@ public class TimberLogAdvancedTest {
     public static void setUp() {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
 
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
@@ -1017,7 +1016,7 @@ public class TimberLogAdvancedTest {
             Thread.sleep(3000);
         }
         else {
-            Thread.sleep(3);
+            Thread.sleep(300);
         }
         TimberLoggerAdvanced.start(taskId, EVENT, null, LogParams.create());
 

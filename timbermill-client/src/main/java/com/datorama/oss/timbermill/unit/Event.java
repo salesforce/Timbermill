@@ -187,6 +187,11 @@ public abstract class Event implements Serializable {
 	}
 
 	@JsonIgnore
+	public ZonedDateTime getStartTime() {
+		return null;
+	}
+
+	@JsonIgnore
 	public ZonedDateTime getEndTime() {
 		return null;
 	}
