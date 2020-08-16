@@ -576,7 +576,7 @@ public class ElasticsearchClient {
 					LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
 				}
 				if (numOfScrollsReached && keepScrolling) {
-					LOG.error("Scrolls amount  limit of [{} seconds] reached", scrollLimitation);
+					LOG.error("Scrolls amount  limit of [{} scroll operations] reached", scrollLimitation);
 				}
 			}
 			clearScroll(index, functionDescription, scrollIds, flowId);
