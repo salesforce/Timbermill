@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
@@ -25,9 +26,8 @@ import com.datorama.oss.timbermill.unit.Event;
 public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
+
 	private static final int THREAD_SLEEP = 2000;
-	private final String mergingCronExp;
-	private final int partialsFetchPeriodHours;
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
@@ -75,8 +75,6 @@ public class TimbermillService {
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
-		this.mergingCronExp = mergingCronExp;
-		this.partialsFetchPeriodHours = partialsFetchPeriodMinutes;
 
 		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
@@ -137,15 +135,13 @@ public class TimbermillService {
 				if (!overflowedQueue.offer(event)){
 					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
 				}
+				else {
+					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+				}
+			}
+			else{
+				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
 			}
 		}
-	}
-
-	int getEventsQueueSize() {
-		return eventsQueue.size();
-	}
-
-	TaskIndexer getTaskIndexer() {
-		return taskIndexer;
 	}
 }

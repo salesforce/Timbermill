@@ -10,9 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 
+import kamon.metric.Timer;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.DISK_HANDLER;
 
@@ -24,7 +26,8 @@ public class BulkPersistentFetchJob implements Job {
 	@Override public void execute(JobExecutionContext context) {
 		DiskHandler diskHandler = (DiskHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
 		if (diskHandler != null) {
-			String flowId = UUID.randomUUID().toString();
+			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
+			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
 			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job started.", flowId);
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
 			boolean runNextBulk = true;
@@ -32,6 +35,7 @@ public class BulkPersistentFetchJob implements Job {
 				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
 			}
 			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job ended.", flowId);
+			start.stop();
 		}
 	}
 
@@ -41,13 +45,13 @@ public class BulkPersistentFetchJob implements Job {
 			keepRunning = true;
 			int successBulks = 0;
 			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk Start ####", flowId);
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler. fetchAndDeleteFailedBulks(flowId);
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks(flowId);
 			if (failedRequestsFromDisk.size() == 0) {
 				keepRunning = false;
 			}
 			int bulkNum = 1;
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (!es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum)) {
+				if (es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum) > 0) {
 					keepRunning = false;
 				}
 				else {
@@ -57,7 +61,7 @@ public class BulkPersistentFetchJob implements Job {
 			}
 			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
 		} else {
-			LOG.info("Flow ID: [{}]. There are no failed bulks to fetch from disk", flowId);
+			LOG.info("Flow ID: [{}]. There are no failed bulks to fetch from disk.", flowId);
 		}
 		return keepRunning;
 	}

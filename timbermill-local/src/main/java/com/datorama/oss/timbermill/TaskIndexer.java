@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
@@ -19,9 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import kamon.Kamon;
-import kamon.metric.Metric;
-import static com.datorama.oss.timbermill.common.Constants.GSON;
+import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 
 public class TaskIndexer {
 
@@ -29,9 +28,6 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private Metric.Histogram tasksFetchedHistogram = Kamon.histogram("timbermill2.tasks.fetched.histogram");
-    private Metric.Histogram tasksIndexedHistogram = Kamon.histogram("timbermill2.tasks.indexed.histogram");
-    private Metric.Histogram batchDurationHistogram = Kamon.histogram("timbermill2.batch.duration.histogram");
     private long daysRotation;
 
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es) {
@@ -50,7 +46,7 @@ public class TaskIndexer {
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
-        String flowId = UUID.randomUUID().toString();
+        String flowId = "Task Indexer - " + UUID.randomUUID().toString();
         LOG.info("Flow ID: [{}] #### Batch Start ####", flowId);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         LOG.info("Flow ID: [{}]. {} events to be handled in current batch", flowId, events.size());
@@ -115,9 +111,9 @@ public class TaskIndexer {
     }
 
     private void reportToKamon(int tasksFetchedSize, int indexedTasksSize, long duration) {
-        tasksFetchedHistogram.withoutTags().record(tasksFetchedSize);
-        tasksIndexedHistogram.withoutTags().record(indexedTasksSize);
-        batchDurationHistogram.withoutTags().record(duration);
+        KamonConstants.MISSING_PARENTS_TASKS_FETCHED_HISTOGRAM.withoutTags().record(tasksFetchedSize);
+        KamonConstants.TASKS_INDEXED_HISTOGRAM.withoutTags().record(indexedTasksSize);
+        KamonConstants.BATCH_DURATION_HISTOGRAM.withoutTags().record(duration);
     }
 
     private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now, String flowId) {

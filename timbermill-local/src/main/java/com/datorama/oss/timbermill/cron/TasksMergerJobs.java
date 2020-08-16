@@ -12,9 +12,8 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 
-import kamon.Kamon;
-import kamon.metric.Metric;
 import kamon.metric.Timer;
 
 @DisallowConcurrentExecution
@@ -22,7 +21,6 @@ public class TasksMergerJobs implements Job {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TasksMergerJobs.class);
 
-	private final Metric.Timer partialsJobLatency = Kamon.timer("timbermill2.partial.tasks.job.latency.timer");
 	private final Random rand = new Random();
 
 	@Override public void execute(JobExecutionContext context) {
@@ -35,8 +33,8 @@ public class TasksMergerJobs implements Job {
 			try {
 				Thread.sleep(secondsToWait * 1000);
 			} catch (InterruptedException ignored) {}
-			Timer.Started started = partialsJobLatency.withoutTags().start();
-			String flowId = UUID.randomUUID().toString();
+			Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
+			String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
 			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job started.", flowId);
 			client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
 			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job ended.", flowId);

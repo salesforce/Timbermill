@@ -19,11 +19,9 @@ import org.tmatesoft.sqljet.core.table.ISqlJetCursor;
 import org.tmatesoft.sqljet.core.table.ISqlJetTable;
 import org.tmatesoft.sqljet.core.table.SqlJetDb;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
-
-import kamon.Kamon;
-import kamon.metric.Metric;
 
 public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
@@ -51,8 +49,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
-	private Metric.Gauge currentDataInDiskGauge = Kamon.gauge("timbermill2.data.in.disk.gauge");
-
 
 	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
@@ -82,8 +78,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
 
 			// update kamon guage (counter)
-			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
 
 			silentDbCommit();
 			LOG.info("SQLite was created successfully");
@@ -101,10 +97,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override public List<Event> fetchAndDeleteOverflowedEvents(String flowId) {
-		return fetchOverflowedEvents(true, flowId);
-	}
-
-	private List<Event> fetchOverflowedEvents(boolean deleteAfterFetch, String flowId) {
 		List<Event> allEvents = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
@@ -114,19 +106,20 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
-			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
+			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
 				LOG.info("Flow ID: [{}]. Fetching overflowed events from SQLite.", flowId);
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				allEvents.addAll(events);
-				if (deleteAfterFetch) {
-					resultCursor.delete(); // also do next
-				}else {
-					resultCursor.next();
-				}
+				resultCursor.delete(); // also do next
 				fetchedCount += events.size();
+				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).decrement(); // removed events from db
 			}
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).decrement(fetchedCount); // removed events from db
-			LOG.info("Flow ID: [{}]. Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
+			if (fetchedCount > 0) {
+				LOG.info("Flow ID: [{}]. Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
+			}
+			else {
+				LOG.info("Flow ID: [{}]. There are no overflowed events to fetch from disk.", flowId);
+			}
 		} catch (Exception e) {
 			LOG.error("Flow ID: ["+ flowId +"]. Fetching of overflowed events has failed.",e);
 		} finally {
@@ -146,7 +139,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			overFlowedEventsTable.insert(serializeEvents(events), DateTime.now().toString());
 			LOG.info("List of {} overflowed events was inserted successfully to disk.", events.size());
-			currentDataInDiskGauge.withTag("type",OVERFLOWED_EVENTS_TABLE_NAME).increment();
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).increment();
 		} catch (Exception e) {
 			LOG.error("Insertion of overflowed events has failed. Events: "+ events.toString() , e);
 		} finally {
@@ -245,7 +238,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				failedBulkTable.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), timesFetched);
 				LOG.info("Flow ID: [{}]. Bulk #{}. Try # {}. Bulk request was inserted successfully to disk.", flowId, bulkNum, tryNum);
-				currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).increment();
+				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).increment();
 				break; // if arrived here then insertion succeeded, no need to retry again
 
 			} catch (Exception e) {
@@ -282,12 +275,12 @@ public class SQLJetDiskHandler implements DiskHandler {
 				dbBulkRequests.add(dbBulkRequest);
 				if (deleteAfterFetch) {
 					resultCursor.delete(); // also do next
+					KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).decrement(); // removed request from db
 				}else {
 					resultCursor.next();
 				}
 				fetchedCount++;
 			}
-			currentDataInDiskGauge.withTag("type",FAILED_BULKS_TABLE_NAME).decrement(fetchedCount); // removed request from db
 			LOG.info("Flow ID: [{}]. Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
 		} catch (Exception e) {
 			LOG.error("Flow ID: [" + flowId + "]. Fetching failed bulks has failed.", e);

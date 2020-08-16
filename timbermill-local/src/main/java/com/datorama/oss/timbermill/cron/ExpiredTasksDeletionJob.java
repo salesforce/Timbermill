@@ -14,7 +14,7 @@ public class ExpiredTasksDeletionJob implements Job {
 
 	@Override public void execute(JobExecutionContext context) {
 		ElasticsearchClient client = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
-		String flowId = UUID.randomUUID().toString();
+		String flowId = "Expired Tasks Deletion Job - " + UUID.randomUUID().toString();
 		client.deleteExpiredTasks(flowId);
 	}
 }

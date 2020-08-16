@@ -10,7 +10,7 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.junit.*;
 
-import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 
 import static org.junit.Assert.*;
@@ -127,8 +127,8 @@ public class SQLJetDiskHandlerTest {
 		static UpdateRequest createMockRequest() {
 			String taskId = UUID.randomUUID().toString();
 			String index = "timbermill-test";
-			UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
-			Script script = new Script(ScriptType.STORED, null, Constants.TIMBERMILL_SCRIPT, new HashMap<>());
+			UpdateRequest updateRequest = new UpdateRequest(index, ElasticsearchClient.TYPE, taskId);
+			Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, new HashMap<>());
 			updateRequest.script(script);
 			return updateRequest;
 		}

@@ -13,11 +13,11 @@ import org.elasticsearch.script.ScriptType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
-import static com.datorama.oss.timbermill.common.Constants.GSON;
+import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
 
 public class Task {
@@ -26,8 +26,8 @@ public class Task {
 	private static final String OLD_EVENT_ID_DELIMITER = "_";
 	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
 	private static final int RETRIES_ON_CONFLICT = 3;
-	public static final String REGULAR = "REGULAR";
-	public static final String ADOPTED = "ADOPTED";
+	private static final String REGULAR = "REGULAR";
+	private static final String ADOPTED = "ADOPTED";
 
 	private String index;
 	private String env;
@@ -356,8 +356,8 @@ public class Task {
 	}
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
-		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
-		updateRequest.upsert(Constants.GSON.toJson(this), XContentType.JSON);
+		UpdateRequest updateRequest = new UpdateRequest(index, ElasticsearchClient.TYPE, taskId);
+		updateRequest.upsert(ElasticsearchClient.GSON.toJson(this), XContentType.JSON);
 		updateRequest = updateRequest.retryOnConflict(RETRIES_ON_CONFLICT);
 
 		Map<String, Object> params = new HashMap<>();
@@ -386,7 +386,7 @@ public class Task {
 			params.put("orphan", orphan);
 		}
 
-		Script script = new Script(ScriptType.STORED, null, Constants.TIMBERMILL_SCRIPT, params);
+		Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, params);
 		updateRequest.script(script);
 		return updateRequest;
 	}

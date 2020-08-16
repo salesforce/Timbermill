@@ -21,7 +21,6 @@ import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -39,7 +38,7 @@ public class TimberLogAdvancedOrphansTest {
     public static void setUp() {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3, 1000,null ,1, 1, 4000, null);

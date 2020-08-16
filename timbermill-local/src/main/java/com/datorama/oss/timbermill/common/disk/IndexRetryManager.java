@@ -11,12 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.Bulker;
-import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.google.common.collect.Lists;
-
-import kamon.Kamon;
-import kamon.metric.Metric;
 
 public class IndexRetryManager {
 
@@ -25,7 +22,6 @@ public class IndexRetryManager {
 	private DiskHandler diskHandler;
 	private Bulker bulker;
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
-	private Metric.Histogram tasksFetchedFromDiskHistogram = Kamon.histogram(Constants.TIMBERMILL_2_FAILED_TASKS_FETCHED_FROM_DISK_HISTOGRAM);
 	private List<String> blackListExceptions =  Lists.newArrayList("type=null_pointer_exception");
 
 	public IndexRetryManager(int numOfElasticSearchActionsTries, int maxBulkIndexFetches, DiskHandler diskHandler, Bulker bulker) {
@@ -35,12 +31,14 @@ public class IndexRetryManager {
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
 	}
 
-	public boolean retrySendDbBulkRequest(DbBulkRequest dbBulkRequest, BulkResponse responses, String failureMessage, String flowId, int bulkNum){
+
+	//Return failed amount of requests
+	public int retrySendDbBulkRequest(DbBulkRequest dbBulkRequest, BulkResponse responses, String failureMessage, String flowId, int bulkNum){
 
 		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
 		if (shouldStopRetry(failureMessage)) {
 			reportStopRetry(dbBulkRequest,failureMessage);
-			return false;
+			return dbBulkRequest.size();
 		}
 
 		for (int tryNum = 2 ; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
@@ -56,16 +54,16 @@ public class IndexRetryManager {
 					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, retryResponse);
 					if (shouldStopRetry(failureMessage)) {
 						reportStopRetry(dbBulkRequest,failureMessage);
-						return false;
+						return dbBulkRequest.size();
 					}
 				}
 				else{
 					// SUCCESS
 					LOG.info("Flow ID: [{}]. Bulk #{}. Try # {} finished successfully. Took: {} millis.", flowId, bulkNum, tryNum, retryResponse.getTook().millis());
 					if (dbBulkRequest.getTimesFetched() > 0 ){
-						tasksFetchedFromDiskHistogram.withTag("outcome","success").record(1);
+						KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
 					}
-					return true;
+					return 0;
 				}
 			} catch (Throwable t) {
 				// EXCEPTION
@@ -74,14 +72,14 @@ public class IndexRetryManager {
 						flowId, bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
 				if (shouldStopRetry(failureMessage)) {
 					reportStopRetry(dbBulkRequest,failureMessage);
-					return false;
+					return dbBulkRequest.size();
 				}
 			}
 		}
 		// finishing to retry - if persistence is defined then try to persist the failed requests
 		LOG.error("Flow ID: [{}]. Bulk #{}. Reached maximum tries ({}) attempt to index.", flowId, bulkNum, numOfElasticSearchActionsTries);
 		tryPersistBulkRequest(dbBulkRequest, flowId, bulkNum);
-		return false;
+		return dbBulkRequest.size();
 	}
 
 
@@ -93,11 +91,11 @@ public class IndexRetryManager {
 				} catch (MaximumInsertTriesException e) {
 					LOG.error("Flow ID: [{}]. Bulk #{}. Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).",
 							flowId, bulkNum, e.getMaximumTriesNumber());
-					tasksFetchedFromDiskHistogram.withTag("outcome", "error").record(1);
+					KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
 				}
 			} else {
 				LOG.error("Flow ID: [{}]. Bulk #{}. Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", flowId, bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
-				tasksFetchedFromDiskHistogram.withTag("outcome", "failure").record(1);
+				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
 			}
 		}
 		else {

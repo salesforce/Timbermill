@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -47,8 +48,9 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.util.IOUtils;
-import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.ZonedDateTimeConverter;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
@@ -57,43 +59,39 @@ import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import com.google.gson.internal.LazilyParsedNumber;
 
-import kamon.Kamon;
-import kamon.metric.Metric;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
 import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
 public class ElasticsearchClient {
 
+	public static final String TYPE = "_doc";
+	public static final String TIMBERMILL_SCRIPT = "timbermill-script";
+	public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
 	private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
 	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
 	private static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
-	private Metric.Histogram tasksFetchedFromDiskHistogram = Kamon.histogram(Constants.TIMBERMILL_2_FAILED_TASKS_FETCHED_FROM_DISK_HISTOGRAM);
 	private static final String TTL_FIELD = "meta.dateToDelete";
 	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
-    private final int indexBulkSize;
-    private final ExecutorService executorService;
-    private long maxIndexAge;
-    private long maxIndexSizeInGB;
-    private long maxIndexDocs;
-    private String currentIndex;
-    private String oldIndex;
+	private final int indexBulkSize;
+	private final ExecutorService executorService;
+	private long maxIndexAge;
+	private long maxIndexSizeInGB;
+	private long maxIndexDocs;
+	private String currentIndex;
+	private String oldIndex;
 	private final int numOfElasticSearchActionsTries;
 	private IndexRetryManager retryManager;
 	private Bulker bulker;
 	private int searchMaxSize;
 
 	private final ReadWriteLock indexRolloverValuesAccessController;
-	private final Metric.Counter partialTasksFetchedCounter= Kamon.counter("timbermill2.partial.tasks.fetched.counter");
-	private final Metric.Counter partialTasksMigratedCounter= Kamon.counter("timbermill2.partial.tasks.migrated.counter");
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
@@ -291,7 +289,7 @@ public class ElasticsearchClient {
 
         BulkRequest bulkRequest = new BulkRequest();
         for (String metadataEvent : metadataEvents) {
-            IndexRequest indexRequest = new IndexRequest(index, Constants.TYPE).source(metadataEvent, XContentType.JSON);
+            IndexRequest indexRequest = new IndexRequest(index, TYPE).source(metadataEvent, XContentType.JSON);
             bulkRequest.add(indexRequest);
         }
 		try {
@@ -309,8 +307,8 @@ public class ElasticsearchClient {
         }
     }
 
-	// return true iff execution of bulk finished successfully
-	public boolean sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
+	// return number of failed requests
+	public int sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
 		LOG.debug("Flow ID: [{}]. Bulk #{}. Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
@@ -322,9 +320,9 @@ public class ElasticsearchClient {
 			}
 			LOG.debug("Flow ID: [{}]. Bulk #{}. Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
 			if (dbBulkRequest.getTimesFetched() > 0 ){
-				tasksFetchedFromDiskHistogram.withTag("outcome","success").record(1);
+				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
 			}
-			return true;
+			return 0;
 		} catch (Throwable t) {
 			return retryManager.retrySendDbBulkRequest(dbBulkRequest,null,t.getMessage(), flowId, bulkNum);
 		}
@@ -335,13 +333,16 @@ public class ElasticsearchClient {
 		return bulker.bulk(request);
 	}
 
-	public void index(Map<String, Task> tasksMap, String index, String flowId) {
-        Collection<Pair<Future, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index, flowId);
+	//Return number of failed tasks
+	public int index(Map<String, Task> tasksMap, String index, String flowId) {
+        Collection<Pair<Future<Integer>, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index, flowId);
 
 		int bulkNum = 1;
-		for (Pair<Future, DbBulkRequest> futureRequest : futuresRequests) {
+		int overallFailedRequests = 0;
+		for (Pair<Future<Integer>, DbBulkRequest> futureRequest : futuresRequests) {
 			try {
-				futureRequest.getLeft().get();
+				Integer failedRequests = futureRequest.getLeft().get();
+				overallFailedRequests += failedRequests;
 			} catch (InterruptedException e) {
 				LOG.error("Flow ID: [{}]. Bulk #{}. An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
 				sendDbBulkRequest(futureRequest.getRight(), flowId, bulkNum);
@@ -350,6 +351,7 @@ public class ElasticsearchClient {
 			}
 			bulkNum++;
         }
+		return overallFailedRequests;
     }
 
     void rolloverIndex(String timbermillAlias, String flowId) {
@@ -378,10 +380,11 @@ public class ElasticsearchClient {
 		String currentIndex = this.currentIndex;
 		indexRolloverValuesAccessController.readLock().unlock();
 
-		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(relativeMinutes, oldIndex, currentIndex, flowId));
-		tasksToMigrateIntoNewIndex.putAll(findMatchingTasksToMigrate(relativeMinutes, currentIndex, oldIndex, flowId));
+		Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(relativeMinutes, oldIndex, currentIndex, flowId);
+		Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(relativeMinutes, currentIndex, oldIndex, flowId);
+		tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
+		tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
 		indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldIndex, currentIndex, flowId);
-		partialTasksMigratedCounter.withoutTags().increment(tasksToMigrateIntoNewIndex.size());
 	}
 
 	private Map<String,Task> findMatchingTasksToMigrate(int relativeMinutes, String indexOfPartials, String indexOfMatchingTasks, String flowId) {
@@ -391,10 +394,11 @@ public class ElasticsearchClient {
 		String functionDescription = "Migrate old tasks to new index";
 		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, indexOfPartials, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId);
 		if (!singleTaskByIds.isEmpty()) {
-			partialTasksFetchedCounter.withoutTags().increment(singleTaskByIds.size());
 			matchingTasks = getTasksByIds(indexOfMatchingTasks, singleTaskByIds.keySet(), functionDescription, ALL_TASK_FIELDS, EMPTY_ARRAY, flowId);
+
+			KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withoutTags().record(singleTaskByIds.size());
+			LOG.info("Flow ID: [{}]. Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
 		}
-		LOG.info("Flow ID: [{}]. Fetched {} to be migrated tasks from index {}.", flowId, matchingTasks.size(), indexOfPartials);
 		return matchingTasks;
 	}
 
@@ -409,20 +413,23 @@ public class ElasticsearchClient {
 		return latestPartialsQuery;
 	}
 
-	private void indexAndDeleteTasks(Map<String, Task> previousIndexPartialTasks, String oldIndex, String currentIndex, String flowId) {
-		if (!previousIndexPartialTasks.isEmpty()) {
-			LOG.info("Flow ID: [{}]. Starting migration of {} tasks between old index [{}] and new index [{}]",
-					flowId, previousIndexPartialTasks.size(), oldIndex, currentIndex);
-			index(previousIndexPartialTasks, currentIndex, flowId);
-			deleteTasksFromIndex(previousIndexPartialTasks.keySet(), oldIndex, flowId);
-			LOG.info("Flow ID: [{}]. Successfully migrated {} tasks to new index [{}]", flowId, previousIndexPartialTasks.size(), currentIndex);
+	private void indexAndDeleteTasks(Map<String, Task> tasksToMigrateIntoNewIndex, String oldIndex, String currentIndex, String flowId) {
+		if (!tasksToMigrateIntoNewIndex.isEmpty()) {
+			LOG.info("Flow ID: [{}]. Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
+			int failedRequests = index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
+			if (failedRequests > 0){
+				LOG.info("Flow ID: [{}]. There were {} failed migration requests", flowId, failedRequests);
+				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
+			}
+			deleteTasksFromIndex(tasksToMigrateIntoNewIndex.keySet(), oldIndex, flowId);
+			KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withoutTags().record(tasksToMigrateIntoNewIndex.size());
 		}
     }
 
-	private Collection<Pair<Future, DbBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index, String flowId) {
+	private Collection<Pair<Future<Integer>, DbBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index, String flowId) {
 		Collection<UpdateRequest> requests = createUpdateRequests(tasksMap, index, flowId);
 		BulkRequest request = new BulkRequest();
-		Collection<Pair<Future, DbBulkRequest>> futures = new ArrayList<>();
+		Collection<Pair<Future<Integer>, DbBulkRequest>> futures = new ArrayList<>();
 		int bulkNum = 1;
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
@@ -441,8 +448,8 @@ public class ElasticsearchClient {
 		return futures;
     }
 
-	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future, DbBulkRequest>> futures, String flowId, int bulkNum) {
-        Future<?> future = executorService.submit(() -> sendDbBulkRequest(request, flowId, bulkNum));
+	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future<Integer>, DbBulkRequest>> futures, String flowId, int bulkNum) {
+        Future<Integer> future = executorService.submit(() -> {return sendDbBulkRequest(request, flowId, bulkNum);});
         futures.add(Pair.of(future, request));
     }
 
@@ -472,7 +479,7 @@ public class ElasticsearchClient {
 
 	private void puStoredScript() throws MaxRetriesException {
 		PutStoredScriptRequest request = new PutStoredScriptRequest();
-		request.id(Constants.TIMBERMILL_SCRIPT);
+		request.id(TIMBERMILL_SCRIPT);
 		String content = "{\n"
 				+ "  \"script\": {\n"
 				+ "    \"lang\": \"painless\",\n"
@@ -616,7 +623,7 @@ public class ElasticsearchClient {
 			SearchHit[] hits = searchResponse.getHits().getHits();
 			for (SearchHit searchHit : hits) {
 				String sourceAsString = searchHit.getSourceAsString();
-				Task task = Constants.GSON.fromJson(sourceAsString, Task.class);
+				Task task = GSON.fromJson(sourceAsString, Task.class);
 				fixMetrics(task);
 				task.setIndex(searchHit.getIndex());
 				String id = searchHit.getId();

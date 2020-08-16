@@ -16,7 +16,6 @@ import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
@@ -33,7 +32,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
     public static void init() throws IOException {
         String elasticUrl = System.getenv("ELASTICSEARCH_URL");
         if (StringUtils.isEmpty(elasticUrl)){
-            elasticUrl = DEFAULT_ELASTICSEARCH_URL;
+            elasticUrl = "http://localhost:9200";
         }
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,

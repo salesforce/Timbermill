@@ -18,10 +18,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.common.disk.IndexRetryManager.extractFailedRequestsFromBulk;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
@@ -29,7 +27,7 @@ import static org.mockito.Mockito.spy;
 @RunWith(MockitoJUnitRunner.class)
 public class ElasticsearchClientTest {
 
-
+	private static final String DEFAULT_ELASTICSEARCH_URL = "http://localhost:9200";
 	private static ElasticsearchClient elasticsearchClient;
 
 	@BeforeClass
@@ -97,8 +95,8 @@ public class ElasticsearchClientTest {
 	private UpdateRequest createMockRequest() {
 		String taskId = UUID.randomUUID().toString();
 		String index = "timbermill-test";
-		UpdateRequest updateRequest = new UpdateRequest(index, Constants.TYPE, taskId);
-		Script script = new Script(ScriptType.STORED, null, Constants.TIMBERMILL_SCRIPT, new HashMap<>());
+		UpdateRequest updateRequest = new UpdateRequest(index, ElasticsearchClient.TYPE, taskId);
+		Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, new HashMap<>());
 		updateRequest.script(script);
 		return updateRequest;
 	}

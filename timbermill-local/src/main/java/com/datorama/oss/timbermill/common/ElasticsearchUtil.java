@@ -326,6 +326,7 @@ public class ElasticsearchUtil {
 
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
+				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
@@ -351,7 +352,7 @@ public class ElasticsearchUtil {
 		if (!overflowedQueue.isEmpty()) {
 			ArrayList<Event> events = Lists.newArrayList();
 			overflowedQueue.drainTo(events, MAX_ELEMENTS * 10);
-
+			KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 			diskHandler.persistEventsToDisk(events);
 		}
 

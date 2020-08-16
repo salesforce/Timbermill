@@ -12,23 +12,18 @@ import org.slf4j.LoggerFactory;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.unit.AdoptedEvent;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.Task;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import kamon.Kamon;
-import kamon.metric.Metric;
 import kamon.metric.Timer;
 
 @DisallowConcurrentExecution
 public class OrphansAdoptionJob implements Job {
 	private static final Logger LOG = LoggerFactory.getLogger(OrphansAdoptionJob.class);
-
-	private final Metric.Counter orphansFoundCounter = Kamon.counter("timbermill2.orphans.found.counter");
-	private final Metric.Counter orphansAdoptedCounter= Kamon.counter("timbermill2.orphans.adopted.counter");
-	private final Metric.Timer orphansJobLatency = Kamon.timer("timbermill2.orphans.job.latency.timer");
 
 	private final Random rand = new Random();
 
@@ -38,8 +33,8 @@ public class OrphansAdoptionJob implements Job {
 			Thread.sleep(secondsToWait * 1000);
 		} catch (InterruptedException ignored) {}
 
-		Timer.Started started = orphansJobLatency.withoutTags().start();
-		String flowId = UUID.randomUUID().toString();
+		Timer.Started started = KamonConstants.ORPHANS_JOB_LATENCY.withoutTags().start();
+		String flowId = "Orphans Adoption Job - " + UUID.randomUUID().toString();
 		LOG.info("Flow ID: [{}]. Orphans Adoption Job started.", flowId);
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
 		int partialOrphansGraceMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
@@ -63,13 +58,16 @@ public class OrphansAdoptionJob implements Job {
 			tasksPerIndex.get(index).put(taskId, task);
 		});
 
-		tasksPerIndex.forEach((index,tasks) -> {
-			es.index(tasks, index, flowId);
-		});
+		tasksPerIndex.forEach((index,tasks) -> es.index(tasks, index, flowId));
 
-		orphansAdoptedCounter.withoutTags().increment(adoptedTasksMap.size());
-		orphansFoundCounter.withoutTags().increment(latestOrphan.size());
-		LOG.info("Flow ID: [{}]. Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), tasksPerIndex.size());
+		KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(latestOrphan.size());
+		KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adoptedTasksMap.size());
+		if (!latestOrphan.isEmpty()) {
+			LOG.info("Flow ID: [{}]. Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), tasksPerIndex.size());
+		}
+		else {
+			LOG.info("Flow ID: [{}]. Didn't find any orphans.", flowId);
+		}
 	}
 
 	private Map<String, Task> enrichAdoptedOrphans(Map<String, Task> latestOrphan, Map<String, Task> fetchedParents, int daysRotation) {
