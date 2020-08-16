@@ -63,7 +63,7 @@ public class OrphansAdoptionJob implements Job {
 		KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(latestOrphan.size());
 		KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adoptedTasksMap.size());
 		if (!latestOrphan.isEmpty()) {
-			LOG.info("Flow ID: [{}]. Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), tasksPerIndex.size());
+			LOG.info("Flow ID: [{}]. Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), adoptedTasksMap.size());
 		}
 		else {
 			LOG.info("Flow ID: [{}]. Didn't find any orphans.", flowId);

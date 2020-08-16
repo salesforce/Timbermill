@@ -99,7 +99,8 @@ public class TaskIndexer {
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index, flowId);
         }
-        LOG.info("Flow ID: [{}]. {} missing parent tasks were fetched and {} tasks were indexed to elasticsearch", flowId, previouslyIndexedParentTasks.size() , tasksMap.size());
+        LOG.info("Flow ID: [{}]. {} missing parent tasks were fetched.", flowId, previouslyIndexedParentTasks.size());
+        LOG.info("Flow ID: [{}]. {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
     }
 

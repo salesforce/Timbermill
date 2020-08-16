@@ -146,7 +146,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int partialOrphansGracePeriodMinutes = 5;
         private int orphansFetchPeriodMinutes = 60;
         private int partialsFetchPeriodMinutes = 60;
-        private int scrollLimitation = 10;
+        private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
 
         public Builder url(String elasticUrl) {
