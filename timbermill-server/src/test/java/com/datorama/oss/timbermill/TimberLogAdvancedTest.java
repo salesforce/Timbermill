@@ -13,7 +13,6 @@ import com.datorama.oss.timbermill.unit.*;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
-import static com.datorama.oss.timbermill.common.Constants.DEFAULT_ELASTICSEARCH_URL;
 import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;

@@ -560,18 +560,18 @@ public class ElasticsearchClient {
 			int numOfScrollsPerformed = 0;
 			boolean timeoutReached = false;
 			boolean numOfScrollsReached = false;
-			while (keepScrolling && !timeoutReached && !numOfScrollsReached) {
+			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-				scrollRequest.scroll(scroll);
+				scrollRequest.scroll(TimeValue.timeValueMinutes(1L));
 				stopWatch.start();
-				SearchResponse scrollResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription);
+				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
+						flowId);
 				stopWatch.stop();
-				scrollId = scrollResponse.getScrollId();
-				searchResponses.add(scrollResponse);
-				SearchHit[] scrollHits = scrollResponse.getHits().getHits();
+				scrollId = searchResponse.getScrollId();
+				scrollIds.add(scrollId);
+				searchResponses.add(searchResponse);
 				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
 				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
-				keepScrolling = scrollHits != null && scrollHits.length > 0;
 				if (timeoutReached && keepScrolling) {
 					LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
 				}
@@ -579,16 +579,6 @@ public class ElasticsearchClient {
 					LOG.error("Scrolls amount  limit of [{} seconds] reached", scrollLimitation);
 				}
 			}
-//			while (shouldKeepScrolling(searchResponse)) {
-//				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-//				scrollRequest.scroll(TimeValue.timeValueMinutes(1L));
-//				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
-//						flowId);
-//
-//				scrollId = searchResponse.getScrollId();
-//				scrollIds.add(scrollId);
-//				searchResponses.add(searchResponse);
-//			}
 			clearScroll(index, functionDescription, scrollIds, flowId);
 		}
 		catch (MaxRetriesException e) {
@@ -613,9 +603,9 @@ public class ElasticsearchClient {
 		}
 	}
 
-	private boolean shouldKeepScrolling(SearchResponse searchResponse) {
+	private boolean shouldKeepScrolling(SearchResponse searchResponse, boolean timeoutReached, boolean numOfScrollsReached) {
 		SearchHit[] searchHits = searchResponse.getHits().getHits();
-		return searchHits != null && searchHits.length > 0;
+		return searchHits != null && searchHits.length > 0 && !timeoutReached && !numOfScrollsReached;
 	}
 
 	private SearchRequest createSearchRequest(String index, QueryBuilder query, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
