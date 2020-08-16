@@ -107,7 +107,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
-				LOG.info("Flow ID: [{}]. Fetching overflowed events from SQLite.", flowId);
+				LOG.info("Flow ID: [{}] Fetching overflowed events from SQLite.", flowId);
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				allEvents.addAll(events);
 				resultCursor.delete(); // also do next
@@ -115,10 +115,10 @@ public class SQLJetDiskHandler implements DiskHandler {
 				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).decrement(); // removed events from db
 			}
 			if (fetchedCount > 0) {
-				LOG.info("Flow ID: [{}]. Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
+				LOG.info("Flow ID: [{}] Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
 			}
 			else {
-				LOG.info("Flow ID: [{}]. There are no overflowed events to fetch from disk.", flowId);
+				LOG.info("Flow ID: [{}] There are no overflowed events to fetch from disk.", flowId);
 			}
 		} catch (Exception e) {
 			LOG.error("Flow ID: ["+ flowId +"]. Fetching of overflowed events has failed.",e);
@@ -164,7 +164,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
 		} catch (Exception e) {
-			LOG.error("Flow ID: [{}]. Checking how many bulks are in SQLite has failed.", flowId);
+			LOG.error("Flow ID: [{}] Checking how many bulks are in SQLite has failed.", flowId);
 		} finally {
 			closeCursor(resultCursor);
 		}
@@ -223,21 +223,21 @@ public class SQLJetDiskHandler implements DiskHandler {
 	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, String flowId, int bulkNum) throws MaximumInsertTriesException {
 		int timesFetched = dbBulkRequest.getTimesFetched();
 		if (timesFetched > 0) {
-			LOG.info("Flow ID: [{}]. Bulk #{}. Inserting bulk request with id: {} to disk, that was fetched {} {}.", flowId, bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
+			LOG.info("Flow ID: [{}] Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", flowId, bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
 		} else {
-			LOG.info("Flow ID: [{}]. Bulk #{}. Inserting bulk request to disk for the first time.", flowId, bulkNum);
+			LOG.info("Flow ID: [{}] Bulk #{} Inserting bulk request to disk for the first time.", flowId, bulkNum);
 		}
 
 		for (int tryNum = 1; tryNum <= maxInsertTries; tryNum++) {
 			if (tryNum > 1){
-				LOG.info("Flow ID: [{}]. Bulk #{}. Started try # {}/{} to persist a bulk", flowId, bulkNum, tryNum, maxInsertTries);
+				LOG.info("Flow ID: [{}] Bulk #{} Started try # {}/{} to persist a bulk", flowId, bulkNum, tryNum, maxInsertTries);
 			}
 			try {
 				db.beginTransaction(SqlJetTransactionMode.WRITE);
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				failedBulkTable.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), timesFetched);
-				LOG.info("Flow ID: [{}]. Bulk #{}. Try # {}. Bulk request was inserted successfully to disk.", flowId, bulkNum, tryNum);
+				LOG.info("Flow ID: [{}] Bulk #{} Try # {}. Bulk request was inserted successfully to disk.", flowId, bulkNum, tryNum);
 				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).increment();
 				break; // if arrived here then insertion succeeded, no need to retry again
 
@@ -266,7 +266,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 		DbBulkRequest dbBulkRequest;
 
 		try {
-			LOG.info("Flow ID: [{}]. Fetching failed bulks from SQLite.", flowId);
+			LOG.info("Flow ID: [{}] Fetching failed bulks from SQLite.", flowId);
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
@@ -281,7 +281,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount++;
 			}
-			LOG.info("Flow ID: [{}]. Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
+			LOG.info("Flow ID: [{}] Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
 		} catch (Exception e) {
 			LOG.error("Flow ID: [" + flowId + "]. Fetching failed bulks has failed.", e);
 		} finally {

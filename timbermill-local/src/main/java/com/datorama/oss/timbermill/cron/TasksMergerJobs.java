@@ -35,9 +35,9 @@ public class TasksMergerJobs implements Job {
 			} catch (InterruptedException ignored) {}
 			Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
 			String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
-			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job started.", flowId);
+			LOG.info("Flow ID: [{}] Partials Tasks Merger Job started.", flowId);
 			client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
-			LOG.info("Flow ID: [{}]. Partials Tasks Merger Job ended.", flowId);
+			LOG.info("Flow ID: [{}] Partials Tasks Merger Job ended.", flowId);
 			started.stop();
 		}
 	}

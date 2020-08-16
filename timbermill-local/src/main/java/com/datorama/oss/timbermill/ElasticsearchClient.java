@@ -146,16 +146,16 @@ public class ElasticsearchClient {
     }
 
     public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds, String flowId) {
-		LOG.debug("Flow ID: [{}]. Fetching {} missing parents", flowId, parentIds.size());
+		LOG.debug("Flow ID: [{}] Fetching {} missing parents", flowId, parentIds.size());
 
 		parentIds.removeAll(startEventsIds);
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             previouslyIndexedParentTasks = fetchIndexedTasks(parentIds, flowId);
         } catch (Throwable t) {
-            LOG.error("Flow ID: [{}]. Error fetching indexed tasks from Elasticsearch", flowId, t);
+            LOG.error("Flow ID: [{}] Error fetching indexed tasks from Elasticsearch", flowId, t);
         }
-        LOG.debug("Flow ID: [{}]. Fetched {} parents", flowId, previouslyIndexedParentTasks.size());
+        LOG.debug("Flow ID: [{}] Fetched {} parents", flowId, previouslyIndexedParentTasks.size());
         return previouslyIndexedParentTasks;
     }
 
@@ -219,7 +219,7 @@ public class ElasticsearchClient {
 			fetchedTasks = getNonOrphansTasksByIds(tasksToFetch, flowId);
 			for (String taskId : tasksToFetch) {
 				if (!fetchedTasks.containsKey(taskId)){
-					LOG.debug("Flow ID: [{}]. Couldn't find missing parent task with ID {} in Elasticsearch", flowId, taskId);
+					LOG.debug("Flow ID: [{}] Couldn't find missing parent task with ID {} in Elasticsearch", flowId, taskId);
 				}
 			}
 		}
@@ -295,7 +295,7 @@ public class ElasticsearchClient {
 				retMap.put(taskId, tasksList.get(0));
 			}
 			else {
-				LOG.warn("Flow ID: [{}]. Fetched multiple tasks per id [{}] from Elasticsearch for [{}]. Tasks: {}", flowId, taskId, functionDescription, tasksList);
+				LOG.warn("Flow ID: [{}] Fetched multiple tasks per id [{}] from Elasticsearch for [{}]. Tasks: {}", flowId, taskId, functionDescription, tasksList);
 			}
 		}
 		return retMap;
@@ -328,14 +328,14 @@ public class ElasticsearchClient {
 	public int sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		LOG.debug("Flow ID: [{}]. Bulk #{}. Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
+		LOG.debug("Flow ID: [{}] Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
 
 		try {
 			BulkResponse responses = bulk(dbBulkRequest);
 			if (responses.hasFailures()) {
 				return retryManager.retrySendDbBulkRequest(dbBulkRequest,responses,responses.buildFailureMessage(), flowId, bulkNum);
 			}
-			LOG.debug("Flow ID: [{}]. Bulk #{}. Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
+			LOG.debug("Flow ID: [{}] Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
 			if (dbBulkRequest.getTimesFetched() > 0 ){
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
 			}
@@ -361,10 +361,10 @@ public class ElasticsearchClient {
 				Integer failedRequests = futureRequest.getLeft().get();
 				overallFailedRequests += failedRequests;
 			} catch (InterruptedException e) {
-				LOG.error("Flow ID: [{}]. Bulk #{}. An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
+				LOG.error("Flow ID: [{}] Bulk #{} An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
 				sendDbBulkRequest(futureRequest.getRight(), flowId, bulkNum);
 			} catch (ExecutionException e) {
-				LOG.error("Flow ID: [{}]. Bulk #{}. An error was thrown while indexing a batch, which won't be persisted to disk", flowId, bulkNum, e);
+				LOG.error("Flow ID: [{}] Bulk #{} An error was thrown while indexing a batch, which won't be persisted to disk", flowId, bulkNum, e);
 			}
 			bulkNum++;
         }
@@ -380,12 +380,12 @@ public class ElasticsearchClient {
 			RolloverResponse rolloverResponse = (RolloverResponse) runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), 1, "Rollover alias " + timbermillAlias,
 					flowId);
 			if (rolloverResponse.isRolledOver()){
-				LOG.info("Flow ID: [{}]. Alias {} rolled over, new index is [{}]", flowId, timbermillAlias, rolloverResponse.getNewIndex());
+				LOG.info("Flow ID: [{}] Alias {} rolled over, new index is [{}]", flowId, timbermillAlias, rolloverResponse.getNewIndex());
 				setRollOveredIndicesValues(rolloverResponse.getOldIndex(), rolloverResponse.getNewIndex());
 
 			}
 		} catch (Exception e) {
-			LOG.error("Flow ID: [{}]. Could not rollovered alias {}", flowId, timbermillAlias);
+			LOG.error("Flow ID: [{}] Could not rollovered alias {}", flowId, timbermillAlias);
 		}
     }
 
@@ -414,7 +414,7 @@ public class ElasticsearchClient {
 			matchingTasks = getTasksByIds(indexOfMatchingTasks, singleTaskByIds.keySet(), functionDescription, ALL_TASK_FIELDS, EMPTY_ARRAY, flowId);
 
 			KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withoutTags().record(singleTaskByIds.size());
-			LOG.info("Flow ID: [{}]. Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
+			LOG.info("Flow ID: [{}] Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
 		}
 		return matchingTasks;
 	}
@@ -432,10 +432,10 @@ public class ElasticsearchClient {
 
 	private void indexAndDeleteTasks(Map<String, Task> tasksToMigrateIntoNewIndex, String oldIndex, String currentIndex, String flowId) {
 		if (!tasksToMigrateIntoNewIndex.isEmpty()) {
-			LOG.info("Flow ID: [{}]. Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
+			LOG.info("Flow ID: [{}] Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
 			int failedRequests = index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
 			if (failedRequests > 0){
-				LOG.info("Flow ID: [{}]. There were {} failed migration requests", flowId, failedRequests);
+				LOG.info("Flow ID: [{}] There were {} failed migration requests", flowId, failedRequests);
 				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
 			}
 			deleteTasksFromIndex(tasksToMigrateIntoNewIndex.keySet(), oldIndex, flowId);
@@ -534,7 +534,7 @@ public class ElasticsearchClient {
 				setRollOveredIndicesValues(null, initialIndex);
 			}
 		} catch (MaxRetriesException e){
-			LOG.error("Flow ID: [{}]. Failed creating Timbermill Alias {}, going to use index {}",flowId, timbermillAlias, initialIndex);
+			LOG.error("Flow ID: [{}] Failed creating Timbermill Alias {}, going to use index {}",flowId, timbermillAlias, initialIndex);
 			return initialIndex;
 		}
 		return timbermillAlias;
@@ -596,7 +596,7 @@ public class ElasticsearchClient {
 			ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 			boolean succeeded = clearScrollResponse.isSucceeded();
 			if (!succeeded) {
-				LOG.error("Flow ID: [{}]. Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
+				LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
 			}
 		} catch (Throwable e) {
 			LOG.error("Flow ID: [" + flowId + "]. Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription  + "] in index " + index, e);
@@ -627,7 +627,7 @@ public class ElasticsearchClient {
 
 	private ActionResponse runWithRetries(Callable<ActionResponse> callable, int tryNum, String functionDescription, String flowId) throws MaxRetriesException {
 		if (tryNum > 1) {
-			LOG.info("Flow ID: [{}]. Started try # {}/{} for [{}]", flowId, tryNum, numOfElasticSearchActionsTries, functionDescription);
+			LOG.info("Flow ID: [{}] Started try # {}/{} for [{}]", flowId, tryNum, numOfElasticSearchActionsTries, functionDescription);
 		}
 		try {
 			return callable.call();
@@ -700,7 +700,7 @@ public class ElasticsearchClient {
     }
 
     public void deleteExpiredTasks(String flowId) {
-        LOG.info("Flow ID: [{}]. About to delete expired tasks", flowId);
+        LOG.info("Flow ID: [{}] About to delete expired tasks", flowId);
 		String query = "{\n"
 				+ "    \"bool\": {\n"
 				+ "      \"must\": [\n"
@@ -732,12 +732,12 @@ public class ElasticsearchClient {
 			JsonObject asJsonObject = new JsonParser().parse(json).getAsJsonObject();
 			JsonElement task = asJsonObject.get("task");
 			if (task != null) {
-				LOG.info("Flow ID: [{}]. Task id {} for deletion by query", flowId, task);
+				LOG.info("Flow ID: [{}] Task id {} for deletion by query", flowId, task);
 			} else {
-				LOG.error("Flow ID: [{}]. Delete by query didn't return taskId. Response was {}", flowId, json);
+				LOG.error("Flow ID: [{}] Delete by query didn't return taskId. Response was {}", flowId, json);
 			}
 		} catch (Exception e) {
-            LOG.warn("Flow ID: [{}]. Could not perform deletion.", flowId, e);
+            LOG.warn("Flow ID: [{}] Could not perform deletion.", flowId, e);
         }
 	}
 

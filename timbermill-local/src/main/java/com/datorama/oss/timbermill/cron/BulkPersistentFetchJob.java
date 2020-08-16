@@ -28,13 +28,13 @@ public class BulkPersistentFetchJob implements Job {
 		if (diskHandler != null) {
 			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
-			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job started.", flowId);
+			LOG.info("Flow ID: [{}] Failed Bulks Persistent Fetch Job started.", flowId);
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
 			boolean runNextBulk = true;
 			while (runNextBulk) {
 				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
 			}
-			LOG.info("Flow ID: [{}]. Failed Bulks Persistent Fetch Job ended.", flowId);
+			LOG.info("Flow ID: [{}] Failed Bulks Persistent Fetch Job ended.", flowId);
 			start.stop();
 		}
 	}
@@ -44,7 +44,7 @@ public class BulkPersistentFetchJob implements Job {
 		if (diskHandler.hasFailedBulks(flowId)) {
 			keepRunning = true;
 			int successBulks = 0;
-			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk Start ####", flowId);
+			LOG.info("Flow ID: [{}] #### Retry Failed-Requests From Disk Start ####", flowId);
 			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks(flowId);
 			if (failedRequestsFromDisk.size() == 0) {
 				keepRunning = false;
@@ -59,9 +59,9 @@ public class BulkPersistentFetchJob implements Job {
 				}
 				bulkNum++;
 			}
-			LOG.info("Flow ID: [{}]. #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
+			LOG.info("Flow ID: [{}] #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
 		} else {
-			LOG.info("Flow ID: [{}]. There are no failed bulks to fetch from disk.", flowId);
+			LOG.info("Flow ID: [{}] There are no failed bulks to fetch from disk.", flowId);
 		}
 		return keepRunning;
 	}

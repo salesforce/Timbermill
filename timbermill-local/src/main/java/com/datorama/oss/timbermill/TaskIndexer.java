@@ -49,7 +49,7 @@ public class TaskIndexer {
         String flowId = "Task Indexer - " + UUID.randomUUID().toString();
         LOG.info("Flow ID: [{}] #### Batch Start ####", flowId);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
-        LOG.info("Flow ID: [{}]. {} events to be handled in current batch", flowId, events.size());
+        LOG.info("Flow ID: [{}] {} events to be handled in current batch", flowId, events.size());
 
         Collection<String> heartbeatEvents = new HashSet<>();
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
@@ -61,7 +61,7 @@ public class TaskIndexer {
             }
             else{
                 if (e.getTaskId() == null){
-                    LOG.warn("Flow ID: [{}]. Task ID is null for event {}", flowId, GSON.toJson(e));
+                    LOG.warn("Flow ID: [{}] Task ID is null for event {}", flowId, GSON.toJson(e));
                 }
                 else {
                     e.fixErrors();
@@ -99,8 +99,8 @@ public class TaskIndexer {
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index, flowId);
         }
-        LOG.info("Flow ID: [{}]. {} missing parent tasks were fetched.", flowId, previouslyIndexedParentTasks.size());
-        LOG.info("Flow ID: [{}]. {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
+        LOG.info("Flow ID: [{}] {} missing parent tasks were fetched.", flowId, previouslyIndexedParentTasks.size());
+        LOG.info("Flow ID: [{}] {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
     }
 
