@@ -295,7 +295,7 @@ public class ElasticsearchClient {
 				retMap.put(taskId, tasksList.get(0));
 			}
 			else {
-				LOG.warn("Flow ID: [{}] Fetched multiple tasks per id [{}] from Elasticsearch for [{}]. Tasks: {}", flowId, taskId, functionDescription, tasksList);
+				LOG.warn("Flow ID: [{}] Fetched multiple tasks per id [{}] from Elasticsearch for [{}] Tasks: {}", flowId, taskId, functionDescription, tasksList);
 			}
 		}
 		return retMap;
@@ -479,7 +479,7 @@ public class ElasticsearchClient {
 				UpdateRequest updateRequest = task.getUpdateRequest(index, taskEntry.getKey());
 				requests.add(updateRequest);
 			} catch (Throwable t){
-				LOG.error("Flow ID: [" + flowId + "]. Failed while creating update request. task:" + task.toString(), t);
+				LOG.error("Flow ID: [" + flowId + "] Failed while creating update request. task:" + task.toString(), t);
 			}
         }
         return requests;
@@ -549,10 +549,11 @@ public class ElasticsearchClient {
 		SearchRequest searchRequest = createSearchRequest(index, query, taskFieldsToInclude, taskFieldsToExclude);
 
 		List<SearchResponse> searchResponses = new ArrayList<>();
+		Set<String> scrollIds = Sets.newHashSet();
 		try {
 			SearchResponse searchResponse = (SearchResponse) runWithRetries(() -> client.search(searchRequest, RequestOptions.DEFAULT), 1, "Initial search for " + functionDescription, flowId);
 			String scrollId = searchResponse.getScrollId();
-			Set<String> scrollIds = Sets.newHashSet(scrollId);
+			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
 			boolean keepScrolling = searchHits != null && searchHits.length > 0;
@@ -579,27 +580,32 @@ public class ElasticsearchClient {
 					LOG.error("Flow ID: [{}] Scrolls amount  limit of [{} scroll operations] reached", flowId, scrollLimitation);
 				}
 			}
-			clearScroll(index, functionDescription, scrollIds, flowId);
+
 		}
 		catch (MaxRetriesException e) {
 			// return what managed to be found before failing.
+		}
+		finally {
+			clearScroll(index, functionDescription, scrollIds, flowId);
 		}
 		return addHitsToMap(searchResponses);
     }
 
 	private void clearScroll(String index, String functionDescription, Set<String> scrollIds, String flowId) {
-		ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
-		for (String scrollId : scrollIds) {
-			clearScrollRequest.addScrollId(scrollId);
-		}
-		try {
-			ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
-			boolean succeeded = clearScrollResponse.isSucceeded();
-			if (!succeeded) {
-				LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
+		if (!scrollIds.isEmpty()) {
+			ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+			for (String scrollId : scrollIds) {
+				clearScrollRequest.addScrollId(scrollId);
 			}
-		} catch (Throwable e) {
-			LOG.error("Flow ID: [" + flowId + "]. Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription  + "] in index " + index, e);
+			try {
+				ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+				boolean succeeded = clearScrollResponse.isSucceeded();
+				if (!succeeded) {
+					LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
+				}
+			} catch (Throwable e) {
+				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "] in index " + index, e);
+			}
 		}
 	}
 
@@ -634,7 +640,7 @@ public class ElasticsearchClient {
 		} catch (Exception e) {
 			if (tryNum < numOfElasticSearchActionsTries){
 				double sleep = Math.pow(2, tryNum);
-				LOG.warn("Flow ID: [" + flowId + "] Failed try # " + tryNum + "/" + numOfElasticSearchActionsTries + " for [" + functionDescription + "]. Going to sleep for " + sleep + " seconds.", e);
+				LOG.warn("Flow ID: [" + flowId + "] Failed try # " + tryNum + "/" + numOfElasticSearchActionsTries + " for [" + functionDescription + "] Going to sleep for " + sleep + " seconds.", e);
 				try {
 					Thread.sleep((long) (sleep * 1000)); //Exponential backoff
 				} catch (InterruptedException ignored) {

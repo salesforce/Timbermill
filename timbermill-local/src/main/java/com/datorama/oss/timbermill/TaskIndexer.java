@@ -257,7 +257,7 @@ public class TaskIndexer {
                 if (eventsMap.get(parentId).stream().anyMatch(Event::isStartEvent)){
                     List<Event> parentEvents = eventsMap.get(parentId).stream().filter(Event::isStartEvent).collect(Collectors.toList());
                     if (parentEvents.size() != 1){
-                        LOG.warn("Too many parents found for parent ID [{}] child task ID [{}]. Events: {}", parentId, event.getTaskId(), GSON.toJson(parentEvents));
+                        LOG.warn("Too many parents found for parent ID [{}] child task ID [{}] Events: {}", parentId, event.getTaskId(), GSON.toJson(parentEvents));
                     }
                     for (Event e : parentEvents) {
                         if (e.isOrphan() != null && e.isOrphan()){

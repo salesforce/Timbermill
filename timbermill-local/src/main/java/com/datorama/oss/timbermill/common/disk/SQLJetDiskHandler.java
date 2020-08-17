@@ -121,7 +121,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				LOG.info("Flow ID: [{}] There are no overflowed events to fetch from disk.", flowId);
 			}
 		} catch (Exception e) {
-			LOG.error("Flow ID: ["+ flowId +"]. Fetching of overflowed events has failed.",e);
+			LOG.error("Flow ID: ["+ flowId +"] Fetching of overflowed events has failed.",e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
@@ -242,7 +242,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				break; // if arrived here then insertion succeeded, no need to retry again
 
 			} catch (Exception e) {
-				LOG.error("Flow ID: [" + flowId + "]. Bulk #" + bulkNum + ". Try # " + tryNum + "/" + maxInsertTries + " to persist a bulk has failed.", e);
+				LOG.error("Flow ID: [" + flowId + "] Bulk #" + bulkNum + ". Try # " + tryNum + "/" + maxInsertTries + " to persist a bulk has failed.", e);
 
 				try {
 					Thread.sleep(sleepTimeIfFails);
@@ -283,7 +283,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			}
 			LOG.info("Flow ID: [{}] Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
 		} catch (Exception e) {
-			LOG.error("Flow ID: [" + flowId + "]. Fetching failed bulks has failed.", e);
+			LOG.error("Flow ID: [" + flowId + "] Fetching failed bulks has failed.", e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
