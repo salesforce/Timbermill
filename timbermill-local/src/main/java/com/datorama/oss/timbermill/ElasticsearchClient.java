@@ -573,10 +573,10 @@ public class ElasticsearchClient {
 				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
 				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
 				if (timeoutReached && keepScrolling) {
-					LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
+					LOG.error("Flow ID: [{}] Scroll timeout limit of [{} seconds] reached", flowId, scrollTimeoutSeconds);
 				}
 				if (numOfScrollsReached && keepScrolling) {
-					LOG.error("Scrolls amount  limit of [{} scroll operations] reached", scrollLimitation);
+					LOG.error("Flow ID: [{}] Scrolls amount  limit of [{} scroll operations] reached", flowId, scrollLimitation);
 				}
 			}
 			clearScroll(index, functionDescription, scrollIds, flowId);
@@ -634,7 +634,7 @@ public class ElasticsearchClient {
 		} catch (Exception e) {
 			if (tryNum < numOfElasticSearchActionsTries){
 				double sleep = Math.pow(2, tryNum);
-				LOG.warn("Flow ID: [" + flowId + "]. Failed try # " + tryNum + "/" + numOfElasticSearchActionsTries + " for [" + functionDescription + "]. Going to sleep for " + sleep + " seconds.", e);
+				LOG.warn("Flow ID: [" + flowId + "] Failed try # " + tryNum + "/" + numOfElasticSearchActionsTries + " for [" + functionDescription + "]. Going to sleep for " + sleep + " seconds.", e);
 				try {
 					Thread.sleep((long) (sleep * 1000)); //Exponential backoff
 				} catch (InterruptedException ignored) {
@@ -642,7 +642,7 @@ public class ElasticsearchClient {
 				return runWithRetries(callable, tryNum + 1, functionDescription, flowId);
 			}
 			else{
-				LOG.error("Reached maximum retries (" + numOfElasticSearchActionsTries + ") attempts for [" + functionDescription + "]", e);
+				LOG.error("Flow ID: [" + flowId + "] Reached maximum retries (" + numOfElasticSearchActionsTries + ") attempts for [" + functionDescription + "]", e);
 				throw new MaxRetriesException(e);
 			}
 		}
