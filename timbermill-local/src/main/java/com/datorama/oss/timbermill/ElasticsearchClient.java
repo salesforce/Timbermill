@@ -154,7 +154,9 @@ public class ElasticsearchClient {
 		parentIds.removeAll(startEventsIds);
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
-            previouslyIndexedParentTasks = fetchIndexedTasks(parentIds, flowId);
+			if (!parentIds.isEmpty()) {
+				previouslyIndexedParentTasks = getNonOrphansTasksByIds(parentIds, flowId);
+			}
         } catch (Throwable t) {
             LOG.error("Flow ID: [{}] Error fetching indexed tasks from Elasticsearch", flowId, t);
         }
@@ -220,24 +222,14 @@ public class ElasticsearchClient {
 		indexRolloverValuesAccessController.writeLock().unlock();
 	}
 
-    private Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch, String flowId) {
-		Map<String, Task> fetchedTasks = Maps.newHashMap();
-		if (!tasksToFetch.isEmpty()) {
-			for (List<String> subSet : Iterables.partition(tasksToFetch, fetchByIdsPartitions)){
-				fetchedTasks.putAll(getNonOrphansTasksByIds(subSet, flowId));
-			}
-		}
-		return fetchedTasks;
-	}
-
-    public Task getTaskById(String taskId){
-		Map<String, Task> tasksByIds = getTasksByIds(null, Sets.newHashSet(taskId), "Test", ALL_TASK_FIELDS, EMPTY_ARRAY, "test");
+	public Task getTaskById(String taskId){
+		Map<String, Task> tasksByIds = getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", Sets.newHashSet(taskId), "Test", ALL_TASK_FIELDS, EMPTY_ARRAY, "test");
 		return tasksByIds.get(taskId);
 	}
 
 	public List<Task> getMultipleTasksByIds(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
-		Map<String, List<Task>> map = runScrollQuery(null, idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test");
+		Map<String, List<Task>> map = runScrollQuery(TIMBERMILL_INDEX_PREFIX + "*", idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test");
 		return map.get(taskId);
     }
 
@@ -267,7 +259,7 @@ public class ElasticsearchClient {
 
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(ORPHANS_QUERY);
-		return getTasksByIds(null, boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
+		return getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
 	}
 
 	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId) {
@@ -291,7 +283,7 @@ public class ElasticsearchClient {
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
-		return getSingleTaskByIds(finalOrphansQuery, null, "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
+		return getSingleTaskByIds(finalOrphansQuery, TIMBERMILL_INDEX_PREFIX + "*", "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
 
 	}
 
@@ -563,6 +555,9 @@ public class ElasticsearchClient {
 		Set<String> scrollIds = Sets.newHashSet();
 		try {
 			SearchResponse searchResponse = (SearchResponse) runWithRetries(() -> client.search(searchRequest, RequestOptions.DEFAULT), 1, "Initial search for " + functionDescription, flowId);
+			if (searchResponse.getFailedShards() > 0){
+				LOG.error("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
+			}
 			String scrollId = searchResponse.getScrollId();
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
