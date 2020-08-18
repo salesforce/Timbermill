@@ -552,6 +552,9 @@ public class ElasticsearchClient {
 		Set<String> scrollIds = Sets.newHashSet();
 		try {
 			SearchResponse searchResponse = (SearchResponse) runWithRetries(() -> client.search(searchRequest, RequestOptions.DEFAULT), 1, "Initial search for " + functionDescription, flowId);
+			if (searchResponse.getFailedShards() > 0){
+				LOG.error("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
+			}
 			String scrollId = searchResponse.getScrollId();
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
