@@ -69,7 +69,7 @@ public class TimbermillService {
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
 			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
-			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
+			@Value("${ORPHANS_FETCH_DURATION_MINUTES:10}") int orphansFetchMinutes,
 			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes,
 			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 			@Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
