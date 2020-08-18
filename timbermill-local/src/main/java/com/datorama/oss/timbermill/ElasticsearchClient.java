@@ -241,7 +241,7 @@ public class ElasticsearchClient {
     private Map<String, Task> getTasksByIds(String index, BoolQueryBuilder queryBuilder, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude,
 			String[] taskFieldsToExclude, String flowId) {
 		Map<String, Task> allTasks = Maps.newHashMap();
-		for (List<String> batch : Iterables.partition(taskIds, 10000)){
+		for (List<String> batch : Iterables.partition(taskIds, fetchByIdsPartitions)){
 			IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
 			for (String taskId : batch) {
 				idsQueryBuilder.addIds(taskId);
