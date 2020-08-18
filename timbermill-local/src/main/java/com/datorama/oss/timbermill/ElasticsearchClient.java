@@ -57,6 +57,7 @@ import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -78,7 +79,7 @@ public class ElasticsearchClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	private static final String[] PARENT_FIELD_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
+	private static final String[] PARENT_FIELDS_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private final RestHighLevelClient client;
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
@@ -93,18 +94,19 @@ public class ElasticsearchClient {
 	private int searchMaxSize;
 	private final int scrollLimitation;
 	private final int scrollTimeoutSeconds;
+	private final int fetchByIdsPartitions;
 
 	private final ReadWriteLock indexRolloverValuesAccessController;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds) {
+			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
 		}
 
-		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation, scrollTimeoutSeconds);
+		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions);
 		this.indexBulkSize = indexBulkSize;
 		this.searchMaxSize = searchMaxSize;
 		this.maxIndexAge = maxIndexAge;
@@ -114,6 +116,7 @@ public class ElasticsearchClient {
         this.executorService = Executors.newFixedThreadPool(indexingThreads);
         this.scrollLimitation = scrollLimitation;
         this.scrollTimeoutSeconds = scrollTimeoutSeconds;
+        this.fetchByIdsPartitions = fetchByIdsPartitions;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
@@ -151,7 +154,9 @@ public class ElasticsearchClient {
 		parentIds.removeAll(startEventsIds);
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
-            previouslyIndexedParentTasks = fetchIndexedTasks(parentIds, flowId);
+			if (!parentIds.isEmpty()) {
+				previouslyIndexedParentTasks = getNonOrphansTasksByIds(parentIds, flowId);
+			}
         } catch (Throwable t) {
             LOG.error("Flow ID: [{}] Error fetching indexed tasks from Elasticsearch", flowId, t);
         }
@@ -160,7 +165,7 @@ public class ElasticsearchClient {
     }
 
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
-			int scrollLimitation, int scrollTimeoutSeconds) {
+			int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions) {
 		if (indexBulkSize < 1) {
 			throw new RuntimeException("Index bulk size property should be larger than 0");
 		}
@@ -186,7 +191,11 @@ public class ElasticsearchClient {
 			throw new RuntimeException("Elasticsearch scroll limitation property should not be below 0");
 		}
 		if (scrollTimeoutSeconds < 1) {
-			throw new RuntimeException("Elasticsearch scroll timeout limitayion  property should not be below 1");
+			throw new RuntimeException("Elasticsearch scroll timeout limitation  property should not be below 1");
+		}
+
+		if (fetchByIdsPartitions < 1) {
+			throw new RuntimeException("Fetch By Ids Partitions property should not be below 1");
 		}
 	}
 
@@ -213,50 +222,44 @@ public class ElasticsearchClient {
 		indexRolloverValuesAccessController.writeLock().unlock();
 	}
 
-    private Map<String, Task> fetchIndexedTasks(Set<String> tasksToFetch, String flowId) {
-		Map<String, Task> fetchedTasks = Collections.emptyMap();
-		if (!tasksToFetch.isEmpty()) {
-			fetchedTasks = getNonOrphansTasksByIds(tasksToFetch, flowId);
-			for (String taskId : tasksToFetch) {
-				if (!fetchedTasks.containsKey(taskId)){
-					LOG.debug("Flow ID: [{}] Couldn't find missing parent task with ID {} in Elasticsearch", flowId, taskId);
-				}
-			}
-		}
-		return fetchedTasks;
-	}
-
-    public Task getTaskById(String taskId){
-		Map<String, Task> tasksByIds = getTasksByIds(null, Sets.newHashSet(taskId), "Test", ALL_TASK_FIELDS, EMPTY_ARRAY, "test");
+	public Task getTaskById(String taskId){
+		Map<String, Task> tasksByIds = getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", Sets.newHashSet(taskId), "Test", ALL_TASK_FIELDS, EMPTY_ARRAY, "test");
 		return tasksByIds.get(taskId);
 	}
 
-    public List<Task> getMultipleTasksByIds(String taskId) {
+	public List<Task> getMultipleTasksByIds(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
-		Map<String, List<Task>> map = runScrollQuery(null, idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test");
+		Map<String, List<Task>> map = runScrollQuery(TIMBERMILL_INDEX_PREFIX + "*", idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test");
 		return map.get(taskId);
     }
 
-    private Map<String, Task> getTasksByIds(String index, Set<String> taskIds, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId) {
-        IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
-        for (String taskId : taskIds) {
-            idsQueryBuilder.addIds(taskId);
-        }
-		return getSingleTaskByIds(idsQueryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
+	private Map<String, Task> getTasksByIds(String index, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude,
+			String[] taskFieldsToExclude, String flowId) {
+		return getTasksByIds(index, new BoolQueryBuilder(), taskIds, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
+	}
+
+    private Map<String, Task> getTasksByIds(String index, BoolQueryBuilder queryBuilder, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude,
+			String[] taskFieldsToExclude, String flowId) {
+		Map<String, Task> allTasks = Maps.newHashMap();
+		for (List<String> batch : Iterables.partition(taskIds, fetchByIdsPartitions)){
+			IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
+			for (String taskId : batch) {
+				idsQueryBuilder.addIds(taskId);
+			}
+			queryBuilder.filter(idsQueryBuilder);
+			Map<String, Task> batchResult = getSingleTaskByIds(queryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
+			allTasks.putAll(batchResult);
+		}
+		return allTasks;
     }
 
-	private Map<String, Task> getNonOrphansTasksByIds(Set<String> taskIds, String flowId) {
-		IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
-		for (String taskId : taskIds) {
-			idsQueryBuilder.addIds(taskId);
-		}
+	private Map<String, Task> getNonOrphansTasksByIds(Collection<String> taskIds, String flowId) {
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
 
-		boolQueryBuilder.filter(idsQueryBuilder);
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(ORPHANS_QUERY);
-		return getSingleTaskByIds(boolQueryBuilder, null, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELD_TO_FETCH, EMPTY_ARRAY, flowId);
+		return getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
 	}
 
 	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId) {
@@ -280,11 +283,11 @@ public class ElasticsearchClient {
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
-		return getSingleTaskByIds(finalOrphansQuery, null, "Fetch latest indexed orphans", PARENT_FIELD_TO_FETCH, EMPTY_ARRAY, flowId);
+		return getSingleTaskByIds(finalOrphansQuery, TIMBERMILL_INDEX_PREFIX + "*", "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
 
 	}
 
-    private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
+	private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
 			String flowId) {
         Map<String, Task> retMap = Maps.newHashMap();
 		Map<String, List<Task>> tasks = runScrollQuery(index, queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
@@ -547,7 +550,7 @@ public class ElasticsearchClient {
 
 	private Map<String, List<Task>> runScrollQuery(String index, QueryBuilder query, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId){
 		SearchRequest searchRequest = createSearchRequest(index, query, taskFieldsToInclude, taskFieldsToExclude);
-
+		searchRequest.source().timeout(new TimeValue(30, TimeUnit.SECONDS));
 		List<SearchResponse> searchResponses = new ArrayList<>();
 		Set<String> scrollIds = Sets.newHashSet();
 		try {
@@ -566,7 +569,7 @@ public class ElasticsearchClient {
 			boolean numOfScrollsReached = false;
 			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-				scrollRequest.scroll(TimeValue.timeValueMinutes(1L));
+				scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
 				stopWatch.start();
 				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
 						flowId);
@@ -625,7 +628,7 @@ public class ElasticsearchClient {
 		else {
 			searchRequest = new SearchRequest(index);
 		}
-		searchRequest.scroll(TimeValue.timeValueMinutes(1L));
+		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 		searchSourceBuilder.fetchSource(taskFieldsToInclude, taskFieldsToExclude);
 		searchSourceBuilder.query(query);
@@ -762,9 +765,11 @@ public class ElasticsearchClient {
 	private RangeQueryBuilder buildRelativeRangeQuery(int relativeMinutesFrom) {
 		return buildRelativeRangeQuery(relativeMinutesFrom, 0);
 	}
+
     private RangeQueryBuilder buildRelativeRangeQuery(int relativeMinutesFrom, int relativeMinutesTo) {
 		return QueryBuilders.rangeQuery("meta.taskBegin").from(buildElasticRelativeTime(relativeMinutesFrom)).to(relativeMinutesTo == 0 ? "now" : buildElasticRelativeTime(relativeMinutesTo));
 	}
+
 	private String buildElasticRelativeTime(int minutes) {
 		return "now-"+ minutes + "m";
 	}
