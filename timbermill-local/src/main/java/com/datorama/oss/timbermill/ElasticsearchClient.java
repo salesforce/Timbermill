@@ -561,7 +561,7 @@ public class ElasticsearchClient {
 				LOG.error("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
 			}
 			String scrollId = searchResponse.getScrollId();
-			LOG.info("Flow ID: [{}] Scroll ID {} opened. Open scrolls {}", flowId, scrollId.substring(0, 100), concurrentScrolls.incrementAndGet());
+			LOG.info("Flow ID: [{}] Scroll ID {} opened. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.incrementAndGet());
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -582,7 +582,7 @@ public class ElasticsearchClient {
 					scrollId = searchResponse.getScrollId();
 					scrollIds.add(scrollId);
 				}
-				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search. Open scrolls {}", flowId, scrollId.substring(0, 100), concurrentScrolls.get());
+				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.get());
 				searchResponses.add(searchResponse);
 				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
 				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
@@ -621,7 +621,7 @@ public class ElasticsearchClient {
 				}
 				else{
 					final StringBuilder s = new StringBuilder();
-					scrollIds.forEach(scrollId -> s.append(scrollId.substring(0, 100) + "      |     "));
+					scrollIds.forEach(scrollId -> s.append(scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId + "      |     "));
 					LOG.info("Flow ID: [{}] Scroll ID set: {} closed. Open scrolls {}", flowId, s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
 				}
 			} catch (Throwable e) {
