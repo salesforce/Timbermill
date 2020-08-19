@@ -59,7 +59,7 @@ public class TimbermillService {
 			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 			@Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
-			@Value("${MERGING_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String mergingCronExp,
+			@Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,

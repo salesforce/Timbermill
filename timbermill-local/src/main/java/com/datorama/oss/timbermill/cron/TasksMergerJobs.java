@@ -28,18 +28,18 @@ public class TasksMergerJobs implements Job {
 		JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
 		int partialsFetchPeriodMinutes = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_MINUTES);
+		String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
+		LOG.info("Flow ID: [{}] Partials Tasks Merger Job started.", flowId);
+		Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
 		if (client.doesIndexAlreadyRolledOver()){
 			int secondsToWait = rand.nextInt(10);
 			try {
 				Thread.sleep(secondsToWait * 1000);
 			} catch (InterruptedException ignored) {}
-			Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
-			String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
-			LOG.info("Flow ID: [{}] Partials Tasks Merger Job started.", flowId);
 			client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
-			LOG.info("Flow ID: [{}] Partials Tasks Merger Job ended.", flowId);
-			started.stop();
 		}
+		LOG.info("Flow ID: [{}] Partials Tasks Merger Job ended.", flowId);
+		started.stop();
 	}
 
 }
