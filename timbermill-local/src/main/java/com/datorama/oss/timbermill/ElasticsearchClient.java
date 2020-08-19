@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -95,6 +96,7 @@ public class ElasticsearchClient {
 	private final int scrollLimitation;
 	private final int scrollTimeoutSeconds;
 	private final int fetchByIdsPartitions;
+	private AtomicInteger concurrentScrolls = new AtomicInteger(0);
 
 	private final ReadWriteLock indexRolloverValuesAccessController;
 
@@ -559,7 +561,7 @@ public class ElasticsearchClient {
 				LOG.error("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
 			}
 			String scrollId = searchResponse.getScrollId();
-			LOG.info("Flow ID: [{}] Scroll ID {} Scroll opened", flowId, scrollId);
+			LOG.info("Flow ID: [{}] Scroll ID {} opened. Open scrolls {}", flowId, scrollId.substring(0, 100), concurrentScrolls.incrementAndGet());
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -570,7 +572,7 @@ public class ElasticsearchClient {
 			boolean numOfScrollsReached = false;
 			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search", flowId, scrollId);
+				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search", flowId, scrollId.substring(0, 100));
 				scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
 				stopWatch.start();
 				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
@@ -601,6 +603,9 @@ public class ElasticsearchClient {
 
 	private void clearScroll(String index, String functionDescription, Set<String> scrollIds, String flowId) {
 		if (!scrollIds.isEmpty()) {
+			if (scrollIds.size() > 1) {
+				LOG.info("Scroll ID set is bigger than 1");
+			}
 			ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
 			for (String scrollId : scrollIds) {
 				clearScrollRequest.addScrollId(scrollId);
@@ -610,6 +615,9 @@ public class ElasticsearchClient {
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
 					LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
+				}
+				else{
+					LOG.info("Scroll ID set: {} closed. Open scrolls {}", scrollIds, concurrentScrolls.addAndGet( 0 - scrollIds.size()));
 				}
 			} catch (Throwable e) {
 				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "] in index " + index, e);
