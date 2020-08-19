@@ -622,7 +622,7 @@ public class ElasticsearchClient {
 				else{
 					final StringBuilder s = new StringBuilder();
 					scrollIds.forEach(scrollId -> s.append(scrollId.substring(0, 100) + "      |     "));
-					LOG.info("Scroll ID set: {} closed. Open scrolls {}", s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
+					LOG.info("Flow ID: [{}] Scroll ID set: {} closed. Open scrolls {}", flowId, s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
 				}
 			} catch (Throwable e) {
 				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "] in index " + index, e);
