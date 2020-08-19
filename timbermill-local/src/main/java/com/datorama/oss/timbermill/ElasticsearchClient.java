@@ -572,14 +572,17 @@ public class ElasticsearchClient {
 			boolean numOfScrollsReached = false;
 			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search", flowId, scrollId.substring(0, 100));
 				scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
 				stopWatch.start();
 				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
 						flowId);
 				stopWatch.stop();
-				scrollId = searchResponse.getScrollId();
-				scrollIds.add(scrollId);
+				if (!searchResponse.getScrollId().equals(scrollId)){
+					concurrentScrolls.incrementAndGet();
+					scrollId = searchResponse.getScrollId();
+					scrollIds.add(scrollId);
+				}
+				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search. Open scrolls {}", flowId, scrollId.substring(0, 100), concurrentScrolls.get());
 				searchResponses.add(searchResponse);
 				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
 				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
@@ -617,7 +620,9 @@ public class ElasticsearchClient {
 					LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
 				}
 				else{
-					LOG.info("Scroll ID set: {} closed. Open scrolls {}", scrollIds, concurrentScrolls.addAndGet( 0 - scrollIds.size()));
+					final StringBuilder s = new StringBuilder();
+					scrollIds.forEach(scrollId -> s.append(scrollId.substring(0, 100) + "      |     "));
+					LOG.info("Scroll ID set: {} closed. Open scrolls {}", s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
 				}
 			} catch (Throwable e) {
 				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "] in index " + index, e);
