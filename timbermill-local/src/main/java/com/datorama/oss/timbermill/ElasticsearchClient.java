@@ -556,6 +556,7 @@ public class ElasticsearchClient {
 				LOG.error("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
 			}
 			String scrollId = searchResponse.getScrollId();
+			LOG.info("Flow ID: [{}] Scroll ID {} Scroll opened", flowId, scrollId);
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -566,6 +567,7 @@ public class ElasticsearchClient {
 			boolean numOfScrollsReached = false;
 			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search", flowId, scrollId);
 				scrollRequest.scroll(TimeValue.timeValueMinutes(1L));
 				stopWatch.start();
 				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
