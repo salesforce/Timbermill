@@ -8,6 +8,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpHost;
@@ -18,6 +19,7 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
@@ -44,7 +46,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             throw new RuntimeException(e);
         }
         buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout);
-        this.executorService = Executors.newFixedThreadPool(builder.numOfThreads);
+
+        ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("timbermill-sender-%d").build();
+        this.executorService = Executors.newFixedThreadPool(builder.numOfThreads,namedThreadFactory);
 
         Runnable getAndSendEventsTask = () -> {
             do {
