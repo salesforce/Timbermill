@@ -6,6 +6,9 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -24,7 +27,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
     private SizedBoundEventsQueue buffer;
-    private Thread thread;
+    private ExecutorService executorService;
 
     private TimbermillServerOutputPipe() {
     }
@@ -41,7 +44,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             throw new RuntimeException(e);
         }
         buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout);
-        thread = new Thread(() -> {
+        this.executorService = Executors.newFixedThreadPool(builder.numOfThreads);
+
+        Runnable getAndSendEventsTask = () -> {
             do {
                 try {
                     List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
@@ -50,18 +55,27 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                         sendEvents(eventsWrapper);
                     }
                 } catch (Exception e) {
-                    LOG.error("Error sending events to Timbermill server" ,e);
+                    LOG.error("Error sending events to Timbermill server", e);
                 }
             } while (keepRunning);
-        });
-        thread.setName("timbermill-sender");
-        thread.start();
+        };
+
+        for (int i = 0; i < builder.numOfThreads; i++) {
+            executorService.execute(getAndSendEventsTask);
+        }
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
+            // TODO ------------ check if really needed --------------
+            executorService.shutdown();
             try {
-                thread.join();
-            } catch (InterruptedException ignored) {
+                if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
             }
+            // -------------------------------------------------------
         }));
     }
 
@@ -69,7 +83,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         LOG.info("Gracefully shutting down Timbermill output pipe.");
         keepRunning = false;
         LOG.info("Timbermill server was output pipe.");
-        while (thread.isAlive()){
+        while (!executorService.isTerminated()){ // TODO make sure
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
