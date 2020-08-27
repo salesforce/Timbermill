@@ -33,8 +33,8 @@ public class TimbermillServerOutputPipeBuilder {
 		return this;
 	}
 
-	public TimbermillServerOutputPipe build() {
-		return new TimbermillServerOutputPipe(this);
+	public TimbermillClient build() {
+		return new TimbermillClient(this);
 	}
 
 }
