@@ -49,26 +49,9 @@ public class TimbermillClient implements EventOutputPipe {
 
         ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("timbermill-sender-%d").build();
 		this.executorService = Executors.newFixedThreadPool(builder.numOfThreads, namedThreadFactory);
+        executeEventsSenders(builder.maxEventsBatchSize, builder.numOfThreads);
 
-        Runnable getAndSendEventsTask = () -> {
-            LOG.info("starting send events thread");
-            do {
-                try {
-                    List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
-                    if (!eventsToSend.isEmpty()) {
-                        EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
-                        sendEvents(eventsWrapper);
-                    }
-                } catch (Exception e) {
-                    LOG.error("Error sending events to Timbermill server", e);
-                }
-            } while (keepRunning);
-        };
-
-        for (int i = 0; i < builder.numOfThreads; i++) {
-            executorService.execute(getAndSendEventsTask);
-        }
-
+        // shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
             executorService.shutdown();
@@ -80,6 +63,29 @@ public class TimbermillClient implements EventOutputPipe {
                 executorService.shutdownNow();
             }
         }));
+    }
+
+    private void executeEventsSenders(int maxEventsBatchSize, int numOfThreads) {
+
+        Runnable getAndSendEventsTask = () -> {
+            LOG.info("starting send events thread");
+            do {
+                try {
+                    List<Event> eventsToSend = buffer.getEventsOfSize(maxEventsBatchSize);
+                    if (!eventsToSend.isEmpty()) {
+                        EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
+                        sendEvents(eventsWrapper);
+                    }
+                } catch (Exception e) {
+                    LOG.error("Error sending events to Timbermill server", e);
+                }
+            } while (keepRunning);
+        };
+
+        // execute getAndSendEventsTask multithreaded
+        for (int i = 0; i < numOfThreads; i++) {
+            executorService.execute(getAndSendEventsTask);
+        }
     }
 
     public void close() {
