@@ -51,6 +51,7 @@ public class TimbermillClient implements EventOutputPipe {
 		this.executorService = Executors.newFixedThreadPool(builder.numOfThreads, namedThreadFactory);
 
         Runnable getAndSendEventsTask = () -> {
+            LOG.info("starting send events thread");
             do {
                 try {
                     List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
