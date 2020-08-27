@@ -48,7 +48,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout);
 
         ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("timbermill-sender-%d").build();
-        this.executorService = Executors.newFixedThreadPool(builder.numOfThreads,namedThreadFactory);
+		this.executorService = Executors.newFixedThreadPool(builder.numOfThreads, namedThreadFactory);
 
         Runnable getAndSendEventsTask = () -> {
             do {
@@ -70,7 +70,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             keepRunning = false;
-            // TODO ------------ check if really needed --------------
             executorService.shutdown();
             try {
                 if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
@@ -79,7 +78,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             } catch (InterruptedException e) {
                 executorService.shutdownNow();
             }
-            // -------------------------------------------------------
         }));
     }
 
@@ -87,7 +85,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         LOG.info("Gracefully shutting down Timbermill output pipe.");
         keepRunning = false;
         LOG.info("Timbermill server was output pipe.");
-        while (!executorService.isTerminated()){ // TODO make sure
+		executorService.shutdown();
+        while (!executorService.isTerminated()){
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
