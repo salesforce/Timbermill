@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
-import com.datorama.oss.timbermill.pipe.TimbermillClient;
+import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
@@ -73,7 +73,7 @@ public class TimbermillStressTest extends TimberLogTest{
                 7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
                 4000, null, 10, 60, 10000);
         executorService = Executors.newFixedThreadPool(numOfThreads);
-        TimbermillClient pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
+        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();
         TimberLogger.bootstrap(pipe, env);
     }

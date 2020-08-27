@@ -21,20 +21,20 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-public class TimbermillClient implements EventOutputPipe {
+public class TimbermillServerOutputPipe implements EventOutputPipe {
 
     private static final int HTTP_TIMEOUT = 5000;
     private static final int MAX_RETRY = 5;
-    private static final Logger LOG = LoggerFactory.getLogger(TimbermillClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
     private SizedBoundEventsQueue buffer;
     private ExecutorService executorService;
 
-    private TimbermillClient() {
+    private TimbermillServerOutputPipe() {
     }
 
-    TimbermillClient(TimbermillServerOutputPipeBuilder builder){
+    TimbermillServerOutputPipe(TimbermillServerOutputPipeBuilder builder){
         keepRunning = true;
         if (builder.timbermillServerUrl == null){
             throw new RuntimeException("Must enclose the Timbermill server URL");
