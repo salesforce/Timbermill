@@ -68,7 +68,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private void executeEventsSenders(int maxEventsBatchSize, int numOfThreads) {
 
         Runnable getAndSendEventsTask = () -> {
-            LOG.info("starting send events thread");
+            LOG.info("Starting send events thread");
             do {
                 try {
                     List<Event> eventsToSend = buffer.getEventsOfSize(maxEventsBatchSize);
