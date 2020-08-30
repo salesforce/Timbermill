@@ -53,6 +53,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
 
         // shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        	LOG.info("Shutting down timbermill-senders executor service");
             keepRunning = false;
             executorService.shutdown();
             try {

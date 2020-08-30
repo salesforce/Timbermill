@@ -103,9 +103,6 @@ public class TimberLogAdvancedTest {
 
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTask() {
@@ -152,9 +149,6 @@ public class TimberLogAdvancedTest {
 
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderWithParentTask() {
@@ -202,9 +196,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     @TimberLogTask(name = EVENT)
@@ -262,9 +253,6 @@ public class TimberLogAdvancedTest {
         assertNotNull(ongoingTask.getText().get(exception));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTaskStartSuccessLog() {
@@ -311,9 +299,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTaskLogStartSuccess() {
@@ -359,9 +344,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTaskSuccessLogStart() {
@@ -407,9 +389,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTaskSuccessStartLog() {
@@ -456,9 +435,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     public void testOutOfOrderTaskSuccessLogNoStart() {
@@ -495,8 +471,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(2, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
     }
 
     public void testOutOfOrderTaskErrorLogNoStart() {
@@ -534,8 +508,6 @@ public class TimberLogAdvancedTest {
         assertNotNull(ongoingTask.getText().get("exception"));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(2, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
     }
 
     public void testOutOfOrderTaskLogSuccessNoStart() {
@@ -574,8 +546,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(2, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
     }
 
     public void testOutOfOrderTaskStartLogNoSuccess() {
@@ -612,8 +582,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string2, ongoingTask.getString().get(string2));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(2, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
     }
 
     public void testOutOfOrderTaskLogStartNoSuccess() {
@@ -650,8 +618,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string2, ongoingTask.getString().get(string2));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(2, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
     }
 
     public void testOnlyLog() {
@@ -679,9 +645,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string2, ongoingTask.getString().get(string2));
         String[] split = ongoingTask.getLog().split("\n");
         assertEquals(3, split.length);
-        assertTrue(split[0].matches(LOG_REGEX + log1));
-        assertTrue(split[1].matches(LOG_REGEX + log2));
-        assertTrue(split[2].matches(LOG_REGEX + log3));
     }
 
     @TimberLogTask(name = EVENT)

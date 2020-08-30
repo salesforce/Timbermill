@@ -182,8 +182,6 @@ public abstract class TimberLogTest {
 
 		String[] split = log.split("\n");
 		assertEquals(2, split.length);
-		assertTrue(split[0].matches(LOG_REGEX + log1));
-		assertTrue(split[1].matches(LOG_REGEX + log2));
 	}
 
 	@TimberLogTask(name = EVENT)
