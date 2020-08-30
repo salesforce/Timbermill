@@ -6,6 +6,10 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -15,6 +19,7 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
@@ -24,7 +29,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private static volatile boolean keepRunning = true;
     private URL timbermillServerUrl;
     private SizedBoundEventsQueue buffer;
-    private Thread thread;
+    private ExecutorService executorService;
 
     private TimbermillServerOutputPipe() {
     }
@@ -41,35 +46,55 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             throw new RuntimeException(e);
         }
         buffer = new SizedBoundEventsQueue(builder.maxBufferSize, builder.maxSecondsBeforeBatchTimeout);
-        thread = new Thread(() -> {
+
+        ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("timbermill-sender-%d").build();
+		this.executorService = Executors.newFixedThreadPool(builder.numOfThreads, namedThreadFactory);
+        executeEventsSenders(builder.maxEventsBatchSize, builder.numOfThreads);
+
+        // shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        	LOG.info("Shutting down timbermill-senders executor service");
+            keepRunning = false;
+            executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+            }
+        }));
+    }
+
+    private void executeEventsSenders(int maxEventsBatchSize, int numOfThreads) {
+
+        Runnable getAndSendEventsTask = () -> {
+            LOG.info("Starting send events thread");
             do {
                 try {
-                    List<Event> eventsToSend = buffer.getEventsOfSize(builder.maxEventsBatchSize);
+                    List<Event> eventsToSend = buffer.getEventsOfSize(maxEventsBatchSize);
                     if (!eventsToSend.isEmpty()) {
                         EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
                         sendEvents(eventsWrapper);
                     }
                 } catch (Exception e) {
-                    LOG.error("Error sending events to Timbermill server" ,e);
+                    LOG.error("Error sending events to Timbermill server", e);
                 }
             } while (keepRunning);
-        });
-        thread.setName("timbermill-sender");
-        thread.start();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            keepRunning = false;
-            try {
-                thread.join();
-            } catch (InterruptedException ignored) {
-            }
-        }));
+        };
+
+        // execute getAndSendEventsTask multithreaded
+        for (int i = 0; i < numOfThreads; i++) {
+            executorService.execute(getAndSendEventsTask);
+        }
     }
 
     public void close() {
         LOG.info("Gracefully shutting down Timbermill output pipe.");
         keepRunning = false;
         LOG.info("Timbermill server was output pipe.");
-        while (thread.isAlive()){
+		executorService.shutdown();
+        while (!executorService.isTerminated()){
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
