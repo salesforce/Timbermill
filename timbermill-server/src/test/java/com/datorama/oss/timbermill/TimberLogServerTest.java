@@ -5,8 +5,9 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.datorama.oss.timbermill.pipe.AkkaPipe;
+import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
-import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
 public class TimberLogServerTest extends TimberLogTest{
 
@@ -18,8 +19,7 @@ public class TimberLogServerTest extends TimberLogTest{
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
-        TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
-                .maxSecondsBeforeBatchTimeout(3).numOfThreads(3).build();
+        EventOutputPipe pipe = new AkkaPipe();
         TimberLogTest.init(pipe);
     }
 
