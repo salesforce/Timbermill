@@ -19,7 +19,7 @@ public class TimberLogServerTest extends TimberLogTest{
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
-                .maxSecondsBeforeBatchTimeout(3).numOfThreads(3).build();
+                .maxSecondsBeforeBatchTimeout(3).numOfThreads(1).build();
         TimberLogTest.init(pipe);
     }
 

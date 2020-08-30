@@ -5,7 +5,7 @@ public class TimbermillServerOutputPipeBuilder {
 	int maxEventsBatchSize = 2097152; // 2MB
 	long maxSecondsBeforeBatchTimeout = 3;
 	int maxBufferSize = 200000;
-	int numOfThreads = 3;
+	int numOfThreads = 1;
 
 
 	public TimbermillServerOutputPipeBuilder timbermillServerUrl(String timbermillServerUrl) {
