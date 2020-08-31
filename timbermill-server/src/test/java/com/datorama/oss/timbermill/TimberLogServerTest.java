@@ -19,7 +19,10 @@ public class TimberLogServerTest extends TimberLogTest{
         if (StringUtils.isEmpty(timbermillUrl)){
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
-        EventOutputPipe pipe = new AkkaPipe();
+        
+        EventOutputPipe pipe = true ? new AkkaPipe() : 
+        	new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
+                .maxSecondsBeforeBatchTimeout(3).numOfThreads(1).build();
         TimberLogTest.init(pipe);
     }
 
