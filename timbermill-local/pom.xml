@@ -41,6 +41,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.13.3</version>
+        </dependency>
+        <dependency>
             <groupId>com.datorama.oss</groupId>
             <artifactId>timbermill-client</artifactId>
             <version>2.2.4</version>
@@ -74,12 +79,12 @@
         <!-- Kamon Monitoring -->
         <dependency>
             <groupId>io.kamon</groupId>
-            <artifactId>kamon-bundle_2.11</artifactId>
+            <artifactId>kamon-bundle_2.13</artifactId>
             <version>${kamon.bundle.version}</version>
         </dependency>
         <dependency>
             <groupId>io.kamon</groupId>
-            <artifactId>kamon-datadog_2.11</artifactId>
+            <artifactId>kamon-datadog_2.13</artifactId>
             <version>2.0.1</version>
             <exclusions>
                 <exclusion>
