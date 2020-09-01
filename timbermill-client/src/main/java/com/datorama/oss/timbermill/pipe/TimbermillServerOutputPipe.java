@@ -15,6 +15,7 @@ import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -112,11 +113,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
         byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
-            HttpPost post = getHttpPost();
-            post.setEntity(new ByteArrayEntity(eventsWrapperBytes, ContentType.APPLICATION_JSON));
+            HttpUriRequest request = generateRequest(eventsWrapperBytes);
             try (CloseableHttpClient httpClient = HttpClients.createDefault();
-                    CloseableHttpResponse response = httpClient.execute(post)) {
-
+                    CloseableHttpResponse response = httpClient.execute(request)) {
                 int responseCode = response.getStatusLine().getStatusCode();
                 if (responseCode == 200) {
                     LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
@@ -141,11 +140,12 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         return om.writeValueAsBytes(eventsWrapper);
     }
 
-    private HttpPost getHttpPost() {
+    private HttpUriRequest generateRequest(byte[] eventsWrapperBytes) {
         HttpPost post = new HttpPost(timbermillServerUri);
         RequestConfig.Builder builder = RequestConfig.custom();
         builder.setConnectTimeout(HTTP_TIMEOUT);
         post.setConfig(builder.build());
+        post.setEntity(new ByteArrayEntity(eventsWrapperBytes, ContentType.APPLICATION_JSON));
         return post;
     }
 
