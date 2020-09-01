@@ -23,7 +23,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class TimbermillServerOutputPipe implements EventOutputPipe {
 
-    private static final int HTTP_TIMEOUT = 5000;
+    private static final int HTTP_TIMEOUT = 10000;
     private static final int MAX_RETRY = 5;
     private static final Logger LOG = LoggerFactory.getLogger(TimbermillServerOutputPipe.class);
     private static volatile boolean keepRunning = true;
