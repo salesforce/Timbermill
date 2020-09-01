@@ -12,18 +12,17 @@ import akka.util.ByteString
 import com.datorama.oss.timbermill.unit.Event
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.scalalogging.Logger
-import org.apache.http.HttpHost
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
-class AkkaPipe(serverHost : String, maxBufferSize: Long, maxEventsBatchSize: Long, maxSecondsBeforeBatchTimeout: FiniteDuration)(implicit mat : Materializer) extends EventOutputPipe {
+class AkkaPipe(timbermillServerUrl : String, maxBufferSize: Long, maxEventsBatchSize: Long, maxSecondsBeforeBatchTimeout: FiniteDuration)(implicit mat : Materializer) extends EventOutputPipe {
   import scala.concurrent.duration._
   val log = Logger("com.datorama.pluto.exec.TimbermillInitializer.AkkaPipe")
   val objMapper = new ObjectMapper()
   val tmServerUri = {
-    HttpHost.create(serverHost).toURI + "/events"
+    timbermillServerUrl + "/events"
   }
   val queue = Source
     .queue[Event](5, OverflowStrategy.dropNew, 4/*num cpus / 2*/)

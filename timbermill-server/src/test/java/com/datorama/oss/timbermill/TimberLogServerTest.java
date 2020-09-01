@@ -1,5 +1,8 @@
 package com.datorama.oss.timbermill;
 
+import akka.actor.ActorSystem;
+import akka.stream.Materializer;
+import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -8,6 +11,8 @@ import org.junit.Test;
 import com.datorama.oss.timbermill.pipe.AkkaPipe;
 import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
+
+import java.util.concurrent.TimeUnit;
 
 public class TimberLogServerTest extends TimberLogTest{
 
@@ -20,7 +25,8 @@ public class TimberLogServerTest extends TimberLogTest{
             timbermillUrl = DEFAULT_TIMBERMILL_URL;
         }
         
-        EventOutputPipe pipe = true ? new AkkaPipe() : 
+        EventOutputPipe pipe = true ? new AkkaPipe(timbermillUrl, 200000000, 2097152, scala.concurrent.duration.FiniteDuration.create(3, TimeUnit.SECONDS),
+                Materializer.matFromSystem(ActorSystem.create())) :
         	new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).numOfThreads(1).build();
         TimberLogTest.init(pipe);
