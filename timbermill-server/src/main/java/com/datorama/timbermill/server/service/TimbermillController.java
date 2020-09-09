@@ -1,10 +1,8 @@
 package com.datorama.timbermill.server.service;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -20,10 +18,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
-import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.EventsList;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 @RestController
 public class TimbermillController {
