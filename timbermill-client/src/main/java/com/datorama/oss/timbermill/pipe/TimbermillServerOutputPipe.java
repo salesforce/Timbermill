@@ -41,7 +41,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
         try {
             HttpHost httpHost = HttpHost.create(builder.timbermillServerUrl);
-            timbermillServerUrl = new URL(httpHost.toURI() + "/events2");
+            timbermillServerUrl = new URL(httpHost.toURI() + "/events/v2");
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
