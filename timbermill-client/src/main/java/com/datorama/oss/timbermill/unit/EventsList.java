@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
