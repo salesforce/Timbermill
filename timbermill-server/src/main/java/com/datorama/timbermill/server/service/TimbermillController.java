@@ -31,17 +31,11 @@ public class TimbermillController {
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillController.class);
 
 	private static ExecutorService executorService;
-	private final Cache<String, String> idsCache;
 
 	@Autowired
 	private TimbermillService timbermillService;
 
 	public TimbermillController(@Value("${RECEIVING_THREAD:10}") int numOfThreads) {
-		CacheBuilder<String, String> cacheBuilder = CacheBuilder.newBuilder().weigher((key, value) -> key.length() + value.length());
-		idsCache = cacheBuilder
-				.maximumWeight(1000000) //1MB
-				.expireAfterWrite(10, TimeUnit.SECONDS)
-				.build();
 		executorService = Executors.newFixedThreadPool(numOfThreads);
 	}
 
