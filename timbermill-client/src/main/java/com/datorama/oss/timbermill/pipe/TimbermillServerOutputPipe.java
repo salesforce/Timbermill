@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.unit.Event;
-import com.datorama.oss.timbermill.unit.EventsWrapper;
+import com.datorama.oss.timbermill.unit.EventsList;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -74,8 +74,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
                 try {
                     List<Event> eventsToSend = buffer.getEventsOfSize(maxEventsBatchSize);
                     if (!eventsToSend.isEmpty()) {
-                        EventsWrapper eventsWrapper = new EventsWrapper(eventsToSend);
-                        sendEvents(eventsWrapper);
+                        EventsList eventsList = new EventsList(eventsToSend);
+                        sendEvents(eventsList);
                     }
                 } catch (Exception e) {
                     LOG.error("Error sending events to Timbermill server", e);
@@ -102,15 +102,15 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         }
     }
 
-    private void sendEvents(EventsWrapper eventsWrapper) throws IOException {
-        byte[] eventsWrapperBytes = getEventsWrapperBytes(eventsWrapper);
+    private void sendEvents(EventsList eventsList) throws IOException {
+        byte[] eventsWrapperBytes = getEventsListBytes(eventsList);
         for (int tryNum = 1; tryNum <= MAX_RETRY; tryNum++) {
             try {
                 HttpURLConnection httpCon = getHttpURLConnection();
                 sendEventsOverConnection(httpCon, eventsWrapperBytes);
                 int responseCode = httpCon.getResponseCode();
                 if (responseCode == 200) {
-                    LOG.debug("{} events were sent to Timbermill server", eventsWrapper.getEvents().size());
+                    LOG.debug("{} events were sent to Timbermill server", eventsList.size());
                     return;
 
                 } else {
@@ -133,9 +133,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
 		}
     }
 
-    private byte[] getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
+    private byte[] getEventsListBytes(EventsList eventsList) throws JsonProcessingException {
         ObjectMapper om = new ObjectMapper();
-        return om.writeValueAsBytes(eventsWrapper);
+        return om.writeValueAsBytes(eventsList);
     }
 
     private HttpURLConnection getHttpURLConnection() throws IOException {
