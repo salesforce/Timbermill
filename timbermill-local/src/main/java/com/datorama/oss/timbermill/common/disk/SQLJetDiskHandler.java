@@ -315,10 +315,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 	private BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
 		StreamInput stream = null;
 		try {
-			BulkRequest request = new BulkRequest();
 			stream = StreamInput.wrap(bulkRequestBytes);
-			request.readFrom(stream);
-			return request;
+			return new BulkRequest(stream);
 		}finally {
 			if (stream!=null){
 				stream.close();

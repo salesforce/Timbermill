@@ -39,6 +39,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
@@ -652,7 +653,7 @@ public class ElasticsearchClient {
 		return searchRequest;
 	}
 
-	private ActionResponse runWithRetries(Callable<ActionResponse> callable, int tryNum, String functionDescription, String flowId) throws MaxRetriesException {
+	private ToXContentObject runWithRetries(Callable<ToXContentObject> callable, int tryNum, String functionDescription, String flowId) throws MaxRetriesException {
 		if (tryNum > 1) {
 			LOG.info("Flow ID: [{}] Started try # {}/{} for [{}]", flowId, tryNum, numOfElasticSearchActionsTries, functionDescription);
 		}
