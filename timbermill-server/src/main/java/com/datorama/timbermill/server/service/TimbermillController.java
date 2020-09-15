@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import com.datorama.oss.timbermill.unit.Event;
+import com.datorama.oss.timbermill.unit.EventsList;
 import com.datorama.oss.timbermill.unit.EventsWrapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -61,6 +62,12 @@ public class TimbermillController {
 			Collection<Event> events = eventsWrapper.getEvents();
 			timbermillService.handleEvents(events);
 		});
+		return "Event received";
+	}
+
+	@RequestMapping(method = RequestMethod.POST, value = "/events/v2")
+	public String ingestEventsNew(@RequestBody @Valid EventsList events) {
+		executorService.submit(() -> timbermillService.handleEvents(events));
 		return "Event received";
 	}
 

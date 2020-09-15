@@ -9,30 +9,30 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 public class EventsWrapper {
-    private String id;
-    private List<Event> events;
+	private String id;
+	private List<Event> events;
 
-    public EventsWrapper() {
-    }
+	public EventsWrapper() {
+	}
 
-    public EventsWrapper(List<Event> events) {
-        id = UUID.randomUUID().toString();
-        this.events = events;
-    }
+	public EventsWrapper(List<Event> events) {
+		id = UUID.randomUUID().toString();
+		this.events = events;
+	}
 
-    public List<Event> getEvents() {
-        return events;
-    }
+	public List<Event> getEvents() {
+		return events;
+	}
 
-    public void setEvents(List<Event> events) {
-        this.events = events;
-    }
+	public void setEvents(List<Event> events) {
+		this.events = events;
+	}
 
-    public String getId() {
-        return id;
-    }
+	public String getId() {
+		return id;
+	}
 
-    public void setId(String id) {
-        this.id = id;
-    }
+	public void setId(String id) {
+		this.id = id;
+	}
 }
