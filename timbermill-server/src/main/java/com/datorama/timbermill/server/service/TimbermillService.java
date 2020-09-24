@@ -73,6 +73,7 @@ public class TimbermillService {
 			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes,
 			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 			@Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
+			@Value("${SCROLL_MAX_SLICES:10}") int maxSlices,
 			@Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -83,7 +84,7 @@ public class TimbermillService {
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions);
+				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, maxSlices);
 
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
