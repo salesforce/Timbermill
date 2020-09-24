@@ -317,7 +317,7 @@ public class ElasticsearchClient {
 
 	private String[] getLatestMatchingIndices(String flowId) {
 		List<String> indices = Lists.newArrayList();
-		Request indicesRequest = new Request("GET", "_cat/indices?h=i,creation.date.string");
+		Request indicesRequest = new Request("GET", "/_cat/indices?h=i,creation.date.string");
 		try {
 			Response response = (Response) runWithRetries(() -> client.getLowLevelClient().performRequest(indicesRequest), 1, "Get latest indices", flowId);
 			String responseString = EntityUtils.toString(response.getEntity());
