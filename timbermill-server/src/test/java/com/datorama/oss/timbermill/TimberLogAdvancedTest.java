@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill;
 
 import java.time.ZonedDateTime;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import org.apache.commons.lang3.StringUtils;
@@ -9,11 +8,14 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
-import com.datorama.oss.timbermill.unit.*;
+import com.datorama.oss.timbermill.unit.LogParams;
+import com.datorama.oss.timbermill.unit.StartEvent;
+import com.datorama.oss.timbermill.unit.Task;
+import com.datorama.oss.timbermill.unit.TaskStatus;
 
 import static com.datorama.oss.timbermill.TimberLogTest.*;
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
-import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
+import static com.datorama.oss.timbermill.unit.Event.generateTaskId;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS;
 import static com.datorama.oss.timbermill.unit.SuccessEvent.ALREADY_CLOSED_DIFFERENT_CLOSE_TIME;
 import static org.junit.Assert.*;
@@ -124,7 +126,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
@@ -170,7 +172,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String ongoingTaskId = Event.generateTaskId(ongoingTaskName);
+        String ongoingTaskId = generateTaskId(ongoingTaskName);
         String taskId = testOutOfOrderWithParentTask1(ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName, ongoingTaskId, log1, log2, log3);
 
         TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS);
@@ -226,7 +228,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         String exception = "exception";
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.error(taskId, new Exception(exception), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
@@ -274,7 +276,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log1));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
@@ -320,7 +322,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log3));
@@ -365,7 +367,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
@@ -410,7 +412,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
@@ -451,7 +453,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
@@ -487,7 +489,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.error(taskId, new Exception("exception"), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
@@ -524,7 +526,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
 
@@ -562,7 +564,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log1));
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
 
@@ -598,7 +600,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
         TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
 
@@ -631,7 +633,7 @@ public class TimberLogAdvancedTest {
 
         String ongoingTaskName = EVENT + '1';
 
-        String taskId = Event.generateTaskId(ongoingTaskName);
+        String taskId = generateTaskId(ongoingTaskName);
         TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1).logInfo(log2).logInfo(log3));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_INFO_ONLY);
@@ -869,7 +871,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessStartSuccess(boolean withUpdate) throws InterruptedException {
-        String id = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String id = generateTaskId(EVENT);
         TimberLoggerAdvanced.success(id);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -887,7 +889,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String taskId = generateTaskId(EVENT);
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -904,7 +906,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskSuccessError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String taskId = generateTaskId(EVENT);
         TimberLoggerAdvanced.success(taskId);
         if (withUpdate) {
             Thread.sleep(3000);
@@ -921,7 +923,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorStartSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String taskId = generateTaskId(EVENT);
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -939,7 +941,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorSuccess(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String taskId = generateTaskId(EVENT);
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);
@@ -956,7 +958,7 @@ public class TimberLogAdvancedTest {
     }
 
     void testIncorrectTaskErrorError(boolean withUpdate) throws InterruptedException {
-        String taskId = EVENT + Event.EVENT_ID_DELIMITER + UUID.randomUUID() + "_" + TIMBERMILL2;
+        String taskId = generateTaskId(EVENT);
         TimberLoggerAdvanced.error(taskId, new Exception());
         if (withUpdate) {
             Thread.sleep(3000);

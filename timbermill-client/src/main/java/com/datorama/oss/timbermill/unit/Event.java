@@ -224,11 +224,7 @@ public abstract class Event implements Serializable {
 	public static String generateTaskId(String name) {
 		String uuid = UUID.randomUUID().toString();
 		uuid = uuid.replace("-", "_");
-		return addTimbermill2Suffix(name + EVENT_ID_DELIMITER + uuid);
-	}
-
-	public static String addTimbermill2Suffix(String string) {
-		return string + "_" + TIMBERMILL2;
+		return name + EVENT_ID_DELIMITER + uuid;
 	}
 
 	public String getEnv() {
@@ -377,10 +373,16 @@ public abstract class Event implements Serializable {
 
 	public void fixErrors() {
 		if (this.taskId != null && this.taskId.endsWith("_timbermill2_timbermill2")){
-			this.taskId = this.taskId.replace("_timbermill2_timbermill2", "_timbermill2");
+			this.taskId = this.taskId.replace("_timbermill2_timbermill2", "");
+		}
+		if (this.taskId != null && this.taskId.endsWith("_timbermill2")){
+			this.taskId = this.taskId.replace("_timbermill2", "");
 		}
 		if (this.parentId != null && this.parentId.endsWith("_timbermill2_timbermill2")){
-			this.parentId = this.parentId.replace("_timbermill2_timbermill2", "_timbermill2");
+			this.parentId = this.parentId.replace("_timbermill2_timbermill2", "");
+		}
+		if (this.parentId != null && this.parentId.endsWith("_timbermill2")){
+			this.parentId = this.parentId.replace("_timbermill2", "");
 		}
 	}
 }

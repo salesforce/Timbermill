@@ -20,9 +20,6 @@ import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.pipe.StatisticsCollectorOutputPipe;
 import com.datorama.oss.timbermill.unit.*;
 
-import static com.datorama.oss.timbermill.unit.Event.TIMBERMILL2;
-import static com.datorama.oss.timbermill.unit.Event.addTimbermill2Suffix;
-
 final class EventLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(EventLogger.class);
     private static final String THREAD_NAME = "threadName";
@@ -89,20 +86,12 @@ final class EventLogger {
 		}
 		try {
 			addStaticParams(logParams);
-			parentTaskId = alignTimbermill2Id(parentTaskId);
 			Event event = createStartEvent(taskId, logParams, parentTaskId, isOngoingTask, name, dateToDelete);
 			return submitEvent(event);
 		} catch (Throwable throwable){
 			LOG.error("Was unable to send event to Timbermill", throwable);
 			return null;
 		}
-	}
-
-	private String alignTimbermill2Id(String id) {
-		if (id != null && !id.endsWith(TIMBERMILL2)) {
-			id = addTimbermill2Suffix(id);
-		}
-		return id;
 	}
 
 	String successEvent() {
@@ -198,8 +187,7 @@ final class EventLogger {
 	}
 
 	void addIdToContext(String ongoingTaskId) {
-		String timbermill2Id = alignTimbermill2Id(ongoingTaskId);
-		taskIdStack.push(timbermill2Id);
+		taskIdStack.push(ongoingTaskId);
 	}
 
 	void removeIdFromContext(String ongoingTaskId) {
@@ -237,7 +225,6 @@ final class EventLogger {
 			}
 		}
 		else {
-			ongoingTaskId = alignTimbermill2Id(ongoingTaskId);
 			e = new SuccessEvent(ongoingTaskId, logParams);
 		}
 		return e;
@@ -260,7 +247,6 @@ final class EventLogger {
 			}
 		}
 		else{
-			ongoingTaskId = alignTimbermill2Id(ongoingTaskId);
 			e = new ErrorEvent(ongoingTaskId, logParams);
 		}
 		return e;
@@ -276,7 +262,6 @@ final class EventLogger {
 			}
 		}
 		else{
-			ongoingTaskId = alignTimbermill2Id(ongoingTaskId);
 			e = new InfoEvent(ongoingTaskId, logParams);
 		}
 		return e;
@@ -287,7 +272,6 @@ final class EventLogger {
 			logParams = LogParams.create();
 		}
 		addStaticParams(logParams);
-		parentTaskId = alignTimbermill2Id(parentTaskId);
 		if (parentTaskId == null) {
 			parentTaskId = getParentIdFromStack();
 		}

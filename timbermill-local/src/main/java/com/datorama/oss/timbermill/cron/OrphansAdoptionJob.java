@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import kamon.metric.Timer;
+import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 
 @DisallowConcurrentExecution
 public class OrphansAdoptionJob implements Job {
@@ -35,13 +36,13 @@ public class OrphansAdoptionJob implements Job {
 
 		Timer.Started started = KamonConstants.ORPHANS_JOB_LATENCY.withoutTags().start();
 		String flowId = "Orphans Adoption Job - " + UUID.randomUUID().toString();
-		LOG.info("Flow ID: [{}] Orphans Adoption Job started.", flowId);
+		LOG.info(FLOW_ID_LOG + " Orphans Adoption Job started.", flowId);
 		ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
 		int partialOrphansGraceMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES);
 		int orphansFetchPeriodMinutes = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES);
 		int daysRotationParam = context.getJobDetail().getJobDataMap().getInt(ElasticsearchUtil.DAYS_ROTATION);
 		handleAdoptions(es, partialOrphansGraceMinutes, orphansFetchPeriodMinutes, daysRotationParam, flowId);
-		LOG.info("Flow ID: [{}] Orphans Adoption Job ended.", flowId);
+		LOG.info(FLOW_ID_LOG + " Orphans Adoption Job ended.", flowId);
 		started.stop();
 	}
 
@@ -63,10 +64,10 @@ public class OrphansAdoptionJob implements Job {
 		KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(latestOrphan.size());
 		KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adoptedTasksMap.size());
 		if (!latestOrphan.isEmpty()) {
-			LOG.info("Flow ID: [{}] Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), adoptedTasksMap.size());
+			LOG.info(FLOW_ID_LOG + " Found {} orphans, Adopted {} orphans.", flowId, latestOrphan.size(), adoptedTasksMap.size());
 		}
 		else {
-			LOG.info("Flow ID: [{}] Didn't find any orphans.", flowId);
+			LOG.info(FLOW_ID_LOG + " Didn't find any orphans.", flowId);
 		}
 	}
 
@@ -81,7 +82,7 @@ public class OrphansAdoptionJob implements Job {
 	private Map<String, Task> fetchAdoptingParents(ElasticsearchClient es, Map<String, Task> latestOrphan, String flowId) {
 		Set<String> orphansIds = latestOrphan.keySet();
 		Set<String> parentsIds = latestOrphan.values().stream().map(Task::getParentId).collect(Collectors.toSet());
-		return es.getMissingParents(orphansIds, parentsIds, flowId);
+		return es.getMissingParents(orphansIds, parentsIds, flowId,  ElasticsearchUtil.TIMBERMILL_INDEX_WILDCARD);
 	}
 
 	private Map<String, List<Event>> adoptOrphanEvents(Map<String, List<AdoptedEvent>> orphansByParent, Map<String, Task> fetchedParents) {
