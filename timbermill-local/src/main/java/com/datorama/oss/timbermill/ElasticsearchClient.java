@@ -257,8 +257,8 @@ public class ElasticsearchClient {
 		return getTasksByIds(boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
 	}
 
-	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId) {
-		Set<String> envsToFilterOn = getIndexedEnvs();
+	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId, String...indices) {
+		Set<String> envsToFilterOn = ElasticsearchUtil.getEnvSet();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder partialOrphansRangeQuery = buildRelativeRangeQuery(partialTasksGraceMinutes);
 		RangeQueryBuilder allOrphansRangeQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
@@ -278,7 +278,7 @@ public class ElasticsearchClient {
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
-		return getSingleTaskByIds(finalOrphansQuery, "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, TIMBERMILL_INDEX_WILDCARD);
+		return getSingleTaskByIds(finalOrphansQuery, "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
 
 	}
 
@@ -430,7 +430,7 @@ public class ElasticsearchClient {
 
 	public void migrateTasksToNewIndex(int relativeMinutes, String flowId) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
-		Set<String> indexedEnvs = getIndexedEnvs();
+		Set<String> indexedEnvs = ElasticsearchUtil.getEnvSet();
 		for (String env : indexedEnvs) {
 			String currentAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
 			String oldAlias = getOldAlias(currentAlias);
@@ -483,7 +483,7 @@ public class ElasticsearchClient {
 	private BoolQueryBuilder getLatestPartialsQuery(int relativeMinutes) {
 		BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder latestItemsQuery = buildRelativeRangeQuery(relativeMinutes);
-		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", getIndexedEnvs());
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", ElasticsearchUtil.getEnvSet());
 
 		latestPartialsQuery.filter(latestItemsQuery);
 		latestPartialsQuery.filter(envsQuery);
@@ -838,10 +838,6 @@ public class ElasticsearchClient {
 
 	private String buildElasticRelativeTime(int minutes) {
 		return "now-"+ minutes + "m";
-	}
-
-	private Set<String> getIndexedEnvs() {
-		return ElasticsearchUtil.getEnvSet();
 	}
 
 	public Bulker getBulker() {
