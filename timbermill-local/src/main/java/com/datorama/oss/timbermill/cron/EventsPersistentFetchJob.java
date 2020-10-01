@@ -15,6 +15,7 @@ import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 
 import kamon.metric.Timer;
+import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 
 @DisallowConcurrentExecution
@@ -28,7 +29,7 @@ public class EventsPersistentFetchJob implements Job {
 		BlockingQueue<Event> overflowedQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(OVERFLOWED_EVENTS_QUEUE);
 		if (diskHandler != null && hasEnoughRoomLeft(eventsQueue)) {
 			String flowId = "Overflowed Event Persistent Fetch Job - " + UUID.randomUUID().toString();
-			LOG.info("Flow ID: [{}] Overflowed Events Fetch Job started.", flowId);
+			LOG.info(FLOW_ID_LOG + " Overflowed Events Fetch Job started.", flowId);
 			Timer.Started start = KamonConstants.EVENTS_FETCH_JOB_LATENCY.withoutTags().start();
 			while (hasEnoughRoomLeft(eventsQueue)){
 				List<Event> events = diskHandler.fetchAndDeleteOverflowedEvents(flowId);
@@ -39,7 +40,7 @@ public class EventsPersistentFetchJob implements Job {
 					for (Event event : events) {
 						if(!eventsQueue.offer(event)){
 							if (!overflowedQueue.offer(event)){
-								LOG.error("Flow ID: [{}] OverflowedQueue is full, event {} was discarded", flowId, event.getTaskId());
+								LOG.error(FLOW_ID_LOG + " OverflowedQueue is full, event {} was discarded", flowId, event.getTaskId());
 							}
 							else {
 								KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
@@ -52,7 +53,7 @@ public class EventsPersistentFetchJob implements Job {
 				}
 			}
 			start.stop();
-			LOG.info("Flow ID: [{}] Overflowed Events Fetch Job ended.", flowId);
+			LOG.info(FLOW_ID_LOG + " Overflowed Events Fetch Job ended.", flowId);
 		}
 	}
 

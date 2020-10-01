@@ -42,7 +42,7 @@ public class TimberLogAdvancedOrphansTest {
         }
         client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
                 7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
-                4000, null, 10, 60, 10000);
+                4000, null, 10, 60, 10000, 10);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
@@ -84,7 +84,7 @@ public class TimberLogAdvancedOrphansTest {
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(taskId, notOrphanPredicate);
+        waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
         Assert.assertEquals(parentTaskId, task.getParentId());
@@ -108,7 +108,7 @@ public class TimberLogAdvancedOrphansTest {
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(taskId, notOrphanPredicate);
+        waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
         Assert.assertEquals(parentTaskId, task.getParentId());
@@ -134,8 +134,8 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
 
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(taskId, notOrphanPredicate);
-        waitForTaskPredicate(orphanChildId, notOrphanPredicate);
+        waitForNonOrphanTask(taskId);
+        waitForNonOrphanTask(orphanChildId);
         Task parentTask = client.getTaskById(parentTaskId);
         Task task = client.getTaskById(taskId);
         Task orphanChildTask = client.getTaskById(orphanChildId);
@@ -213,10 +213,10 @@ public class TimberLogAdvancedOrphansTest {
 
         waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(orphan2TaskId, notOrphanPredicate);
-        waitForTaskPredicate(orphan3TaskId, notOrphanPredicate);
-        waitForTaskPredicate(orphan41TaskId, notOrphanPredicate);
-        waitForTaskPredicate(orphan42TaskId, notOrphanPredicate);
+        waitForNonOrphanTask(orphan2TaskId);
+        waitForNonOrphanTask(orphan3TaskId);
+        waitForNonOrphanTask(orphan41TaskId);
+        waitForNonOrphanTask(orphan42TaskId);
 
         Task task1 = client.getTaskById(orphan1TaskId);
         Task task2 = client.getTaskById(orphan2TaskId);
@@ -345,9 +345,9 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(orphan6TaskId, TaskStatus.SUCCESS);
 
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(orphan3TaskId, notOrphanPredicate);
-        waitForTaskPredicate(orphan5TaskId, notOrphanPredicate);
-        waitForTaskPredicate(orphan7TaskId, notOrphanPredicate);
+        waitForNonOrphanTask(orphan3TaskId);
+        waitForNonOrphanTask(orphan5TaskId);
+        waitForNonOrphanTask(orphan7TaskId);
 
 
         task1 = client.getTaskById(orphan1TaskId);
@@ -471,7 +471,7 @@ public class TimberLogAdvancedOrphansTest {
             }
         }
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(taskId, notOrphanPredicate);
+        waitForNonOrphanTask(taskId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForTask(taskId, TaskStatus.SUCCESS);
         Task primaryTask = client.getTaskById(parentTaskId);
@@ -511,7 +511,7 @@ public class TimberLogAdvancedOrphansTest {
         client.index(tasksMap, index, flowId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(childTaskId, notOrphanPredicate);
+        waitForNonOrphanTask(childTaskId);
 
         childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertNotOrphan(childTask);
@@ -553,8 +553,8 @@ public class TimberLogAdvancedOrphansTest {
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
-        waitForTaskPredicate(orphanTaskId, notOrphanPredicate);
-        waitForTaskPredicate(childTaskId, notOrphanPredicate);
+        waitForNonOrphanTask(orphanTaskId);
+        waitForNonOrphanTask(childTaskId);
 
         orphanTask = client.getTaskById(orphanTaskId);
         TimberLogTest.assertNotOrphan(orphanTask);

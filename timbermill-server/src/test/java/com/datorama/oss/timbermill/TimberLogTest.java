@@ -33,8 +33,7 @@ public abstract class TimberLogTest {
 
 	static final String TEST = "test";
 	static final String EVENT = "Event";
-	static final String LOG_REGEX = "\\[.+] \\[INFO] - ";
-	static final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && (task.isOrphan() == null || !task.isOrphan());
+	private static final Predicate<Task> notOrphanPredicate = (Task task) -> (task != null) && (task.isOrphan() == null || !task.isOrphan());
 	private static final String EVENT_CHILD = "EventChild";
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
@@ -54,8 +53,8 @@ public abstract class TimberLogTest {
 		waitForCallable(callable);
 	}
 
-	static void waitForTaskPredicate(String taskId, Predicate<Task> predicate) {
-		Callable<Boolean> callable = () -> client.getTaskById(taskId) != null && predicate.test(client.getTaskById(taskId));
+	static void waitForNonOrphanTask(String taskId) {
+		Callable<Boolean> callable = () -> client.getTaskById(taskId) != null && TimberLogTest.notOrphanPredicate.test(client.getTaskById(taskId));
 		waitForCallable(callable);
 	}
 
@@ -84,7 +83,7 @@ public abstract class TimberLogTest {
 
 		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
 				7, 100, 1000000000,3, 3, 1000,null ,1, 1,
-				4000, null, 10 , 60, 10000);
+				4000, null, 10 , 60, 10000, 10);
 		orphansAdoptionJob = new OrphansAdoptionJob();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
@@ -387,8 +386,8 @@ public abstract class TimberLogTest {
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 
 		orphansAdoptionJob.execute(context);
-		waitForTaskPredicate(taskId1, notOrphanPredicate);
-		waitForTaskPredicate(taskId2, notOrphanPredicate);
+		waitForNonOrphanTask(taskId1);
+		waitForNonOrphanTask(taskId2);
 
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
@@ -429,8 +428,8 @@ public abstract class TimberLogTest {
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 		orphansAdoptionJob.execute(context);
-		waitForTaskPredicate(taskId1, notOrphanPredicate);
-		waitForTaskPredicate(taskId2, notOrphanPredicate);
+		waitForNonOrphanTask(taskId1);
+		waitForNonOrphanTask(taskId2);
 
 		Task task1 = client.getTaskById(taskId1);
 		assertTask(task1, EVENT, true, true, spotId, spotId, TaskStatus.SUCCESS, SPOT);
@@ -457,7 +456,7 @@ public abstract class TimberLogTest {
 		waitForTask(taskId[0], TaskStatus.SUCCESS, client);
 
 		Task task = client.getTaskById(taskId[0]);
-		assertTask(task, EVENT, true, true, null, "bla_timbermill2", TaskStatus.SUCCESS);
+		assertTask(task, EVENT, true, true, null, "bla", TaskStatus.SUCCESS);
 	}
 
 	@TimberLogTask(name = EVENT)

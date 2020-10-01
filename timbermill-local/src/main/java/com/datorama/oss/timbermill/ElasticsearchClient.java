@@ -6,8 +6,6 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -18,19 +16,21 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
+import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.*;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.*;
 import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.core.CountResponse;
 import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
@@ -39,11 +39,11 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.slice.SliceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,7 +66,8 @@ import com.google.common.collect.Sets;
 import com.google.gson.*;
 import com.google.gson.internal.LazilyParsedNumber;
 
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.TIMBERMILL_INDEX_PREFIX;
+import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
@@ -82,14 +83,13 @@ public class ElasticsearchClient {
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
 	private static final String[] PARENT_FIELDS_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
+	private static final String META_TASK_BEGIN = "meta.taskBegin";
 	private final RestHighLevelClient client;
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
 	private long maxIndexAge;
 	private long maxIndexSizeInGB;
 	private long maxIndexDocs;
-	private String currentIndex;
-	private String oldIndex;
 	private final int numOfElasticSearchActionsTries;
 	private IndexRetryManager retryManager;
 	private Bulker bulker;
@@ -99,11 +99,11 @@ public class ElasticsearchClient {
 	private final int fetchByIdsPartitions;
 	private AtomicInteger concurrentScrolls = new AtomicInteger(0);
 
-	private final ReadWriteLock indexRolloverValuesAccessController;
+	private int maxSlices;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions) {
+			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int maxSlices) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
@@ -120,6 +120,7 @@ public class ElasticsearchClient {
         this.scrollLimitation = scrollLimitation;
         this.scrollTimeoutSeconds = scrollTimeoutSeconds;
         this.fetchByIdsPartitions = fetchByIdsPartitions;
+        this.maxSlices = maxSlices;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
@@ -148,22 +149,23 @@ public class ElasticsearchClient {
         this.bulker = bulker;
 		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker);
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
-		this.indexRolloverValuesAccessController = new ReentrantReadWriteLock();
     }
 
-    public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds, String flowId) {
-		LOG.debug("Flow ID: [{}] Fetching {} missing parents", flowId, parentIds.size());
+    public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds, String flowId, String...indices) {
 
 		parentIds.removeAll(startEventsIds);
-        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
+		int missingParentAmount = parentIds.size();
+		KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
+		LOG.info(FLOW_ID_LOG + " Fetching {} missing parents", flowId, missingParentAmount);
+		Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
 			if (!parentIds.isEmpty()) {
-				previouslyIndexedParentTasks = getNonOrphansTasksByIds(parentIds, flowId);
+				previouslyIndexedParentTasks = getNonOrphansTasksByIds(parentIds, flowId, indices);
 			}
         } catch (Throwable t) {
-            LOG.error("Flow ID: [{}] Error fetching indexed tasks from Elasticsearch", flowId, t);
+            LOG.error(FLOW_ID_LOG + " Error fetching indexed tasks from Elasticsearch", flowId, t);
         }
-        LOG.debug("Flow ID: [{}] Fetched {} parents", flowId, previouslyIndexedParentTasks.size());
+        LOG.info(FLOW_ID_LOG + " Fetched {} missing parents", flowId, previouslyIndexedParentTasks.size());
         return previouslyIndexedParentTasks;
     }
 
@@ -202,47 +204,36 @@ public class ElasticsearchClient {
 		}
 	}
 
-	public boolean doesIndexAlreadyRolledOver() {
-		indexRolloverValuesAccessController.readLock().lock();
-		boolean result = null != oldIndex;
-		indexRolloverValuesAccessController.readLock().unlock();
-		return  result;
-	}
-
-	public String unsafeGetCurrentIndex() {
-        return currentIndex;
-    }
-
-    public String unsafeGetOldIndex() {
-        return oldIndex;
-    }
-
-    public void setRollOveredIndicesValues(String oldIndex, String currentIndex) {
-		//blocking
-		indexRolloverValuesAccessController.writeLock().lock();
-		this.currentIndex = currentIndex;
-		this.oldIndex = oldIndex;
-		indexRolloverValuesAccessController.writeLock().unlock();
-	}
-
 	public Task getTaskById(String taskId){
-		Map<String, Task> tasksByIds = getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", Sets.newHashSet(taskId), "Test", ALL_TASK_FIELDS, EMPTY_ARRAY, "test");
+		Map<String, Task> tasksByIds = getTasksByIds(new BoolQueryBuilder(), Sets.newHashSet(taskId), "Test", ElasticsearchClient.ALL_TASK_FIELDS,
+				org.elasticsearch.common.Strings.EMPTY_ARRAY, "test", TIMBERMILL_INDEX_WILDCARD);
 		return tasksByIds.get(taskId);
 	}
 
 	public List<Task> getMultipleTasksByIds(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
-		Map<String, List<Task>> map = runScrollQuery(TIMBERMILL_INDEX_PREFIX + "*", idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test");
+		Map<String, List<Task>> map = Maps.newHashMap();
+		List<Future<Map<String, List<Task>>>> futures = runScrollInSlices(idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, "test", TIMBERMILL_INDEX_WILDCARD);
+		for (Future<Map<String, List<Task>>> future : futures) {
+			Map<String, List<Task>> taskMap;
+			try {
+				taskMap = future.get();
+			} catch (InterruptedException | ExecutionException e) {
+				throw new RuntimeException(e);
+			}
+			for (Map.Entry<String, List<Task>> entry : taskMap.entrySet()) {
+				String key = entry.getKey();
+				List<Task> tasks = entry.getValue();
+				if (map.putIfAbsent(key, tasks) != null){
+					map.get(key).addAll(tasks);
+				}
+			}
+		}
 		return map.get(taskId);
     }
 
-	private Map<String, Task> getTasksByIds(String index, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude,
-			String[] taskFieldsToExclude, String flowId) {
-		return getTasksByIds(index, new BoolQueryBuilder(), taskIds, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
-	}
-
-    private Map<String, Task> getTasksByIds(String index, BoolQueryBuilder queryBuilder, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude,
-			String[] taskFieldsToExclude, String flowId) {
+	private Map<String, Task> getTasksByIds(BoolQueryBuilder queryBuilder, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
+			String flowId, String...indices) {
 		Map<String, Task> allTasks = Maps.newHashMap();
 		for (List<String> batch : Iterables.partition(taskIds, fetchByIdsPartitions)){
 			IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
@@ -250,23 +241,24 @@ public class ElasticsearchClient {
 				idsQueryBuilder.addIds(taskId);
 			}
 			queryBuilder.filter(idsQueryBuilder);
-			Map<String, Task> batchResult = getSingleTaskByIds(queryBuilder, index, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
+			Map<String, Task> batchResult = getSingleTaskByIds(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
 			allTasks.putAll(batchResult);
 		}
 		return allTasks;
     }
 
-	private Map<String, Task> getNonOrphansTasksByIds(Collection<String> taskIds, String flowId) {
+	private Map<String, Task> getNonOrphansTasksByIds(Collection<String> taskIds, String flowId, String...indices) {
 		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
 
 		boolQueryBuilder.filter(startedTaskQueryBuilder);
 		boolQueryBuilder.mustNot(ORPHANS_QUERY);
-		return getTasksByIds(TIMBERMILL_INDEX_PREFIX + "*", boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
+
+		return getTasksByIds(boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
 	}
 
-	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId) {
-		Set<String> envsToFilterOn = getIndexedEnvs();
+	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId, String...indices) {
+		Set<String> envsToFilterOn = ElasticsearchUtil.getEnvSet();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder partialOrphansRangeQuery = buildRelativeRangeQuery(partialTasksGraceMinutes);
 		RangeQueryBuilder allOrphansRangeQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
@@ -286,28 +278,48 @@ public class ElasticsearchClient {
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
 		finalOrphansQuery.should(nonPartialOrphansQuery);
 
-		return getSingleTaskByIds(finalOrphansQuery, TIMBERMILL_INDEX_PREFIX + "*", "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId);
+		return getSingleTaskByIds(finalOrphansQuery, "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
 
 	}
 
-	private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String index, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
-			String flowId) {
+	private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, String...indices) {
         Map<String, Task> retMap = Maps.newHashMap();
-		Map<String, List<Task>> tasks = runScrollQuery(index, queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId);
-		for (Map.Entry<String, List<Task>> entry : tasks.entrySet()) {
-			List<Task> tasksList = entry.getValue();
-			String taskId = entry.getKey();
-			if (tasksList.size() == 1){
-				retMap.put(taskId, tasksList.get(0));
-			}
-			else {
-				LOG.warn("Flow ID: [{}] Fetched multiple tasks per id [{}] from Elasticsearch for [{}] Tasks: {}", flowId, taskId, functionDescription, tasksList);
+
+		List<Future<Map<String, List<Task>>>> futures = runScrollInSlices(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
+
+		for (Future<Map<String, List<Task>>> future : futures) {
+			try {
+				Map<String, List<Task>> tasks = future.get();
+				for (Map.Entry<String, List<Task>> entry : tasks.entrySet()) {
+					List<Task> tasksList = entry.getValue();
+					String taskId = entry.getKey();
+					if (tasksList.size() == 1){
+						retMap.put(taskId, tasksList.get(0));
+					}
+					else {
+						LOG.warn(FLOW_ID_LOG + " Fetched multiple tasks per id [{}] from Elasticsearch for [{}] Tasks: {}", flowId, taskId, functionDescription, tasksList);
+					}
+				}
+			} catch (InterruptedException | ExecutionException e) {
+				LOG.error("Flow ID: [ "+ flowId +" ] Error while concurrently running sliced scrolls for [" + functionDescription + "]", e);
 			}
 		}
 		return retMap;
     }
 
-    void indexMetaDataTasks(String env, Collection<String> metadataEvents, String flowId) {
+	private List<Future<Map<String, List<Task>>>> runScrollInSlices(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
+			String flowId, String...indices) {
+		List<Future<Map<String, List<Task>>>> futures = Lists.newArrayList();
+		for (int sliceId = 0; sliceId < maxSlices; sliceId++) {
+			int finalSliceId = sliceId;
+			Future<Map<String, List<Task>>> futureFetcher = executorService
+					.submit(() -> runScrollQuery(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, finalSliceId, indices));
+			futures.add(futureFetcher);
+		}
+		return futures;
+	}
+
+	void indexMetaDataTasks(String env, Collection<String> metadataEvents, String flowId) {
         String index = createTimbermillAlias(env, flowId);
 
         BulkRequest bulkRequest = new BulkRequest();
@@ -334,14 +346,14 @@ public class ElasticsearchClient {
 	public int sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
 		BulkRequest request = dbBulkRequest.getRequest();
 		int numberOfActions = request.numberOfActions();
-		LOG.debug("Flow ID: [{}] Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
+		LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
 
 		try {
 			BulkResponse responses = bulk(dbBulkRequest);
 			if (responses.hasFailures()) {
 				return retryManager.retrySendDbBulkRequest(dbBulkRequest,responses,responses.buildFailureMessage(), flowId, bulkNum);
 			}
-			LOG.debug("Flow ID: [{}] Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
+			LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
 			if (dbBulkRequest.getTimesFetched() > 0 ){
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
 			}
@@ -367,17 +379,17 @@ public class ElasticsearchClient {
 				Integer failedRequests = futureRequest.getLeft().get();
 				overallFailedRequests += failedRequests;
 			} catch (InterruptedException e) {
-				LOG.error("Flow ID: [{}] Bulk #{} An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
+				LOG.error(FLOW_ID_LOG + " Bulk #{} An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
 				sendDbBulkRequest(futureRequest.getRight(), flowId, bulkNum);
 			} catch (ExecutionException e) {
-				LOG.error("Flow ID: [{}] Bulk #{} An error was thrown while indexing a batch, which won't be persisted to disk", flowId, bulkNum, e);
+				LOG.error(FLOW_ID_LOG + " Bulk #{} An error was thrown while indexing a batch, which won't be persisted to disk", flowId, bulkNum, e);
 			}
 			bulkNum++;
         }
 		return overallFailedRequests;
     }
 
-    void rolloverIndex(String timbermillAlias, String flowId) {
+    void rolloverIndex(String timbermillAlias, String flowId, String env) {
 		try {
 			RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
 			rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
@@ -386,28 +398,70 @@ public class ElasticsearchClient {
 			RolloverResponse rolloverResponse = (RolloverResponse) runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), 1, "Rollover alias " + timbermillAlias,
 					flowId);
 			if (rolloverResponse.isRolledOver()){
-				LOG.info("Flow ID: [{}] Alias {} rolled over, new index is [{}]", flowId, timbermillAlias, rolloverResponse.getNewIndex());
-				setRollOveredIndicesValues(rolloverResponse.getOldIndex(), rolloverResponse.getNewIndex());
-
+				LOG.info(FLOW_ID_LOG + " Alias {} rolled over, new index is [{}]", flowId, timbermillAlias, rolloverResponse.getNewIndex());
+				updateOldAlias(flowId, env, rolloverResponse);
 			}
 		} catch (Exception e) {
-			LOG.error("Flow ID: [{}] Could not rollovered alias {}", flowId, timbermillAlias);
+			LOG.error("Flow ID: [" + flowId + "] Could not rollovered alias " + timbermillAlias, e);
 		}
     }
 
+	private void updateOldAlias(String flowId, String env, RolloverResponse rolloverResponse) throws MaxRetriesException {
+		IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
+		String oldAlias = getOldAlias(getTimbermillIndexAlias(env));
+		IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
+		removeRequest.addAliasAction(removeAllIndicesAction);
+		AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
+				1, "Removing old index from alias", flowId);
+		boolean acknowledged = acknowledgedResponse.isAcknowledged();
+		if (!acknowledged) {
+			LOG.info(FLOW_ID_LOG + " Removing old index from alias [{}] failed", flowId, oldAlias);
+		}
+		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
+		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
+		addRequest.addAliasAction(addNewOldIndexAction);
+		acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
+				1, "Adding old index to alias", flowId);
+		acknowledged = acknowledgedResponse.isAcknowledged();
+		if (!acknowledged) {
+			LOG.info(FLOW_ID_LOG + " Adding old index to alias [{}] failed", flowId, oldAlias);
+		}
+	}
+
 	public void migrateTasksToNewIndex(int relativeMinutes, String flowId) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
+		Set<String> indexedEnvs = ElasticsearchUtil.getEnvSet();
+		for (String env : indexedEnvs) {
+			String currentAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
+			String oldAlias = getOldAlias(currentAlias);
 
-		indexRolloverValuesAccessController.readLock().lock();
-		String oldIndex = this.oldIndex;
-		String currentIndex = this.currentIndex;
-		indexRolloverValuesAccessController.readLock().unlock();
+			try {
+				if (isAliasNotExists(flowId, currentAlias)){
+					LOG.error(FLOW_ID_LOG + " Main alias {} doesn't exists.", flowId, currentAlias);
+				}
+				else {
+					if (isAliasNotExists(flowId, oldAlias)){
+						LOG.info(FLOW_ID_LOG + " Old alias {} doesn't exists.", flowId, oldAlias);
+					}
+					else {
+						Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(relativeMinutes, oldAlias, currentAlias, flowId);
+						Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(relativeMinutes, currentAlias, oldAlias, flowId);
+						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
+						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
+						indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldAlias, currentAlias, flowId);
+					}
+				}
+			} catch (MaxRetriesException e){
+				LOG.error(FLOW_ID_LOG + " Failed running migration cron for main alias [{}] and old alias [{}]", flowId, currentAlias, oldAlias);
+			}
+		}
+	}
 
-		Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(relativeMinutes, oldIndex, currentIndex, flowId);
-		Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(relativeMinutes, currentIndex, oldIndex, flowId);
-		tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
-		tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
-		indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldIndex, currentIndex, flowId);
+	public boolean isAliasNotExists(String flowId, String currentIndex) throws MaxRetriesException {
+		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
+		GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
+				"Is Timbermill alias exists", flowId);
+		return response.getAliases().isEmpty();
 	}
 
 	private Map<String,Task> findMatchingTasksToMigrate(int relativeMinutes, String indexOfPartials, String indexOfMatchingTasks, String flowId) {
@@ -415,12 +469,13 @@ public class ElasticsearchClient {
 
 		Map<String, Task> matchingTasks = Maps.newHashMap();
 		String functionDescription = "Migrate old tasks to new index";
-		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, indexOfPartials, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId);
+		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId, indexOfPartials);
 		if (!singleTaskByIds.isEmpty()) {
-			matchingTasks = getTasksByIds(indexOfMatchingTasks, singleTaskByIds.keySet(), functionDescription, ALL_TASK_FIELDS, EMPTY_ARRAY, flowId);
+			matchingTasks = getTasksByIds(new BoolQueryBuilder(), singleTaskByIds.keySet(), functionDescription, ElasticsearchClient.ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY,
+					flowId, indexOfMatchingTasks);
 
 			KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withoutTags().record(singleTaskByIds.size());
-			LOG.info("Flow ID: [{}] Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
+			LOG.info(FLOW_ID_LOG + " Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
 		}
 		return matchingTasks;
 	}
@@ -428,7 +483,7 @@ public class ElasticsearchClient {
 	private BoolQueryBuilder getLatestPartialsQuery(int relativeMinutes) {
 		BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder latestItemsQuery = buildRelativeRangeQuery(relativeMinutes);
-		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", getIndexedEnvs());
+		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", ElasticsearchUtil.getEnvSet());
 
 		latestPartialsQuery.filter(latestItemsQuery);
 		latestPartialsQuery.filter(envsQuery);
@@ -438,10 +493,10 @@ public class ElasticsearchClient {
 
 	private void indexAndDeleteTasks(Map<String, Task> tasksToMigrateIntoNewIndex, String oldIndex, String currentIndex, String flowId) {
 		if (!tasksToMigrateIntoNewIndex.isEmpty()) {
-			LOG.info("Flow ID: [{}] Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
+			LOG.info(FLOW_ID_LOG + " Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
 			int failedRequests = index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
 			if (failedRequests > 0){
-				LOG.info("Flow ID: [{}] There were {} failed migration requests", flowId, failedRequests);
+				LOG.info(FLOW_ID_LOG + " There were {} failed migration requests", flowId, failedRequests);
 				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
 			}
 			deleteTasksFromIndex(tasksToMigrateIntoNewIndex.keySet(), oldIndex, flowId);
@@ -472,7 +527,7 @@ public class ElasticsearchClient {
     }
 
 	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future<Integer>, DbBulkRequest>> futures, String flowId, int bulkNum) {
-        Future<Integer> future = executorService.submit(() -> {return sendDbBulkRequest(request, flowId, bulkNum);});
+        Future<Integer> future = executorService.submit(() -> sendDbBulkRequest(request, flowId, bulkNum));
         futures.add(Pair.of(future, request));
     }
 
@@ -516,7 +571,7 @@ public class ElasticsearchClient {
 	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) throws MaxRetriesException {
         PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill2-template");
 
-        request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_PREFIX + "*"));
+        request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_WILDCARD));
         request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));
@@ -527,20 +582,15 @@ public class ElasticsearchClient {
     public String createTimbermillAlias(String env, String flowId) {
         String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
 		String initialIndex = getInitialIndex(timbermillAlias);
-		GetAliasesRequest requestWithAlias = new GetAliasesRequest(timbermillAlias);
 		try {
-			GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
-					"Get Timbermill alias for env " + env, flowId);
-			boolean exists = !response.getAliases().isEmpty();
-			if (!exists) {
+			if (isAliasNotExists(flowId, timbermillAlias)) {
 				CreateIndexRequest request = new CreateIndexRequest(initialIndex);
 				Alias alias = new Alias(timbermillAlias);
 				request.alias(alias);
 				runWithRetries(() -> client.indices().create(request, RequestOptions.DEFAULT), 1, "Create index alias " + timbermillAlias + " for index " + initialIndex, flowId);
-				setRollOveredIndicesValues(null, initialIndex);
 			}
 		} catch (MaxRetriesException e){
-			LOG.error("Flow ID: [{}] Failed creating Timbermill Alias {}, going to use index {}",flowId, timbermillAlias, initialIndex);
+			LOG.error(FLOW_ID_LOG + " Failed creating Timbermill Alias {}, going to use index {}",flowId, timbermillAlias, initialIndex);
 			return initialIndex;
 		}
 		return timbermillAlias;
@@ -548,21 +598,20 @@ public class ElasticsearchClient {
 
     private String getInitialIndex(String timbermillAlias) {
         String initialSerial = ElasticsearchUtil.getIndexSerial(1);
-        return timbermillAlias + ElasticsearchUtil.INDEX_DELIMITER + initialSerial;
+        return timbermillAlias + INDEX_DELIMITER + initialSerial;
     }
 
-	private Map<String, List<Task>> runScrollQuery(String index, QueryBuilder query, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId){
-		SearchRequest searchRequest = createSearchRequest(index, query, taskFieldsToInclude, taskFieldsToExclude);
-		searchRequest.source().timeout(new TimeValue(30, TimeUnit.SECONDS));
+	private Map<String, List<Task>> runScrollQuery(QueryBuilder query, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, int sliceId, String...indices){
+		SearchRequest searchRequest = createSearchRequest(query, taskFieldsToInclude, taskFieldsToExclude, sliceId, indices);
 		List<SearchResponse> searchResponses = new ArrayList<>();
 		Set<String> scrollIds = Sets.newHashSet();
 		try {
 			SearchResponse searchResponse = (SearchResponse) runWithRetries(() -> client.search(searchRequest, RequestOptions.DEFAULT), 1, "Initial search for " + functionDescription, flowId);
 			if (searchResponse.getFailedShards() > 0){
-				LOG.warn("Flow ID: [{}] Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
+				LOG.warn(FLOW_ID_LOG + " Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
 			}
 			String scrollId = searchResponse.getScrollId();
-			LOG.info("Flow ID: [{}] Scroll ID {} opened. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.incrementAndGet());
+			LOG.debug(FLOW_ID_LOG + " Scroll ID {} opened. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.incrementAndGet());
 			scrollIds.add(scrollId);
 			searchResponses.add(searchResponse);
 			SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -583,15 +632,15 @@ public class ElasticsearchClient {
 					scrollId = searchResponse.getScrollId();
 					scrollIds.add(scrollId);
 				}
-				LOG.info("Flow ID: [{}] Scroll ID {} Scroll search. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.get());
+				LOG.debug(FLOW_ID_LOG + " Scroll ID {} Scroll search. Open scrolls {}", flowId, scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.get());
 				searchResponses.add(searchResponse);
 				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
 				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
 				if (timeoutReached && keepScrolling) {
-					LOG.error("Flow ID: [{}] Scroll timeout limit of [{} seconds] reached", flowId, scrollTimeoutSeconds);
+					LOG.error(FLOW_ID_LOG + " Scroll timeout limit of [{} seconds] reached", flowId, scrollTimeoutSeconds);
 				}
 				if (numOfScrollsReached && keepScrolling) {
-					LOG.error("Flow ID: [{}] Scrolls amount  limit of [{} scroll operations] reached", flowId, scrollLimitation);
+					LOG.error(FLOW_ID_LOG + " Scrolls amount  limit of [{} scroll operations] reached", flowId, scrollLimitation);
 				}
 			}
 
@@ -600,33 +649,31 @@ public class ElasticsearchClient {
 			// return what managed to be found before failing.
 		}
 		finally {
-			clearScroll(index, functionDescription, scrollIds, flowId);
+			clearScroll(functionDescription, scrollIds, flowId);
 		}
 		return addHitsToMap(searchResponses);
     }
 
-	private void clearScroll(String index, String functionDescription, Set<String> scrollIds, String flowId) {
+	private void clearScroll(String functionDescription, Set<String> scrollIds, String flowId) {
 		if (!scrollIds.isEmpty()) {
-			if (scrollIds.size() > 1) {
-				LOG.info("Scroll ID set is bigger than 1");
-			}
 			ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
 			for (String scrollId : scrollIds) {
 				clearScrollRequest.addScrollId(scrollId);
 			}
+
 			try {
 				ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
-					LOG.error("Flow ID: [{}] Couldn't clear one of scroll ids {} for [{}] in index {}", flowId, scrollIds, functionDescription, index);
+					LOG.error(FLOW_ID_LOG + " Couldn't clear one of scroll ids {} for [{}]", flowId, scrollIds, functionDescription);
 				}
 				else{
 					final StringBuilder s = new StringBuilder();
 					scrollIds.forEach(scrollId -> s.append(scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId + "      |     "));
-					LOG.info("Flow ID: [{}] Scroll ID set: {} closed. Open scrolls {}", flowId, s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
+					LOG.debug(FLOW_ID_LOG + " Scroll ID set: {} closed. Open scrolls {}", flowId, s.toString(), concurrentScrolls.addAndGet( 0 - scrollIds.size()));
 				}
 			} catch (Throwable e) {
-				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "] in index " + index, e);
+				LOG.error("Flow ID: [" + flowId + "] Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "]", e);
 			}
 		}
 	}
@@ -636,26 +683,29 @@ public class ElasticsearchClient {
 		return searchHits != null && searchHits.length > 0 && !timeoutReached && !numOfScrollsReached;
 	}
 
-	private SearchRequest createSearchRequest(String index, QueryBuilder query, String[] taskFieldsToInclude, String[] taskFieldsToExclude) {
+	private SearchRequest createSearchRequest(QueryBuilder query, String[] taskFieldsToInclude, String[] taskFieldsToExclude, int sliceId, String...indices) {
 		SearchRequest searchRequest;
-		if (index == null){
-			searchRequest = new SearchRequest();
+		if (indices == null || indices.length == 0){
+			searchRequest = new SearchRequest(TIMBERMILL_INDEX_WILDCARD);
 		}
 		else {
-			searchRequest = new SearchRequest(index);
+			searchRequest = new SearchRequest(indices);
 		}
 		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, maxSlices);
+		searchSourceBuilder.slice(sliceBuilder);
 		searchSourceBuilder.fetchSource(taskFieldsToInclude, taskFieldsToExclude);
 		searchSourceBuilder.query(query);
 		searchSourceBuilder.size(searchMaxSize);
 		searchRequest.source(searchSourceBuilder);
+		searchRequest.source().timeout(new TimeValue(30, TimeUnit.SECONDS));
 		return searchRequest;
 	}
 
-	private ToXContentObject runWithRetries(Callable<ToXContentObject> callable, int tryNum, String functionDescription, String flowId) throws MaxRetriesException {
+	private Object runWithRetries(Callable<Object> callable, int tryNum, String functionDescription, String flowId) throws MaxRetriesException {
 		if (tryNum > 1) {
-			LOG.info("Flow ID: [{}] Started try # {}/{} for [{}]", flowId, tryNum, numOfElasticSearchActionsTries, functionDescription);
+			LOG.info(FLOW_ID_LOG + " Started try # {}/{} for [{}]", flowId, tryNum, numOfElasticSearchActionsTries, functionDescription);
 		}
 		try {
 			return callable.call();
@@ -728,7 +778,7 @@ public class ElasticsearchClient {
     }
 
     public void deleteExpiredTasks(String flowId) {
-        LOG.info("Flow ID: [{}] About to delete expired tasks", flowId);
+        LOG.info(FLOW_ID_LOG + " About to delete expired tasks", flowId);
 		String query = "{\n"
 				+ "    \"bool\": {\n"
 				+ "      \"must\": [\n"
@@ -742,7 +792,7 @@ public class ElasticsearchClient {
 				+ "      ]\n"
 				+ "    }\n"
 				+ "  }";
-		deleteByQuery("*", query, flowId);
+		deleteByQuery(TIMBERMILL_INDEX_WILDCARD, query, flowId);
     }
 
     private void deleteByQuery(String index, String query, String flowId) {
@@ -760,12 +810,12 @@ public class ElasticsearchClient {
 			JsonObject asJsonObject = new JsonParser().parse(json).getAsJsonObject();
 			JsonElement task = asJsonObject.get("task");
 			if (task != null) {
-				LOG.info("Flow ID: [{}] Task id {} for deletion by query", flowId, task);
+				LOG.info(FLOW_ID_LOG + " Task id {} for deletion by query", flowId, task);
 			} else {
-				LOG.error("Flow ID: [{}] Delete by query didn't return taskId. Response was {}", flowId, json);
+				LOG.error(FLOW_ID_LOG + " Delete by query didn't return taskId. Response was {}", flowId, json);
 			}
 		} catch (Exception e) {
-            LOG.warn("Flow ID: [{}] Could not perform deletion.", flowId, e);
+            LOG.warn(FLOW_ID_LOG + " Could not perform deletion.", flowId, e);
         }
 	}
 
@@ -783,15 +833,11 @@ public class ElasticsearchClient {
 	}
 
     private RangeQueryBuilder buildRelativeRangeQuery(int relativeMinutesFrom, int relativeMinutesTo) {
-		return QueryBuilders.rangeQuery("meta.taskBegin").from(buildElasticRelativeTime(relativeMinutesFrom)).to(relativeMinutesTo == 0 ? "now" : buildElasticRelativeTime(relativeMinutesTo));
+		return QueryBuilders.rangeQuery(META_TASK_BEGIN).from(buildElasticRelativeTime(relativeMinutesFrom)).to(relativeMinutesTo == 0 ? "now" : buildElasticRelativeTime(relativeMinutesTo));
 	}
 
 	private String buildElasticRelativeTime(int minutes) {
 		return "now-"+ minutes + "m";
-	}
-
-	private Set<String> getIndexedEnvs() {
-		return ElasticsearchUtil.getEnvSet();
 	}
 
 	public Bulker getBulker() {
@@ -801,5 +847,26 @@ public class ElasticsearchClient {
 	public IndexRetryManager getRetryManager() {
 		return retryManager;
 	}
+
+	public void createTimbermillAliasForMigrationTest(String currentIndex, String oldIndex, String env) throws IOException {
+		IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
+		String alias = getTimbermillIndexAlias(env);
+		String oldAlias = getOldAlias(alias);
+		IndicesAliasesRequest.AliasActions addOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(oldIndex).alias(oldAlias);
+		IndicesAliasesRequest.AliasActions addNewIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(currentIndex).alias(alias);
+		indicesAliasesRequest.addAliasAction(addOldIndexAction);
+		indicesAliasesRequest.addAliasAction(addNewIndexAction);
+		client.indices().updateAliases(indicesAliasesRequest, RequestOptions.DEFAULT);
+	}
+
+	public void createTimbermillIndexForTests(String index) throws IOException {
+		GetIndexRequest exists = new GetIndexRequest(index);
+		boolean isExists = client.indices().exists(exists, RequestOptions.DEFAULT);
+		if (!isExists) {
+			CreateIndexRequest createIndexRequest = new CreateIndexRequest(index);
+			client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+		}
+	}
+
 }
 

@@ -44,7 +44,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
-                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions);
+                builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
+                builder.maxSlices);
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
         cronsRunner = new CronsRunner();
@@ -149,6 +150,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
+        private int maxSlices = 10;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -293,6 +295,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder fetchByIdsPartitions(int fetchByIdsPartitions) {
             this.fetchByIdsPartitions = fetchByIdsPartitions;
+            return this;
+        }
+
+        public Builder maxSlices(int maxSlices) {
+            this.maxSlices = maxSlices;
             return this;
         }
 

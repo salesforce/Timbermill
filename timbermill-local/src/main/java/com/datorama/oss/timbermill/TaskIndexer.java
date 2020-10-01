@@ -21,10 +21,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.getOldAlias;
+import static com.datorama.oss.timbermill.common.ElasticsearchUtil.getTimbermillIndexAlias;
 
 public class TaskIndexer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TaskIndexer.class);
+    public static final String FLOW_ID_LOG = "Flow ID: [{}]";
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
@@ -47,9 +50,9 @@ public class TaskIndexer {
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
         String flowId = "Task Indexer - " + UUID.randomUUID().toString();
-        LOG.info("Flow ID: [{}] #### Batch Start ####", flowId);
+        LOG.info(FLOW_ID_LOG + " #### Batch Start ####", flowId);
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
-        LOG.info("Flow ID: [{}] {} events to be handled in current batch", flowId, events.size());
+        LOG.info(FLOW_ID_LOG + " {} events to be handled in current batch", flowId, events.size());
 
         Collection<String> heartbeatEvents = new HashSet<>();
         Collection<Event> timbermillEvents = new LinkedHashSet<>();
@@ -61,7 +64,7 @@ public class TaskIndexer {
             }
             else{
                 if (e.getTaskId() == null){
-                    LOG.warn("Flow ID: [{}] Task ID is null for event {}", flowId, GSON.toJson(e));
+                    LOG.warn(FLOW_ID_LOG + " Task ID is null for event {}", flowId, GSON.toJson(e));
                 }
                 else {
                     e.fixErrors();
@@ -78,7 +81,7 @@ public class TaskIndexer {
         if (!timbermillEvents.isEmpty()) {
             handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents, flowId);
         }
-        LOG.info("Flow ID: [{}] #### Batch End ####", flowId);
+        LOG.info(FLOW_ID_LOG + " #### Batch End ####", flowId);
     }
 
     private void handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents, String flowId) {
@@ -89,7 +92,22 @@ public class TaskIndexer {
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-        Map<String, Task> previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId);
+
+        String currentAlias = getTimbermillIndexAlias(env);
+        String oldAlias = getOldAlias(currentAlias);
+        boolean oldAliasExists;
+        try {
+            oldAliasExists = !es.isAliasNotExists(flowId, oldAlias);
+        } catch (MaxRetriesException e) {
+            oldAliasExists = false;
+        }
+        Map<String, Task> previouslyIndexedParentTasks;
+        if (oldAliasExists){
+            previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId, currentAlias, oldAlias);
+        }
+        else{
+            previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId, currentAlias);
+        }
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
@@ -97,10 +115,9 @@ public class TaskIndexer {
         String index = es.createTimbermillAlias(env, flowId);
         es.index(tasksMap, index, flowId);
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
-            es.rolloverIndex(index, flowId);
+            es.rolloverIndex(index, flowId, env);
         }
-        LOG.info("Flow ID: [{}] {} missing parent tasks were fetched.", flowId, previouslyIndexedParentTasks.size());
-        LOG.info("Flow ID: [{}] {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
+        LOG.info(FLOW_ID_LOG + " {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
     }
 

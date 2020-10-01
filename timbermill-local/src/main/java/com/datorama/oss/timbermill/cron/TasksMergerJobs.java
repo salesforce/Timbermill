@@ -15,6 +15,7 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 
 import kamon.metric.Timer;
+import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 
 @DisallowConcurrentExecution
 public class TasksMergerJobs implements Job {
@@ -29,16 +30,14 @@ public class TasksMergerJobs implements Job {
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
 		int partialsFetchPeriodMinutes = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_MINUTES);
 		String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
-		LOG.info("Flow ID: [{}] Partials Tasks Merger Job started.", flowId);
+		LOG.info(FLOW_ID_LOG + " Partials Tasks Merger Job started.", flowId);
 		Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
-		if (client.doesIndexAlreadyRolledOver()){
-			int secondsToWait = rand.nextInt(10);
-			try {
-				Thread.sleep(secondsToWait * 1000);
-			} catch (InterruptedException ignored) {}
-			client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
-		}
-		LOG.info("Flow ID: [{}] Partials Tasks Merger Job ended.", flowId);
+		int secondsToWait = rand.nextInt(10);
+		try {
+			Thread.sleep(secondsToWait * 1000);
+		} catch (InterruptedException ignored) {}
+		client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
+		LOG.info(FLOW_ID_LOG + " Partials Tasks Merger Job ended.", flowId);
 		started.stop();
 	}
 

@@ -15,6 +15,7 @@ import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 
 import kamon.metric.Timer;
+import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.DISK_HANDLER;
 
@@ -28,13 +29,13 @@ public class BulkPersistentFetchJob implements Job {
 		if (diskHandler != null) {
 			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
-			LOG.info("Flow ID: [{}] Failed Bulks Persistent Fetch Job started.", flowId);
+			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job started.", flowId);
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
 			boolean runNextBulk = true;
 			while (runNextBulk) {
 				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
 			}
-			LOG.info("Flow ID: [{}] Failed Bulks Persistent Fetch Job ended.", flowId);
+			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job ended.", flowId);
 			start.stop();
 		}
 	}
@@ -44,7 +45,7 @@ public class BulkPersistentFetchJob implements Job {
 		if (diskHandler.hasFailedBulks(flowId)) {
 			keepRunning = true;
 			int successBulks = 0;
-			LOG.info("Flow ID: [{}] #### Retry Failed-Requests From Disk Start ####", flowId);
+			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk Start ####", flowId);
 			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks(flowId);
 			if (failedRequestsFromDisk.size() == 0) {
 				keepRunning = false;
@@ -59,9 +60,9 @@ public class BulkPersistentFetchJob implements Job {
 				}
 				bulkNum++;
 			}
-			LOG.info("Flow ID: [{}] #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
+			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
 		} else {
-			LOG.info("Flow ID: [{}] There are no failed bulks to fetch from disk.", flowId);
+			LOG.info(FLOW_ID_LOG + " There are no failed bulks to fetch from disk.", flowId);
 		}
 		return keepRunning;
 	}
