@@ -407,22 +407,24 @@ public class ElasticsearchClient {
     }
 
 	private void updateOldAlias(String flowId, String env, RolloverResponse rolloverResponse) throws MaxRetriesException {
-		IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
 		String oldAlias = getOldAlias(getTimbermillIndexAlias(env));
-		IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
-		removeRequest.addAliasAction(removeAllIndicesAction);
-		AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
-				1, "Removing old index from alias", flowId);
-		boolean acknowledged = acknowledgedResponse.isAcknowledged();
-		if (!acknowledged) {
-			LOG.info(FLOW_ID_LOG + " Removing old index from alias [{}] failed", flowId, oldAlias);
+		if (isAliasExists(flowId, oldAlias)) {
+			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
+			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
+			removeRequest.addAliasAction(removeAllIndicesAction);
+			AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
+					1, "Removing old index from alias", flowId);
+			boolean acknowledged = acknowledgedResponse.isAcknowledged();
+			if (!acknowledged) {
+				LOG.info(FLOW_ID_LOG + " Removing old index from alias [{}] failed", flowId, oldAlias);
+			}
 		}
 		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
 		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
 		addRequest.addAliasAction(addNewOldIndexAction);
-		acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
+		AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
 				1, "Adding old index to alias", flowId);
-		acknowledged = acknowledgedResponse.isAcknowledged();
+		boolean acknowledged = acknowledgedResponse.isAcknowledged();
 		if (!acknowledged) {
 			LOG.info(FLOW_ID_LOG + " Adding old index to alias [{}] failed", flowId, oldAlias);
 		}
@@ -436,20 +438,18 @@ public class ElasticsearchClient {
 			String oldAlias = getOldAlias(currentAlias);
 
 			try {
-				if (isAliasNotExists(flowId, currentAlias)){
-					LOG.error(FLOW_ID_LOG + " Main alias {} doesn't exists.", flowId, currentAlias);
-				}
-				else {
-					if (isAliasNotExists(flowId, oldAlias)){
-						LOG.info(FLOW_ID_LOG + " Old alias {} doesn't exists.", flowId, oldAlias);
-					}
-					else {
+				if (isAliasExists(flowId, currentAlias)) {
+					if (isAliasExists(flowId, oldAlias)) {
 						Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(relativeMinutes, oldAlias, currentAlias, flowId);
 						Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(relativeMinutes, currentAlias, oldAlias, flowId);
 						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
 						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
 						indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldAlias, currentAlias, flowId);
+					} else {
+						LOG.info(FLOW_ID_LOG + " Old alias {} doesn't exists.", flowId, oldAlias);
 					}
+				} else {
+					LOG.error(FLOW_ID_LOG + " Main alias {} doesn't exists.", flowId, currentAlias);
 				}
 			} catch (MaxRetriesException e){
 				LOG.error(FLOW_ID_LOG + " Failed running migration cron for main alias [{}] and old alias [{}]", flowId, currentAlias, oldAlias);
@@ -457,11 +457,11 @@ public class ElasticsearchClient {
 		}
 	}
 
-	public boolean isAliasNotExists(String flowId, String currentIndex) throws MaxRetriesException {
+	public boolean isAliasExists(String flowId, String currentIndex) throws MaxRetriesException {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
 		GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
 				"Is Timbermill alias exists", flowId);
-		return response.getAliases().isEmpty();
+		return !response.getAliases().isEmpty();
 	}
 
 	private Map<String,Task> findMatchingTasksToMigrate(int relativeMinutes, String indexOfPartials, String indexOfMatchingTasks, String flowId) {
@@ -583,7 +583,7 @@ public class ElasticsearchClient {
         String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
 		String initialIndex = getInitialIndex(timbermillAlias);
 		try {
-			if (isAliasNotExists(flowId, timbermillAlias)) {
+			if (!isAliasExists(flowId, timbermillAlias)) {
 				CreateIndexRequest request = new CreateIndexRequest(initialIndex);
 				Alias alias = new Alias(timbermillAlias);
 				request.alias(alias);

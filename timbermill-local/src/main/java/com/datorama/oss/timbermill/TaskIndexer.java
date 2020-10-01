@@ -97,7 +97,7 @@ public class TaskIndexer {
         String oldAlias = getOldAlias(currentAlias);
         boolean oldAliasExists;
         try {
-            oldAliasExists = !es.isAliasNotExists(flowId, oldAlias);
+            oldAliasExists = es.isAliasExists(flowId, oldAlias);
         } catch (MaxRetriesException e) {
             oldAliasExists = false;
         }

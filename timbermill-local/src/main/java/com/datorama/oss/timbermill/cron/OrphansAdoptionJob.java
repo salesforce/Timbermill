@@ -58,7 +58,7 @@ public class OrphansAdoptionJob implements Job {
 			String oldAlias = getOldAlias(currentAlias);
 			indicesSet.add(currentAlias);
 			try {
-				if (!es.isAliasNotExists(flowId, oldAlias)){
+				if (es.isAliasExists(flowId, oldAlias)){
 					indicesSet.add(oldAlias);
 				}
 			} catch (MaxRetriesException e) {
