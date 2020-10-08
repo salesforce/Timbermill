@@ -258,21 +258,17 @@ public class ElasticsearchClient {
 	}
 
 	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId, String...indices) {
-		Set<String> envsToFilterOn = ElasticsearchUtil.getEnvSet();
 		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
 		RangeQueryBuilder partialOrphansRangeQuery = buildRelativeRangeQuery(partialTasksGraceMinutes);
 		RangeQueryBuilder allOrphansRangeQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
-		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", envsToFilterOn);
 
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
 		nonPartialOrphansQuery.filter(ORPHANS_QUERY);
-		nonPartialOrphansQuery.filter(envsQuery);
 		nonPartialOrphansQuery.filter(partialOrphansRangeQuery);
 		nonPartialOrphansQuery.mustNot(PARTIALS_QUERY);
 
 		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
 		orphansWithoutPartialLimitationQuery.filter(ORPHANS_QUERY);
-		orphansWithoutPartialLimitationQuery.filter(envsQuery);
 		orphansWithoutPartialLimitationQuery.filter(allOrphansRangeQuery);
 
 		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
@@ -389,7 +385,7 @@ public class ElasticsearchClient {
 		return overallFailedRequests;
     }
 
-    void rolloverIndex(String timbermillAlias, String flowId, String env) {
+    void rolloverIndex(String timbermillAlias, String flowId) {
 		try {
 			RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
 			rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
@@ -399,15 +395,15 @@ public class ElasticsearchClient {
 					flowId);
 			if (rolloverResponse.isRolledOver()){
 				LOG.info(FLOW_ID_LOG + " Alias {} rolled over, new index is [{}]", flowId, timbermillAlias, rolloverResponse.getNewIndex());
-				updateOldAlias(flowId, env, rolloverResponse);
+				updateOldAlias(flowId, rolloverResponse, timbermillAlias);
 			}
 		} catch (Exception e) {
 			LOG.error("Flow ID: [" + flowId + "] Could not rollovered alias " + timbermillAlias, e);
 		}
     }
 
-	private void updateOldAlias(String flowId, String env, RolloverResponse rolloverResponse) throws MaxRetriesException {
-		String oldAlias = getOldAlias(getTimbermillIndexAlias(env));
+	private void updateOldAlias(String flowId, RolloverResponse rolloverResponse, String timbermillAlias) throws MaxRetriesException {
+		String oldAlias = getOldAlias(timbermillAlias);
 		if (isAliasExists(flowId, oldAlias)) {
 			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
 			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);

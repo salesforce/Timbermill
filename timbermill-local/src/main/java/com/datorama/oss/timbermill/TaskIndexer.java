@@ -115,7 +115,7 @@ public class TaskIndexer {
         String index = es.createTimbermillAlias(env, flowId);
         es.index(tasksMap, index, flowId);
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
-            es.rolloverIndex(index, flowId, env);
+            es.rolloverIndex(index, flowId);
         }
         LOG.info(FLOW_ID_LOG + " {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
