@@ -6,6 +6,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -42,6 +43,11 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.*;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.slice.SliceBuilder;
 import org.slf4j.Logger;
@@ -59,10 +65,7 @@ import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.google.gson.*;
 import com.google.gson.internal.LazilyParsedNumber;
 
@@ -87,6 +90,7 @@ public class ElasticsearchClient {
 	private final RestHighLevelClient client;
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
+	private final int numberOfShards;
 	private long maxIndexAge;
 	private long maxIndexSizeInGB;
 	private long maxIndexDocs;
@@ -98,18 +102,18 @@ public class ElasticsearchClient {
 	private final int scrollTimeoutSeconds;
 	private final int fetchByIdsPartitions;
 	private AtomicInteger concurrentScrolls = new AtomicInteger(0);
-
-	private int maxSlices;
+	private final int expiredMaxIndicesTodeleteInParallel;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int maxSlices) {
+			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
 		}
 
-		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions);
+		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation,
+				scrollTimeoutSeconds, fetchByIdsPartitions, numberOfShards, expiredMaxIndicesTodeleteInParallel);
 		this.indexBulkSize = indexBulkSize;
 		this.searchMaxSize = searchMaxSize;
 		this.maxIndexAge = maxIndexAge;
@@ -120,7 +124,8 @@ public class ElasticsearchClient {
         this.scrollLimitation = scrollLimitation;
         this.scrollTimeoutSeconds = scrollTimeoutSeconds;
         this.fetchByIdsPartitions = fetchByIdsPartitions;
-        this.maxSlices = maxSlices;
+		this.numberOfShards = numberOfShards;
+		this.expiredMaxIndicesTodeleteInParallel = expiredMaxIndicesTodeleteInParallel;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
@@ -170,7 +175,7 @@ public class ElasticsearchClient {
     }
 
 	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
-			int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions) {
+			int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int numberOfShards, int expiredMaxIndicesToDeleteInParallel) {
 		if (indexBulkSize < 1) {
 			throw new RuntimeException("Index bulk size property should be larger than 0");
 		}
@@ -201,6 +206,14 @@ public class ElasticsearchClient {
 
 		if (fetchByIdsPartitions < 1) {
 			throw new RuntimeException("Fetch By Ids Partitions property should not be below 1");
+		}
+
+		if (numberOfShards < 1) {
+			throw new RuntimeException("Number of shards property should not be below 1");
+		}
+
+		if (expiredMaxIndicesToDeleteInParallel < 1) {
+			throw new RuntimeException("Max Expired Indices To Delete In Parallel property should not be below 1");
 		}
 	}
 
@@ -306,7 +319,7 @@ public class ElasticsearchClient {
 	private List<Future<Map<String, List<Task>>>> runScrollInSlices(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
 			String flowId, String...indices) {
 		List<Future<Map<String, List<Task>>>> futures = Lists.newArrayList();
-		for (int sliceId = 0; sliceId < maxSlices; sliceId++) {
+		for (int sliceId = 0; sliceId < numberOfShards; sliceId++) {
 			int finalSliceId = sliceId;
 			Future<Map<String, List<Task>>> futureFetcher = executorService
 					.submit(() -> runScrollQuery(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, finalSliceId, indices));
@@ -684,7 +697,7 @@ public class ElasticsearchClient {
 		}
 		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, maxSlices);
+		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, numberOfShards);
 		searchSourceBuilder.slice(sliceBuilder);
 		searchSourceBuilder.fetchSource(taskFieldsToInclude, taskFieldsToExclude);
 		searchSourceBuilder.query(query);
@@ -783,13 +796,42 @@ public class ElasticsearchClient {
 				+ "      ]\n"
 				+ "    }\n"
 				+ "  }";
-		deleteByQuery(TIMBERMILL_INDEX_WILDCARD, query, flowId);
+		List<String> indicesToDelete = findIndicesWithExpiredTasks();
+		if (indicesToDelete != null && !indicesToDelete.isEmpty()) {
+			for (String indexToDelete : indicesToDelete) {
+				deleteByQuery(indexToDelete, query, flowId);
+			}
+		}
     }
 
-    private void deleteByQuery(String index, String query, String flowId) {
+	private List<String> findIndicesWithExpiredTasks() {
+		BucketOrder descCountOrder = InternalOrder.count(false);
+		TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms("indices").field("_index").order(descCountOrder).size(expiredMaxIndicesTodeleteInParallel);
+		QueryBuilder query = new RangeQueryBuilder("meta.dateToDelete").lte("now");
+		SearchSourceBuilder searchBuilder = new SearchSourceBuilder().aggregation(termsAggregationBuilder).query(query);
+		SearchRequest searchRequest = new SearchRequest(TIMBERMILL_INDEX_WILDCARD).source(searchBuilder);
+		SearchResponse searchResponse;
+		try {
+			searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		Aggregations aggregations = searchResponse.getAggregations();
+		if (aggregations != null) {
+			ParsedStringTerms termsAgg = aggregations.get("indices");
+			List<? extends Terms.Bucket> buckets = termsAgg.getBuckets();
+			if (buckets != null) {
+				return buckets.stream().map(MultiBucketsAggregation.Bucket::getKeyAsString).collect(Collectors.toList());
+			}
+		}
+		return null;
+	}
+
+	private void deleteByQuery(String index, String query, String flowId) {
 		Request request = new Request("POST", "/" + index + "/_delete_by_query");
 		request.addParameter("conflicts","proceed");
 		request.addParameter("wait_for_completion", "false");
+		request.addParameter("slices", Integer.toString(numberOfShards));
 		String fullQuery = "{\n"
 				+ "    \"query\": " + query + "\n"
 				+ "}";
