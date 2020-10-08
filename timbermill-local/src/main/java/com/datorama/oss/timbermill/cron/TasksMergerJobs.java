@@ -28,7 +28,6 @@ public class TasksMergerJobs implements Job {
 
 		JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
-		int partialsFetchPeriodMinutes = jobDataMap.getInt(ElasticsearchUtil.PARTIAL_TASKS_FETCH_PERIOD_MINUTES);
 		String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();
 		LOG.info(FLOW_ID_LOG + " Partials Tasks Merger Job started.", flowId);
 		Timer.Started started = KamonConstants.PARTIALS_JOB_LATENCY.withoutTags().start();
@@ -36,7 +35,7 @@ public class TasksMergerJobs implements Job {
 		try {
 			Thread.sleep(secondsToWait * 1000);
 		} catch (InterruptedException ignored) {}
-		client.migrateTasksToNewIndex(partialsFetchPeriodMinutes, flowId);
+		client.migrateTasksToNewIndex(flowId);
 		LOG.info(FLOW_ID_LOG + " Partials Tasks Merger Job ended.", flowId);
 		started.stop();
 	}

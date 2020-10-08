@@ -59,7 +59,6 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		JobDataMap jobDataMap = job.getJobDataMap();
 
 		jobDataMap.put(CLIENT, TimberLogTest.client);
-		jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_MINUTES, 60);
 		OperableTrigger trigger = new SimpleTriggerImpl();
 		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
 		context = new JobExecutionContextImpl(null, fireBundle, null);

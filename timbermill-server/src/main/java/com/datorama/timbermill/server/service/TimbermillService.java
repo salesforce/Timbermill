@@ -68,9 +68,8 @@ public class TimbermillService {
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String orphansAdoptionsCronExp,
-			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:5}") int partialOrphansGracePeriodMinutes,
-			@Value("${ORPHANS_FETCH_DURATION_MINUTES:10}") int orphansFetchMinutes,
-			@Value("${PARTIAL_TASKS_FETCH_PERIOD_MINUTES:60}") int partialsFetchPeriodMinutes,
+			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:15}") int partialOrphansGracePeriodMinutes,
+			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
 			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 			@Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
 			@Value("${SCROLL_MAX_SLICES:10}") int maxSlices,
@@ -89,7 +88,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialsFetchPeriodMinutes, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
+				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 
 		startWorkingThread();
 	}

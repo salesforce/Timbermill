@@ -23,7 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp, int partialsFetchPeriodMinutes,
+			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp,
 			int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
@@ -44,7 +44,7 @@ public class CronsRunner {
 				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 			}
 			if (!Strings.isEmpty(mergingCronExp)) {
-				runPartialMergingTasksCron(es, mergingCronExp, partialsFetchPeriodMinutes);
+				runPartialMergingTasksCron(es, mergingCronExp);
 			}
 			scheduler.start();
 		} catch (SchedulerException e) {
@@ -124,10 +124,9 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp, int partialsFetchPeriodMinutes) throws SchedulerException{
+	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp) throws SchedulerException{
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(CLIENT, es);
-			jobDataMap.put(PARTIAL_TASKS_FETCH_PERIOD_MINUTES, partialsFetchPeriodMinutes);
 			JobDetail job = newJob(TasksMergerJobs.class)
 					.withIdentity("job5", "group5").usingJobData(jobDataMap)
 					.build();

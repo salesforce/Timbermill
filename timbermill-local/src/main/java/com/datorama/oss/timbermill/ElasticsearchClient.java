@@ -430,7 +430,7 @@ public class ElasticsearchClient {
 		}
 	}
 
-	public void migrateTasksToNewIndex(int relativeMinutes, String flowId) {
+	public void migrateTasksToNewIndex(String flowId) {
 		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 		Set<String> indexedEnvs = ElasticsearchUtil.getEnvSet();
 		for (String env : indexedEnvs) {
@@ -440,8 +440,8 @@ public class ElasticsearchClient {
 			try {
 				if (isAliasExists(flowId, currentAlias)) {
 					if (isAliasExists(flowId, oldAlias)) {
-						Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(relativeMinutes, oldAlias, currentAlias, flowId);
-						Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(relativeMinutes, currentAlias, oldAlias, flowId);
+						Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(currentAlias, oldAlias, flowId);
+						Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(oldAlias, currentAlias, flowId);
 						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
 						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
 						indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldAlias, currentAlias, flowId);
@@ -464,8 +464,8 @@ public class ElasticsearchClient {
 		return !response.getAliases().isEmpty();
 	}
 
-	private Map<String,Task> findMatchingTasksToMigrate(int relativeMinutes, String indexOfPartials, String indexOfMatchingTasks, String flowId) {
-		BoolQueryBuilder latestPartialsQuery = getLatestPartialsQuery(relativeMinutes);
+	private Map<String,Task> findMatchingTasksToMigrate(String indexOfPartials, String indexOfMatchingTasks, String flowId) {
+		BoolQueryBuilder latestPartialsQuery = getLatestPartialsQuery();
 
 		Map<String, Task> matchingTasks = Maps.newHashMap();
 		String functionDescription = "Migrate old tasks to new index";
@@ -480,13 +480,8 @@ public class ElasticsearchClient {
 		return matchingTasks;
 	}
 
-	private BoolQueryBuilder getLatestPartialsQuery(int relativeMinutes) {
+	private BoolQueryBuilder getLatestPartialsQuery() {
 		BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder latestItemsQuery = buildRelativeRangeQuery(relativeMinutes);
-		TermsQueryBuilder envsQuery = QueryBuilders.termsQuery("env", ElasticsearchUtil.getEnvSet());
-
-		latestPartialsQuery.filter(latestItemsQuery);
-		latestPartialsQuery.filter(envsQuery);
 		latestPartialsQuery.filter(PARTIALS_QUERY);
 		return latestPartialsQuery;
 	}

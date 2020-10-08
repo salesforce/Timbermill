@@ -23,8 +23,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
-    private final String mergingCronExp;
-    private final int partialsFetchPeriodHours;
     private DiskHandler diskHandler;
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
@@ -38,8 +36,6 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        this.mergingCronExp = builder.mergingCronExp;
-        this.partialsFetchPeriodHours = builder.partialsFetchPeriodMinutes;
         Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
         diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
@@ -51,7 +47,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
-                builder.daysRotation, builder.mergingCronExp, builder.partialsFetchPeriodMinutes, builder.partialOrphansGracePeriodMinutes, builder.orphansFetchPeriodMinutes);
+                builder.daysRotation, builder.mergingCronExp, builder.partialOrphansGracePeriodMinutes, builder.orphansFetchPeriodMinutes);
         startWorkingThread();
     }
 
@@ -144,9 +140,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private int partialOrphansGracePeriodMinutes = 5;
+        private int partialOrphansGracePeriodMinutes = 15;
         private int orphansFetchPeriodMinutes = 60;
-        private int partialsFetchPeriodMinutes = 60;
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
