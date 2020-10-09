@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.cron;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
 		startEvent.setEnv(TEST_MIGRATION);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
 		Task oldTask = new Task(oldEvents, 1);
 		oldTasks.put(id, oldTask);
@@ -87,6 +89,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		LogParams successLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new SuccessEvent(id, successLogParams);
 		successEvent.setEnv(TEST_MIGRATION);
+		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		List<Event> newEvents = Lists.newArrayList(successEvent);
 		Task newTask = new Task(newEvents, 1);
 		newTasks.put(id, newTask);
@@ -123,6 +126,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
@@ -135,6 +139,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams successLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new SuccessEvent(id, successLogParams);
+		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(successEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -176,6 +181,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams successLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new SuccessEvent(id, successLogParams);
+		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(successEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -185,6 +191,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -222,6 +229,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -231,6 +239,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams errorLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event errorEvent = new ErrorEvent(id, errorLogParams);
+		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(errorEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -268,9 +277,11 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
+		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, infoEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -280,6 +291,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams errorLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new ErrorEvent(id, errorLogParams);
+		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(successEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -321,6 +333,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams errorLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event errorEvent = new ErrorEvent(id, errorLogParams);
+		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(errorEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -330,6 +343,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -367,10 +381,12 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		Thread.sleep(10);
 		LogParams successLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event successEvent = new SuccessEvent(id, successLogParams);
+		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, successEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -379,6 +395,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
+		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(infoEvent);
 		Task newTask = new Task(newEvents, 1);
@@ -420,10 +437,12 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams startLogParams = LogParams.create().context(CTX_1, CTX_1).metric(METRIC_1,1).text(TEXT_1, TEXT_1).string(STRING_1, STRING_1);
 		Event startEvent = new StartEvent(id, ROLLOVER_TEST, startLogParams, null);
+		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		Thread.sleep(10);
 		LogParams ErrorLogParams = LogParams.create().context(CTX_2, CTX_2).metric(METRIC_2,2).text(TEXT_2, TEXT_2).string(STRING_2, STRING_2);
 		Event errorEvent = new ErrorEvent(id, ErrorLogParams);
+		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, errorEvent);
 		Task oldTask = new Task(oldEvents, 1);
@@ -432,6 +451,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
+		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(infoEvent);
 		Task newTask = new Task(newEvents, 1);

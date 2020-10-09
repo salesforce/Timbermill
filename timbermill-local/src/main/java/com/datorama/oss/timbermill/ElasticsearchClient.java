@@ -427,7 +427,6 @@ public class ElasticsearchClient {
 	}
 
 	public void migrateTasksToNewIndex(String flowId) {
-		Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 		Set<String> indexedEnvs = ElasticsearchUtil.getEnvSet();
 		for (String env : indexedEnvs) {
 			String currentAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
@@ -436,11 +435,21 @@ public class ElasticsearchClient {
 			try {
 				if (isAliasExists(flowId, currentAlias)) {
 					if (isAliasExists(flowId, oldAlias)) {
-						Map<String, Task> matchingPartialsTasksFromNewIndex = findMatchingTasksToMigrate(currentAlias, oldAlias, flowId);
-						Map<String, Task> matchingPartialsTasksFromOldIndex = findMatchingTasksToMigrate(oldAlias, currentAlias, flowId);
-						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromOldIndex);
-						tasksToMigrateIntoNewIndex.putAll(matchingPartialsTasksFromNewIndex);
+						//Find matching tasks from old index to partial tasks in new index
+						Set<String> currentIndexPartialsIds = findPartialsIds(currentAlias, flowId);
+						Map<String, Task> matchedTasksFromOld = getTasksByIds(QueryBuilders.boolQuery(), currentIndexPartialsIds, "Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
+						logPartialsJonMetadata(flowId, currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
+
+						//Find partials tasks from old that have matching tasks in new, excluding already found tasks
+						Set<String> oldIndexPartialsIds = getOldIndexIdsToMigrate(flowId, oldAlias, currentAlias, currentIndexPartialsIds);
+						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(QueryBuilders.boolQuery(), oldIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
+						logPartialsJonMetadata(flowId, oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
+
+						Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
+						tasksToMigrateIntoNewIndex.putAll(matchedTasksFromOld);
+						tasksToMigrateIntoNewIndex.putAll(matchedTasksToMigrateFromOld);
 						indexAndDeleteTasks(tasksToMigrateIntoNewIndex, oldAlias, currentAlias, flowId);
+
 					} else {
 						LOG.info(FLOW_ID_LOG + " Old alias {} doesn't exists.", flowId, oldAlias);
 					}
@@ -453,6 +462,26 @@ public class ElasticsearchClient {
 		}
 	}
 
+	private void logPartialsJonMetadata(String flowId, String index, Set<String> IndexPartialsIds, Map<String, Task> matchedTasks) {
+		LOG.info(FLOW_ID_LOG + " Found {} partials tasks in index {} with {} that can be migrated.", flowId, IndexPartialsIds.size(), index, matchedTasks.size());
+		KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withTag("index", index).record(IndexPartialsIds.size());
+		KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withTag("index", index).record(matchedTasks.size());
+	}
+
+	private Set<String> getOldIndexIdsToMigrate(String flowId, String oldAlias, String currentAlias, Set<String> currentIndexPartialsIds) {
+		Set<String> oldIndexPartialsIds = findPartialsIds(oldAlias, flowId);
+		oldIndexPartialsIds.removeAll(currentIndexPartialsIds);
+		Map<String, Task> matchingTasksNew = getTasksByIds(QueryBuilders.boolQuery(), oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId,
+				currentAlias);
+		return matchingTasksNew.keySet();
+	}
+
+	private Set<String> findPartialsIds(String index, String flowId) {
+		BoolQueryBuilder latestPartialsQuery = getLatestPartialsQuery();
+		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, "Get partials from index " + index, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId, index);
+		return singleTaskByIds.keySet();
+	}
+
 	public boolean isAliasExists(String flowId, String currentIndex) throws MaxRetriesException {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
 		GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
@@ -460,24 +489,9 @@ public class ElasticsearchClient {
 		return !response.getAliases().isEmpty();
 	}
 
-	private Map<String,Task> findMatchingTasksToMigrate(String indexOfPartials, String indexOfMatchingTasks, String flowId) {
-		BoolQueryBuilder latestPartialsQuery = getLatestPartialsQuery();
-
-		Map<String, Task> matchingTasks = Maps.newHashMap();
-		String functionDescription = "Migrate old tasks to new index";
-		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, functionDescription, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId, indexOfPartials);
-		if (!singleTaskByIds.isEmpty()) {
-			matchingTasks = getTasksByIds(new BoolQueryBuilder(), singleTaskByIds.keySet(), functionDescription, ElasticsearchClient.ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY,
-					flowId, indexOfMatchingTasks);
-
-			KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withoutTags().record(singleTaskByIds.size());
-			LOG.info(FLOW_ID_LOG + " Found {} partials tasks in index {}.", flowId, matchingTasks.size(), indexOfPartials);
-		}
-		return matchingTasks;
-	}
-
 	private BoolQueryBuilder getLatestPartialsQuery() {
 		BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
+		latestPartialsQuery.filter(QueryBuilders.rangeQuery(META_TASK_BEGIN).to("now-10m"));
 		latestPartialsQuery.filter(PARTIALS_QUERY);
 		return latestPartialsQuery;
 	}
@@ -491,7 +505,6 @@ public class ElasticsearchClient {
 				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
 			}
 			deleteTasksFromIndex(tasksToMigrateIntoNewIndex.keySet(), oldIndex, flowId);
-			KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withoutTags().record(tasksToMigrateIntoNewIndex.size());
 		}
     }
 
