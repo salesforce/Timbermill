@@ -39,6 +39,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
@@ -205,7 +206,7 @@ public class ElasticsearchClient {
 	}
 
 	public Task getTaskById(String taskId){
-		Map<String, Task> tasksByIds = getTasksByIds(new BoolQueryBuilder(), Sets.newHashSet(taskId), "Test", ElasticsearchClient.ALL_TASK_FIELDS,
+		Map<String, Task> tasksByIds = getTasksByIds(Sets.newHashSet(taskId), "Test", ElasticsearchClient.ALL_TASK_FIELDS,
 				org.elasticsearch.common.Strings.EMPTY_ARRAY, "test", TIMBERMILL_INDEX_WILDCARD);
 		return tasksByIds.get(taskId);
 	}
@@ -232,29 +233,45 @@ public class ElasticsearchClient {
 		return map.get(taskId);
     }
 
-	private Map<String, Task> getTasksByIds(BoolQueryBuilder queryBuilder, Collection<String> taskIds, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
-			String flowId, String...indices) {
+	private Map<String, Task> getTasksByIds(Collection<String> taskIds, String functionDescription,
+			String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, String...indices) {
+		return getTasksByIds(null, null, taskIds,functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
+	}
+
+	private Map<String, Task> getTasksByIds(List<QueryBuilder> filterQueryBuilders, List<QueryBuilder> mustNotQueryBuilders, Collection<String> taskIds, String functionDescription,
+			String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, String...indices) {
 		Map<String, Task> allTasks = Maps.newHashMap();
 		for (List<String> batch : Iterables.partition(taskIds, fetchByIdsPartitions)){
+			BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+
 			IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery();
 			for (String taskId : batch) {
 				idsQueryBuilder.addIds(taskId);
 			}
-			queryBuilder.filter(idsQueryBuilder);
-			Map<String, Task> batchResult = getSingleTaskByIds(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
+			boolQueryBuilder.filter(idsQueryBuilder);
+
+			if (filterQueryBuilders != null) {
+				for (QueryBuilder filterQueryBuilder : filterQueryBuilders) {
+					boolQueryBuilder.filter(filterQueryBuilder);
+				}
+			}
+
+			if (mustNotQueryBuilders != null) {
+				for (QueryBuilder mustNotQueryBuilder : mustNotQueryBuilders) {
+					boolQueryBuilder.mustNot(mustNotQueryBuilder);
+				}
+			}
+
+			Map<String, Task> batchResult = getSingleTaskByIds(boolQueryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
 			allTasks.putAll(batchResult);
 		}
 		return allTasks;
     }
 
 	private Map<String, Task> getNonOrphansTasksByIds(Collection<String> taskIds, String flowId, String...indices) {
-		BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
-
-		boolQueryBuilder.filter(startedTaskQueryBuilder);
-		boolQueryBuilder.mustNot(ORPHANS_QUERY);
-
-		return getTasksByIds(boolQueryBuilder, taskIds, "Fetch previously indexed parent tasks", ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
+		return getTasksByIds(Lists.newArrayList(startedTaskQueryBuilder), Lists.newArrayList(ORPHANS_QUERY), taskIds, "Fetch previously indexed parent tasks",
+				ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
 	}
 
 	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId, String...indices) {
@@ -437,12 +454,12 @@ public class ElasticsearchClient {
 					if (isAliasExists(flowId, oldAlias)) {
 						//Find matching tasks from old index to partial tasks in new index
 						Set<String> currentIndexPartialsIds = findPartialsIds(currentAlias, flowId);
-						Map<String, Task> matchedTasksFromOld = getTasksByIds(QueryBuilders.boolQuery(), currentIndexPartialsIds, "Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
+						Map<String, Task> matchedTasksFromOld = getTasksByIds(currentIndexPartialsIds, "Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
 						logPartialsJonMetadata(flowId, currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
 
 						//Find partials tasks from old that have matching tasks in new, excluding already found tasks
 						Set<String> oldIndexPartialsIds = getOldIndexIdsToMigrate(flowId, oldAlias, currentAlias, currentIndexPartialsIds);
-						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(QueryBuilders.boolQuery(), oldIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
+						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
 						logPartialsJonMetadata(flowId, oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
 
 						Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
@@ -471,7 +488,7 @@ public class ElasticsearchClient {
 	private Set<String> getOldIndexIdsToMigrate(String flowId, String oldAlias, String currentAlias, Set<String> currentIndexPartialsIds) {
 		Set<String> oldIndexPartialsIds = findPartialsIds(oldAlias, flowId);
 		oldIndexPartialsIds.removeAll(currentIndexPartialsIds);
-		Map<String, Task> matchingTasksNew = getTasksByIds(QueryBuilders.boolQuery(), oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId,
+		Map<String, Task> matchingTasksNew = getTasksByIds(oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId,
 				currentAlias);
 		return matchingTasksNew.keySet();
 	}
@@ -688,13 +705,7 @@ public class ElasticsearchClient {
 	}
 
 	private SearchRequest createSearchRequest(QueryBuilder query, String[] taskFieldsToInclude, String[] taskFieldsToExclude, int sliceId, String...indices) {
-		SearchRequest searchRequest;
-		if (indices == null || indices.length == 0){
-			searchRequest = new SearchRequest(TIMBERMILL_INDEX_WILDCARD);
-		}
-		else {
-			searchRequest = new SearchRequest(indices);
-		}
+		SearchRequest searchRequest = new SearchRequest(indices);
 		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, maxSlices);
