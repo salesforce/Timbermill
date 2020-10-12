@@ -457,8 +457,12 @@ public class ElasticsearchClient {
 						logPartialsMetadata(flowId, currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
 
 						//Find partials tasks from old that have matching tasks in new, excluding already found tasks
-						Set<String> oldIndexPartialsIds = getOldIndexIdsToMigrate(flowId, oldAlias, currentAlias, currentIndexPartialsIds);
-						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
+						Set<String> oldIndexPartialsIds = findPartialsIds(oldAlias, flowId);
+						oldIndexPartialsIds.removeAll(currentIndexPartialsIds);
+						Map<String, Task> matchingTasksNew = getTasksByIds(oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId,
+								currentAlias);
+						Set<String> oldMatchedIndexPartialsIds = matchingTasksNew.keySet();
+						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldMatchedIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
 						logPartialsMetadata(flowId, oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
 
 						Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
@@ -482,14 +486,6 @@ public class ElasticsearchClient {
 		LOG.info(FLOW_ID_LOG + " Found {} partials tasks in index {} with {} that can be migrated.", flowId, IndexPartialsIds.size(), index, matchedTasks.size());
 		KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withTag("index", index).record(IndexPartialsIds.size());
 		KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withTag("index", index).record(matchedTasks.size());
-	}
-
-	private Set<String> getOldIndexIdsToMigrate(String flowId, String oldAlias, String currentAlias, Set<String> currentIndexPartialsIds) {
-		Set<String> oldIndexPartialsIds = findPartialsIds(oldAlias, flowId);
-		oldIndexPartialsIds.removeAll(currentIndexPartialsIds);
-		Map<String, Task> matchingTasksNew = getTasksByIds(oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, flowId,
-				currentAlias);
-		return matchingTasksNew.keySet();
 	}
 
 	private Set<String> findPartialsIds(String index, String flowId) {
