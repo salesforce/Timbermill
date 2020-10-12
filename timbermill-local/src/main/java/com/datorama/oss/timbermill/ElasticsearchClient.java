@@ -39,7 +39,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
@@ -455,12 +454,12 @@ public class ElasticsearchClient {
 						//Find matching tasks from old index to partial tasks in new index
 						Set<String> currentIndexPartialsIds = findPartialsIds(currentAlias, flowId);
 						Map<String, Task> matchedTasksFromOld = getTasksByIds(currentIndexPartialsIds, "Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
-						logPartialsJonMetadata(flowId, currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
+						logPartialsMetadata(flowId, currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
 
 						//Find partials tasks from old that have matching tasks in new, excluding already found tasks
 						Set<String> oldIndexPartialsIds = getOldIndexIdsToMigrate(flowId, oldAlias, currentAlias, currentIndexPartialsIds);
 						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, flowId, oldAlias);
-						logPartialsJonMetadata(flowId, oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
+						logPartialsMetadata(flowId, oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
 
 						Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
 						tasksToMigrateIntoNewIndex.putAll(matchedTasksFromOld);
@@ -479,7 +478,7 @@ public class ElasticsearchClient {
 		}
 	}
 
-	private void logPartialsJonMetadata(String flowId, String index, Set<String> IndexPartialsIds, Map<String, Task> matchedTasks) {
+	private void logPartialsMetadata(String flowId, String index, Set<String> IndexPartialsIds, Map<String, Task> matchedTasks) {
 		LOG.info(FLOW_ID_LOG + " Found {} partials tasks in index {} with {} that can be migrated.", flowId, IndexPartialsIds.size(), index, matchedTasks.size());
 		KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withTag("index", index).record(IndexPartialsIds.size());
 		KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withTag("index", index).record(matchedTasks.size());
