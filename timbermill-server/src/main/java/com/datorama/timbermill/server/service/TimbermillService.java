@@ -61,7 +61,7 @@ public class TimbermillService {
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
 			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
-			@Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:2}") int expiredMaxIndicesToDeleteInParallel,
+			@Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 			@Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
