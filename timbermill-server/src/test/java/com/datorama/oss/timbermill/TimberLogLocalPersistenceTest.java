@@ -35,8 +35,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
             elasticUrl = "http://localhost:9200";
         }
 
-		client = new ElasticsearchClientForTests(elasticUrl, null
-		);
+		client = new ElasticsearchClientForTests(elasticUrl, null);
 		pipe = buildLocalOutputPipeForTest(elasticUrl);
 		origDiskHandler = pipe.getDiskHandler();
         retryManager = pipe.getEsClient().getRetryManager();

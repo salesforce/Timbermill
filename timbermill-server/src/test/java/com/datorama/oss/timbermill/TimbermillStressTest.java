@@ -69,8 +69,7 @@ public class TimbermillStressTest extends TimberLogTest{
         if (StringUtils.isEmpty(awsRegion)){
             awsRegion = null;
         }
-        client = new ElasticsearchClientForTests(elasticUrl, awsRegion
-        );
+        client = new ElasticsearchClientForTests(elasticUrl, awsRegion);
         executorService = Executors.newFixedThreadPool(numOfThreads);
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(maxBufferSize).build();
         env = TEST + System.currentTimeMillis();

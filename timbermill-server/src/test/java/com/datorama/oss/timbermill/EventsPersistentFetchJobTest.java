@@ -35,8 +35,7 @@ public class EventsPersistentFetchJobTest {
 				bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("").mergingCronExp("");
 		pipe = builder.build();
 
-		client = new ElasticsearchClientForTests(elasticUrl, null
-		);
+		client = new ElasticsearchClientForTests(elasticUrl, null);
 		TimberLogger.bootstrap(pipe, TEST);
 	}
 

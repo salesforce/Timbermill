@@ -40,8 +40,7 @@ public class TimberLogAdvancedOrphansTest {
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = "http://localhost:9200";
         }
-        client = new ElasticsearchClientForTests(elasticUrl, null
-        );
+        client = new ElasticsearchClientForTests(elasticUrl, null);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
