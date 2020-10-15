@@ -85,13 +85,22 @@ public class TimberLogServerTest extends TimberLogTest{
 
     @Test
     public void testMissingParentTaskFromDifferentThreads(){
-        super.testMissingParentTaskFromDifferentThreads();
+        super.testMissingParentTaskFromDifferentThreads(false);
+    }
+
+    @Test
+    public void testMissingParentTaskFromDifferentThreadsRollover(){
+        super.testMissingParentTaskFromDifferentThreads(true);
     }
 
     @Test
     public void testMissingParentTaskOutOffOrderFromDifferentThreads(){
-        super.testMissingParentTaskOutOffOrderFromDifferentThreads();
+        super.testMissingParentTaskOutOffOrderFromDifferentThreads(false);
     }
 
+    @Test
+    public void testMissingParentTaskOutOffOrderFromDifferentThreadsRollover(){
+        super.testMissingParentTaskOutOffOrderFromDifferentThreads(true);
+    }
 
 }

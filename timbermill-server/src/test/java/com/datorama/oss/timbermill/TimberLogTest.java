@@ -38,7 +38,7 @@ public abstract class TimberLogTest {
 	private static final String EVENT_CHILD_OF_CHILD = "EventChildOfChild";
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
-	protected static ElasticsearchClient client;
+	protected static ElasticsearchClientForTests client;
 	private static OrphansAdoptionJob orphansAdoptionJob;
 	private static JobExecutionContextImpl context;
 	private String childTaskId;
@@ -81,9 +81,8 @@ public abstract class TimberLogTest {
 			elasticUrl = "http://localhost:9200";
 		}
 
-		client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-				7, 100, 1000000000,3, 3, 1000,null ,1, 1,
-				4000, null, 10 , 60, 10000, 10);
+		client = new ElasticsearchClientForTests(elasticUrl, null
+		);
 		orphansAdoptionJob = new OrphansAdoptionJob();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
@@ -358,7 +357,7 @@ public abstract class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	protected void testMissingParentTaskFromDifferentThreads() {
+	protected void testMissingParentTaskFromDifferentThreads(boolean shouldRollover) {
 		String spotId = Event.generateTaskId(SPOT);
 
 		String context1 = "context1";
@@ -378,6 +377,9 @@ public abstract class TimberLogTest {
 		waitForTask(taskId1, TaskStatus.SUCCESS, client);
 		waitForTask(taskId2, TaskStatus.SUCCESS, client);
 
+		if (shouldRollover) {
+			client.rolloverIndexForTest(TEST);
+		}
 
 		String context2 = "context2";
 
@@ -400,7 +402,7 @@ public abstract class TimberLogTest {
 		assertEquals(context2, task2.getCtx().get(context2));
 	}
 
-	protected void testMissingParentTaskOutOffOrderFromDifferentThreads() {
+	protected void testMissingParentTaskOutOffOrderFromDifferentThreads(boolean shouldRollover) {
 		String spotId = Event.generateTaskId(SPOT);
 
 		String context1 = "context1";
@@ -421,6 +423,9 @@ public abstract class TimberLogTest {
 		waitForTask(taskId1, TaskStatus.SUCCESS, client);
 		waitForTask(taskId2, TaskStatus.SUCCESS, client);
 
+		if (shouldRollover) {
+			client.rolloverIndexForTest(TEST);
+		}
 
 		String context2 = "context2";
 

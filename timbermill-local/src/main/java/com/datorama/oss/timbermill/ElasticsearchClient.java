@@ -84,7 +84,7 @@ public class ElasticsearchClient {
 	private static final String TTL_FIELD = "meta.dateToDelete";
 	private static final String[] PARENT_FIELDS_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
 	private static final String META_TASK_BEGIN = "meta.taskBegin";
-	private final RestHighLevelClient client;
+	protected final RestHighLevelClient client;
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
 	private long maxIndexAge;
@@ -417,6 +417,21 @@ public class ElasticsearchClient {
 			LOG.error("Flow ID: [" + flowId + "] Could not rollovered alias " + timbermillAlias, e);
 		}
     }
+
+	void rolloverIndexForTest(String env){
+		try {
+			String index = createTimbermillAlias(env, "test");
+			RolloverRequest rolloverRequest = new RolloverRequest(index, null);
+			rolloverRequest.addMaxIndexDocsCondition(1);
+			RolloverResponse rolloverResponse = client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT);
+			if (rolloverResponse.isRolledOver()){
+				updateOldAlias("test", rolloverResponse, index);
+			}
+		} catch (MaxRetriesException | IOException e){
+			throw new RuntimeException(e);
+		}
+
+	}
 
 	private void updateOldAlias(String flowId, RolloverResponse rolloverResponse, String timbermillAlias) throws MaxRetriesException {
 		String oldAlias = getOldAlias(timbermillAlias);
@@ -856,26 +871,6 @@ public class ElasticsearchClient {
 
 	public IndexRetryManager getRetryManager() {
 		return retryManager;
-	}
-
-	public void createTimbermillAliasForMigrationTest(String currentIndex, String oldIndex, String env) throws IOException {
-		IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-		String alias = getTimbermillIndexAlias(env);
-		String oldAlias = getOldAlias(alias);
-		IndicesAliasesRequest.AliasActions addOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(oldIndex).alias(oldAlias);
-		IndicesAliasesRequest.AliasActions addNewIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(currentIndex).alias(alias);
-		indicesAliasesRequest.addAliasAction(addOldIndexAction);
-		indicesAliasesRequest.addAliasAction(addNewIndexAction);
-		client.indices().updateAliases(indicesAliasesRequest, RequestOptions.DEFAULT);
-	}
-
-	public void createTimbermillIndexForTests(String index) throws IOException {
-		GetIndexRequest exists = new GetIndexRequest(index);
-		boolean isExists = client.indices().exists(exists, RequestOptions.DEFAULT);
-		if (!isExists) {
-			CreateIndexRequest createIndexRequest = new CreateIndexRequest(index);
-			client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
-		}
 	}
 
 }
