@@ -5,6 +5,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
@@ -20,6 +21,7 @@ public class TimberLogServerTest extends TimberLogTest{
         }
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).numOfThreads(1).build();
+        ElasticsearchUtil.getEnvSet().add(TEST);
         TimberLogTest.init(pipe);
     }
 

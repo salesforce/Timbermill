@@ -73,12 +73,7 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
 
     @Test
     public void testStringOfOrphans(){
-        super.testStringOfOrphans(false);
-    }
-
-    @Test
-    public void testStringOfOrphansRollover(){
-        super.testStringOfOrphans(true);
+        super.testStringOfOrphans();
     }
 
     @Test

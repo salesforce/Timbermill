@@ -462,7 +462,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + "7", task7.getCtx().get(CTX +"7"));
     }
 
-    public void testStringOfOrphans(boolean shouldRollover) {
+    public void testStringOfOrphans() {
         String parentTaskId = null;
         String taskId = null;
         int numberOfIterations = 3;
@@ -476,11 +476,6 @@ public class TimberLogAdvancedOrphansTest {
             else{
                 LogParams context = LogParams.create().context("ctx" + i, "ctx" + i);
                 if(i + 1 == numberOfIterations){
-
-                    if (shouldRollover) {
-                        client.rolloverIndexForTest(TEST);
-                    }
-
                     TimberLoggerAdvanced.start(parentTaskId, ORPHAN,  null, context);
                     waitForTask(parentTaskId, TaskStatus.UNTERMINATED);
                     TimberLoggerAdvanced.success(parentTaskId);
