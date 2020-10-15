@@ -425,7 +425,7 @@ public class ElasticsearchClient {
 					1, "Removing old index from alias", flowId);
 			boolean acknowledged = acknowledgedResponse.isAcknowledged();
 			if (!acknowledged) {
-				LOG.info(FLOW_ID_LOG + " Removing old index from alias [{}] failed", flowId, oldAlias);
+				LOG.error(FLOW_ID_LOG + " Removing old index from alias [{}] failed", flowId, oldAlias);
 			}
 		}
 		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
@@ -435,7 +435,7 @@ public class ElasticsearchClient {
 				1, "Adding old index to alias", flowId);
 		boolean acknowledged = acknowledgedResponse.isAcknowledged();
 		if (!acknowledged) {
-			LOG.info(FLOW_ID_LOG + " Adding old index to alias [{}] failed", flowId, oldAlias);
+			LOG.error(FLOW_ID_LOG + " Adding old index to alias [{}] failed", flowId, oldAlias);
 		}
 	}
 
