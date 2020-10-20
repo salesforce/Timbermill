@@ -731,7 +731,9 @@ public class ElasticsearchClient {
 		SearchRequest searchRequest = new SearchRequest(indices);
 		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, numberOfShards);
+
+		int maxSlices = this.numberOfShards <= 1 ? 2 : this.numberOfShards;
+		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, maxSlices);
 		searchSourceBuilder.slice(sliceBuilder);
 		searchSourceBuilder.fetchSource(taskFieldsToInclude, taskFieldsToExclude);
 		searchSourceBuilder.query(query);
