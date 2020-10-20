@@ -91,6 +91,7 @@ public class ElasticsearchClient {
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
 	private final int numberOfShards;
+	private final int maxSlices;
 	private long maxIndexAge;
 	private long maxIndexSizeInGB;
 	private long maxIndexDocs;
@@ -125,6 +126,7 @@ public class ElasticsearchClient {
         this.scrollTimeoutSeconds = scrollTimeoutSeconds;
         this.fetchByIdsPartitions = fetchByIdsPartitions;
 		this.numberOfShards = numberOfShards;
+		this.maxSlices = numberOfShards <= 1 ? 2 : numberOfShards;
 		this.expiredMaxIndicesTodeleteInParallel = expiredMaxIndicesTodeleteInParallel;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
@@ -335,7 +337,7 @@ public class ElasticsearchClient {
 	private List<Future<Map<String, List<Task>>>> runScrollInSlices(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude,
 			String flowId, String...indices) {
 		List<Future<Map<String, List<Task>>>> futures = Lists.newArrayList();
-		for (int sliceId = 0; sliceId < numberOfShards; sliceId++) {
+		for (int sliceId = 0; sliceId < maxSlices; sliceId++) {
 			int finalSliceId = sliceId;
 			Future<Map<String, List<Task>>> futureFetcher = executorService
 					.submit(() -> runScrollQuery(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, finalSliceId, indices));
@@ -732,7 +734,6 @@ public class ElasticsearchClient {
 		searchRequest.scroll(TimeValue.timeValueSeconds(30L));
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-		int maxSlices = this.numberOfShards <= 1 ? 2 : this.numberOfShards;
 		SliceBuilder sliceBuilder = new SliceBuilder(META_TASK_BEGIN, sliceId, maxSlices);
 		searchSourceBuilder.slice(sliceBuilder);
 		searchSourceBuilder.fetchSource(taskFieldsToInclude, taskFieldsToExclude);
