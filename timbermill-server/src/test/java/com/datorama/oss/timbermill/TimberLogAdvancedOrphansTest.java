@@ -40,9 +40,7 @@ public class TimberLogAdvancedOrphansTest {
         if (StringUtils.isEmpty(elasticUrl)){
             elasticUrl = "http://localhost:9200";
         }
-        client = new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null,
-                7, 100, 1000000000, 3, 3, 1000,null ,1, 1,
-                4000, null, 10, 60, 10000, 10);
+        client = new ElasticsearchClientForTests(elasticUrl, null);
 
         orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
@@ -72,11 +70,15 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertTrue(task.isOrphan());
     }
 
-    public void testOrphanWithAdoption() {
+    public void testOrphanWithAdoption(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
         TimberLoggerAdvanced.success(taskId);
         waitForTask(taskId, TaskStatus.SUCCESS);
+
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
 
         String ctx = CTX;
         TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
@@ -94,13 +96,19 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx, task.getCtx().get(ctx));
     }
 
-    public void testOrphanWithAdoptionParentWithNoStart() {
+    public void testOrphanWithAdoptionParentWithNoStart(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String ctx = CTX;
-        TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
         TimberLoggerAdvanced.success(taskId);
         waitForTask(taskId, TaskStatus.SUCCESS);
+
+
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
+
+        TimberLoggerAdvanced.logParams(parentTaskId, LogParams.create().context(CTX + "1", CTX + "1"));
         waitForTask(parentTaskId, TaskStatus.PARTIAL_INFO_ONLY);
 
         TimberLoggerAdvanced.start(parentTaskId, ORPHAN_PARENT, null, LogParams.create().context(ctx, ctx));
@@ -118,11 +126,15 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx, task.getCtx().get(ctx));
     }
 
-    public void testOrphanWithComplexAdoption() {
+    public void testOrphanWithComplexAdoption(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId, LogParams.create().context(CTX + 1, CTX + 1));
         TimberLoggerAdvanced.success(taskId);
         waitForTask(taskId, TaskStatus.SUCCESS);
+
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
 
         String orphanChildId = TimberLoggerAdvanced.start(ORPHAN_CHILD, taskId, LogParams.create().context(CTX + 2, CTX + 2));
         TimberLoggerAdvanced.success(orphanChildId);
@@ -164,7 +176,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + 2, orphanChildTask.getCtx().get(CTX + 2));
     }
 
-    public void testOutOfOrderComplexOrphanWithAdoption() {
+    public void testOutOfOrderComplexOrphanWithAdoption(boolean shouldRollover) {
         String orphan3TaskId = Event.generateTaskId(ORPHAN +"3");
 
         String ctx = CTX;
@@ -190,6 +202,10 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(orphan3TaskId, task42.getParentId());
         Assert.assertNull(task42.getPrimaryId());
         Assert.assertEquals(ctx + "42", task42.getCtx().get(ctx +"42"));
+
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
 
         String orphan2TaskId = Event.generateTaskId(ORPHAN +"2");
         TimberLoggerAdvanced.start(orphan3TaskId, ORPHAN +"3", orphan2TaskId, LogParams.create().context(ctx + "3", ctx + "3"));
@@ -275,7 +291,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task42.getCtx().get(ctx +"41"));
     }
 
-    public void testInOrderComplexOrphanWithAdoption() {
+    public void testInOrderComplexOrphanWithAdoption(boolean shouldRollover) {
         String orphan1TaskId = Event.generateTaskId(ORPHAN +"1");
         TimberLoggerAdvanced.start(orphan1TaskId, ORPHAN +"1", null, LogParams.create().context(CTX + "1", CTX + "1"));
         TimberLoggerAdvanced.success(orphan1TaskId);
@@ -330,6 +346,9 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task7.getPrimaryId());
         Assert.assertEquals(CTX + "7", task7.getCtx().get(CTX +"7"));
 
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
 
         TimberLoggerAdvanced.start(orphan2TaskId, ORPHAN +"2", orphan1TaskId, LogParams.create().context(CTX + "2", CTX + "2"));
         TimberLoggerAdvanced.success(orphan2TaskId);
@@ -488,7 +507,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertNotOrphan(primaryTask);
     }
 
-    public void testOrphanWithAdoptionFromDifferentNode() {
+    public void testOrphanWithAdoptionFromDifferentNode(boolean shouldRollover) {
 
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent = new StartEvent(parentTaskId, ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
@@ -508,6 +527,10 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertOrphan(childTask);
         String orphanIndex = childTask.getIndex();
 
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
+
         client.index(tasksMap, index, flowId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         orphansAdoptionJob.execute(context);
@@ -524,7 +547,7 @@ public class TimberLogAdvancedOrphansTest {
 
     }
 
-    public void testOrphanWithChainAdoptionFromDifferentNode() {
+    public void testOrphanWithChainAdoptionFromDifferentNode(boolean shouldRollover) {
 
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent = new StartEvent(parentTaskId, ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
@@ -544,6 +567,10 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.waitForTask(childTaskId, TaskStatus.SUCCESS);
         Task childTask = client.getTaskById(childTaskId);
         TimberLogTest.assertOrphan(childTask);
+
+        if (shouldRollover) {
+            client.rolloverIndexForTest(TEST);
+        }
 
         String index = client.createTimbermillAlias(TEST, flowId);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1);
