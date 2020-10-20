@@ -5,6 +5,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
@@ -20,6 +21,7 @@ public class TimberLogServerTest extends TimberLogTest{
         }
         TimbermillServerOutputPipe pipe = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillUrl).maxBufferSize(200000000)
                 .maxSecondsBeforeBatchTimeout(3).numOfThreads(1).build();
+        ElasticsearchUtil.getEnvSet().add(TEST);
         TimberLogTest.init(pipe);
     }
 
@@ -85,13 +87,22 @@ public class TimberLogServerTest extends TimberLogTest{
 
     @Test
     public void testMissingParentTaskFromDifferentThreads(){
-        super.testMissingParentTaskFromDifferentThreads();
+        super.testMissingParentTaskFromDifferentThreads(false);
+    }
+
+    @Test
+    public void testMissingParentTaskFromDifferentThreadsRollover(){
+        super.testMissingParentTaskFromDifferentThreads(true);
     }
 
     @Test
     public void testMissingParentTaskOutOffOrderFromDifferentThreads(){
-        super.testMissingParentTaskOutOffOrderFromDifferentThreads();
+        super.testMissingParentTaskOutOffOrderFromDifferentThreads(false);
     }
 
+    @Test
+    public void testMissingParentTaskOutOffOrderFromDifferentThreadsRollover(){
+        super.testMissingParentTaskOutOffOrderFromDifferentThreads(true);
+    }
 
 }

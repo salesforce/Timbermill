@@ -66,6 +66,10 @@ public class OrphansAdoptionJob implements Job {
 			}
 		});
 
+		if (envSet.isEmpty()){
+			LOG.warn(FLOW_ID_LOG + " No env params found.", flowId);
+			return;
+		}
 		String[] indices = indicesSet.toArray(new String[0]);
 		Map<String, Task> latestOrphan = es.getLatestOrphanIndexed(partialOrphansGraceMinutes, orphansFetchMinutes, flowId, indices);
 		Map<String, Task> fetchedParents = fetchAdoptingParents(es, latestOrphan, flowId, indices);

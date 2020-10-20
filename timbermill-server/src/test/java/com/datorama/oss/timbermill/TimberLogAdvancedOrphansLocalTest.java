@@ -23,27 +23,52 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
 
     @Test
     public void testOrphanWithAdoption(){
-        super.testOrphanWithAdoption();
+        super.testOrphanWithAdoption(false);
+    }
+
+    @Test
+    public void testOrphanWithAdoptionRollover(){
+        super.testOrphanWithAdoption(true);
     }
 
     @Test
     public void testOrphanWithAdoptionParentWithNoStart(){
-        super.testOrphanWithAdoptionParentWithNoStart();
+        super.testOrphanWithAdoptionParentWithNoStart(false);
+    }
+
+    @Test
+    public void testOrphanWithAdoptionParentWithNoStartRollover(){
+        super.testOrphanWithAdoptionParentWithNoStart(true);
     }
 
     @Test
     public void testOrphanWithComplexAdoption(){
-        super.testOrphanWithComplexAdoption();
+        super.testOrphanWithComplexAdoption(false);
+    }
+
+    @Test
+    public void testOrphanWithComplexAdoptionRollover(){
+        super.testOrphanWithComplexAdoption(true);
     }
 
     @Test
     public void testOutOfOrderComplexOrphanWithAdoption(){
-        super.testOutOfOrderComplexOrphanWithAdoption();
+        super.testOutOfOrderComplexOrphanWithAdoption(false);
+    }
+
+    @Test
+    public void testOutOfOrderComplexOrphanWithAdoptionRollover(){
+        super.testOutOfOrderComplexOrphanWithAdoption(true);
     }
 
     @Test
     public void testInOrderComplexOrphanWithAdoption(){
-        super.testInOrderComplexOrphanWithAdoption();
+        super.testInOrderComplexOrphanWithAdoption(false);
+    }
+
+    @Test
+    public void testInOrderComplexOrphanWithAdoptionRollover(){
+        super.testInOrderComplexOrphanWithAdoption(true);
     }
 
     @Test
@@ -52,8 +77,14 @@ public class TimberLogAdvancedOrphansLocalTest extends TimberLogAdvancedOrphansT
     }
 
     @Test
-    public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(); }
+    public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(false); }
 
     @Test
-    public void testOrphanWithChainAdoptionFromDifferentNode() {super.testOrphanWithChainAdoptionFromDifferentNode(); }
+    public void testOrphanWithAdoptionFromDifferentNodeRollover() {super.testOrphanWithAdoptionFromDifferentNode(true); }
+
+    @Test
+    public void testOrphanWithChainAdoptionFromDifferentNode() {super.testOrphanWithChainAdoptionFromDifferentNode(false); }
+
+    @Test
+    public void testOrphanWithChainAdoptionFromDifferentNodeRollover() {super.testOrphanWithChainAdoptionFromDifferentNode(true); }
 }
