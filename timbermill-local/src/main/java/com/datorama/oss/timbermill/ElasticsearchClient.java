@@ -844,7 +844,7 @@ public class ElasticsearchClient {
 	private List<String> findIndicesWithExpiredTasks() {
 		BucketOrder descCountOrder = InternalOrder.count(false);
 		TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms("indices").field("_index").order(descCountOrder).size(expiredMaxIndicesTodeleteInParallel);
-		QueryBuilder query = new RangeQueryBuilder("meta.dateToDelete").lte("now");
+		QueryBuilder query = new RangeQueryBuilder(TTL_FIELD).lte("now");
 		SearchSourceBuilder searchBuilder = new SearchSourceBuilder().aggregation(termsAggregationBuilder).query(query);
 		SearchRequest searchRequest = new SearchRequest(TIMBERMILL_INDEX_WILDCARD).source(searchBuilder);
 		SearchResponse searchResponse;
