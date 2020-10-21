@@ -50,11 +50,15 @@ public final class TimberLogger {
 	}
 
 	public static String start(String name) {
-		return start(name, null);
+		return start(name, (LogParams) null);
 	}
 
 	public static String start(String name, LogParams logParams) {
 		return start(name, null, logParams);
+	}
+
+	public static String start(String name, String parentTaskId) {
+		return start(name, parentTaskId, null);
 	}
 
 	public static String start(String name, String parentTaskId, LogParams logParams) {
