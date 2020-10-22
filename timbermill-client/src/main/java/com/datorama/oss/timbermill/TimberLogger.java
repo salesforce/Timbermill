@@ -50,7 +50,7 @@ public final class TimberLogger {
 	}
 
 	public static String start(String name) {
-		return start(name, (LogParams) null);
+		return start(name, null, null);
 	}
 
 	public static String start(String name, LogParams logParams) {

@@ -566,7 +566,7 @@ public abstract class TimberLogTest {
 	}
 
 	private String testOrphanTimberLog() {
-		String taskId = TimberLogger.start("testOrphan", "testOrphanParent", LogParams.create());
+		String taskId = TimberLogger.start("testOrphan", "testOrphanParent");
 		TimberLogger.success();
 		return taskId;
 	}
