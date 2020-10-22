@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.TimberLogger;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
@@ -330,6 +331,13 @@ public class ElasticsearchUtil {
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
 				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
+
+				events.forEach(e -> {
+					if (e.getEnv() == null){
+						e.setEnv(TimberLogger.DEFAULT);
+					}
+				});
+
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey();
