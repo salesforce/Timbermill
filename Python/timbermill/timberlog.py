@@ -5,10 +5,10 @@ from functools import wraps
 from random import randint
 from threading import local
 
-import Python.timbermill.timberlog_consts as consts
-from Python.timbermill import timberlog_event_handler
-from Python.timbermill.optional_args_decorator import optional_args_decorator
-from Python.timbermill.stack import Stack
+import timbermill.timberlog_consts as consts
+from timbermill import timberlog_event_handler
+from timbermill.optional_args_decorator import optional_args_decorator
+from timbermill.stack import Stack
 
 thread_instance = local()
 

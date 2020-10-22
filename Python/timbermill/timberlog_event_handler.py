@@ -10,7 +10,7 @@ from queue import Queue
 
 import requests
 
-from Python.timbermill.timberlog_mock import RestClientBlackHole
+from timbermill.timberlog_mock import RestClientBlackHole
 
 LOG = None
 
