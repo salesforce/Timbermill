@@ -10,7 +10,8 @@ from queue import Queue
 
 import requests
 
-from timbermill.timberlog_mock import RestClientBlackHole
+from Python.timbermill.timberlog_mock import RestClientBlackHole
+import Python.timbermill.timberlog_consts as consts
 
 LOG = None
 
@@ -28,7 +29,7 @@ submit_event = None
 drain_events_from_queue = None
 
 
-def init(timbermill_hostname, logger=None):
+def init(timbermill_hostname: str, logger=None):
     global TIMBERMILL_URL
     TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
 
@@ -61,7 +62,8 @@ def init_timbermill():
         submit_event = __submit_event_sync
 
 
-def create_event(event_type, text, name=None, task_id=None, context={}, strings={}, metrics={}, parent_id=None, retention_days=None, event_time=None, status=None):
+def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = {}, strings: dict = {}, metrics: dict = {}, parent_id: str = None, retention_days: int = None,
+                 event_time: str = None, status: bool = None) -> dict:
     if not event_time:
         event_time = __get_current_time_formatted()
 
@@ -74,7 +76,7 @@ def create_event(event_type, text, name=None, task_id=None, context={}, strings=
     context = __dict_values_to_str(context)
     event_strings = __dict_values_to_str(event_strings)
 
-    event = {'@type': event_type, 'taskId': task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': 'default'}
+    event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': 'default'}
 
     if name:
         event['name'] = name
@@ -91,11 +93,11 @@ def create_event(event_type, text, name=None, task_id=None, context={}, strings=
     return event
 
 
-def __get_current_time_formatted(plus_days=0):
+def __get_current_time_formatted(plus_days: int = 0) -> str:
     return (datetime.now() + timedelta(days=plus_days)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
 
-def __dict_values_to_str(dictionary):
+def __dict_values_to_str(dictionary: dict) -> dict:
     return {k: str(v) for k, v in dictionary.items()}
 
 
@@ -124,15 +126,15 @@ def __drain_events_from_queue_async():
             __submit_events_to_timbermill(events_to_send)
 
 
-def __submit_event_async(event):
+def __submit_event_async(event: dict):
     events_queue.put(event)
 
 
-def __submit_event_sync(event):
-    return __submit_events_to_timbermill([event])
+def __submit_event_sync(event: dict):
+    __submit_events_to_timbermill([event])
 
 
-def __submit_events_to_timbermill(events):
+def __submit_events_to_timbermill(events: list):
     global TIMBERMILL_URL
 
     try:

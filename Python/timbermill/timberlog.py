@@ -5,25 +5,25 @@ from functools import wraps
 from random import randint
 from threading import local
 
-import timbermill.timberlog_consts as consts
-from timbermill import timberlog_event_handler
-from timbermill.optional_args_decorator import optional_args_decorator
-from timbermill.stack import Stack
+import Python.timbermill.timberlog_consts as consts
+from Python.timbermill import timberlog_event_handler
+from Python.timbermill.optional_args_decorator import optional_args_decorator
+from Python.timbermill.stack import Stack
 
 thread_instance = local()
 
 
-def init(timbermill_hostname, logger=None):
+def init(timbermill_hostname: str, logger=None):
     timberlog_event_handler.init(timbermill_hostname, logger)
 
 
-def start_task(name, retention_days=None):
+def start_task(name: str, retention_days: int = None):
     return TimberLogContext(name, retention_days)
 
 
 class TimberLogContext:
 
-    def __init__(self, name, retention_days=None):
+    def __init__(self, name: str, retention_days: int = None):
         self.name = name
         self.retention_days = retention_days
 
@@ -40,7 +40,7 @@ class TimberLogContext:
             return False
 
 
-def start(name, parent_id=None, retention_days=None):
+def start(name: str, parent_id: str = None, retention_days: int = None) -> str:
     event, task_id, parent_id = __handle_new_task(name, consts.EVENT_TYPE_START, parent_id=parent_id, retention_days=retention_days)
     stack = __get_stack()
     stack.push((task_id, parent_id))
@@ -53,7 +53,7 @@ def success():
     timberlog_event_handler.submit_event(event)
 
 
-def end_with_error(exception=None):
+def end_with_error(exception: BaseException = None):
     if exception is None:
         exception = traceback.format_exc()
 
@@ -62,7 +62,7 @@ def end_with_error(exception=None):
     timberlog_event_handler.submit_event(event)
 
 
-def spot(name, context={}, strings={}, metrics={}, text={}, parent_id=None, task_success=True):
+def spot(name: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, task_success: bool = True) -> str:
     if task_success:
         status = consts.SUCCESS_STATUS
     else:
@@ -88,7 +88,7 @@ def add_metrics(**kwargs):
     info(metrics=kwargs)
 
 
-def info(context={}, strings={}, metrics={}, text={}):
+def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}):
     stack = __get_stack()
 
     if stack.is_empty():
@@ -102,7 +102,8 @@ def info(context={}, strings={}, metrics={}, text={}):
     timberlog_event_handler.submit_event(event)
 
 
-def __handle_new_task(name, event_type, context={}, strings={}, metrics={}, text={}, parent_id=None, retention_days=None, status=None):
+def __handle_new_task(name: str, event_type: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, retention_days: int = None,
+                      status: bool = None) -> (dict, str, str):
     task_id = __generate_task_id(name)
 
     if not parent_id:
@@ -113,7 +114,7 @@ def __handle_new_task(name, event_type, context={}, strings={}, metrics={}, text
     return event, task_id, parent_id
 
 
-def __resolve_parent_id():
+def __resolve_parent_id() -> str:
     task_id_stack = __get_stack()
     parent_id = None
 
@@ -124,7 +125,7 @@ def __resolve_parent_id():
     return parent_id
 
 
-def __get_stack():
+def __get_stack() -> Stack:
     __handle_forked_process()
     task_id_stack = getattr(thread_instance, 'task_id_stack', None)
     if task_id_stack is None:
@@ -133,7 +134,7 @@ def __get_stack():
     return task_id_stack
 
 
-def __handle_forked_process():
+def __handle_forked_process() -> int:
     pid = os.getpid()
     curr_pid = getattr(thread_instance, 'process_pid', None)
     if pid != curr_pid:
@@ -149,7 +150,7 @@ def __clear_local_data():
         task_id_stack.clear()
 
 
-def __create_end_event(event_type, text={}):
+def __create_end_event(event_type: str, text: dict = {}) -> dict:
     stack = __get_stack()
 
     if stack.is_empty():
@@ -163,11 +164,11 @@ def __create_end_event(event_type, text={}):
     return event
 
 
-def __generate_task_id(name):
+def __generate_task_id(name: str) -> str:
     return name + '_' + str(int(round(time.time() * 1000))) + '_' + str(randint(0, 10000000))
 
 
-def get_current_task_id():
+def get_current_task_id() -> str:
     stack = __get_stack()
     curr_task_tuple = stack.peek()
     return curr_task_tuple[consts.TASK_ID_INDEX]
