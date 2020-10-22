@@ -17,7 +17,7 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 
-import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.ElasticsearchClientForTests;
 import com.datorama.oss.timbermill.TimberLogTest;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
@@ -53,8 +53,8 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = "http://localhost:9200";
 		}
-		TimberLogTest.client =  new ElasticsearchClient(elasticUrl, 1000, 1, null, null, null, 7, 100, 1000000000, 3,
-				3, 1000, null, 1, 1, 4000, null, 10, 60, 10000, 10);
+		TimberLogTest.client =  new ElasticsearchClientForTests(elasticUrl, null
+		);
 		tasksMergerJobs = new TasksMergerJobs();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();

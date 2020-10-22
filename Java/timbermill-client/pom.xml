@@ -6,7 +6,7 @@
 
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-client</artifactId>
-    <version>2.2.6</version>
+    <version>2.2.8</version>
     <packaging>jar</packaging>
     <name>timbermill-client</name>
     <description>A better logging service</description>
@@ -16,7 +16,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
         <slf4jVersion>1.7.28</slf4jVersion>
-        <aspectj.version>1.8.7</aspectj.version>
+        <aspectj.version>1.9.6</aspectj.version>
     </properties>
 
     <licenses>
@@ -60,7 +60,12 @@
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
-            <version>1.9.5</version>
+            <version>1.9.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-instrument</artifactId>
+            <version>5.2.9.RELEASE</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
