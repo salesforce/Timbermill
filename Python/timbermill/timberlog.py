@@ -80,7 +80,7 @@ def info(context={}, strings={}, metrics={}, text={}):
         event = timberlog_event_handler.create_event(consts.EVENT_TYPE_SPOT, text, consts.LOG_WITHOUT_CONTEXT, context, strings, metrics)
     else:
         curr_task = stack.peek()
-        task_id = curr_task[consts.TASK_ID_INDEX]  # TODO: shouldn't this be parent task id?
+        task_id = curr_task[consts.TASK_ID_INDEX]
         event = timberlog_event_handler.create_event(consts.EVENT_TYPE_INFO, text, task_id=task_id, context=context, event_strings=strings, metrics=metrics)
 
     timberlog_event_handler.submit_event(event)
