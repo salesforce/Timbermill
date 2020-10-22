@@ -1,0 +1,13 @@
+TASK_ID_INDEX = 0
+EVENT_TYPE_START = 'StartEvent'
+EVENT_TYPE_END_SUCCESS = 'SuccessEvent'
+EVENT_TYPE_END_ERROR = 'ErrorEvent'
+EVENT_TYPE_INFO = 'InfoEvent'
+EVENT_TYPE_SPOT = 'SpotEvent'
+END_WITHOUT_START = 'EndWithoutStart'
+LOG_WITHOUT_CONTEXT = 'LogWithoutContext'
+EXCEPTION = 'exception'
+STACK_TRACK = 'stackTrace'
+TASK_ID = 'taskId'
+SUCCESS_STATUS = 'SUCCESS'
+ERROR_STATUS = 'ERROR'
