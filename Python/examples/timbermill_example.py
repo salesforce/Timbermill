@@ -1,3 +1,5 @@
+import os
+
 from Python.timbermill import timberlog
 from Python.timbermill.timberlog import timberlog_start
 
@@ -13,23 +15,28 @@ def decorator_fail():
 
 
 def success():
-    with timberlog.start_task("task_with_statement"):
-        pass
+    with timberlog.start_task('context_manager_success'):
+        s = 'this is a successful task'
 
 
 def fail():
-    with timberlog.start_task("task_with_statement"):
+    with timberlog.start_task('context_manager_fail'):
         raise Exception()
 
 
 if __name__ == '__main__':
-    timberlog.init('stg-timbermill2-server.default')
+    timberlog.init(os.getenv('timbermill_server_url'))
 
+    decorator_success()
     try:
-        decorator_success()
         decorator_fail()
+    except Exception:
+        pass
 
-        success()
+
+    success()
+    try:
         fail()
     except Exception:
         pass
+

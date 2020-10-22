@@ -72,8 +72,9 @@ def create_event(event_type, text, name=None, task_id=None, context={}, strings=
 
     text = __dict_values_to_str(text)
     context = __dict_values_to_str(context)
+    event_strings = __dict_values_to_str(event_strings)
 
-    event = {'@type': event_type, 'taskId': task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time}
+    event = {'@type': event_type, 'taskId': task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': 'default'}
 
     if name:
         event['name'] = name

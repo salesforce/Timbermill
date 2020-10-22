@@ -72,6 +72,22 @@ def spot(name, context={}, strings={}, metrics={}, text={}, parent_id=None, task
     return event[consts.TASK_ID]
 
 
+def add_strings(**kwargs):
+    info(strings=kwargs)
+
+
+def add_context(**kwargs):
+    info(context=kwargs)
+
+
+def add_text(**kwargs):
+    info(text=kwargs)
+
+
+def add_metrics(**kwargs):
+    info(metrics=kwargs)
+
+
 def info(context={}, strings={}, metrics={}, text={}):
     stack = __get_stack()
 
