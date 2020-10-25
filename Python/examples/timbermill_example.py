@@ -1,7 +1,7 @@
 import os
 
-from Python.timbermill import timberlog
-from Python.timbermill.timberlog import timberlog_start
+from timbermill import timberlog
+from timbermill.timberlog import timberlog_start
 
 
 @timberlog_start

@@ -1,11 +1,14 @@
+from os import path
+
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setuptools.setup(
-    name="timbermill-shim52",
-    version="0.1",
+    name="timbermill",
+    version="0.0.1",
     author="Shimon Klebanov",
     author_email="shimonkle@gmail.com",
     description="A Task-Based, Context-Aware Logging service",
@@ -13,6 +16,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/datorama/Timbermill",
     packages=setuptools.find_packages(),
+    install_requires=[
+        'requests',
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",

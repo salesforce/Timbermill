@@ -10,8 +10,8 @@ from queue import Queue
 
 import requests
 
-from Python.timbermill.timberlog_mock import RestClientBlackHole
-import Python.timbermill.timberlog_consts as consts
+from timbermill.timberlog_mock import RestClientBlackHole
+import timbermill.timberlog_consts as consts
 
 LOG = None
 
