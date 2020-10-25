@@ -97,7 +97,7 @@ def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict 
     else:
         curr_task = stack.peek()
         task_id = curr_task[consts.TASK_ID_INDEX]
-        event = timberlog_event_handler.create_event(consts.EVENT_TYPE_INFO, text, task_id=task_id, context=context, event_strings=strings, metrics=metrics)
+        event = timberlog_event_handler.create_event(consts.EVENT_TYPE_INFO, text, task_id=task_id, context=context, strings=strings, metrics=metrics)
 
     timberlog_event_handler.submit_event(event)
 
