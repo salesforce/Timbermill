@@ -18,7 +18,7 @@ import com.datorama.oss.timbermill.unit.TaskStatus;
 public final class TimberLogger {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimberLogger.class);
-	private static final String DEFAULT = "default";
+	public static final String DEFAULT = "default";
 
 	private TimberLogger() {
 	}
@@ -50,11 +50,15 @@ public final class TimberLogger {
 	}
 
 	public static String start(String name) {
-		return start(name, null);
+		return start(name, null, null);
 	}
 
 	public static String start(String name, LogParams logParams) {
 		return start(name, null, logParams);
+	}
+
+	public static String start(String name, String parentTaskId) {
+		return start(name, parentTaskId, null);
 	}
 
 	public static String start(String name, String parentTaskId, LogParams logParams) {
