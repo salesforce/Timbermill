@@ -1,28 +1,22 @@
-from distutils.core import setup
+import setuptools
 
-setup(
-    name='timbermill',
-    packages=['timbermill'],
-    version='0.1',
-    license='APACHE',
-    description='A Task-Based, Context-Aware Logging service',
-    author='Shimon Klebanov',
-    author_email='shimonkle@gmail.com',
-    url='https://github.com/datorama/Timbermill',  # Provide either the link to your github or to your website
-    download_url='https://github.com/user/reponame/archive/v_01.tar.gz',  # TODO: need to change
-    keywords=['Logging', 'task-based'],
-    install_requires=[
-        'certifi',
-        'chardet',
-        'idna',
-        'requests',
-        'urllib3',
-    ],
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="timbermill-shim52",
+    version="0.1",
+    author="Shimon Klebanov",
+    author_email="shimonkle@gmail.com",
+    description="A Task-Based, Context-Aware Logging service",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/datorama/Timbermill",
+    packages=setuptools.find_packages(),
     classifiers=[
-        'Development Status :: 4 - Alpha',  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
-        'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
-        'LICENSE :: OSI APPROVED :: APACHE SOFTWARE LICENSE',
-        'Programming Language :: Python :: 3.7',
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
     ],
+    python_requires='>=3.7',
 )
