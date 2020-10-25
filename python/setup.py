@@ -10,7 +10,7 @@ setuptools.setup(
     name="timbermill",
     version="0.0.1",
     author="Shimon Klebanov",
-    author_email="shimonkle@gmail.com",
+    author_email="sklebanov@salesforce.com",
     description="A Task-Based, Context-Aware Logging service",
     long_description=long_description,
     long_description_content_type="text/markdown",
