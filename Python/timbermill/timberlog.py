@@ -93,7 +93,7 @@ def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict 
 
     if stack.is_empty():
         text[consts.STACK_TRACK] = str(traceback.format_exc())
-        event = timberlog_event_handler.create_event(consts.EVENT_TYPE_SPOT, text, consts.LOG_WITHOUT_CONTEXT, context, strings, metrics)
+        event = timberlog_event_handler.create_event(consts.EVENT_TYPE_SPOT, text, consts.LOG_WITHOUT_CONTEXT, context=context, strings=strings, metrics=metrics)
     else:
         curr_task = stack.peek()
         task_id = curr_task[consts.TASK_ID_INDEX]
