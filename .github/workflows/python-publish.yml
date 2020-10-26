@@ -7,7 +7,7 @@ on:
   push:
     branches: 
       - master
-    paths: 'timbermill-python/*'
+    paths: 'timbermill-python/**'
 
 jobs:
   deploy:
