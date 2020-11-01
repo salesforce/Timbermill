@@ -355,6 +355,7 @@ public class ElasticsearchClient {
             bulkRequest.add(indexRequest);
         }
 		try {
+			LOG.info("Benchmark - send metadata bulk request");
 			runWithRetries(() -> client.bulk(bulkRequest, RequestOptions.DEFAULT) , 1, "Index metadata tasks", flowId);
 		} catch (MaxRetriesException e) {
 			LOG.error("Couldn't index metadata event with events {} to elasticsearch cluster.", metadataEvents.toString());
@@ -392,6 +393,7 @@ public class ElasticsearchClient {
 
 	// wrap bulk method as a not-final method in order that Mockito will able to mock it
 	BulkResponse bulk(DbBulkRequest request) throws IOException {
+		LOG.info("Benchmark - send bulk request");
 		return bulker.bulk(request);
 	}
 
@@ -422,6 +424,7 @@ public class ElasticsearchClient {
 			rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
 			rolloverRequest.addMaxIndexSizeCondition(new ByteSizeValue(maxIndexSizeInGB, ByteSizeUnit.GB));
 			rolloverRequest.addMaxIndexDocsCondition(maxIndexDocs);
+			LOG.info("Benchmark - send rollover request");
 			RolloverResponse rolloverResponse = (RolloverResponse) runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), 1, "Rollover alias " + timbermillAlias,
 					flowId);
 			if (rolloverResponse.isRolledOver()){
@@ -454,6 +457,7 @@ public class ElasticsearchClient {
 			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
 			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
 			removeRequest.addAliasAction(removeAllIndicesAction);
+			LOG.info("Benchmark - send update alias request");
 			AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
 					1, "Removing old index from alias", flowId);
 			boolean acknowledged = acknowledgedResponse.isAcknowledged();
@@ -464,6 +468,7 @@ public class ElasticsearchClient {
 		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
 		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
 		addRequest.addAliasAction(addNewOldIndexAction);
+		LOG.info("Benchmark - send update alias request");
 		AcknowledgedResponse acknowledgedResponse = (AcknowledgedResponse) runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
 				1, "Adding old index to alias", flowId);
 		boolean acknowledged = acknowledgedResponse.isAcknowledged();
@@ -526,6 +531,7 @@ public class ElasticsearchClient {
 
 	public boolean isAliasExists(String flowId, String currentIndex) throws MaxRetriesException {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
+		LOG.info("Benchmark - get alias");
 		GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
 				"Is Timbermill alias exists", flowId);
 		return !response.getAliases().isEmpty();
@@ -633,6 +639,7 @@ public class ElasticsearchClient {
 				CreateIndexRequest request = new CreateIndexRequest(initialIndex);
 				Alias alias = new Alias(timbermillAlias);
 				request.alias(alias);
+				LOG.info("Benchmark - create alias");
 				runWithRetries(() -> client.indices().create(request, RequestOptions.DEFAULT), 1, "Create index alias " + timbermillAlias + " for index " + initialIndex, flowId);
 			}
 		} catch (MaxRetriesException e){
@@ -652,6 +659,7 @@ public class ElasticsearchClient {
 		List<SearchResponse> searchResponses = new ArrayList<>();
 		Set<String> scrollIds = Sets.newHashSet();
 		try {
+			LOG.info("Benchmark - send search request");
 			SearchResponse searchResponse = (SearchResponse) runWithRetries(() -> client.search(searchRequest, RequestOptions.DEFAULT), 1, "Initial search for " + functionDescription, flowId);
 			if (searchResponse.getFailedShards() > 0){
 				LOG.warn(FLOW_ID_LOG + " Scroll search failed some shards for {}. First error was {}", flowId, functionDescription, searchResponse.getShardFailures()[0].toString());
@@ -670,6 +678,7 @@ public class ElasticsearchClient {
 				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
 				scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
 				stopWatch.start();
+				LOG.info("Benchmark - send scroll request");
 				searchResponse = (SearchResponse) runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), 1, "Scroll search for scroll id: " + scrollId + " for " + functionDescription,
 						flowId);
 				stopWatch.stop();
@@ -708,6 +717,7 @@ public class ElasticsearchClient {
 			}
 
 			try {
+				LOG.info("Benchmark - clear scroll");
 				ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
@@ -849,6 +859,7 @@ public class ElasticsearchClient {
 		SearchRequest searchRequest = new SearchRequest(TIMBERMILL_INDEX_WILDCARD).source(searchBuilder);
 		SearchResponse searchResponse;
 		try {
+			LOG.info("Benchmark - search expired tasks");
 			searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -874,6 +885,7 @@ public class ElasticsearchClient {
 				+ "}";
 		request.setJsonEntity(fullQuery);
 		try {
+			LOG.info("Benchmark - delete by query");
 			Response response = client.getLowLevelClient().performRequest(request);
 			InputStream content = response.getEntity().getContent();
 			String json = IOUtils.toString(content);
@@ -894,6 +906,7 @@ public class ElasticsearchClient {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(QueryBuilders.boolQuery().must(QueryBuilders.matchQuery("name", name)).must(QueryBuilders.matchQuery("env", env)));
         countRequest.source(searchSourceBuilder);
+		LOG.info("Benchmark - send count request");
         CountResponse countResponse = client.count(countRequest, RequestOptions.DEFAULT);
         return countResponse.getCount();
     }
