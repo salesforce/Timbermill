@@ -85,7 +85,8 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
     event_strings = __dict_values_to_str(event_strings)
 
     event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': ENV}
-    event = {**STATIC_EVENT_PARAMS, **event}
+    if __should_add_static_event_params(event_type, name):
+        event = {**STATIC_EVENT_PARAMS, **event}
 
     if name:
         event['name'] = name
@@ -100,6 +101,11 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
         event['status'] = status
 
     return event
+
+
+def __should_add_static_event_params(event_type, name):
+    return event_type == consts.EVENT_TYPE_START or \
+           (event_type == consts.EVENT_TYPE_SPOT and name != consts.END_WITHOUT_START and name != consts.LOG_WITHOUT_CONTEXT)
 
 
 def __get_current_time_formatted(plus_days: int = 0) -> str:
