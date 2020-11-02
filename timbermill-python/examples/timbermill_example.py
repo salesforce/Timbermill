@@ -25,7 +25,7 @@ def fail():
 
 
 if __name__ == '__main__':
-    timberlog.init(os.getenv('timbermill_server_url'))
+    timberlog.init(os.getenv('timbermill_server_url'), 'example_env')
 
     decorator_success()
     try:

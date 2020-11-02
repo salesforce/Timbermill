@@ -19,6 +19,7 @@ SEND_EVENTS_SIZE_THRESHOLD_IN_MB = 1
 SEND_EVENTS_SECONDS_TIMEOUT = os.getenv('timbermill.event.send.interval', 0)  # 0 means sending events synchronously
 TIMBERMILL_ENABLED = os.getenv('timbermill.log.enabled', 'true').lower() == 'true'
 TIMBERMILL_URL = None
+ENV = None
 
 rest_client = None
 
@@ -29,9 +30,12 @@ submit_event = None
 drain_events_from_queue = None
 
 
-def init(timbermill_hostname: str, logger=None):
+def init(timbermill_hostname: str, env: str = None, logger=None):
     global TIMBERMILL_URL
     TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
+
+    global ENV
+    ENV = env if env is not None else 'default'
 
     global LOG
     LOG = logger if logger is not None else logging
@@ -76,7 +80,7 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
     context = __dict_values_to_str(context)
     event_strings = __dict_values_to_str(event_strings)
 
-    event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': 'default'}
+    event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': ENV}
 
     if name:
         event['name'] = name
