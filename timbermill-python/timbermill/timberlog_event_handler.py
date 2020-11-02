@@ -86,7 +86,7 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
 
     event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': ENV}
     if __should_add_static_event_params(event_type, name):
-        event = {**STATIC_EVENT_PARAMS, **event}
+        event['strings'] = {**STATIC_EVENT_PARAMS, **event['strings']}
 
     if name:
         event['name'] = name
