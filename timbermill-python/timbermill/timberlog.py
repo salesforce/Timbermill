@@ -13,8 +13,8 @@ from timbermill.stack import Stack
 thread_instance = local()
 
 
-def init(timbermill_hostname: str, logger=None):
-    timberlog_event_handler.init(timbermill_hostname, logger)
+def init(timbermill_hostname: str, env: str = None, logger=None):
+    timberlog_event_handler.init(timbermill_hostname, env, logger)
 
 
 def start_task(name: str, retention_days: int = None):
