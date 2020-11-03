@@ -16,7 +16,7 @@ import timbermill.timberlog_consts as consts
 LOG = None
 
 SEND_EVENTS_SIZE_THRESHOLD_IN_MB = 1
-SEND_EVENTS_SECONDS_TIMEOUT = os.getenv('timbermill.event.send.interval', 0)  # 0 means sending events synchronously
+SEND_EVENTS_SECONDS_TIMEOUT = int(os.getenv('timbermill.event.send.interval', 0))  # 0 means sending events synchronously
 TIMBERMILL_ENABLED = os.getenv('timbermill.log.enabled', 'true').lower() == 'true'
 TIMBERMILL_URL = None
 ENV = None
