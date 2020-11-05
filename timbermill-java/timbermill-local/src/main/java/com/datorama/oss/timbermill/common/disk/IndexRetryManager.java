@@ -47,7 +47,6 @@ public class IndexRetryManager {
 			LOG.info(FLOW_ID_LOG + " Bulk #{} Started bulk try # {}/{}", flowId, bulkNum, tryNum, numOfElasticSearchActionsTries);
 			// continuous retries of sending the failed bulk request
 			try {
-				LOG.info("Benchmark - send retry bulk request");
 				BulkResponse retryResponse = bulker.bulk(dbBulkRequest);
 				if (retryResponse.hasFailures()) {
 					// FAILURE
