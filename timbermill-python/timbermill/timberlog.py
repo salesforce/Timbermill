@@ -13,8 +13,8 @@ from timbermill.stack import Stack
 thread_instance = local()
 
 
-def init(timbermill_hostname: str, env: str = None, logger=None, static_event_params={}):
-    timberlog_event_handler.init(timbermill_hostname, env, logger, static_event_params)
+def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
+    timberlog_event_handler.init(timbermill_hostname, env, static_event_params, logger)
 
 
 def start_task(name: str, retention_days: int = None):
@@ -62,7 +62,9 @@ def end_with_error(exception: BaseException = None):
     timberlog_event_handler.submit_event(event)
 
 
-def spot(name: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, task_success: bool = True) -> str:
+def spot(name: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, task_success: bool = True) -> str:
+    context, strings, metrics, text = timberlog_event_handler.init_dict_args([context, strings, metrics, text])
+
     if task_success:
         status = consts.SUCCESS_STATUS
     else:
@@ -88,7 +90,7 @@ def add_metrics(**kwargs):
     info(metrics=kwargs)
 
 
-def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}):
+def info(context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None):
     stack = __get_stack()
 
     if stack.is_empty():
@@ -102,7 +104,7 @@ def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict 
     timberlog_event_handler.submit_event(event)
 
 
-def __handle_new_task(name: str, event_type: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, retention_days: int = None,
+def __handle_new_task(name: str, event_type: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, retention_days: int = None,
                       status: bool = None) -> (dict, str, str):
     task_id = __generate_task_id(name)
 

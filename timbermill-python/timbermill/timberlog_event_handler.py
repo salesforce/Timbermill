@@ -31,7 +31,7 @@ submit_event = None
 drain_events_from_queue = None
 
 
-def init(timbermill_hostname: str, env: str = None, logger=None, static_event_params={}):
+def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     global TIMBERMILL_URL
     TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
 
@@ -42,7 +42,7 @@ def init(timbermill_hostname: str, env: str = None, logger=None, static_event_pa
     LOG = logger if logger is not None else logging
 
     global STATIC_EVENT_PARAMS
-    STATIC_EVENT_PARAMS = static_event_params
+    STATIC_EVENT_PARAMS = static_event_params if static_event_params is not None else {}
 
     init_timbermill()
 
@@ -70,8 +70,9 @@ def init_timbermill():
         submit_event = __submit_event_sync
 
 
-def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = {}, strings: dict = {}, metrics: dict = {}, parent_id: str = None, retention_days: int = None,
+def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = None, strings: dict = None, metrics: dict = None, parent_id: str = None, retention_days: int = None,
                  event_time: str = None, status: bool = None) -> dict:
+    context, strings, metrics, text = init_dict_args([context, strings, metrics, text])
     if not event_time:
         event_time = __get_current_time_formatted()
 
@@ -101,6 +102,11 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
         event['status'] = status
 
     return event
+
+
+def init_dict_args(args: list):
+    res = [arg if arg is not None else {} for arg in args]
+    return tuple(res) if len(res) > 1 else res[0]
 
 
 def __should_add_static_event_params(event_type, name):
