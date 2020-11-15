@@ -63,8 +63,6 @@ def end_with_error(exception: BaseException = None):
 
 
 def spot(name: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, task_success: bool = True) -> str:
-    context, strings, metrics, text = timberlog_event_handler.init_dict_args([context, strings, metrics, text])
-
     if task_success:
         status = consts.SUCCESS_STATUS
     else:
