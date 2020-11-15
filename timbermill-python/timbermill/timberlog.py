@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import traceback
@@ -12,13 +13,33 @@ from timbermill.stack import Stack
 
 thread_instance = local()
 
+initiated = False
+
 
 def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     timberlog_event_handler.init(timbermill_hostname, env, static_event_params, logger)
 
+    global initiated
+    initiated = True
+
 
 def start_task(name: str, retention_days: int = None):
+    if not __is_initiated():
+        return TimberLogNotInitiatedContext()
+
     return TimberLogContext(name, retention_days)
+
+
+class TimberLogNotInitiatedContext:
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def info(self, context=None, strings=None, metrics=None, text=None):
+        pass
 
 
 class TimberLogContext:
@@ -39,8 +60,14 @@ class TimberLogContext:
             end_with_error()
             return False
 
+    def info(self, context=None, strings=None, metrics=None, text=None):
+        info(context=context, strings=strings, metrics=metrics, text=text)
+
 
 def start(name: str, parent_id: str = None, retention_days: int = None) -> str:
+    if not __is_initiated():
+        return None
+
     event, task_id, parent_id = __handle_new_task(name, consts.EVENT_TYPE_START, parent_id=parent_id, retention_days=retention_days)
     stack = __get_stack()
     stack.push((task_id, parent_id))
@@ -49,11 +76,16 @@ def start(name: str, parent_id: str = None, retention_days: int = None) -> str:
 
 
 def success():
+    if not __is_initiated():
+        return
+
     event = __create_end_event(consts.EVENT_TYPE_END_SUCCESS)
     timberlog_event_handler.submit_event(event)
 
 
 def end_with_error(exception: BaseException = None):
+    if not __is_initiated():
+        return
     if exception is None:
         exception = traceback.format_exc()
 
@@ -63,6 +95,9 @@ def end_with_error(exception: BaseException = None):
 
 
 def spot(name: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, task_success: bool = True) -> str:
+    if not __is_initiated():
+        return None
+
     if task_success:
         status = consts.SUCCESS_STATUS
     else:
@@ -89,6 +124,9 @@ def add_metrics(**kwargs):
 
 
 def info(context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None):
+    if not __is_initiated():
+        return None
+
     stack = __get_stack()
 
     if stack.is_empty():
@@ -150,8 +188,9 @@ def __clear_local_data():
         task_id_stack.clear()
 
 
-def __create_end_event(event_type: str, text: dict = {}) -> dict:
+def __create_end_event(event_type: str, text: dict = None) -> dict:
     stack = __get_stack()
+    text = text if text is not None else {}
 
     if stack.is_empty():
         text[consts.STACK_TRACK] = str(traceback.format_exc())
@@ -166,6 +205,16 @@ def __create_end_event(event_type: str, text: dict = {}) -> dict:
 
 def __generate_task_id(name: str) -> str:
     return name + '_' + str(int(round(time.time() * 1000))) + '_' + str(randint(0, 10000000))
+
+
+def __is_initiated():
+    global initiated
+
+    if not initiated:
+        logging.getLogger(__name__).error('Trying to create a new timbermill spot event without it being initiated, ignoring..')
+        return False
+    else:
+        return True
 
 
 def get_current_task_id() -> str:

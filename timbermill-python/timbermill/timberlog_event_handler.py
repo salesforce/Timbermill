@@ -72,10 +72,10 @@ def init_timbermill():
 
 def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = None, strings: dict = None, metrics: dict = None, parent_id: str = None, retention_days: int = None,
                  event_time: str = None, status: bool = None) -> dict:
-    text = text if not None else {}
-    context = context if not None else {}
-    strings = strings if not None else {}
-    metrics = metrics if not None else {}
+    text = text if text is not None else {}
+    context = context if context is not None else {}
+    strings = strings if strings is not None else {}
+    metrics = metrics if metrics is not None else {}
 
     if not event_time:
         event_time = __get_current_time_formatted()
