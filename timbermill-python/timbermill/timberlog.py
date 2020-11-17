@@ -13,30 +13,13 @@ from timbermill.stack import Stack
 
 thread_instance = local()
 
-initiated = False
-
 
 def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     timberlog_event_handler.init(timbermill_hostname, env, static_event_params, logger)
 
-    global initiated
-    initiated = True
-
 
 def start_task(name: str, retention_days: int = None):
     return TimberLogContext(name, retention_days)
-
-
-class TimberLogNotInitiatedContext:
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return False
-
-    def info(self, context=None, strings=None, metrics=None, text=None):
-        pass
 
 
 class TimberLogContext:

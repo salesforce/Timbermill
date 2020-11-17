@@ -43,7 +43,8 @@ def init(timbermill_hostname: str, env: str = None, static_event_params=None, lo
         LOG = logger
 
     global STATIC_EVENT_PARAMS
-    STATIC_EVENT_PARAMS = static_event_params if static_event_params is not None else {}
+    if static_event_params:
+        STATIC_EVENT_PARAMS = static_event_params
 
     init_timbermill()
 

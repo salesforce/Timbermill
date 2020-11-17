@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setuptools.setup(
     name="timbermill",
-    version="0.0.14",
+    version="0.0.15",
     author="Shimon Klebanov",
     author_email="sklebanov@salesforce.com",
     description="A Task-Based, Context-Aware Logging service",
