@@ -13,21 +13,21 @@ import requests
 from timbermill.timberlog_mock import RestClientBlackHole
 import timbermill.timberlog_consts as consts
 
-LOG = None
+LOG = logging
 
 SEND_EVENTS_SIZE_THRESHOLD_IN_MB = 1
 SEND_EVENTS_SECONDS_TIMEOUT = int(os.getenv('TIMBERMILL_EVENT_SEND_INTERVAL', 0))  # 0 means sending events synchronously
 TIMBERMILL_ENABLED = os.getenv('TIMBERMILL_LOG_ENABLED', 'true').lower() == 'true'
 TIMBERMILL_URL = None
 ENV = None
-STATIC_EVENT_PARAMS = None
+STATIC_EVENT_PARAMS = {}
 
 rest_client = None
 
 events_queue = None
 event_collection_thread = None
 
-submit_event = None
+submit_event = lambda event: LOG.warning('Trying to submit a timbermill event without it being initiated, ignoring..')
 drain_events_from_queue = None
 
 
@@ -39,7 +39,8 @@ def init(timbermill_hostname: str, env: str = None, static_event_params=None, lo
     ENV = env if env is not None else 'default'
 
     global LOG
-    LOG = logger if logger is not None else logging
+    if logger is not None:
+        LOG = logger
 
     global STATIC_EVENT_PARAMS
     STATIC_EVENT_PARAMS = static_event_params if static_event_params is not None else {}

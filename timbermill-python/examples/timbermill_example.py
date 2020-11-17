@@ -51,7 +51,7 @@ def log_classic_error():
 
 
 if __name__ == '__main__':
-    timberlog.init(os.getenv('timbermill_server_url'), 'example_env', static_event_params={'a': 1})
+    # timberlog.init(os.getenv('timbermill_server_url'), 'example_env', static_event_params={'a': 1})
 
     decorator_success()
     try:
