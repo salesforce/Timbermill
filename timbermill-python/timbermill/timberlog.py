@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import traceback
@@ -13,8 +14,8 @@ from timbermill.stack import Stack
 thread_instance = local()
 
 
-def init(timbermill_hostname: str, env: str = None, logger=None):
-    timberlog_event_handler.init(timbermill_hostname, env, logger)
+def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
+    timberlog_event_handler.init(timbermill_hostname, env, static_event_params, logger)
 
 
 def start_task(name: str, retention_days: int = None):
@@ -39,6 +40,9 @@ class TimberLogContext:
             end_with_error()
             return False
 
+    def info(self, context=None, strings=None, metrics=None, text=None):
+        info(context=context, strings=strings, metrics=metrics, text=text)
+
 
 def start(name: str, parent_id: str = None, retention_days: int = None) -> str:
     event, task_id, parent_id = __handle_new_task(name, consts.EVENT_TYPE_START, parent_id=parent_id, retention_days=retention_days)
@@ -62,7 +66,7 @@ def end_with_error(exception: BaseException = None):
     timberlog_event_handler.submit_event(event)
 
 
-def spot(name: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, task_success: bool = True) -> str:
+def spot(name: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, task_success: bool = True) -> str:
     if task_success:
         status = consts.SUCCESS_STATUS
     else:
@@ -88,7 +92,7 @@ def add_metrics(**kwargs):
     info(metrics=kwargs)
 
 
-def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}):
+def info(context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None):
     stack = __get_stack()
 
     if stack.is_empty():
@@ -102,7 +106,7 @@ def info(context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict 
     timberlog_event_handler.submit_event(event)
 
 
-def __handle_new_task(name: str, event_type: str, context: dict = {}, strings: dict = {}, metrics: dict = {}, text: dict = {}, parent_id: str = None, retention_days: int = None,
+def __handle_new_task(name: str, event_type: str, context: dict = None, strings: dict = None, metrics: dict = None, text: dict = None, parent_id: str = None, retention_days: int = None,
                       status: bool = None) -> (dict, str, str):
     task_id = __generate_task_id(name)
 
@@ -150,8 +154,9 @@ def __clear_local_data():
         task_id_stack.clear()
 
 
-def __create_end_event(event_type: str, text: dict = {}) -> dict:
+def __create_end_event(event_type: str, text: dict = None) -> dict:
     stack = __get_stack()
+    text = text if text is not None else {}
 
     if stack.is_empty():
         text[consts.STACK_TRACK] = str(traceback.format_exc())

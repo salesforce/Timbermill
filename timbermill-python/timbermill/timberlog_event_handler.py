@@ -13,24 +13,25 @@ import requests
 from timbermill.timberlog_mock import RestClientBlackHole
 import timbermill.timberlog_consts as consts
 
-LOG = None
+LOG = logging
 
 SEND_EVENTS_SIZE_THRESHOLD_IN_MB = 1
-SEND_EVENTS_SECONDS_TIMEOUT = os.getenv('timbermill.event.send.interval', 0)  # 0 means sending events synchronously
-TIMBERMILL_ENABLED = os.getenv('timbermill.log.enabled', 'true').lower() == 'true'
+SEND_EVENTS_SECONDS_TIMEOUT = int(os.getenv('TIMBERMILL_EVENT_SEND_INTERVAL', 0))  # 0 means sending events synchronously
+TIMBERMILL_ENABLED = os.getenv('TIMBERMILL_LOG_ENABLED', 'true').lower() == 'true'
 TIMBERMILL_URL = None
 ENV = None
+STATIC_EVENT_PARAMS = {}
 
 rest_client = None
 
 events_queue = None
 event_collection_thread = None
 
-submit_event = None
+submit_event = lambda event: LOG.warning('Trying to submit a timbermill event without it being initiated, ignoring..')
 drain_events_from_queue = None
 
 
-def init(timbermill_hostname: str, env: str = None, logger=None):
+def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     global TIMBERMILL_URL
     TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
 
@@ -38,7 +39,12 @@ def init(timbermill_hostname: str, env: str = None, logger=None):
     ENV = env if env is not None else 'default'
 
     global LOG
-    LOG = logger if logger is not None else logging
+    if logger is not None:
+        LOG = logger
+
+    global STATIC_EVENT_PARAMS
+    if static_event_params:
+        STATIC_EVENT_PARAMS = static_event_params
 
     init_timbermill()
 
@@ -66,8 +72,13 @@ def init_timbermill():
         submit_event = __submit_event_sync
 
 
-def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = {}, strings: dict = {}, metrics: dict = {}, parent_id: str = None, retention_days: int = None,
+def create_event(event_type: str, text: dict, name: str = None, task_id: str = None, context: dict = None, strings: dict = None, metrics: dict = None, parent_id: str = None, retention_days: int = None,
                  event_time: str = None, status: bool = None) -> dict:
+    text = text if text is not None else {}
+    context = context if context is not None else {}
+    strings = strings if strings is not None else {}
+    metrics = metrics if metrics is not None else {}
+
     if not event_time:
         event_time = __get_current_time_formatted()
 
@@ -81,6 +92,8 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
     event_strings = __dict_values_to_str(event_strings)
 
     event = {'@type': event_type, consts.TASK_ID: task_id, 'context': context, 'strings': event_strings, 'metrics': metrics, 'text': text, 'time': event_time, 'env': ENV}
+    if __should_add_static_event_params(event_type, name):
+        event['strings'] = {**STATIC_EVENT_PARAMS, **event['strings']}
 
     if name:
         event['name'] = name
@@ -95,6 +108,11 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
         event['status'] = status
 
     return event
+
+
+def __should_add_static_event_params(event_type, name):
+    return event_type == consts.EVENT_TYPE_START or \
+           (event_type == consts.EVENT_TYPE_SPOT and name != consts.END_WITHOUT_START and name != consts.LOG_WITHOUT_CONTEXT)
 
 
 def __get_current_time_formatted(plus_days: int = 0) -> str:
