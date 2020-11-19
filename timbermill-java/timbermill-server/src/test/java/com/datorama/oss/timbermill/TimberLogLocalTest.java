@@ -34,6 +34,11 @@ public class TimberLogLocalTest extends TimberLogTest {
     }
 
     @Test
+    public void testSimpleTaskWithParams(){
+        super.testSimpleTaskWithParams();
+    }
+
+    @Test
     public void testSwitchCasePlugin() {
         super.testSwitchCasePlugin();
     }

@@ -181,6 +181,27 @@ public abstract class TimberLogTest {
 		assertEquals(2, split.length);
 	}
 
+	protected void testSimpleTaskWithParams(){
+		String str1 = "str1";
+		String str2 = "str2";
+
+		String taskId = simpleTaskWithParams(str1, str2);
+
+		waitForTask(taskId, TaskStatus.SUCCESS, client);
+		Task task = client.getTaskById(taskId);
+
+		assertTaskPrimary(task, EVENT, TaskStatus.SUCCESS, taskId, true, true);
+		Map<String, String> strings = task.getString();
+
+		assertEquals(str1, strings.get("str"));
+		assertEquals(str2, strings.get(str2));
+	}
+
+	@TimberLogTask(name = EVENT, logParameters = true)
+	private String simpleTaskWithParams(String str, String str2) {
+		return TimberLogger.getCurrentTaskId();
+	}
+
 	@TimberLogTask(name = EVENT)
 	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String hugeField) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
