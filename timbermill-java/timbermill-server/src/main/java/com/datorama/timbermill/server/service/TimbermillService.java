@@ -60,11 +60,11 @@ public class TimbermillService {
 			@Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 			@Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 			@Value("${MERGING_CRON_EXPRESSION2:0 0/10 * 1 * ? *}") String mergingCronExp,
-			@Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
+			@Value("${DELETION_CRON_EXPRESSION2:0 0 12 1 * ? *}") String deletionCronExp,
 			@Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
 			@Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 			@Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION2:0 0/10 * 1 * ? *}") String bulkPersistentFetchCronExp,
-			@Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
+			@Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION2:0 0/5 * 1 * ? *}") String eventsPersistentFetchCronExp,
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
@@ -134,17 +134,23 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			if(!this.eventsQueue.offer(event)){
-				if (!overflowedQueue.offer(event)){
-					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
-				}
-				else {
-					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-				}
+			if (!overflowedQueue.offer(event)){
+				LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
 			}
-			else{
-				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+			else {
+				KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
 			}
+			//			if(!this.eventsQueue.offer(event)){
+//				if (!overflowedQueue.offer(event)){
+//					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+//				}
+//				else {
+//					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+//				}
+//			}
+//			else{
+//				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+//			}
 		}
 	}
 }
