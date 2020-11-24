@@ -68,7 +68,7 @@ public class TimbermillService {
 			@Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 			@Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 			@Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
-			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION:0 0/1 * 1 * ? *}") String orphansAdoptionsCronExp,
+			@Value("${ORPHANS_ADOPTION_CRON_EXPRESSION2:0 0/1 * 1 * ? *}") String orphansAdoptionsCronExp,
 			@Value("${PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES:15}") int partialOrphansGracePeriodMinutes,
 			@Value("${ORPHANS_FETCH_DURATION_MINUTES:60}") int orphansFetchMinutes,
 			@Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
