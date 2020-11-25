@@ -166,7 +166,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
 		} catch (Exception e) {
-			LOG.error(FLOW_ID_LOG + " Checking how many bulks are in SQLite has failed.", flowId);
+			LOG.error(FLOW_ID_LOG + " Failed to check how many bulks are in SQLite.", flowId);
 		} finally {
 			closeCursor(resultCursor);
 		}

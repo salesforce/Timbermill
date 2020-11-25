@@ -79,14 +79,13 @@ public class IndexRetryManager {
 			}
 		}
 		// finishing to retry - if persistence is defined then try to persist the failed requests
-		LOG.error(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.", flowId, bulkNum, numOfElasticSearchActionsTries);
+		LOG.warn(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.{}", flowId, bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
 		tryPersistBulkRequest(dbBulkRequest, flowId, bulkNum);
 		return dbBulkRequest.size();
 	}
 
-
 	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
-		if (diskHandler != null) {
+		if (hasPersistence()) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 				try {
 					diskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
@@ -103,6 +102,10 @@ public class IndexRetryManager {
 		else {
 			LOG.info(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", flowId, bulkNum);
 		}
+	}
+
+	private boolean hasPersistence() {
+		return diskHandler != null;
 	}
 
 	private boolean shouldStopRetry(String failureMessage) {

@@ -322,7 +322,7 @@ public abstract class Event implements Serializable {
 			Map<String, Number> newMetrics = Maps.newHashMap();
 			for (Map.Entry<String, Number> entry : metrics.entrySet()) {
 				Number value = entry.getValue();
-				String key = entry.getKey();
+				String key = entry.getKey().replace(".", "_");
 				if (value != null) {
 					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
 						newMetrics.put(key, 0);
