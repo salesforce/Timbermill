@@ -30,7 +30,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
 
-	private static final String DB_NAME = "timbermillJet1.db";
+	private static final String DB_NAME = "timbermillJetDB.db";
 	private static final String FAILED_BULKS_TABLE_NAME = "failed_bulks";
 	private static final String OVERFLOWED_EVENTS_TABLE_NAME = "overflowed_events";
 	private static final String ID = "id";
