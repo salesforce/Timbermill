@@ -100,7 +100,7 @@ public class OrphansAdoptionJob implements Job {
 				collect(Collectors.groupingBy(AdoptedEvent::getParentId));
 
 		Map<String, List<Event>> adoptedOrphans = adoptOrphanEvents(orphansByParentId, fetchedParents);
-		return TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation);
+		return TaskIndexer.getTasksFromEvents(adoptedOrphans, daysRotation, null);
 	}
 
 	private Map<String, Task> fetchAdoptingParents(ElasticsearchClient es, Map<String, Task> latestOrphan, String flowId, String...indices) {

@@ -54,6 +54,7 @@ public class TimbermillService {
 			@Value("${ELASTICSEARCH_ACTION_TRIES:3}") int numOfElasticSearchActionsTries,
 			@Value("${INDEXING_THREADS:10}") int indexingThreads,
 			@Value("${DAYS_ROTATION:90}") Integer daysRotation,
+			@Value("${TIMBERMILL_VERSION:}") String timbermillVersion,
 			@Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 			@Value("${PLUGINS_JSON:[]}") String pluginsJson,
 			@Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
@@ -85,7 +86,7 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, orphansAdoptionsCronExp, daysRotation, mergingCronExp, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
