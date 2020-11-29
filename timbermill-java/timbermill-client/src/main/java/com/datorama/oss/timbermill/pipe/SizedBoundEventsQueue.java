@@ -62,6 +62,7 @@ class SizedBoundEventsQueue extends LinkedBlockingQueue<Event> {
 			Thread.sleep(100);
 			return 0;
 		}
+		event.replaceAllFieldsWithDots();
 		event.trimAllStrings();
 		eventsToSend.add(event);
 		return event.estimatedSize();
