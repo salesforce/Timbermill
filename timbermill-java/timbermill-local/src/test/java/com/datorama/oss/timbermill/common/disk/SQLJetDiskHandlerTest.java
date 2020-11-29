@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -123,31 +124,30 @@ public class SQLJetDiskHandlerTest {
 		assertFalse(sqlJetDiskHandler.hasFailedBulks(flowId));
 	}
 
-	@Ignore
 	@Test
 	public void testMultiThreadSafety() throws MaximumInsertTriesException, InterruptedException {
 
-		AtomicBoolean isHealthCheckFailed = new AtomicBoolean(false);
+        int numOfThreads = 15;
+        AtomicBoolean isHealthCheckFailed = new AtomicBoolean(false);
+        AtomicBoolean keepExecuting = new AtomicBoolean(true);
+        ExecutorService executorService = Executors.newFixedThreadPool(numOfThreads);
 
-		for (int i = 0 ; i < 10 ; i++){
-			DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
-		}
 
-		int numOfThreads = 30;
-		ExecutorService executorService = Executors.newFixedThreadPool(numOfThreads);
+        // insert some bulks to disk
+        for (int i = 0 ; i < 10 ; i++){
+            DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
+            sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
+        }
+
 
 		Runnable fetchAndPersistTask = () -> {
-			while (true) {
-
+			while (keepExecuting.get()) {
 				try {
 					sqlJetDiskHandler.healthCheck();
 				} catch (SqlJetException e) {
 					isHealthCheckFailed.set(true);
-					e.printStackTrace();
 					break;
 				}
-
 				fetchAndPersist();
 			}
 		};
@@ -155,7 +155,14 @@ public class SQLJetDiskHandlerTest {
 		for (int i = 0; i < numOfThreads; i++) {
 			executorService.execute(fetchAndPersistTask);
 		}
-		Thread.sleep(2000);
+
+        Thread.sleep(2000);
+
+		// stop threads and wait
+        keepExecuting.set(false);
+        executorService.shutdown();
+        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
 		assertFalse(isHealthCheckFailed.get());
 	}
 
