@@ -25,7 +25,6 @@ public class TasksMergerJobs implements Job {
 	private final Random rand = new Random();
 
 	@Override public void execute(JobExecutionContext context) {
-
 		JobDataMap jobDataMap = context.getJobDetail().getJobDataMap();
 		ElasticsearchClient client = (ElasticsearchClient) jobDataMap.get(ElasticsearchUtil.CLIENT);
 		String flowId = "Partials Tasks Merger Job - " + UUID.randomUUID().toString();

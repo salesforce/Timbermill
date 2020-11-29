@@ -1,13 +1,23 @@
 package com.datorama.oss.timbermill;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-
+import com.amazonaws.auth.AWS4Signer;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.util.IOUtils;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.ZonedDateTimeConverter;
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
+import com.datorama.oss.timbermill.unit.Task;
+import com.datorama.oss.timbermill.unit.TaskStatus;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.gson.*;
+import com.google.gson.internal.LazilyParsedNumber;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpHost;
@@ -31,7 +41,6 @@ import org.elasticsearch.client.*;
 import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.core.CountResponse;
 import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
@@ -43,7 +52,10 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.*;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.BucketOrder;
+import org.elasticsearch.search.aggregations.InternalOrder;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -53,21 +65,13 @@ import org.elasticsearch.search.slice.SliceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.util.IOUtils;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.KamonConstants;
-import com.datorama.oss.timbermill.common.ZonedDateTimeConverter;
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
-import com.datorama.oss.timbermill.unit.Task;
-import com.datorama.oss.timbermill.unit.TaskStatus;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.*;
-import com.google.gson.*;
-import com.google.gson.internal.LazilyParsedNumber;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
@@ -79,8 +83,8 @@ public class ElasticsearchClient {
 	public static final String TYPE = "_doc";
 	public static final String TIMBERMILL_SCRIPT = "timbermill-script";
 	public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
-	private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);
-	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
+	private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS);
+	private static final TermsQueryBuilder PARTIALS_AND_UNTERMINATED_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
 	private static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
@@ -296,7 +300,7 @@ public class ElasticsearchClient {
 		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
 		nonPartialOrphansQuery.filter(ORPHANS_QUERY);
 		nonPartialOrphansQuery.filter(partialOrphansRangeQuery);
-		nonPartialOrphansQuery.mustNot(PARTIALS_QUERY);
+		nonPartialOrphansQuery.mustNot(PARTIALS_AND_UNTERMINATED_QUERY);
 
 		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
 		orphansWithoutPartialLimitationQuery.filter(ORPHANS_QUERY);
@@ -533,7 +537,7 @@ public class ElasticsearchClient {
 
 	private BoolQueryBuilder getLatestPartialsQuery() {
 		BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
-		latestPartialsQuery.filter(QueryBuilders.rangeQuery(META_TASK_BEGIN).to("now-10m"));
+		latestPartialsQuery.filter(QueryBuilders.rangeQuery(META_TASK_BEGIN).to("now-1m"));
 		latestPartialsQuery.filter(PARTIALS_QUERY);
 		return latestPartialsQuery;
 	}
