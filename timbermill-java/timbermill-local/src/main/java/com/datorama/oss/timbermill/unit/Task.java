@@ -51,7 +51,10 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(List<Event> events, long daysRotation) {
+	public Task(List<Event> events, long daysRotation, String timbermillVersion) {
+		if (!StringUtils.isEmpty(timbermillVersion)){
+			string.put("timbermillVersion", timbermillVersion);
+		}
 		Map<String, List<Event>> collect = events.stream().collect(Collectors.groupingBy(e -> e.isAdoptedEvent() ? ADOPTED : REGULAR));
 
 		if (collect.containsKey(REGULAR)) {

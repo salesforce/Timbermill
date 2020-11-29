@@ -32,12 +32,14 @@ public class TaskIndexer {
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
     private long daysRotation;
+    private String timbermillVersion;
 
-    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion) {
 
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
+        this.timbermillVersion = timbermillVersion;
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -179,13 +181,13 @@ public class TaskIndexer {
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
             Map<String, Task> previouslyIndexedParentTasks) {
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
-        return getTasksFromEvents(eventsMap, daysRotation);
+        return getTasksFromEvents(eventsMap, daysRotation, timbermillVersion);
     }
 
-    public static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation) {
+    public static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation, String timbermillVersion) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
-            Task task = new Task(eventEntry.getValue(), daysRotation);
+            Task task = new Task(eventEntry.getValue(), daysRotation, timbermillVersion);
             tasksMap.put(eventEntry.getKey(), task);
         }
         return tasksMap;

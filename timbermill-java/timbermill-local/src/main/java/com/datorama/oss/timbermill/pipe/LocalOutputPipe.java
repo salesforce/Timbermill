@@ -43,7 +43,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
@@ -146,6 +146,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
         private int expiredMaxIndicesToDeleteInParallel = 2;
+        private String timbermillVersion = "";
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -264,6 +265,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder eventsPersistentFetchCronExp(String eventsPersistentFetchCronExp) {
             this.eventsPersistentFetchCronExp = eventsPersistentFetchCronExp;
+            return this;
+        }
+
+        public Builder timbermillVersion(String timbermillVersion) {
+            this.timbermillVersion = timbermillVersion;
             return this;
         }
 
