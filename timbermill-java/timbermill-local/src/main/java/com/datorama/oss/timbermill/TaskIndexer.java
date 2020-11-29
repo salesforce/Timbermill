@@ -70,6 +70,7 @@ public class TaskIndexer {
                 }
                 else {
                     e.fixErrors();
+                    e.replaceAllFieldsWithDots();
                     e.trimAllStrings();
                     timbermillEvents.add(e);
                 }
