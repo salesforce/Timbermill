@@ -79,7 +79,7 @@ public class IndexRetryManager {
 			}
 		}
 		// finishing to retry - if persistence is defined then try to persist the failed requests
-		LOG.warn(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.{}", flowId, bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
+		LOG.error(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.{}", flowId, bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
 		tryPersistBulkRequest(dbBulkRequest, flowId, bulkNum);
 		return dbBulkRequest.size();
 	}

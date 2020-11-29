@@ -182,20 +182,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return ret;
 	}
 
-	@Override public void close() {
-		try {
-			db.dropTable(FAILED_BULKS_TABLE_NAME);
-			db.createTable(CREATE_BULK_TABLE);
-			db.createTable(CREATE_EVENT_TABLE);
-			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
-			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
-			LOG.info("Recreated table successfully.");
-			db.commit();
-		} catch (Exception e) {
-			LOG.warn("Drop table has failed", e);
-		}
-	}
-
 	@Override public long failedBulksAmount() {
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
@@ -215,6 +201,25 @@ public class SQLJetDiskHandler implements DiskHandler {
 		} catch (SqlJetException e) {
 			LOG.error("Table row count has failed.",e);
 			return 0;
+		}
+	}
+
+	@Override
+	public void close() {
+
+	}
+
+	public void reset() {
+		try {
+			db.dropTable(FAILED_BULKS_TABLE_NAME);
+			db.createTable(CREATE_BULK_TABLE);
+			db.createTable(CREATE_EVENT_TABLE);
+			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
+			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
+			LOG.info("Recreated table successfully.");
+			db.commit();
+		} catch (Exception e) {
+			LOG.warn("Drop table has failed", e);
 		}
 	}
 
