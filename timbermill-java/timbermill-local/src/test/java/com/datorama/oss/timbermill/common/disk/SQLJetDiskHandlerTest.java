@@ -29,12 +29,12 @@ public class SQLJetDiskHandlerTest {
 
 	@Before
 	public void emptyDbBeforeTest() {
-		diskHandler.close();
+		diskHandler.reset();
 	}
 
 	@After
 	public void tearDown(){
-		diskHandler.close();
+		diskHandler.reset();
 	}
 
 	@Test
@@ -115,7 +115,7 @@ public class SQLJetDiskHandlerTest {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		diskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
 
-		diskHandler.close();
+		diskHandler.reset();
 		assertFalse(diskHandler.hasFailedBulks(flowId));
 	}
 

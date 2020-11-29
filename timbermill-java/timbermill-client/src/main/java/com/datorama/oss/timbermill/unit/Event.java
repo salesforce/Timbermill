@@ -321,8 +321,8 @@ public abstract class Event implements Serializable {
 		if (metrics != null) {
 			Map<String, Number> newMetrics = Maps.newHashMap();
 			for (Map.Entry<String, Number> entry : metrics.entrySet()) {
-				Number value = entry.getValue();
 				String key = entry.getKey();
+				Number value = entry.getValue();
 				if (value != null) {
 					if (Double.isNaN(value.doubleValue()) || Float.isNaN(value.floatValue())) {
 						newMetrics.put(key, 0);
@@ -343,7 +343,7 @@ public abstract class Event implements Serializable {
 		if (oldMap != null) {
 			Map<String, String> newMap = new HashMap<>();
 			for (Map.Entry<String, String> entry : oldMap.entrySet()) {
-				String key = entry.getKey().replace(".", "_");
+				String key = entry.getKey();
 				String value = trimIfNeededValue(type, key, entry.getValue());
 				newMap.put(key, value);
 			}
@@ -369,6 +369,24 @@ public abstract class Event implements Serializable {
 			value = value.substring(0, maxChars);
 		}
 		return value;
+	}
+
+	// elasticsearch doesn't support key with dots, replacing them with "_"
+	public void replaceAllFieldsWithDots() {
+		context = replaceFieldWithDots(context);
+		strings = replaceFieldWithDots(strings);
+		text = replaceFieldWithDots(text);
+		metrics = replaceFieldWithDots(metrics);
+	}
+
+
+	private <T> HashMap<String, T> replaceFieldWithDots(Map<String, T> field) {
+		HashMap<String, T> newMap = new HashMap<>();
+		for (Map.Entry<String, ?> entry : field.entrySet()) {
+			String key = entry.getKey();
+			newMap.put(key.replace(".", "_"), field.get(key));
+		}
+		return newMap;
 	}
 
 	public void fixErrors() {
