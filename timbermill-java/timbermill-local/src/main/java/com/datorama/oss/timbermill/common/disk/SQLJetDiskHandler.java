@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.common.disk;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
+import org.apache.commons.lang3.SerializationException;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -20,6 +21,7 @@ import org.tmatesoft.sqljet.core.table.SqlJetDb;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
@@ -155,7 +157,12 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	private List<Event> deserializeEvents(byte[] blobAsArray) {
-		return SerializationUtils.deserialize(blobAsArray);
+		try {
+			return SerializationUtils.deserialize(blobAsArray);
+		} catch (SerializationException e){
+			LOG.error("Error deserializing list of events from DB", e);
+			return Collections.emptyList();
+		}
 	}
 
 	@Override
