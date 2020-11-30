@@ -353,6 +353,7 @@ public abstract class Event implements Serializable {
 		}
 	}
 
+	@JsonIgnore
 	private String trimIfNeededValue(String type, String key, String value) {
 		if (type.equals(Constants.TEXT)) {
 			value = trimValue(type, key, value, Constants.MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS);
@@ -362,6 +363,7 @@ public abstract class Event implements Serializable {
 		return value;
 	}
 
+	@JsonIgnore
 	private String trimValue(String type, String key, String value, int maxChars) {
 		if (value.length() > maxChars) {
 			LOG.debug("Value for key {}.{} is too large, trimmed to {} chars. Value starts with: {}", type, key, maxChars, value.substring(0, 100));
@@ -371,6 +373,7 @@ public abstract class Event implements Serializable {
 	}
 
 	// elasticsearch doesn't support key with dots, replacing them with "_"
+	@JsonIgnore
 	public void replaceAllFieldsWithDots() {
 		context = replaceFieldWithDots(context);
 		strings = replaceFieldWithDots(strings);
@@ -379,6 +382,7 @@ public abstract class Event implements Serializable {
 	}
 
 
+	@JsonIgnore
 	private <T> HashMap<String, T> replaceFieldWithDots(Map<String, T> field) {
 		HashMap<String, T> newMap = new HashMap<>();
 		for (Map.Entry<String, ?> entry : field.entrySet()) {
@@ -388,6 +392,7 @@ public abstract class Event implements Serializable {
 		return newMap;
 	}
 
+	@JsonIgnore
 	public void fixErrors() {
 		if (this.taskId != null && this.taskId.endsWith("_timbermill2_timbermill2")){
 			this.taskId = this.taskId.replace("_timbermill2_timbermill2", "");
