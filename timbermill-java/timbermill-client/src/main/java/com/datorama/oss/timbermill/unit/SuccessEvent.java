@@ -12,7 +12,7 @@ import com.google.common.collect.Maps;
 public class SuccessEvent extends Event {
     public static final String ALREADY_CLOSED_DIFFERENT_CLOSE_TIME = "ALREADY_CLOSED_DIFFERENT_CLOSE_TIME";
     public static final String ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS = "ALREADY_CLOSED_DIFFERENT_CLOSE_STATUS";
-    public static final long serialVersionUID = Event.serialVersionUID;
+    private static final long serialVersionUID = Event.serialVersionUID;
 
     public SuccessEvent() {
     }

@@ -9,8 +9,7 @@ import java.time.ZonedDateTime;
 
 public class SpotEvent extends Event {
 
-    public static final long serialVersionUID = Event.serialVersionUID;
-
+    private static final long serialVersionUID = Event.serialVersionUID;
     private TaskStatus status;
 
     public SpotEvent() {

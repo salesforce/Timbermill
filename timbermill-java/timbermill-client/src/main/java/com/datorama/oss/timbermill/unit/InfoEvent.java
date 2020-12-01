@@ -8,7 +8,7 @@ import javax.validation.constraints.NotNull;
 
 public class InfoEvent extends Event {
 
-    public static final long serialVersionUID = Event.serialVersionUID;
+    private static final long serialVersionUID = Event.serialVersionUID;
 
     public InfoEvent() {
     }
