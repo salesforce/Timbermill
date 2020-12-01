@@ -1,22 +1,42 @@
 package com.datorama.oss.timbermill.common.disk;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectStreamClass;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.ZonedDateTime;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.datorama.oss.timbermill.unit.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.SerializationException;
+import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.junit.*;
+import com.datorama.oss.timbermill.unit.Event;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import org.tmatesoft.sqljet.core.SqlJetException;
+import org.tmatesoft.sqljet.core.table.SqlJetDb;
+
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.NotNull;
 
 import static org.junit.Assert.*;
 
@@ -164,6 +184,71 @@ public class SQLJetDiskHandlerTest {
         executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 
 		assertFalse(isHealthCheckFailed.get());
+	}
+
+	@Test
+	public void serialization() throws IOException, URISyntaxException {
+
+		String taskId = "taskId";
+		String name = "name";
+		String parentId = "parentId";
+		TaskStatus taskStatus = TaskStatus.SUCCESS;
+		ZonedDateTime.now()
+
+		//  ------------- WRITE TO FILE: START ------------- todo REMOVE THIS PART
+		boolean insert = false;
+
+		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_event").toURI());
+		byte[] original_bytes = null, old_event_bytes = null;
+
+		Event event1 = new StartEvent(taskId, name, LogParams.create(), parentId);
+		Event event2 = new ErrorEvent(taskId, LogParams.create());
+		Event event4 = new SpotEvent(taskId, name, parentId, taskStatus, LogParams.create());
+		Event event3 = new InfoEvent(taskId, LogParams.create());
+		Event event5 = new SuccessEvent(taskId, LogParams.create());
+
+		event1.setEnv("env");
+		event1.setOrphan(false);
+		event1.setPrimaryId("primaryId");
+		event1.setParentsPath(new ArrayList<>());
+//		event1.setDateToDelete();
+//		event1.setTime();
+
+		ArrayList<Event> events = new ArrayList<>(
+				Arrays.asList(event1, event2, event3, event4, event5));
+		if (insert) {
+
+			original_bytes = SerializationUtils.serialize(events);
+			try (FileOutputStream fos = new FileOutputStream(path.toString())) {
+				fos.write(original_bytes);
+			}
+		}
+		//  ------------- WRITE TO FILE: END-------------
+
+
+		boolean res = true;
+
+		old_event_bytes = Files.readAllBytes(path);
+		if (insert) System.out.println(Arrays.equals(original_bytes, old_event_bytes));
+
+		ArrayList<Event> oldVersionEvents = null;
+		try {
+			oldVersionEvents = SerializationUtils.deserialize(old_event_bytes);
+		} catch (SerializationException e) {
+			res = false;
+		}
+		assertTrue(res);
+
+		SpotEvent spotEvent = (SpotEvent)oldVersionEvents.get(3);
+		assertEquals(taskId,spotEvent.getTaskId());
+		assertEquals(name,spotEvent.getName());
+		assertEquals(name,spotEvent.getPrimaryId());
+		assertEquals(taskStatus,spotEvent.getStatus());
+		assertNotEquals(spotEvent.getContext(),null);
+		assertNotEquals(spotEvent.getMetrics(),null);
+		assertNotEquals(spotEvent.getStrings(),null);
+		assertNotEquals(spotEvent.getText(),null);
+		assertNotEquals(spotEvent.getParentsPath(),null);
 	}
 
 	// region Test Helpers
