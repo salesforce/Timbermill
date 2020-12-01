@@ -1,12 +1,25 @@
 package com.datorama.oss.timbermill.common.disk;
 
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
+import com.datorama.oss.timbermill.unit.*;
+import org.apache.commons.lang3.SerializationException;
+import org.apache.commons.lang3.SerializationUtils;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptType;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.tmatesoft.sqljet.core.SqlJetException;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectStreamClass;
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,27 +29,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.datorama.oss.timbermill.unit.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.SerializationException;
-import org.apache.commons.lang3.SerializationUtils;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptType;
-import org.junit.*;
-import com.datorama.oss.timbermill.unit.Event;
-
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
-import org.tmatesoft.sqljet.core.SqlJetException;
-import org.tmatesoft.sqljet.core.table.SqlJetDb;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
 
 import static org.junit.Assert.*;
 
@@ -187,68 +179,60 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void serialization() throws IOException, URISyntaxException {
+	public void validateEventsSerialization() throws IOException, URISyntaxException {
+
+		boolean deserializationSuccess = true;
 
 		String taskId = "taskId";
 		String name = "name";
 		String parentId = "parentId";
 		TaskStatus taskStatus = TaskStatus.SUCCESS;
-		ZonedDateTime.now()
+		String env = "env";
+		String primaryId = "primaryId";
 
-		//  ------------- WRITE TO FILE: START ------------- todo REMOVE THIS PART
-		boolean insert = false;
-
+		/* Checking if no */
 		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_event").toURI());
-		byte[] original_bytes = null, old_event_bytes = null;
-
-		Event event1 = new StartEvent(taskId, name, LogParams.create(), parentId);
-		Event event2 = new ErrorEvent(taskId, LogParams.create());
-		Event event4 = new SpotEvent(taskId, name, parentId, taskStatus, LogParams.create());
-		Event event3 = new InfoEvent(taskId, LogParams.create());
-		Event event5 = new SuccessEvent(taskId, LogParams.create());
-
-		event1.setEnv("env");
-		event1.setOrphan(false);
-		event1.setPrimaryId("primaryId");
-		event1.setParentsPath(new ArrayList<>());
-//		event1.setDateToDelete();
-//		event1.setTime();
-
-		ArrayList<Event> events = new ArrayList<>(
-				Arrays.asList(event1, event2, event3, event4, event5));
-		if (insert) {
-
-			original_bytes = SerializationUtils.serialize(events);
-			try (FileOutputStream fos = new FileOutputStream(path.toString())) {
-				fos.write(original_bytes);
-			}
-		}
-		//  ------------- WRITE TO FILE: END-------------
-
-
-		boolean res = true;
-
-		old_event_bytes = Files.readAllBytes(path);
-		if (insert) System.out.println(Arrays.equals(original_bytes, old_event_bytes));
-
-		ArrayList<Event> oldVersionEvents = null;
+		List<Event> oldVersionEvents = null;
+		byte[] oldVersionEventBytes = Files.readAllBytes(path);
 		try {
-			oldVersionEvents = SerializationUtils.deserialize(old_event_bytes);
+			oldVersionEvents = sqlJetDiskHandler.deserializeEvents(oldVersionEventBytes);
 		} catch (SerializationException e) {
-			res = false;
+			deserializationSuccess = false;
 		}
-		assertTrue(res);
+		assertTrue("",deserializationSuccess);
 
-		SpotEvent spotEvent = (SpotEvent)oldVersionEvents.get(3);
-		assertEquals(taskId,spotEvent.getTaskId());
-		assertEquals(name,spotEvent.getName());
-		assertEquals(name,spotEvent.getPrimaryId());
-		assertEquals(taskStatus,spotEvent.getStatus());
-		assertNotEquals(spotEvent.getContext(),null);
-		assertNotEquals(spotEvent.getMetrics(),null);
-		assertNotEquals(spotEvent.getStrings(),null);
-		assertNotEquals(spotEvent.getText(),null);
-		assertNotEquals(spotEvent.getParentsPath(),null);
+		SpotEvent spotEvent = (SpotEvent) oldVersionEvents.get(0);
+		String message = "A field in Event class that was changed will break the connection with the db, field name: ";
+		assertEquals(message + "taskId", taskId, spotEvent.getTaskId());
+		assertEquals(message + "name", name, spotEvent.getName());
+		assertEquals(message + "primaryId", primaryId, spotEvent.getPrimaryId());
+		assertEquals(message + "parentId", parentId, spotEvent.getParentId());
+		assertEquals(message + "env", env, spotEvent.getEnv());
+		assertEquals(message + "status", taskStatus, spotEvent.getStatus());
+		assertNotEquals(message + "context", spotEvent.getContext(), null);
+		assertNotEquals(message + "metrics", spotEvent.getMetrics(), null);
+		assertNotEquals(message + "strings", spotEvent.getStrings(), null);
+		assertNotEquals(message + "text", spotEvent.getText(), null);
+		assertNotEquals(message + "parentsPath", spotEvent.getParentsPath(), null);
+	}
+
+	@Test
+	public void validateBulkRequestsSerialization() throws IOException, URISyntaxException {
+
+		boolean deserializationSuccess = true;
+
+		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_bulk_request").toURI());
+		BulkRequest oldVersionBulk = null;
+		byte[] oldVersionBulkBytes = Files.readAllBytes(path);
+		try {
+			oldVersionBulk = sqlJetDiskHandler.deserializeBulkRequest(oldVersionBulkBytes);
+		} catch (SerializationException e) {
+			deserializationSuccess = false;
+		}
+		assertTrue(deserializationSuccess);
+
+		String message = "A field in BulkRequest class that was changed will break the connection with the db, field name: ";
+		assertEquals(message + "taskId", 3, oldVersionBulk.numberOfActions());
 	}
 
 	// region Test Helpers

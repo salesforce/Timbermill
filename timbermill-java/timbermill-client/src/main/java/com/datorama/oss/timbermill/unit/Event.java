@@ -34,6 +34,7 @@ public abstract class Event implements Serializable {
 
 	public static final String EVENT_ID_DELIMITER = "___";
 	public static final String TIMBERMILL2 = "timbermill2";
+	public static final long serialVersionUID = 20201201; // date
 
 	protected String taskId;
 	private static final Logger LOG = LoggerFactory.getLogger(Event.class);

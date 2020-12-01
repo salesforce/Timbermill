@@ -150,14 +150,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	private byte[] serializeEvents(ArrayList<Event> events) {
-		return SerializationUtils.serialize(events);
-	}
-
-	private List<Event> deserializeEvents(byte[] blobAsArray) {
-		return SerializationUtils.deserialize(blobAsArray);
-	}
-
 	@Override
 	public synchronized boolean hasFailedBulks(String flowId)  {
 		boolean returnValue = false;
@@ -307,6 +299,27 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return dbBulkRequests;
 	}
 
+	byte[] serializeEvents(ArrayList<Event> events) {
+		return SerializationUtils.serialize(events);
+	}
+
+	List<Event> deserializeEvents(byte[] blobAsArray) {
+		return SerializationUtils.deserialize(blobAsArray);
+	}
+
+	byte[] serializeBulkRequest(BulkRequest request) throws IOException {
+		try (BytesStreamOutput out = new BytesStreamOutput()) {
+			request.writeTo(out);
+			return out.bytes().toBytesRef().bytes;
+		}
+	}
+
+	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
+		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
+			return new BulkRequest(stream);
+		}
+	}
+
 	synchronized void healthCheck() throws SqlJetException{
 		ISqlJetCursor resultCursor = null;
 		try {
@@ -330,19 +343,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;
-	}
-
-	private byte[] serializeBulkRequest(BulkRequest request) throws IOException {
-		try (BytesStreamOutput out = new BytesStreamOutput()) {
-			request.writeTo(out);
-			return out.bytes().toBytesRef().bytes;
-		}
-	}
-
-	private BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
-		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
-			return new BulkRequest(stream);
-		}
 	}
 
 	private void closeCursor(ISqlJetCursor cursor) {

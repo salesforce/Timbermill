@@ -7,6 +7,9 @@ import javax.validation.constraints.NotNull;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class ErrorEvent extends Event {
+
+    public static final long serialVersionUID = Event.serialVersionUID;
+
     public ErrorEvent() {
     }
 
