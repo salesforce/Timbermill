@@ -33,7 +33,7 @@ drain_events_from_queue = None
 
 def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     global TIMBERMILL_URL
-    TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
+    TIMBERMILL_URL = f'{timbermill_hostname}/events'
 
     global ENV
     ENV = env if env is not None else 'default'
