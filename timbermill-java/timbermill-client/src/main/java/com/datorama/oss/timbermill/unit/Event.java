@@ -36,6 +36,7 @@ public abstract class Event implements Serializable {
 
 	protected String taskId;
 	private static final Logger LOG = LoggerFactory.getLogger(Event.class);
+	protected static final long serialVersionUID = 20201201; // date
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)

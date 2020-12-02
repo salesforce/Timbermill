@@ -14,6 +14,7 @@ public class StartEvent extends Event {
     public static final String ALREADY_STARTED_DIFFERENT_PARENT = "ALREADY_STARTED_DIFFERENT_PARENT";
     public static final String ALREADY_STARTED_DIFFERENT_NAME = "ALREADY_STARTED_DIFFERENT_NAME";
     public static final String ALREADY_STARTED_DIFFERENT_START_TIME = "ALREADY_STARTED_DIFFERENT_START_TIME";
+    private static final long serialVersionUID = Event.serialVersionUID;
 
     public StartEvent() {
     }

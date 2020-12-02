@@ -3,7 +3,6 @@ package com.datorama.oss.timbermill.common.disk;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
-import org.apache.commons.lang3.SerializationException;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -21,7 +20,6 @@ import org.tmatesoft.sqljet.core.table.SqlJetDb;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
@@ -149,19 +147,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 			LOG.error("Insertion of overflowed events has failed. Events: "+ events.toString() , e);
 		} finally {
 			silentDbCommit();
-		}
-	}
-
-	private byte[] serializeEvents(ArrayList<Event> events) {
-		return SerializationUtils.serialize(events);
-	}
-
-	private List<Event> deserializeEvents(byte[] blobAsArray) {
-		try {
-			return SerializationUtils.deserialize(blobAsArray);
-		} catch (SerializationException e){
-			LOG.error("Error deserializing list of events from DB", e);
-			return Collections.emptyList();
 		}
 	}
 
@@ -314,6 +299,27 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return dbBulkRequests;
 	}
 
+	byte[] serializeEvents(ArrayList<Event> events) {
+		return SerializationUtils.serialize(events);
+	}
+
+	List<Event> deserializeEvents(byte[] blobAsArray) {
+		return SerializationUtils.deserialize(blobAsArray);
+	}
+
+	byte[] serializeBulkRequest(BulkRequest request) throws IOException {
+		try (BytesStreamOutput out = new BytesStreamOutput()) {
+			request.writeTo(out);
+			return out.bytes().toBytesRef().bytes;
+		}
+	}
+
+	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
+		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
+			return new BulkRequest(stream);
+		}
+	}
+
 	synchronized void healthCheck() throws SqlJetException{
 		ISqlJetCursor resultCursor = null;
 		try {
@@ -337,19 +343,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;
-	}
-
-	private byte[] serializeBulkRequest(BulkRequest request) throws IOException {
-		try (BytesStreamOutput out = new BytesStreamOutput()) {
-			request.writeTo(out);
-			return out.bytes().toBytesRef().bytes;
-		}
-	}
-
-	private BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
-		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
-			return new BulkRequest(stream);
-		}
 	}
 
 	private void closeCursor(ISqlJetCursor cursor) {
