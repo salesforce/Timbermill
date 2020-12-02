@@ -175,27 +175,6 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void validateBulkRequestsChanges() throws Exception {
-
-		// Checking if can deserialize previous version of BulkRequest
-		boolean deserializationSuccess = true;
-
-		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_BULK_REQUEST).toURI());
-		BulkRequest oldVersionBulk = null;
-		byte[] oldVersionBulkBytes = Files.readAllBytes(path);
-		try {
-			oldVersionBulk = sqlJetDiskHandler.deserializeBulkRequest(oldVersionBulkBytes);
-		} catch (SerializationException e) {
-			deserializationSuccess = false;
-		}
-
-		assertTrue(deserializationSuccess);
-
-		String message = "A field in BulkRequest class that was changed will break the connection with the db, field name: ";
-		assertEquals(message + "taskId", 3, oldVersionBulk.numberOfActions());
-	}
-
-	@Test
 	public void validateEventsDeserialization() throws Exception {
 		// Checking if can deserialize previous version of Event
 		boolean deserializationSuccess = true;
@@ -227,6 +206,27 @@ public class SQLJetDiskHandlerTest {
 				assertTrue(renameError + OldField + " ,Event class: " + eventSubClass.getName(), newFields.contains(OldField));
 			}
 		}
+	}
+
+	@Test
+	public void validateBulkRequestsChanges() throws Exception {
+
+		// Checking if can deserialize previous version of BulkRequest
+		boolean deserializationSuccess = true;
+
+		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_BULK_REQUEST).toURI());
+		BulkRequest oldVersionBulk = null;
+		byte[] oldVersionBulkBytes = Files.readAllBytes(path);
+		try {
+			oldVersionBulk = sqlJetDiskHandler.deserializeBulkRequest(oldVersionBulkBytes);
+		} catch (SerializationException e) {
+			deserializationSuccess = false;
+		}
+
+		assertTrue(deserializationSuccess);
+
+		String message = "A field in BulkRequest class that was changed will break the connection with the db, field name: ";
+		assertEquals(message + "taskId", 3, oldVersionBulk.numberOfActions());
 	}
 
 	// region Test Helpers
