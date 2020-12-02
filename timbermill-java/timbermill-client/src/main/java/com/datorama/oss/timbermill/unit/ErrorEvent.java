@@ -1,10 +1,9 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.ZonedDateTime;
 
 public class ErrorEvent extends Event {
 

@@ -1,13 +1,12 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
-
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Maps;
 
 import javax.validation.constraints.NotNull;
+import java.time.ZonedDateTime;
 
 public class StartEvent extends Event {
 

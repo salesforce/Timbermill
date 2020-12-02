@@ -4,7 +4,6 @@ import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
-
 import java.time.ZonedDateTime;
 
 public class SpotEvent extends Event {
