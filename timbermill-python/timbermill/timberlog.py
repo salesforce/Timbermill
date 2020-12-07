@@ -96,6 +96,9 @@ def info(context: dict = None, strings: dict = None, metrics: dict = None, text:
     stack = __get_stack()
 
     if stack.is_empty():
+        if not text:
+            text = {}
+
         text[consts.STACK_TRACK] = str(traceback.format_exc())
         event = timberlog_event_handler.create_event(consts.EVENT_TYPE_SPOT, text, consts.LOG_WITHOUT_CONTEXT, context=context, strings=strings, metrics=metrics)
     else:
