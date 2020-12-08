@@ -1,17 +1,5 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.io.Serializable;
-import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import javax.validation.constraints.NotNull;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonDeserializer;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonSerializer;
@@ -19,6 +7,16 @@ import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.Maps;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
@@ -36,6 +34,7 @@ public abstract class Event implements Serializable {
 
 	protected String taskId;
 	private static final Logger LOG = LoggerFactory.getLogger(Event.class);
+	protected static final long serialVersionUID = 20201201; // date
 
 	@JsonDeserialize(using = ZonedDateTimeJacksonDeserializer.class)
 	@JsonSerialize(using = ZonedDateTimeJacksonSerializer.class)

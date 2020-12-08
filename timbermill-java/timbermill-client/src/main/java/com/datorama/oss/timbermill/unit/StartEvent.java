@@ -1,19 +1,19 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
-
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Maps;
 
 import javax.validation.constraints.NotNull;
+import java.time.ZonedDateTime;
 
 public class StartEvent extends Event {
 
     public static final String ALREADY_STARTED_DIFFERENT_PARENT = "ALREADY_STARTED_DIFFERENT_PARENT";
     public static final String ALREADY_STARTED_DIFFERENT_NAME = "ALREADY_STARTED_DIFFERENT_NAME";
     public static final String ALREADY_STARTED_DIFFERENT_START_TIME = "ALREADY_STARTED_DIFFERENT_START_TIME";
+    private static final long serialVersionUID = Event.serialVersionUID;
 
     public StartEvent() {
     }

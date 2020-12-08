@@ -1,12 +1,14 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
-
-import javax.validation.constraints.NotNull;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import javax.validation.constraints.NotNull;
+import java.time.ZonedDateTime;
+
 public class ErrorEvent extends Event {
+
+    private static final long serialVersionUID = Event.serialVersionUID;
+
     public ErrorEvent() {
     }
 

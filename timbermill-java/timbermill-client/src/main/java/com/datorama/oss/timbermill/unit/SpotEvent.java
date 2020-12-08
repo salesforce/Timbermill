@@ -4,10 +4,11 @@ import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.validation.constraints.NotNull;
-
 import java.time.ZonedDateTime;
 
 public class SpotEvent extends Event {
+
+    private static final long serialVersionUID = Event.serialVersionUID;
     private TaskStatus status;
 
     public SpotEvent() {
