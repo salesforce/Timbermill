@@ -33,7 +33,7 @@ drain_events_from_queue = None
 
 def init(timbermill_hostname: str, env: str = None, static_event_params=None, logger=None):
     global TIMBERMILL_URL
-    TIMBERMILL_URL = f'http://{timbermill_hostname}/events'
+    TIMBERMILL_URL = f'{timbermill_hostname}/events'
 
     global ENV
     ENV = env if env is not None else 'default'
@@ -80,7 +80,7 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
     metrics = metrics if metrics is not None else {}
 
     if not event_time:
-        event_time = __get_current_time_formatted()
+        event_time = get_current_time_formatted()
 
     event_strings = dict(strings)  # Copy to new dict
     event_strings['host'] = socket.gethostname()
@@ -102,7 +102,7 @@ def create_event(event_type: str, text: dict, name: str = None, task_id: str = N
         event['parentId'] = parent_id
 
     if retention_days:
-        event['dateToDelete'] = __get_current_time_formatted(retention_days)
+        event['dateToDelete'] = get_current_time_formatted(retention_days)
 
     if status:
         event['status'] = status
@@ -115,7 +115,7 @@ def __should_add_static_event_params(event_type, name):
            (event_type == consts.EVENT_TYPE_SPOT and name != consts.END_WITHOUT_START and name != consts.LOG_WITHOUT_CONTEXT)
 
 
-def __get_current_time_formatted(plus_days: int = 0) -> str:
+def get_current_time_formatted(plus_days: int = 0) -> str:
     return (datetime.now() + timedelta(days=plus_days)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
 
