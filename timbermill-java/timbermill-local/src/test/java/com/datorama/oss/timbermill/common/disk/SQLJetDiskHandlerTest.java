@@ -193,22 +193,6 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void validateEventsFieldNames() {
-		/* Changing fields' names of Event class will pass validateEventsDeserialization test,
-		but events in the db will be deserialized as null (since the new fields don't exist there).
-		Therefore need to alert if one of Event's fields has been renamed */
-		String renameError = "A field's name in Event class that was changed will break the connection with the db, field name: ";
-		List<Class> eventClassList = new ArrayList<>(Arrays.asList(SpotEvent.class, StartEvent.class, SuccessEvent.class, ErrorEvent.class, InfoEvent.class));
-		for (Class eventSubClass : eventClassList){
-			Set<String> oldFields = getOldFields(eventSubClass);
-			Set<String> newFields = getFields(eventSubClass);
-			for (String OldField : oldFields) {
-				assertTrue(renameError + OldField + " ,Event class: " + eventSubClass.getName(), newFields.contains(OldField));
-			}
-		}
-	}
-
-	@Test
 	public void validateBulkRequestsChanges() throws Exception {
 
 		// Checking if can deserialize previous version of BulkRequest
@@ -226,41 +210,10 @@ public class SQLJetDiskHandlerTest {
 		assertTrue(deserializationSuccess);
 
 		String message = "A field in BulkRequest class that was changed will break the connection with the db, field name: ";
-		assertEquals(message + "taskId", 3, oldVersionBulk.numberOfActions());
+		assertEquals(message + "requests", 3, oldVersionBulk.numberOfActions());
 	}
 
 	// region Test Helpers
-
-	private Set<String> getOldFields(Class<? extends Event> clazz) {
-		HashSet<String> oldFields = new HashSet<>();
-		oldFields.add("taskId");
-		oldFields.add("name");
-		oldFields.add("primaryId");
-		oldFields.add("parentId");
-		oldFields.add("env");
-		oldFields.add("time");
-		oldFields.add("dateToDelete");
-		oldFields.add("context");
-		oldFields.add("metrics");
-		oldFields.add("strings");
-		oldFields.add("text");
-		oldFields.add("parentsPath");
-		if (clazz == SpotEvent.class){
-			oldFields.add("status");
-		}
-		return oldFields;
-	}
-
-	private Set<String> getFields(Class clazz) {
-		Set<String> fields = new HashSet<>();
-		while (clazz.getSuperclass() != null) {
-			for (Field field : clazz.getDeclaredFields()){
-				fields.add(field.getName());
-			}
-			clazz = clazz.getSuperclass();
-		}
-		return fields;
-	}
 
 	private void fetchAndPersist() {
 		if (sqlJetDiskHandler.hasFailedBulks(flowId)) {
