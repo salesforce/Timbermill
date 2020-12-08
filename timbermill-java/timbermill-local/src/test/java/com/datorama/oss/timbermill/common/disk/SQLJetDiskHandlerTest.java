@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill.common.disk;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
-import com.datorama.oss.timbermill.unit.*;
 import org.apache.commons.lang3.SerializationException;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -14,11 +13,12 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.tmatesoft.sqljet.core.SqlJetException;
 
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -180,6 +180,7 @@ public class SQLJetDiskHandlerTest {
 		boolean deserializationSuccess = true;
 
 		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_EVENT).toURI());
+
 		byte[] oldVersionEventBytes = Files.readAllBytes(path);
 		try {
 			sqlJetDiskHandler.deserializeEvents(oldVersionEventBytes);
@@ -193,12 +194,12 @@ public class SQLJetDiskHandlerTest {
 	}
 
 	@Test
-	public void validateBulkRequestsChanges() throws Exception {
-
+	public void validateBulkRequestsDeserialization() throws Exception {
 		// Checking if can deserialize previous version of BulkRequest
 		boolean deserializationSuccess = true;
 
 		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_BULK_REQUEST).toURI());
+
 		BulkRequest oldVersionBulk = null;
 		byte[] oldVersionBulkBytes = Files.readAllBytes(path);
 		try {
