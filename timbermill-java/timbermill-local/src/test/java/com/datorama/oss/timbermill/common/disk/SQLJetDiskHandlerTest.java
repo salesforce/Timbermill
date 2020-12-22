@@ -183,7 +183,7 @@ public class SQLJetDiskHandlerTest {
 
 		byte[] oldVersionEventBytes = Files.readAllBytes(path);
 		try {
-			sqlJetDiskHandler.deserializeEvents(oldVersionEventBytes);
+			sqlJetDiskHandler.deserializeEvents(oldVersionEventBytes, flowId);
 		} catch (SerializationException e) {
 			deserializationSuccess = false;
 		}
@@ -203,7 +203,7 @@ public class SQLJetDiskHandlerTest {
 		BulkRequest oldVersionBulk = null;
 		byte[] oldVersionBulkBytes = Files.readAllBytes(path);
 		try {
-			oldVersionBulk = sqlJetDiskHandler.deserializeBulkRequest(oldVersionBulkBytes);
+			oldVersionBulk = sqlJetDiskHandler.deserializeBulkRequest(oldVersionBulkBytes, flowId);
 		} catch (SerializationException e) {
 			deserializationSuccess = false;
 		}

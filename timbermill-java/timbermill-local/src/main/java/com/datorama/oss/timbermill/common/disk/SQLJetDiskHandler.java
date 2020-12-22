@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.common.disk;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
+import org.apache.commons.lang3.SerializationException;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -20,6 +21,7 @@ import org.tmatesoft.sqljet.core.table.SqlJetDb;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
@@ -78,7 +80,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
 			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
 
-			// update kamon guage (counter)
+			// update kamon gauge (counter)
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
 
@@ -110,7 +112,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
 				LOG.info(FLOW_ID_LOG + " Fetching overflowed events from SQLite.", flowId);
-				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
+				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT), flowId);
 				allEvents.addAll(events);
 				resultCursor.delete(); // also do next
 				fetchedCount += events.size();
@@ -177,25 +179,19 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	@Override
 	public synchronized long failedBulksAmount() {
-		ISqlJetCursor resultCursor = null;
-		try {
-			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
-			return resultCursor.getRowCount();
-		} catch (SqlJetException e) {
-			LOG.error("Table row count has failed.", e);
-			return 0;
-		} finally {
-			closeCursor(resultCursor);
-		}
+		return getTableRows(failedBulkTable);
 	}
 
 	@Override
 	public synchronized long overFlowedEventsAmount() {
+		return getTableRows(overFlowedEventsTable);
+	}
+
+	private long getTableRows(ISqlJetTable table) {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
+			resultCursor = table.lookup(table.getPrimaryKeyIndexName());
 			return resultCursor.getRowCount();
 		} catch (SqlJetException e) {
 			LOG.error("Table row count has failed.", e);
@@ -209,7 +205,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	public void close() {
 	}
 
-	public void reset() {
+	void reset() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
 			db.createTable(CREATE_BULK_TABLE);
@@ -254,7 +250,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 				try {
 					Thread.sleep(sleepTimeIfFails);
 				} catch (InterruptedException ex) {
-					LOG.error(FLOW_ID_LOG + " Failed to sleep after maximum insertion tries to db", ex);
+					LOG.error("Flow ID: [ "+ flowId +" ] Failed to sleep after maximum insertion tries to db", e);
 				}
 
 				sleepTimeIfFails *= 2;
@@ -279,7 +275,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
-				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor);
+				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor, flowId);
 				dbBulkRequests.add(dbBulkRequest);
 				if (deleteAfterFetch) {
 					resultCursor.delete(); // also do next
@@ -299,24 +295,32 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return dbBulkRequests;
 	}
 
-	byte[] serializeEvents(ArrayList<Event> events) {
+	private byte[] serializeEvents(ArrayList<Event> events) {
 		return SerializationUtils.serialize(events);
 	}
 
-	List<Event> deserializeEvents(byte[] blobAsArray) {
-		return SerializationUtils.deserialize(blobAsArray);
+	List<Event> deserializeEvents(byte[] blobAsArray, String flowId) {
+		try {
+			return SerializationUtils.deserialize(blobAsArray);
+		} catch (SerializationException e){
+			LOG.error("Flow ID: [ "+ flowId +" ] Error deserializing list of events from DB", e);
+			return Collections.emptyList();
+		}
 	}
 
-	byte[] serializeBulkRequest(BulkRequest request) throws IOException {
+	private byte[] serializeBulkRequest(BulkRequest request) throws IOException {
 		try (BytesStreamOutput out = new BytesStreamOutput()) {
 			request.writeTo(out);
 			return out.bytes().toBytesRef().bytes;
 		}
 	}
 
-	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
+	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes, String flowId) throws IOException {
 		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
 			return new BulkRequest(stream);
+		} catch (SerializationException e){
+			LOG.error("Flow ID: [ "+ flowId +" ] Error deserializing Bulk request from DB", e);
+			return new BulkRequest();
 		}
 	}
 
@@ -336,8 +340,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	//region private methods
 
-	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
-		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
+	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor, String flowId) throws IOException, SqlJetException {
+		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK), flowId);
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
 		dbBulkRequest.setId((int) resultCursor.getInteger(ID));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
