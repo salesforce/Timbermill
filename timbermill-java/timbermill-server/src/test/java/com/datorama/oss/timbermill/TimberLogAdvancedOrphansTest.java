@@ -16,7 +16,6 @@ import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.collect.Lists;
 
@@ -31,7 +30,6 @@ public class TimberLogAdvancedOrphansTest {
     private static final String TEST = "test";
     private static ElasticsearchClient client;
     private static JobExecutionContextImpl context;
-    private static OrphansAdoptionJob orphansAdoptionJob;
     private String flowId = "test";
 
     @BeforeClass
@@ -42,7 +40,6 @@ public class TimberLogAdvancedOrphansTest {
         }
         client = new ElasticsearchClientForTests(elasticUrl, null);
 
-        orphansAdoptionJob = new OrphansAdoptionJob();
         JobDetail job = new JobDetailImpl();
         JobDataMap jobDataMap = job.getJobDataMap();
         jobDataMap.put(ElasticsearchUtil.CLIENT, client);
@@ -85,7 +82,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(parentTaskId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
@@ -115,7 +111,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(parentTaskId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
@@ -145,7 +140,6 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(orphanChildId, TaskStatus.SUCCESS);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
 
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         waitForNonOrphanTask(orphanChildId);
         Task parentTask = client.getTaskById(parentTaskId);
@@ -228,7 +222,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(orphan2TaskId);
 
         waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphan2TaskId);
         waitForNonOrphanTask(orphan3TaskId);
         waitForNonOrphanTask(orphan41TaskId);
@@ -363,7 +356,6 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(orphan4TaskId, TaskStatus.SUCCESS);
         waitForTask(orphan6TaskId, TaskStatus.SUCCESS);
 
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphan3TaskId);
         waitForNonOrphanTask(orphan5TaskId);
         waitForNonOrphanTask(orphan7TaskId);
@@ -489,7 +481,6 @@ public class TimberLogAdvancedOrphansTest {
                 }
             }
         }
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForTask(taskId, TaskStatus.SUCCESS);
@@ -533,7 +524,6 @@ public class TimberLogAdvancedOrphansTest {
 
         client.index(tasksMap, index, flowId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(childTaskId);
 
         childTask = client.getTaskById(childTaskId);
@@ -579,7 +569,6 @@ public class TimberLogAdvancedOrphansTest {
         client.index(tasksMap, index, flowId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphanTaskId);
         waitForNonOrphanTask(childTaskId);
 

@@ -75,7 +75,6 @@ import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
-import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
 public class ElasticsearchClient {
@@ -84,13 +83,11 @@ public class ElasticsearchClient {
 	public static final String TIMBERMILL_SCRIPT = "timbermill-script";
 	public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
 	private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS);
-	private static final TermsQueryBuilder PARTIALS_AND_UNTERMINATED_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS, TaskStatus.UNTERMINATED);	private static final TermQueryBuilder ORPHANS_QUERY = QueryBuilders.termQuery("orphan", true);
-	private static final String[] ALL_TASK_FIELDS = {"*"};
+    private static final String[] ALL_TASK_FIELDS = {"*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
-	private static final String[] PARENT_FIELDS_TO_FETCH = { "env", "parentId", "orphan", "primaryId", CTX + ".*", "parentsPath", "name"};
-	private static final String META_TASK_BEGIN = "meta.taskBegin";
+    private static final String META_TASK_BEGIN = "meta.taskBegin";
 	protected final RestHighLevelClient client;
 	private final int indexBulkSize;
 	private final ExecutorService executorService;
@@ -162,25 +159,7 @@ public class ElasticsearchClient {
 		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
 
-    public Map<String, Task> getMissingParents(Set<String> startEventsIds, Set<String> parentIds, String flowId, String...indices) {
-
-		parentIds.removeAll(startEventsIds);
-		int missingParentAmount = parentIds.size();
-		KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
-		LOG.info(FLOW_ID_LOG + " Fetching {} missing parents", flowId, missingParentAmount);
-		Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
-        try {
-			if (!parentIds.isEmpty()) {
-				previouslyIndexedParentTasks = getNonOrphansTasksByIds(parentIds, flowId, indices);
-			}
-        } catch (Throwable t) {
-            LOG.error(FLOW_ID_LOG + " Error fetching indexed tasks from Elasticsearch", flowId, t);
-        }
-        LOG.info(FLOW_ID_LOG + " Fetched {} missing parents", flowId, previouslyIndexedParentTasks.size());
-        return previouslyIndexedParentTasks;
-    }
-
-	private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
+    private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
 			int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int numberOfShards, int expiredMaxIndicesToDeleteInParallel) {
 		if (indexBulkSize < 1) {
 			throw new RuntimeException("Index bulk size property should be larger than 0");
@@ -286,34 +265,7 @@ public class ElasticsearchClient {
 		return allTasks;
     }
 
-	private Map<String, Task> getNonOrphansTasksByIds(Collection<String> taskIds, String flowId, String...indices) {
-		ExistsQueryBuilder startedTaskQueryBuilder = QueryBuilders.existsQuery("primaryId");
-		return getTasksByIds(Lists.newArrayList(startedTaskQueryBuilder), Lists.newArrayList(ORPHANS_QUERY), taskIds, "Fetch previously indexed parent tasks",
-				ElasticsearchClient.PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
-	}
-
-	public Map<String, Task> getLatestOrphanIndexed(int partialTasksGraceMinutes, int orphansFetchPeriodMinutes, String flowId, String...indices) {
-		BoolQueryBuilder finalOrphansQuery = QueryBuilders.boolQuery();
-		RangeQueryBuilder partialOrphansRangeQuery = buildRelativeRangeQuery(partialTasksGraceMinutes);
-		RangeQueryBuilder allOrphansRangeQuery = buildRelativeRangeQuery(orphansFetchPeriodMinutes, partialTasksGraceMinutes);
-
-		BoolQueryBuilder nonPartialOrphansQuery = QueryBuilders.boolQuery();
-		nonPartialOrphansQuery.filter(ORPHANS_QUERY);
-		nonPartialOrphansQuery.filter(partialOrphansRangeQuery);
-		nonPartialOrphansQuery.mustNot(PARTIALS_AND_UNTERMINATED_QUERY);
-
-		BoolQueryBuilder orphansWithoutPartialLimitationQuery = QueryBuilders.boolQuery();
-		orphansWithoutPartialLimitationQuery.filter(ORPHANS_QUERY);
-		orphansWithoutPartialLimitationQuery.filter(allOrphansRangeQuery);
-
-		finalOrphansQuery.should(orphansWithoutPartialLimitationQuery);
-		finalOrphansQuery.should(nonPartialOrphansQuery);
-
-		return getSingleTaskByIds(finalOrphansQuery, "Fetch latest indexed orphans", PARENT_FIELDS_TO_FETCH, EMPTY_ARRAY, flowId, indices);
-
-	}
-
-	private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, String...indices) {
+    private Map<String, Task> getSingleTaskByIds(AbstractQueryBuilder queryBuilder, String functionDescription, String[] taskFieldsToInclude, String[] taskFieldsToExclude, String flowId, String...indices) {
         Map<String, Task> retMap = Maps.newHashMap();
 
 		List<Future<Map<String, List<Task>>>> futures = runScrollInSlices(queryBuilder, functionDescription, taskFieldsToInclude, taskFieldsToExclude, flowId, indices);
@@ -902,19 +854,7 @@ public class ElasticsearchClient {
         return countResponse.getCount();
     }
 
-	private RangeQueryBuilder buildRelativeRangeQuery(int relativeMinutesFrom) {
-		return buildRelativeRangeQuery(relativeMinutesFrom, 0);
-	}
-
-    private RangeQueryBuilder buildRelativeRangeQuery(int relativeMinutesFrom, int relativeMinutesTo) {
-		return QueryBuilders.rangeQuery(META_TASK_BEGIN).from(buildElasticRelativeTime(relativeMinutesFrom)).to(relativeMinutesTo == 0 ? "now" : buildElasticRelativeTime(relativeMinutesTo));
-	}
-
-	private String buildElasticRelativeTime(int minutes) {
-		return "now-"+ minutes + "m";
-	}
-
-	public Bulker getBulker() {
+    public Bulker getBulker() {
 		return bulker;
 	}
 

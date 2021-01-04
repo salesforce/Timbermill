@@ -1,28 +1,27 @@
 package com.datorama.oss.timbermill;
 
-import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.swing.tree.DefaultMutableTreeNode;
-
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.swing.tree.DefaultMutableTreeNode;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.getOldAlias;
-import static com.datorama.oss.timbermill.common.ElasticsearchUtil.getTimbermillIndexAlias;
 
 public class TaskIndexer {
 
@@ -31,6 +30,8 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
+    private Cache<String, LocalTask> tasksCache;
+    private Cache<String, List<String>> orphansCache;
     private long daysRotation;
     private String timbermillVersion;
 
@@ -40,6 +41,8 @@ public class TaskIndexer {
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
+        tasksCache = CacheBuilder.newBuilder().maximumWeight(1000000000).weigher((key, value) -> 1).build();
+        orphansCache = CacheBuilder.newBuilder().maximumWeight(1000000000).weigher((key, value) -> 1).build();
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -96,32 +99,126 @@ public class TaskIndexer {
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
 
-        String currentAlias = getTimbermillIndexAlias(env);
-        String oldAlias = getOldAlias(currentAlias);
-        boolean oldAliasExists;
-        try {
-            oldAliasExists = es.isAliasExists(flowId, oldAlias);
-        } catch (MaxRetriesException e) {
-            oldAliasExists = false;
-        }
-        Map<String, Task> previouslyIndexedParentTasks;
-        if (oldAliasExists){
-            previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId, currentAlias, oldAlias);
-        }
-        else{
-            previouslyIndexedParentTasks = es.getMissingParents(startEventsIds, parentIds, flowId, currentAlias);
-        }
+        Set<String> missingParentsIds = parentIds.stream().filter(id -> !startEventsIds.contains(id)).collect(Collectors.toSet());
+        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds, flowId);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
+        cacheTasks(tasksMap);
+        cacheOrphans(tasksMap);
+
+        resolveOrphans(tasksMap);
+
 
         String index = es.createTimbermillAlias(env, flowId);
         es.index(tasksMap, index, flowId);
+
+
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index, flowId);
         }
         LOG.info(FLOW_ID_LOG + " {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
+    }
+
+    private void resolveOrphans(Map<String, Task> tasksMap) {
+        Map<String, LocalTask> adoptedTasksMap = Maps.newHashMap();
+        for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
+            String id = entry.getKey();
+            Task parentTask = entry.getValue();
+            if (parentTask.getStatus() == TaskStatus.UNTERMINATED || parentTask.getStatus() == TaskStatus.SUCCESS || parentTask.getStatus() == TaskStatus.ERROR) {
+                resolveOrphan(id, parentTask, adoptedTasksMap);
+            }
+        }
+
+        for (Map.Entry<String, LocalTask> adoptedEntry : adoptedTasksMap.entrySet()) {
+            String adoptedId = adoptedEntry.getKey();
+            LocalTask adoptedTask = adoptedEntry.getValue();
+            if (tasksMap.containsKey(adoptedId)){
+                tasksMap.get(adoptedId).mergeTask(adoptedTask, adoptedId);
+            }
+            else{
+                tasksMap.put(adoptedId, adoptedTask);
+            }
+        }
+    }
+
+    private void resolveOrphan(String parentId, Task parentIndexedTask, Map<String, LocalTask> adoptedTasksMap) {
+        if (parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan()){
+            List<String> orphans = orphansCache.getIfPresent(parentId);
+            if (orphans != null) {
+                orphansCache.invalidate(parentId);
+                for (String orphanId : orphans) {
+                    LocalTask adoptedTask = tasksCache.getIfPresent(orphanId);
+                    if (adoptedTask == null){
+                        LOG.warn("Missing task from local cache {}", orphanId);
+                    }
+                    else {
+                        adoptedTask.setOrphan(false);
+
+                        populateParentParams(adoptedTask, parentIndexedTask);
+                        adoptedTasksMap.put(orphanId, adoptedTask);
+                        resolveOrphan(orphanId, adoptedTask, adoptedTasksMap);
+                    }
+                }
+            }
+        }
+    }
+
+    private void cacheOrphans(Map<String, Task> tasksMap) {
+        for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
+            Task orphanTask = entry.getValue();
+            String orphanId = entry.getKey();
+            String parentId = orphanTask.getParentId();
+            if (parentId != null) {
+                if (orphanTask.isOrphan() != null && orphanTask.isOrphan()) {
+                    List<String> tasks = orphansCache.getIfPresent(parentId);
+                    if (tasks == null) {
+                        orphansCache.put(parentId, Lists.newArrayList(orphanId));
+                    } else {
+                        tasks.add(orphanId);
+                    }
+                }
+            }
+        }
+    }
+
+    private void cacheTasks(Map<String, Task> tasksMap) {
+        for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
+            Task task = entry.getValue();
+            LocalTask localTask = new LocalTask(task);
+            String id = entry.getKey();
+            LocalTask cachedTask = tasksCache.getIfPresent(id);
+            if (cachedTask == null){
+                tasksCache.put(id, localTask);
+            }
+            else{
+                cachedTask.mergeTask(localTask, id);
+            }
+        }
+    }
+
+    private Map<String, Task> getMissingParents(Set<String> parentIds, String flowId) {
+        
+        int missingParentAmount = parentIds.size();
+        KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
+        LOG.info(FLOW_ID_LOG + " Fetching {} missing parents", flowId, missingParentAmount);
+        
+        Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
+        try {
+            if (!parentIds.isEmpty()) {
+                parentIds.forEach(parentId -> {
+                    Task parentTask = tasksCache.getIfPresent(parentId);
+                    if (parentTask != null) {
+                        previouslyIndexedParentTasks.put(parentId, parentTask);
+                    }
+                });
+            }
+        } catch (Throwable t) {
+            LOG.error(FLOW_ID_LOG + " Error fetching indexed tasks from Elasticsearch", flowId, t);
+        }
+        LOG.info(FLOW_ID_LOG + " Fetched {} missing parents", flowId, previouslyIndexedParentTasks.size());
+        return previouslyIndexedParentTasks;
     }
 
     private void reportBatchMetrics(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, String flowId) {
@@ -182,10 +279,10 @@ public class TaskIndexer {
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
             Map<String, Task> previouslyIndexedParentTasks) {
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
-        return getTasksFromEvents(eventsMap, daysRotation, timbermillVersion);
+        return getTasksFromEvents(eventsMap);
     }
 
-    public static Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, long daysRotation, String timbermillVersion) {
+    private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
             Task task = new Task(eventEntry.getValue(), daysRotation, timbermillVersion);
@@ -262,13 +359,41 @@ public class TaskIndexer {
         }
     }
 
+    public static void populateParentParams(Task task, Task parentIndexedTask) {
+        ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
+        List<String> parentsPath =  new ArrayList<>();
+        String primaryId = parentProperties.getPrimaryId();
+        task.setPrimaryId(primaryId);
+        if (task.getCtx() == null){
+            task.setCtx(Maps.newHashMap());
+        }
+        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
+            task.getCtx().putIfAbsent(entry.getKey(), entry.getValue());
+        }
+
+        Collection<String> parentParentsPath = parentProperties.getParentPath();
+        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
+            parentsPath.addAll(parentParentsPath);
+        }
+
+        String parentName = parentProperties.getParentName();
+        if(parentName != null) {
+            parentsPath.add(parentName);
+        }
+
+        if(!parentsPath.isEmpty()) {
+            task.setParentsPath(parentsPath);
+        }
+    }
+
     private boolean isOrphan(Event event, Map<String, Task> previouslyIndexedTasks, Map<String, List<Event>> eventsMap) {
         String parentId = event.getParentId();
         if (parentId == null) {
             return false;
         } else {
             if (previouslyIndexedTasks.containsKey(parentId)){
-                return false;
+                Task parentTask = previouslyIndexedTasks.get(parentId);
+                return parentTask.isOrphan() != null && parentTask.isOrphan();
             }
             if (eventsMap.containsKey(parentId)){
                 if (eventsMap.get(parentId).stream().anyMatch(Event::isAdoptedEvent)) {

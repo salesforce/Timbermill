@@ -19,7 +19,6 @@ import org.quartz.spi.TriggerFiredBundle;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
@@ -39,7 +38,6 @@ public abstract class TimberLogTest {
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
 	protected static ElasticsearchClientForTests client;
-	private static OrphansAdoptionJob orphansAdoptionJob;
 	private static JobExecutionContextImpl context;
 	private String childTaskId;
 	private String childOfChildTaskId;
@@ -82,7 +80,6 @@ public abstract class TimberLogTest {
 		}
 
 		client = new ElasticsearchClientForTests(elasticUrl, null);
-		orphansAdoptionJob = new OrphansAdoptionJob();
 		JobDetail job = new JobDetailImpl();
 		JobDataMap jobDataMap = job.getJobDataMap();
 		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
@@ -407,7 +404,6 @@ public abstract class TimberLogTest {
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 
-		orphansAdoptionJob.execute(context);
 		waitForNonOrphanTask(taskId1);
 		waitForNonOrphanTask(taskId2);
 
@@ -452,7 +448,6 @@ public abstract class TimberLogTest {
 		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
-		orphansAdoptionJob.execute(context);
 		waitForNonOrphanTask(taskId1);
 		waitForNonOrphanTask(taskId2);
 
