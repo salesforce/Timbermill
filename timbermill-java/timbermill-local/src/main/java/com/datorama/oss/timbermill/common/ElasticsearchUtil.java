@@ -330,7 +330,7 @@ public class ElasticsearchUtil {
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
 				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
-				logErrorInEventsMap(events.stream().collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
+				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
 				events.forEach(e -> {
 					if (e.getEnv() == null){
