@@ -43,11 +43,11 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion, builder.maximumCacheWeight);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
-                builder.deletionCronExp, buffer, overflowedQueue, builder.orphansAdoptionsCronExp,
-                builder.daysRotation, builder.mergingCronExp, builder.partialOrphansGracePeriodMinutes, builder.orphansFetchPeriodMinutes);
+                builder.deletionCronExp, buffer, overflowedQueue,
+                builder.mergingCronExp);
         startWorkingThread();
     }
 
@@ -114,6 +114,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         Bulker bulker;
         //DEFAULTS
+        private int maximumCacheWeight = 1000000000;
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
@@ -139,9 +140,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxFetchedBulksInOneTime = 100;
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
-        private String orphansAdoptionsCronExp = "0 0/1 * 1/1 * ? *";
-        private int partialOrphansGracePeriodMinutes = 15;
-        private int orphansFetchPeriodMinutes = 60;
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
@@ -258,6 +256,11 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
+        public Builder maximumCacheWeight(int maximumCacheWeight) {
+            this.maximumCacheWeight = maximumCacheWeight;
+            return this;
+        }
+
         public Builder bulkPersistentFetchCronExp(String bulkPersistentFetchCronExp) {
             this.bulkPersistentFetchCronExp = bulkPersistentFetchCronExp;
             return this;
@@ -276,11 +279,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         //Tests
         public Builder bulker(Bulker bulker) {
             this.bulker = bulker;
-            return this;
-        }
-
-        public Builder orphansAdoptionsCronExp(String orphansAdoptionsCronExp) {
-            this.orphansAdoptionsCronExp = orphansAdoptionsCronExp;
             return this;
         }
 

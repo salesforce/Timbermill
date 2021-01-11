@@ -17,7 +17,7 @@ import kamon.Kamon;
  *   - input queue size
  */
 @Service
-@ConditionalOnProperty(name = "KAMON.MONITORING.ENABLED", matchIfMissing = false, havingValue = "true")
+@ConditionalOnProperty(name = "KAMON.MONITORING.ENABLED", havingValue = "true")
 public class KamonMonitorService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(KamonMonitorService.class);
@@ -28,7 +28,7 @@ public class KamonMonitorService {
 	}
 
 	@PostConstruct void init(){
-		LOG.info("Init KamonMonitorService, will report data every {} mili-seconds",MONITOR_RATE_IN_MS);
+		LOG.info("Init KamonMonitorService, will report data every {} milliseconds",MONITOR_RATE_IN_MS);
 		Kamon.init();
 	}
 }

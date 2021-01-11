@@ -32,8 +32,6 @@ public class SQLJetDiskHandlerTest {
 	private static int maxFetchedBulks = 10;
 	private static String flowId = "test";
 	private int bulkNum = 1;
-	private static String OLD_VERSION_EVENT = "/old_version_event";
-	private static String OLD_VERSION_BULK_REQUEST = "/old_version_bulk_request";
 
 	@BeforeClass
 	public static void init()  {
@@ -179,6 +177,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of Event
 		boolean deserializationSuccess = true;
 
+		String OLD_VERSION_EVENT = "/old_version_event";
 		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_EVENT).toURI());
 
 		byte[] oldVersionEventBytes = Files.readAllBytes(path);
@@ -198,6 +197,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of BulkRequest
 		boolean deserializationSuccess = true;
 
+		String OLD_VERSION_BULK_REQUEST = "/old_version_bulk_request";
 		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_BULK_REQUEST).toURI());
 
 		BulkRequest oldVersionBulk = null;

@@ -1,12 +1,11 @@
 package com.datorama.oss.timbermill;
 
-import java.io.IOException;
-
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import java.io.IOException;
 
 public class Bulker {
 	private RestHighLevelClient client;

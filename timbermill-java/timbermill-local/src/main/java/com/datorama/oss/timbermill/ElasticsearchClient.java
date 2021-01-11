@@ -19,7 +19,6 @@ import com.google.common.collect.Sets;
 import com.google.gson.*;
 import com.google.gson.internal.LazilyParsedNumber;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
@@ -31,6 +30,7 @@ import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptReque
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -326,24 +326,8 @@ public class ElasticsearchClient {
     }
 
 	// return number of failed requests
-	public int sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
-		BulkRequest request = dbBulkRequest.getRequest();
-		int numberOfActions = request.numberOfActions();
-		LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, numberOfActions, request.estimatedSizeInBytes());
-
-		try {
-			BulkResponse responses = bulk(dbBulkRequest);
-			if (responses.hasFailures()) {
-				return retryManager.retrySendDbBulkRequest(dbBulkRequest,responses,responses.buildFailureMessage(), flowId, bulkNum);
-			}
-			LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, numberOfActions, responses.getTook().millis());
-			if (dbBulkRequest.getTimesFetched() > 0 ){
-				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
-			}
-			return 0;
-		} catch (Throwable t) {
-			return retryManager.retrySendDbBulkRequest(dbBulkRequest,null,t.getMessage(), flowId, bulkNum);
-		}
+	public List<BulkResponse> sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
+		return retryManager.indexBulkRequest(dbBulkRequest, flowId, bulkNum);
 	}
 
 	// wrap bulk method as a not-final method in order that Mockito will able to mock it
@@ -352,27 +336,39 @@ public class ElasticsearchClient {
 	}
 
 	//Return number of failed tasks
-	public int index(Map<String, Task> tasksMap, String index, String flowId) {
-        Collection<Pair<Future<Integer>, DbBulkRequest>> futuresRequests = createFuturesRequests(tasksMap, index, flowId);
+	public Map<String, String> index(Map<String, Task> tasksMap, String index, String flowId) {
+        Collection<Future<List<BulkResponse>>> futuresRequests = createFuturesRequests(tasksMap, index, flowId);
 
 		int bulkNum = 1;
-		int overallFailedRequests = 0;
-		for (Pair<Future<Integer>, DbBulkRequest> futureRequest : futuresRequests) {
-			try {
-				Integer failedRequests = futureRequest.getLeft().get();
-				overallFailedRequests += failedRequests;
+        Map<String, String> overallIdToIndex = Maps.newHashMap();
+		for (Future<List<BulkResponse>> futureRequest : futuresRequests) {
+            try {
+				List<BulkResponse> bulkResponses = futureRequest.get();
+				Map<String, String> idToIndexMap = getIdToIndexMap(bulkResponses);
+				overallIdToIndex.putAll(idToIndexMap);
 			} catch (InterruptedException e) {
 				LOG.error(FLOW_ID_LOG + " Bulk #{} An error was thrown while indexing a batch, going to retry", flowId, bulkNum, e);
-				sendDbBulkRequest(futureRequest.getRight(), flowId, bulkNum);
 			} catch (ExecutionException e) {
 				LOG.error(FLOW_ID_LOG + " Bulk #{} An error was thrown while indexing a batch, which won't be persisted to disk", flowId, bulkNum, e);
 			}
 			bulkNum++;
         }
-		return overallFailedRequests;
+		return overallIdToIndex;
     }
 
-    void rolloverIndex(String timbermillAlias, String flowId) {
+	private Map<String, String> getIdToIndexMap(List<BulkResponse> bulkResponses) {
+		HashMap<String, String> retMap = Maps.newHashMap();
+		for (BulkResponse bulkResponse : bulkResponses) {
+			for (BulkItemResponse bulkItemResponse : bulkResponse) {
+				if (!bulkItemResponse.isFailed()) {
+					retMap.put(bulkItemResponse.getId(), bulkItemResponse.getIndex());
+				}
+			}
+		}
+		return retMap;
+	}
+
+	void rolloverIndex(String timbermillAlias, String flowId) {
 		try {
 			RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
 			rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
@@ -480,7 +476,7 @@ public class ElasticsearchClient {
 		return singleTaskByIds.keySet();
 	}
 
-	public boolean isAliasExists(String flowId, String currentIndex) throws MaxRetriesException {
+	private boolean isAliasExists(String flowId, String currentIndex) throws MaxRetriesException {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
 		GetAliasesResponse response = (GetAliasesResponse) runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT), 1,
 				"Is Timbermill alias exists", flowId);
@@ -497,40 +493,41 @@ public class ElasticsearchClient {
 	private void indexAndDeleteTasks(Map<String, Task> tasksToMigrateIntoNewIndex, String oldIndex, String currentIndex, String flowId) {
 		if (!tasksToMigrateIntoNewIndex.isEmpty()) {
 			LOG.info(FLOW_ID_LOG + " Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
-			int failedRequests = index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
-			if (failedRequests > 0){
-				LOG.info(FLOW_ID_LOG + " There were {} failed migration requests", flowId, failedRequests);
-				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
-			}
+			index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
+
+//			if (failedRequests > 0){
+//				LOG.info(FLOW_ID_LOG + " There were {} failed migration requests", flowId, failedRequests);
+//				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
+//			}
 			deleteTasksFromIndex(tasksToMigrateIntoNewIndex.keySet(), oldIndex, flowId);
 		}
     }
 
-	private Collection<Pair<Future<Integer>, DbBulkRequest>> createFuturesRequests(Map<String, Task> tasksMap, String index, String flowId) {
+	private Collection<Future<List<BulkResponse>>> createFuturesRequests(Map<String, Task> tasksMap, String index, String flowId) {
 		Collection<UpdateRequest> requests = createUpdateRequests(tasksMap, index, flowId);
 		BulkRequest request = new BulkRequest();
-		Collection<Pair<Future<Integer>, DbBulkRequest>> futures = new ArrayList<>();
+        Collection<Future<List<BulkResponse>>> futures = new ArrayList<>();
 		int bulkNum = 1;
         for (UpdateRequest updateRequest : requests) {
             request.add(updateRequest);
 
-            if (request.estimatedSizeInBytes() > indexBulkSize) {
-				DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
-				addRequestToFutures(dbBulkRequest, futures, flowId, bulkNum);
-                request = new BulkRequest();
+			if (request.estimatedSizeInBytes() > indexBulkSize) {
+				Future<List<BulkResponse>> future = createFutureTask(flowId, request, bulkNum);
+				futures.add(future);
+				request = new BulkRequest();
                 bulkNum++;
             }
         }
         if (!request.requests().isEmpty()) {
-			DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
-			addRequestToFutures(dbBulkRequest, futures, flowId, bulkNum);
+			Future<List<BulkResponse>> future = createFutureTask(flowId, request, bulkNum);
+            futures.add(future);
         }
 		return futures;
     }
 
-	private void addRequestToFutures(DbBulkRequest request, Collection<Pair<Future<Integer>, DbBulkRequest>> futures, String flowId, int bulkNum) {
-        Future<Integer> future = executorService.submit(() -> sendDbBulkRequest(request, flowId, bulkNum));
-        futures.add(Pair.of(future, request));
+    private Future<List<BulkResponse>> createFutureTask(String flowId, BulkRequest request, int bulkNum) {
+        DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
+		return executorService.submit(() -> sendDbBulkRequest(dbBulkRequest, flowId, bulkNum));
     }
 
     private Collection<UpdateRequest> createUpdateRequests(Map<String, Task> tasksMap, String index, String flowId) {
@@ -731,7 +728,6 @@ public class ElasticsearchClient {
 				String sourceAsString = searchHit.getSourceAsString();
 				Task task = GSON.fromJson(sourceAsString, Task.class);
 				fixMetrics(task);
-				task.setIndex(searchHit.getIndex());
 				String id = searchHit.getId();
 				if (!tasks.containsKey(id)){
 					tasks.put(id, Lists.newArrayList(task));

@@ -31,39 +31,23 @@ public class BulkPersistentFetchJob implements Job {
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
 			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job started.", flowId);
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
-			boolean runNextBulk = true;
-			while (runNextBulk) {
-				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
-			}
+			retryFailedRequestsFromDisk(es, diskHandler, flowId);
 			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job ended.", flowId);
 			start.stop();
 		}
 	}
 
-	private static boolean retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler, String flowId) {
-		boolean keepRunning = false;
-		if (diskHandler.hasFailedBulks(flowId)) {
-			keepRunning = true;
-			int successBulks = 0;
+	private static void retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler, String flowId) {
+		while(diskHandler.hasFailedBulks(flowId)){
 			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk Start ####", flowId);
 			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks(flowId);
-			if (failedRequestsFromDisk.size() == 0) {
-				keepRunning = false;
-			}
-			int bulkNum = 1;
+			int bulkNum = 0;
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum) > 0) {
-					keepRunning = false;
-				}
-				else {
-					successBulks += 1;
-				}
+				es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum);
 				bulkNum++;
 			}
-			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
-		} else {
-			LOG.info(FLOW_ID_LOG + " There are no failed bulks to fetch from disk.", flowId);
+			//TODO fix
+//			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks, failedRequestsFromDisk.size());
 		}
-		return keepRunning;
 	}
 }

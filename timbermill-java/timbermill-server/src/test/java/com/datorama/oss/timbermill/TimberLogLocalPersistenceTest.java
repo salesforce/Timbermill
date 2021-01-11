@@ -136,7 +136,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 		};
 		doAnswer(bulkResponseAnswer).when(bulkerMock).bulk(any());
 		builder.bulker(bulkerMock);
-		builder.deletionCronExp("").orphansAdoptionsCronExp("").eventsPersistentFetchCronExp("");
+		builder.deletionCronExp("").eventsPersistentFetchCronExp("");
 		return builder.build();
 	}
 

@@ -8,11 +8,11 @@ import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Weigher;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,14 +35,16 @@ public class TaskIndexer {
     private long daysRotation;
     private String timbermillVersion;
 
-    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, int maximumCacheWeight) {
 
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        tasksCache = CacheBuilder.newBuilder().maximumWeight(1000000000).weigher((key, value) -> 1).build();
-        orphansCache = CacheBuilder.newBuilder().maximumWeight(1000000000).weigher((key, value) -> 1).build();
+        tasksCache = CacheBuilder.newBuilder().maximumWeight(maximumCacheWeight).weigher((Weigher<String, LocalTask>) (key, value) -> key.length() + value.estimatedSize()).build();
+        orphansCache = CacheBuilder.newBuilder().maximumWeight(maximumCacheWeight)
+                .weigher((Weigher<String, List<String>>) (key, value) -> key.length() + value.stream().mapToInt(String::length).sum())
+                .build();
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -111,14 +113,25 @@ public class TaskIndexer {
 
 
         String index = es.createTimbermillAlias(env, flowId);
-        es.index(tasksMap, index, flowId);
-
+        Map<String, String> idToIndex = es.index(tasksMap, index, flowId);
+        updateIndexToTasks(idToIndex);
 
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index, flowId);
         }
         LOG.info(FLOW_ID_LOG + " {} tasks were indexed to elasticsearch", flowId, tasksMap.size());
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size(), flowId);
+    }
+
+    private void updateIndexToTasks(Map<String, String> idToIndex) {
+        for (Map.Entry<String, String> entry : idToIndex.entrySet()) {
+            String id = entry.getKey();
+            String index = entry.getValue();
+            LocalTask localTask = tasksCache.getIfPresent(id);
+            if (localTask != null){
+                localTask.setIndex(index);
+            }
+        }
     }
 
     private void resolveOrphans(Map<String, Task> tasksMap) {
@@ -332,7 +345,7 @@ public class TaskIndexer {
         }
     }
 
-    public static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
+    private static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
         List<String> parentsPath =  new ArrayList<>();
         String primaryId = parentProperties.getPrimaryId();
@@ -359,7 +372,7 @@ public class TaskIndexer {
         }
     }
 
-    public static void populateParentParams(Task task, Task parentIndexedTask) {
+    private static void populateParentParams(Task task, Task parentIndexedTask) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
         List<String> parentsPath =  new ArrayList<>();
         String primaryId = parentProperties.getPrimaryId();

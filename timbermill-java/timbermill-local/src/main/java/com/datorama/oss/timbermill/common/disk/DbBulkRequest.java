@@ -15,7 +15,7 @@ public class DbBulkRequest implements Serializable {
 		this.request = request;
 	}
 
-	public int size(){
+	public int numOfActions(){
 		return getRequest().numberOfActions();
 	}
 
@@ -55,4 +55,7 @@ public class DbBulkRequest implements Serializable {
 		return this;
 	}
 
+	public long estimatedSize() {
+		return request.estimatedSizeInBytes();
+	}
 }

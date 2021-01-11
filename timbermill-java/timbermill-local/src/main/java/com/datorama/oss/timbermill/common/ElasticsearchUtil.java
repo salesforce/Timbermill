@@ -314,7 +314,7 @@ public class ElasticsearchUtil {
 	public static final String TIMBERMILL_INDEX_PREFIX = "timbermill2";
 	public static final String TIMBERMILL_INDEX_WILDCARD = TIMBERMILL_INDEX_PREFIX + "*";
 	public static final String INDEX_DELIMITER = "-";
-	public static final String OLD_SUFFIX = "old";
+	private static final String OLD_SUFFIX = "old";
 
 	private static final Set<String> envsSet = Sets.newHashSet();
 

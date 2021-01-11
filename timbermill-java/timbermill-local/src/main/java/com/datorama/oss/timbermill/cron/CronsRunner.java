@@ -23,8 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp,
-			int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) {
+						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();

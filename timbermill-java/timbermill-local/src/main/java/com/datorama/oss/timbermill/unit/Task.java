@@ -1,10 +1,7 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
-
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -13,11 +10,12 @@ import org.elasticsearch.script.ScriptType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
-import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
+import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
 import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
 
 public class Task {
@@ -317,7 +315,7 @@ public class Task {
 	}
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
-		UpdateRequest updateRequest = new UpdateRequest(index, ElasticsearchClient.TYPE, taskId);
+		UpdateRequest updateRequest = new UpdateRequest(this.index == null ? index : this.index, ElasticsearchClient.TYPE, taskId);
 		updateRequest.upsert(ElasticsearchClient.GSON.toJson(this), XContentType.JSON);
 		updateRequest = updateRequest.retryOnConflict(RETRIES_ON_CONFLICT);
 
