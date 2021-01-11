@@ -177,8 +177,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of Event
 		boolean deserializationSuccess = true;
 
-		String OLD_VERSION_EVENT = "/old_version_event";
-		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_EVENT).toURI());
+		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_event").toURI());
 
 		byte[] oldVersionEventBytes = Files.readAllBytes(path);
 		try {
@@ -197,8 +196,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of BulkRequest
 		boolean deserializationSuccess = true;
 
-		String OLD_VERSION_BULK_REQUEST = "/old_version_bulk_request";
-		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource(OLD_VERSION_BULK_REQUEST).toURI());
+		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_bulk_request").toURI());
 
 		BulkRequest oldVersionBulk = null;
 		byte[] oldVersionBulkBytes = Files.readAllBytes(path);

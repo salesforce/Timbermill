@@ -16,7 +16,7 @@ public class DbBulkRequest implements Serializable {
 	}
 
 	public int numOfActions(){
-		return getRequest().numberOfActions();
+		return request.numberOfActions();
 	}
 
 	public int getId() {

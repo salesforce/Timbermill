@@ -495,6 +495,8 @@ public class ElasticsearchClient {
 			LOG.info(FLOW_ID_LOG + " Migrating {} tasks to new index [{}]", flowId, tasksToMigrateIntoNewIndex.size(), currentIndex);
 			index(tasksToMigrateIntoNewIndex, currentIndex, flowId);
 
+			//TODO fix kamon
+
 //			if (failedRequests > 0){
 //				LOG.info(FLOW_ID_LOG + " There were {} failed migration requests", flowId, failedRequests);
 //				KamonConstants.PARTIAL_TASKS_FAILED_TO_MIGRATED_HISTOGRAM.withoutTags().record(failedRequests);
