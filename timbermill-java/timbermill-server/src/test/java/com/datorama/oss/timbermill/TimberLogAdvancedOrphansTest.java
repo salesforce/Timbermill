@@ -21,7 +21,6 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN_CHILD = "orphan_child";
     private static final String TEST = "test";
     private static ElasticsearchClient client;
-    private String flowId = "test";
 
     @BeforeClass
     public static void setUp() {
@@ -487,7 +486,7 @@ public class TimberLogAdvancedOrphansTest {
         parentStartEvent.setEnv(TEST);
         parentSuccessEvent.setEnv(TEST);
 
-        String index = client.createTimbermillAlias(TEST, flowId);
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
@@ -503,7 +502,7 @@ public class TimberLogAdvancedOrphansTest {
             client.rolloverIndexForTest(TEST);
         }
 
-        client.index(tasksMap, index, flowId);
+        client.index(tasksMap, index);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForNonOrphanTask(childTaskId);
 
@@ -543,11 +542,11 @@ public class TimberLogAdvancedOrphansTest {
             client.rolloverIndexForTest(TEST);
         }
 
-        String index = client.createTimbermillAlias(TEST, flowId);
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
-        client.index(tasksMap, index, flowId);
+        client.index(tasksMap, index);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForNonOrphanTask(orphanTaskId);

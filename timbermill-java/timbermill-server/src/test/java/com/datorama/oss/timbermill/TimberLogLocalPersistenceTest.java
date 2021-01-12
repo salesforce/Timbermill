@@ -50,7 +50,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 	@After
 	public void checkTaskFailedAndPersisted() throws MaximumInsertTriesException {
-		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), any(), anyInt());
+		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), anyInt());
 	}
 
 	@AfterClass

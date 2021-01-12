@@ -14,8 +14,6 @@ import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.google.common.collect.Lists;
 
-import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
-
 public class IndexRetryManager {
 
 	private static final Logger LOG = LoggerFactory.getLogger(IndexRetryManager.class);
@@ -34,16 +32,16 @@ public class IndexRetryManager {
 
 
 	//Return failed amount of requests
-	public List<BulkResponse> indexBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum){
+	public List<BulkResponse> indexBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum){
 
 		List<BulkResponse> resList = Lists.newArrayList();
 		for (int tryNum = 1; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
 			// continuous retries of sending the failed bulk request
 			try {
 				if (tryNum > 1) {
-					LOG.info(FLOW_ID_LOG + " Bulk #{} Started bulk try # {}/{}", flowId, bulkNum, tryNum, numOfElasticSearchActionsTries);
+					LOG.info("Bulk #{} Started bulk try # {}/{}", bulkNum, tryNum, numOfElasticSearchActionsTries);
 				}
-				LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", flowId, bulkNum, dbBulkRequest.numOfActions(), dbBulkRequest.estimatedSize());
+				LOG.debug("Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", bulkNum, dbBulkRequest.numOfActions(), dbBulkRequest.estimatedSize());
 				BulkResponse response = bulker.bulk(dbBulkRequest);
 					resList.add(response);
 					if (!response.hasFailures()) {
@@ -51,10 +49,10 @@ public class IndexRetryManager {
 						if (dbBulkRequest.getTimesFetched() > 0) {
 							KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "success").record(1);
 						}						if (tryNum > 1) {
-							LOG.info(FLOW_ID_LOG + " Bulk #{} Try # {} finished successfully. Took: {} millis.", flowId, bulkNum, tryNum, response.getTook().millis());
+							LOG.info("Bulk #{} Try # {} finished successfully. Took: {} millis.", bulkNum, tryNum, response.getTook().millis());
 						}
 						else {
-							LOG.debug(FLOW_ID_LOG + " Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", flowId, bulkNum, dbBulkRequest.numOfActions(), response.getTook().millis());
+							LOG.debug("Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", bulkNum, dbBulkRequest.numOfActions(), response.getTook().millis());
 						}
 						if (dbBulkRequest.getTimesFetched() > 0 ){
 							KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
@@ -64,38 +62,35 @@ public class IndexRetryManager {
 						// FAILURE
 						dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, response);
 						String failureMessage = response.buildFailureMessage();
-						LOG.warn(FLOW_ID_LOG + " Bulk #{} Try number # {}/{} has failed, failure message: {}.",
-								flowId, bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
+						LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
 					}
 				} catch (Throwable t) {
 					// EXCEPTION
-					LOG.warn(FLOW_ID_LOG + " Bulk #{} Try number # {}/{} has failed, failure message: {}.",
-							flowId, bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
+					LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
 				}
 			}
 			// finishing to retry - if persistence is defined then try to persist the failed requests
-			LOG.error(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.{}", flowId, bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
-			tryPersistBulkRequest(dbBulkRequest, flowId, bulkNum);
+			LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.{}", bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
+			tryPersistBulkRequest(dbBulkRequest, bulkNum);
 			return resList;
 	}
 
-	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
+	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		if (hasPersistence()) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 				try {
-					diskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
+					diskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
 				} catch (MaximumInsertTriesException e) {
-					LOG.error(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).",
-							flowId, bulkNum, e.getMaximumTriesNumber());
+					LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 					KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
 				}
 			} else {
-				LOG.error(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", flowId, bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
+				LOG.error("Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
 			}
 		}
 		else {
-			LOG.info(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", flowId, bulkNum);
+			LOG.info("Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", bulkNum);
 		}
 	}
 

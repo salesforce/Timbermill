@@ -24,8 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
-
 public class SQLJetDiskHandler implements DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
@@ -95,12 +93,12 @@ public class SQLJetDiskHandler implements DiskHandler {
 	//region public methods
 
 	@Override
-	public synchronized List<DbBulkRequest> fetchAndDeleteFailedBulks(String flowId) {
-		return fetchFailedBulks(true, flowId);
+	public synchronized List<DbBulkRequest> fetchAndDeleteFailedBulks() {
+		return fetchFailedBulks(true);
 	}
 
 	@Override
-	public synchronized List<Event> fetchAndDeleteOverflowedEvents(String flowId) {
+	public synchronized List<Event> fetchAndDeleteOverflowedEvents() {
 		List<Event> allEvents = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
@@ -111,21 +109,21 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
-				LOG.info(FLOW_ID_LOG + " Fetching overflowed events from SQLite.", flowId);
-				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT), flowId);
+				LOG.info("Fetching overflowed events from SQLite.");
+				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				allEvents.addAll(events);
 				resultCursor.delete(); // also do next
 				fetchedCount += events.size();
 				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).decrement(); // removed events from db
 			}
 			if (fetchedCount > 0) {
-				LOG.info(FLOW_ID_LOG + " Overflowed events fetch was successful. Number of fetched events: {}.", flowId, fetchedCount);
+				LOG.info("Overflowed events fetch was successful. Number of fetched events: {}.", fetchedCount);
 			}
 			else {
-				LOG.info(FLOW_ID_LOG + " There are no overflowed events to fetch from disk.", flowId);
+				LOG.info("There are no overflowed events to fetch from disk.");
 			}
 		} catch (Exception e) {
-			LOG.error("Flow ID: ["+ flowId +"] Fetching of overflowed events has failed.",e);
+			LOG.error("Fetching of overflowed events has failed.",e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
@@ -134,8 +132,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public synchronized void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) throws MaximumInsertTriesException {
-		persistBulkRequestToDisk(dbBulkRequest,1000, flowId, bulkNum);
+	public synchronized void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) throws MaximumInsertTriesException {
+		persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 	}
 
 	@Override
@@ -153,7 +151,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 	}
 
 	@Override
-	public synchronized boolean hasFailedBulks(String flowId)  {
+	public synchronized boolean hasFailedBulks()  {
 		boolean returnValue = false;
 		ISqlJetCursor resultCursor = null;
 		try {
@@ -161,7 +159,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 			returnValue = !resultCursor.eof();
 		} catch (Exception e) {
-			LOG.error(FLOW_ID_LOG + " Failed to check how many bulks are in SQLite.", flowId);
+			LOG.error("Failed to check how many bulks are in SQLite.");
 		} finally {
 			closeCursor(resultCursor);
 		}
@@ -223,34 +221,34 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	//region package methods
 
-	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, String flowId, int bulkNum) throws MaximumInsertTriesException {
+	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
 		int timesFetched = dbBulkRequest.getTimesFetched();
 		if (timesFetched > 0) {
-			LOG.info(FLOW_ID_LOG + " Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", flowId, bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
+			LOG.info("Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
 		} else {
-			LOG.info(FLOW_ID_LOG + " Bulk #{} Inserting bulk request to disk for the first time.", flowId, bulkNum);
+			LOG.info("Bulk #{} Inserting bulk request to disk for the first time.", bulkNum);
 		}
 
 		for (int tryNum = 1; tryNum <= maxInsertTries; tryNum++) {
 			if (tryNum > 1) {
-				LOG.info(FLOW_ID_LOG + " Bulk #{} Started try # {}/{} to persist a bulk", flowId, bulkNum, tryNum, maxInsertTries);
+				LOG.info("Bulk #{} Started try # {}/{} to persist a bulk", bulkNum, tryNum, maxInsertTries);
 			}
 			try {
 				db.beginTransaction(SqlJetTransactionMode.WRITE);
 				dbBulkRequest.setInsertTime(DateTime.now().toString());
 				failedBulkTable.insert(serializeBulkRequest(dbBulkRequest.getRequest()),
 						dbBulkRequest.getInsertTime(), timesFetched);
-				LOG.info(FLOW_ID_LOG + " Bulk #{} Try # {}. Bulk request was inserted successfully to disk.", flowId, bulkNum, tryNum);
+				LOG.info("Bulk #{} Try # {}. Bulk request was inserted successfully to disk.", bulkNum, tryNum);
 				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).increment();
 				break; // if arrived here then insertion succeeded, no need to retry again
 
 			} catch (Exception e) {
-				LOG.error("Flow ID: [" + flowId + "] Bulk #" + bulkNum + ". Try # " + tryNum + "/" + maxInsertTries + " to persist a bulk has failed.", e);
+				LOG.error("Bulk #" + bulkNum + ". Try # " + tryNum + "/" + maxInsertTries + " to persist a bulk has failed.", e);
 
 				try {
 					Thread.sleep(sleepTimeIfFails);
 				} catch (InterruptedException ex) {
-					LOG.error("Flow ID: [ "+ flowId +" ] Failed to sleep after maximum insertion tries to db", e);
+					LOG.error("Failed to sleep after maximum insertion tries to db", e);
 				}
 
 				sleepTimeIfFails *= 2;
@@ -263,19 +261,19 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch, String flowId) {
+	List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch) {
 		List<DbBulkRequest> dbBulkRequests = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
 		int fetchedCount = 0;
 		DbBulkRequest dbBulkRequest;
 
 		try {
-			LOG.info(FLOW_ID_LOG + " Fetching failed bulks from SQLite.", flowId);
+			LOG.info("Fetching failed bulks from SQLite.");
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
 			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
-				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor, flowId);
+				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor);
 				dbBulkRequests.add(dbBulkRequest);
 				if (deleteAfterFetch) {
 					resultCursor.delete(); // also do next
@@ -285,9 +283,9 @@ public class SQLJetDiskHandler implements DiskHandler {
 				}
 				fetchedCount++;
 			}
-			LOG.info(FLOW_ID_LOG + " Failed bulks fetch was successful. Number of fetched bulks: {}.", flowId, fetchedCount);
+			LOG.info("Failed bulks fetch was successful. Number of fetched bulks: {}.", fetchedCount);
 		} catch (Exception e) {
-			LOG.error("Flow ID: [" + flowId + "] Fetching failed bulks has failed.", e);
+			LOG.error("Fetching failed bulks has failed.", e);
 		} finally {
 			closeCursor(resultCursor);
 			silentDbCommit();
@@ -299,11 +297,11 @@ public class SQLJetDiskHandler implements DiskHandler {
 		return SerializationUtils.serialize(events);
 	}
 
-	List<Event> deserializeEvents(byte[] blobAsArray, String flowId) {
+	List<Event> deserializeEvents(byte[] blobAsArray) {
 		try {
 			return SerializationUtils.deserialize(blobAsArray);
 		} catch (SerializationException e){
-			LOG.error("Flow ID: [ "+ flowId +" ] Error deserializing list of events from DB", e);
+			LOG.error("Error deserializing list of events from DB", e);
 			return Collections.emptyList();
 		}
 	}
@@ -315,11 +313,11 @@ public class SQLJetDiskHandler implements DiskHandler {
 		}
 	}
 
-	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes, String flowId) throws IOException {
+	BulkRequest deserializeBulkRequest(byte[] bulkRequestBytes) throws IOException {
 		try (StreamInput stream = StreamInput.wrap(bulkRequestBytes)) {
 			return new BulkRequest(stream);
 		} catch (SerializationException e){
-			LOG.error("Flow ID: [ "+ flowId +" ] Error deserializing Bulk request from DB", e);
+			LOG.error("Error deserializing Bulk request from DB", e);
 			return new BulkRequest();
 		}
 	}
@@ -340,8 +338,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 
 	//region private methods
 
-	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor, String flowId) throws IOException, SqlJetException {
-		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK), flowId);
+	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
+		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
 		dbBulkRequest.setId((int) resultCursor.getInteger(ID));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
