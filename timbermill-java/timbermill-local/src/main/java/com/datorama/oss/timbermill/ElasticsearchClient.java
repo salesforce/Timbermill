@@ -454,16 +454,18 @@ public class ElasticsearchClient {
 					if (isAliasExists(oldAlias)) {
 						//Find matching tasks from old index to partial tasks in new index
 						Set<String> currentIndexPartialsIds = findPartialsIds(currentAlias);
-						Map<String, Task> matchedTasksFromOld = getTasksByIds(currentIndexPartialsIds, "Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY);
+						Map<String, Task> matchedTasksFromOld = getTasksByIds(currentIndexPartialsIds,
+								"Fetch matched tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, oldAlias);
 						logPartialsMetadata(currentAlias, currentIndexPartialsIds, matchedTasksFromOld);
 
 						//Find partials tasks from old that have matching tasks in new, excluding already found tasks
 						Set<String> oldIndexPartialsIds = findPartialsIds(oldAlias);
 						oldIndexPartialsIds.removeAll(currentIndexPartialsIds);
-						Map<String, Task> matchingTasksNew = getTasksByIds(oldIndexPartialsIds, "Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS
-						);
+						Map<String, Task> matchingTasksNew = getTasksByIds(oldIndexPartialsIds,
+								"Fetch matched ids from current index " + currentAlias, EMPTY_ARRAY, ALL_TASK_FIELDS, currentAlias);
 						Set<String> oldMatchedIndexPartialsIds = matchingTasksNew.keySet();
-						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldMatchedIndexPartialsIds, "Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY);
+						Map<String, Task> matchedTasksToMigrateFromOld = getTasksByIds(oldMatchedIndexPartialsIds,
+								"Fetch partials tasks from old index " + oldAlias, ALL_TASK_FIELDS, org.elasticsearch.common.Strings.EMPTY_ARRAY, oldAlias);
 						logPartialsMetadata(oldAlias, oldIndexPartialsIds, matchedTasksToMigrateFromOld);
 
 						Map<String, Task> tasksToMigrateIntoNewIndex = Maps.newHashMap();
