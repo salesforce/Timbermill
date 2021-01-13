@@ -158,7 +158,7 @@ public class TaskIndexer {
     }
 
     private void resolveOrphansFromCache(Map<String, Task> tasksMap) {
-        Timer.Started start = KamonConstants.ORPHAN_RESOLUTION_LATENCY.withoutTags().start();
+        Timer.Started start = KamonConstants.ORPHANS_JOB_LATENCY.withoutTags().start();
         Map<String, LocalTask> adoptedTasksMap = Maps.newHashMap();
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             String id = entry.getKey();
