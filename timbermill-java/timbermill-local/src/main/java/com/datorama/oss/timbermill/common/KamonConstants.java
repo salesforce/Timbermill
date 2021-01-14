@@ -19,7 +19,8 @@ public class KamonConstants {
 	public static final Metric.Histogram MISSING_PARENTS_HISTOGRAM = Kamon.histogram("timbermill2.missing.parents.histogram");
 	public static final Metric.Gauge CURRENT_DATA_IN_DB_GAUGE = Kamon.gauge("timbermill2.data.in.db.gauge");
 	public static final Metric.Timer ORPHANS_JOB_LATENCY = Kamon.timer("timbermill2.orphans.job.latency.timer");
-	public static final Metric.RangeSampler ORPHANS_IN_ORPHANS_CACHE = Kamon.rangeSampler("timbermill2.orphanCache.size.range.sampler");
+	public static final Metric.RangeSampler ORPHANS_CACHE_RANGE_SAMPLER = Kamon.rangeSampler("timbermill2.orphanCache.size.range.sampler");
+	public static final Metric.Histogram ORPHANS_FOUND_HISTOGRAM = Kamon.histogram("timbermill2.orphans.found.histogram");
 	public static final Metric.Histogram ORPHANS_ADOPTED_HISTOGRAM = Kamon.histogram("timbermill2.orphans.adopted.histogram");
 	public static final Metric.Timer EVENTS_FETCH_JOB_LATENCY = Kamon.timer("timbermill2.overflowed.events.fetch.job.latency.timer");
 }

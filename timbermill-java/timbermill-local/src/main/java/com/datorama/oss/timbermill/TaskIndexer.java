@@ -46,19 +46,17 @@ public class TaskIndexer {
                 .maximumWeight(maximumCacheWeight)
                 .weigher((Weigher<String, LocalTask>) (key, value) -> key.length() + value.estimatedSize())
                 .removalListener(notification -> {
-                    if (notification.wasEvicted()){
-                        KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().decrement();
-                    }
+                    String key = notification.getKey();
+                    LocalTask value = notification.getValue();
+                    KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().decrement(key.length() + value.estimatedSize());
                 })
                 .build();
         orphansCache = CacheBuilder.newBuilder()
                 .maximumWeight(maximumCacheWeight)
                 .weigher((Weigher<String, List<String>>) (key, value) -> key.length() + value.stream().mapToInt(String::length).sum())
                 .removalListener(notification -> {
-                    if (notification.wasEvicted() || notification.getCause() == RemovalCause.EXPLICIT){
-                        int length = getEntryLength(notification.getKey(), notification.getValue());
-                        KamonConstants.ORPHANS_IN_ORPHANS_CACHE.withoutTags().decrement(length);
-                    }
+                    int length = getEntryLength(notification.getKey(), notification.getValue());
+                    KamonConstants.ORPHANS_CACHE_RANGE_SAMPLER.withoutTags().decrement(length);
                 })
                 .build();
     }
@@ -182,6 +180,8 @@ public class TaskIndexer {
         if (adopted > 0) {
             LOG.info("{} orphans resolved", adopted);
         }
+
+        KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(orphansCache.size());
         KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adopted);
         start.stop();
     }
@@ -226,7 +226,7 @@ public class TaskIndexer {
                     }
                     orphansCache.put(parentId, tasks);
                     int entryLength = getEntryLength(parentId, tasks);
-                    KamonConstants.ORPHANS_IN_ORPHANS_CACHE.withoutTags().increment(entryLength);
+                    KamonConstants.ORPHANS_CACHE_RANGE_SAMPLER.withoutTags().increment(entryLength);
                 }
             }
         }
@@ -238,12 +238,10 @@ public class TaskIndexer {
             LocalTask localTask = new LocalTask(task);
             String id = entry.getKey();
             LocalTask cachedTask = tasksCache.getIfPresent(id);
-            if (cachedTask == null){
-                KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().increment();
-            }
-            else{
+            if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
             }
+            KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().increment(id.length() + localTask.estimatedSize());
             tasksCache.put(id, localTask);
         }
     }
