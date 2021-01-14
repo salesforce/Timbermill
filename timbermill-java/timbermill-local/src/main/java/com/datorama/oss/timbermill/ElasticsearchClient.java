@@ -493,7 +493,7 @@ public class ElasticsearchClient {
 
 	private Set<String> findPartialsIds(String index) {
 		BoolQueryBuilder latestPartialsQuery = getLatestPartialsQuery();
-		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, "Get partials from index " + index, EMPTY_ARRAY, ALL_TASK_FIELDS);
+		Map<String, Task> singleTaskByIds = getSingleTaskByIds(latestPartialsQuery, "Get partials from index " + index, EMPTY_ARRAY, ALL_TASK_FIELDS, index);
 		return singleTaskByIds.keySet();
 	}
 
