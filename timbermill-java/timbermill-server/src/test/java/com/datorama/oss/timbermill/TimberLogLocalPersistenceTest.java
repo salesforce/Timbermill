@@ -50,7 +50,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 	@After
 	public void checkTaskFailedAndPersisted() throws MaximumInsertTriesException {
-		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), any(), anyInt());
+		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), anyInt());
 	}
 
 	@AfterClass
@@ -136,7 +136,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 		};
 		doAnswer(bulkResponseAnswer).when(bulkerMock).bulk(any());
 		builder.bulker(bulkerMock);
-		builder.deletionCronExp("").orphansAdoptionsCronExp("").eventsPersistentFetchCronExp("");
+		builder.deletionCronExp("").eventsPersistentFetchCronExp("");
 		return builder.build();
 	}
 

@@ -1,26 +1,17 @@
 package com.datorama.oss.timbermill;
 
-import java.util.Collections;
-import java.util.Map;
-
+import com.datorama.oss.timbermill.unit.*;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.quartz.JobDataMap;
-import org.quartz.JobDetail;
-import org.quartz.impl.JobDetailImpl;
-import org.quartz.impl.JobExecutionContextImpl;
-import org.quartz.impl.triggers.SimpleTriggerImpl;
-import org.quartz.spi.OperableTrigger;
-import org.quartz.spi.TriggerFiredBundle;
 
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
-import com.datorama.oss.timbermill.unit.*;
-import com.google.common.collect.Lists;
+import java.util.Collections;
+import java.util.Map;
 
-import static com.datorama.oss.timbermill.TimberLogTest.*;
+import static com.datorama.oss.timbermill.TimberLogTest.waitForNonOrphanTask;
+import static com.datorama.oss.timbermill.TimberLogTest.waitForTask;
 
 public class TimberLogAdvancedOrphansTest {
 
@@ -30,9 +21,6 @@ public class TimberLogAdvancedOrphansTest {
     private static final String ORPHAN_CHILD = "orphan_child";
     private static final String TEST = "test";
     private static ElasticsearchClient client;
-    private static JobExecutionContextImpl context;
-    private static OrphansAdoptionJob orphansAdoptionJob;
-    private String flowId = "test";
 
     @BeforeClass
     public static void setUp() {
@@ -41,17 +29,6 @@ public class TimberLogAdvancedOrphansTest {
             elasticUrl = "http://localhost:9200";
         }
         client = new ElasticsearchClientForTests(elasticUrl, null);
-
-        orphansAdoptionJob = new OrphansAdoptionJob();
-        JobDetail job = new JobDetailImpl();
-        JobDataMap jobDataMap = job.getJobDataMap();
-        jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-        jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 5);
-        jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 60);
-        jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
-        OperableTrigger trigger = new SimpleTriggerImpl();
-        TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
-        context = new JobExecutionContextImpl(null, fireBundle, null);
     }
 
     @AfterClass
@@ -70,7 +47,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertTrue(task.isOrphan());
     }
 
-    public void testOrphanWithAdoption(boolean shouldRollover) {
+    void testOrphanWithAdoption(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
         TimberLoggerAdvanced.success(taskId);
@@ -85,7 +62,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(parentTaskId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
@@ -96,7 +72,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx, task.getCtx().get(ctx));
     }
 
-    public void testOrphanWithAdoptionParentWithNoStart(boolean shouldRollover) {
+    void testOrphanWithAdoptionParentWithNoStart(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String ctx = CTX;
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId);
@@ -115,7 +91,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(parentTaskId);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         Task task = client.getTaskById(taskId);
         TimberLogTest.assertNotOrphan(task);
@@ -126,7 +101,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(ctx, task.getCtx().get(ctx));
     }
 
-    public void testOrphanWithComplexAdoption(boolean shouldRollover) {
+    void testOrphanWithComplexAdoption(boolean shouldRollover) {
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         String taskId = TimberLoggerAdvanced.start(ORPHAN, parentTaskId, LogParams.create().context(CTX + 1, CTX + 1));
         TimberLoggerAdvanced.success(taskId);
@@ -145,7 +120,6 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(orphanChildId, TaskStatus.SUCCESS);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
 
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         waitForNonOrphanTask(orphanChildId);
         Task parentTask = client.getTaskById(parentTaskId);
@@ -176,7 +150,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertEquals(CTX + 2, orphanChildTask.getCtx().get(CTX + 2));
     }
 
-    public void testOutOfOrderComplexOrphanWithAdoption(boolean shouldRollover) {
+    void testOutOfOrderComplexOrphanWithAdoption(boolean shouldRollover) {
         String orphan3TaskId = Event.generateTaskId(ORPHAN +"3");
 
         String ctx = CTX;
@@ -228,7 +202,6 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.success(orphan2TaskId);
 
         waitForTask(orphan2TaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphan2TaskId);
         waitForNonOrphanTask(orphan3TaskId);
         waitForNonOrphanTask(orphan41TaskId);
@@ -291,7 +264,7 @@ public class TimberLogAdvancedOrphansTest {
         Assert.assertNull(task42.getCtx().get(ctx +"41"));
     }
 
-    public void testInOrderComplexOrphanWithAdoption(boolean shouldRollover) {
+    void testInOrderComplexOrphanWithAdoption(boolean shouldRollover) {
         String orphan1TaskId = Event.generateTaskId(ORPHAN +"1");
         TimberLoggerAdvanced.start(orphan1TaskId, ORPHAN +"1", null, LogParams.create().context(CTX + "1", CTX + "1"));
         TimberLoggerAdvanced.success(orphan1TaskId);
@@ -363,7 +336,6 @@ public class TimberLogAdvancedOrphansTest {
         waitForTask(orphan4TaskId, TaskStatus.SUCCESS);
         waitForTask(orphan6TaskId, TaskStatus.SUCCESS);
 
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphan3TaskId);
         waitForNonOrphanTask(orphan5TaskId);
         waitForNonOrphanTask(orphan7TaskId);
@@ -489,7 +461,6 @@ public class TimberLogAdvancedOrphansTest {
                 }
             }
         }
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(taskId);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForTask(taskId, TaskStatus.SUCCESS);
@@ -507,7 +478,7 @@ public class TimberLogAdvancedOrphansTest {
         TimberLogTest.assertNotOrphan(primaryTask);
     }
 
-    public void testOrphanWithAdoptionFromDifferentNode(boolean shouldRollover) {
+    void testOrphanWithAdoptionFromDifferentNode(boolean shouldRollover) {
 
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent = new StartEvent(parentTaskId, ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
@@ -515,7 +486,7 @@ public class TimberLogAdvancedOrphansTest {
         parentStartEvent.setEnv(TEST);
         parentSuccessEvent.setEnv(TEST);
 
-        String index = client.createTimbermillAlias(TEST, flowId);
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
@@ -531,9 +502,8 @@ public class TimberLogAdvancedOrphansTest {
             client.rolloverIndexForTest(TEST);
         }
 
-        client.index(tasksMap, index, flowId);
+        client.index(tasksMap, index);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(childTaskId);
 
         childTask = client.getTaskById(childTaskId);
@@ -547,7 +517,7 @@ public class TimberLogAdvancedOrphansTest {
 
     }
 
-    public void testOrphanWithChainAdoptionFromDifferentNode(boolean shouldRollover) {
+    void testOrphanWithChainAdoptionFromDifferentNode(boolean shouldRollover) {
 
         String parentTaskId = Event.generateTaskId(ORPHAN_PARENT);
         Event parentStartEvent = new StartEvent(parentTaskId, ORPHAN_PARENT, LogParams.create().context(CTX, CTX), null);
@@ -572,14 +542,13 @@ public class TimberLogAdvancedOrphansTest {
             client.rolloverIndexForTest(TEST);
         }
 
-        String index = client.createTimbermillAlias(TEST, flowId);
+        String index = client.createTimbermillAlias(TEST);
         Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
-        client.index(tasksMap, index, flowId);
+        client.index(tasksMap, index);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
-        orphansAdoptionJob.execute(context);
         waitForNonOrphanTask(orphanTaskId);
         waitForNonOrphanTask(childTaskId);
 

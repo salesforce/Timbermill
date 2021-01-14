@@ -31,7 +31,7 @@ public class EventsPersistentFetchJobTest {
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = "http://localhost:9200";
 		}
-		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").orphansAdoptionsCronExp("").
+		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").
 				bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("").mergingCronExp("");
 		pipe = builder.build();
 

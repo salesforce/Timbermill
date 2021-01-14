@@ -20,7 +20,6 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 
-import static com.datorama.oss.timbermill.common.disk.IndexRetryManager.extractFailedRequestsFromBulk;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
@@ -47,8 +46,8 @@ public class ElasticsearchClientTest {
 		DbBulkRequest bulkRequest = createMockDbBulkRequest(amountOfRequestsInBulk);
 		BulkResponse bulkResponse = elasticsearchClient.bulk(bulkRequest);
 
-		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
-		int bulkNewSize = fetchedBulkRequest.size();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.getRetryManager().extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		int bulkNewSize = fetchedBulkRequest.numOfActions();
 		Assert.assertEquals(amountOfRequestsInBulk, bulkNewSize);
 	}
 
@@ -60,8 +59,8 @@ public class ElasticsearchClientTest {
 
 		String successItemId = makeItemSuccess(bulkResponse,0);
 
-		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
-		int bulkNewSize = fetchedBulkRequest.size();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.getRetryManager().extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		int bulkNewSize = fetchedBulkRequest.numOfActions();
 		Assert.assertEquals(amountOfRequestsInBulk-1, bulkNewSize);
 		Assert.assertNotEquals(successItemId, fetchedBulkRequest.getRequest().requests().get(0).id());
 	}
@@ -74,8 +73,8 @@ public class ElasticsearchClientTest {
 		makeItemSuccess(bulkResponse,0);
 		makeItemSuccess(bulkResponse,1);
 
-		DbBulkRequest fetchedBulkRequest = extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
-		int bulkNewSize = fetchedBulkRequest.size();
+		DbBulkRequest fetchedBulkRequest = elasticsearchClient.getRetryManager().extractFailedRequestsFromBulk(bulkRequest,bulkResponse);
+		int bulkNewSize = fetchedBulkRequest.numOfActions();
 		Assert.assertEquals(0, bulkNewSize);
 	}
 

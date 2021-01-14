@@ -97,7 +97,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         while (!executorService.isTerminated()){
             try {
                 Thread.sleep(2000);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ignored) {
             }
         }
     }

@@ -1,30 +1,20 @@
 package com.datorama.oss.timbermill;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
-import org.awaitility.Awaitility;
-import org.quartz.JobDataMap;
-import org.quartz.JobDetail;
-import org.quartz.impl.JobDetailImpl;
-import org.quartz.impl.JobExecutionContextImpl;
-import org.quartz.impl.triggers.SimpleTriggerImpl;
-import org.quartz.spi.OperableTrigger;
-import org.quartz.spi.TriggerFiredBundle;
-
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.cron.OrphansAdoptionJob;
 import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.awaitility.Awaitility;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static com.datorama.oss.timbermill.common.Constants.*;
 import static org.junit.Assert.*;
@@ -39,8 +29,6 @@ public abstract class TimberLogTest {
 	private static final Exception FAIL = new Exception("fail");
 	private static final String SPOT = "Spot";
 	protected static ElasticsearchClientForTests client;
-	private static OrphansAdoptionJob orphansAdoptionJob;
-	private static JobExecutionContextImpl context;
 	private String childTaskId;
 	private String childOfChildTaskId;
 
@@ -82,16 +70,6 @@ public abstract class TimberLogTest {
 		}
 
 		client = new ElasticsearchClientForTests(elasticUrl, null);
-		orphansAdoptionJob = new OrphansAdoptionJob();
-		JobDetail job = new JobDetailImpl();
-		JobDataMap jobDataMap = job.getJobDataMap();
-		jobDataMap.put(ElasticsearchUtil.CLIENT, client);
-		jobDataMap.put(ElasticsearchUtil.PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, 5);
-		jobDataMap.put(ElasticsearchUtil.ORPHANS_FETCH_PERIOD_MINUTES, 60);
-		jobDataMap.put(ElasticsearchUtil.DAYS_ROTATION, 1);
-		OperableTrigger trigger = new SimpleTriggerImpl();
-		TriggerFiredBundle fireBundle = new TriggerFiredBundle(job, trigger, null, true, null, null, null, null);
-		context = new JobExecutionContextImpl(null, fireBundle, null);
 
 		TimberLogger.bootstrap(pipe, TEST);
 
@@ -377,7 +355,7 @@ public abstract class TimberLogTest {
 		return TimberLogger.getCurrentTaskId();
 	}
 
-	protected void testMissingParentTaskFromDifferentThreads(boolean shouldRollover) {
+	void testMissingParentTaskFromDifferentThreads(boolean shouldRollover) {
 		String spotId = Event.generateTaskId(SPOT);
 
 		String context1 = "context1";
@@ -407,7 +385,6 @@ public abstract class TimberLogTest {
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
 
-		orphansAdoptionJob.execute(context);
 		waitForNonOrphanTask(taskId1);
 		waitForNonOrphanTask(taskId2);
 
@@ -422,7 +399,7 @@ public abstract class TimberLogTest {
 		assertEquals(context2, task2.getCtx().get(context2));
 	}
 
-	protected void testMissingParentTaskOutOffOrderFromDifferentThreads(boolean shouldRollover) {
+	void testMissingParentTaskOutOffOrderFromDifferentThreads(boolean shouldRollover) {
 		String spotId = Event.generateTaskId(SPOT);
 
 		String context1 = "context1";
@@ -452,7 +429,6 @@ public abstract class TimberLogTest {
 		TimberLogger.spot(spotId, SPOT, null, LogParams.create().context(context2, context2));
 
 		waitForTask(spotId, TaskStatus.SUCCESS, client);
-		orphansAdoptionJob.execute(context);
 		waitForNonOrphanTask(taskId1);
 		waitForNonOrphanTask(taskId2);
 

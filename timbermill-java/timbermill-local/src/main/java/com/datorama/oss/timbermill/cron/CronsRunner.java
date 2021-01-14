@@ -23,8 +23,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents, String orphansAdoptionCronExp, int daysRotation, String mergingCronExp,
-			int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) {
+						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
@@ -39,9 +38,6 @@ public class CronsRunner {
 			}
 			if (!Strings.isEmpty(deletionCronExp)) {
 				runDeletionTaskCron(deletionCronExp, es);
-			}
-			if (!Strings.isEmpty(orphansAdoptionCronExp)) {
-				runOrphansAdoptionCron(orphansAdoptionCronExp, es, daysRotation, partialOrphansGracePeriodMinutes, orphansFetchMinutes);
 			}
 			if (!Strings.isEmpty(mergingCronExp)) {
 				runPartialMergingTasksCron(es, mergingCronExp);
@@ -104,23 +100,6 @@ public class CronsRunner {
 				.withSchedule(cronSchedule(deletionCronExp))
 				.build();
 
-		scheduler.scheduleJob(job, trigger);
-	}
-
-	private void runOrphansAdoptionCron(String orphansAdoptionCronExp, ElasticsearchClient es,
-			int daysRotation, int partialOrphansGracePeriodMinutes, int orphansFetchMinutes) throws SchedulerException {
-		JobDataMap jobDataMap = new JobDataMap();
-		jobDataMap.put(CLIENT, es);
-		jobDataMap.put(PARTIAL_ORPHANS_GRACE_PERIOD_MINUTES, partialOrphansGracePeriodMinutes);
-		jobDataMap.put(ORPHANS_FETCH_PERIOD_MINUTES, orphansFetchMinutes);
-		jobDataMap.put(DAYS_ROTATION, daysRotation);
-		JobDetail job = newJob(OrphansAdoptionJob.class)
-				.withIdentity("job4", "group4").usingJobData(jobDataMap)
-				.build();
-		CronTrigger trigger = newTrigger()
-				.withIdentity("trigger4", "group4")
-				.withSchedule(cronSchedule(orphansAdoptionCronExp))
-				.build();
 		scheduler.scheduleJob(job, trigger);
 	}
 

@@ -15,7 +15,8 @@ import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 
 import kamon.metric.Timer;
-import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
+import org.slf4j.MDC;
+
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.CLIENT;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.DISK_HANDLER;
 
@@ -29,41 +30,29 @@ public class BulkPersistentFetchJob implements Job {
 		if (diskHandler != null) {
 			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
-			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job started.", flowId);
+			MDC.put("id", flowId);
+			LOG.info("Failed Bulks Persistent Fetch Job started.");
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
-			boolean runNextBulk = true;
-			while (runNextBulk) {
-				runNextBulk = retryFailedRequestsFromDisk(es, diskHandler, flowId);
-			}
-			LOG.info(FLOW_ID_LOG + " Failed Bulks Persistent Fetch Job ended.", flowId);
+			retryFailedRequestsFromDisk(es, diskHandler);
+			LOG.info("Failed Bulks Persistent Fetch Job ended.");
 			start.stop();
 		}
 	}
 
-	private static boolean retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler, String flowId) {
-		boolean keepRunning = false;
-		if (diskHandler.hasFailedBulks(flowId)) {
-			keepRunning = true;
+	private static void retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler) {
+		String flowId = MDC.get("id");
+		while(diskHandler.hasFailedBulks()){
+			LOG.info("#### Retry Failed-Requests From Disk Start ####");
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
+			int failedRequests = failedRequestsFromDisk.stream().mapToInt(DbBulkRequest::numOfActions).sum();
+
 			int successBulks = 0;
-			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk Start ####", flowId);
-			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks(flowId);
-			if (failedRequestsFromDisk.size() == 0) {
-				keepRunning = false;
-			}
-			int bulkNum = 1;
-			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				if (es.sendDbBulkRequest(dbBulkRequest, flowId, bulkNum) > 0) {
-					keepRunning = false;
-				}
-				else {
-					successBulks += 1;
-				}
+			int bulkNum = 0;
+			for (DbBulkRequest failedDbBulkRequest : failedRequestsFromDisk) {
+				successBulks += es.sendDbFailedBulkRequest(failedDbBulkRequest, flowId, bulkNum);
 				bulkNum++;
 			}
-			LOG.info(FLOW_ID_LOG + " #### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", flowId, successBulks,failedRequestsFromDisk.size());
-		} else {
-			LOG.info(FLOW_ID_LOG + " There are no failed bulks to fetch from disk.", flowId);
+			LOG.info("#### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", successBulks, failedRequests);
 		}
-		return keepRunning;
 	}
 }

@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common.disk;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
@@ -14,8 +13,6 @@ import com.datorama.oss.timbermill.Bulker;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.google.common.collect.Lists;
-
-import static com.datorama.oss.timbermill.TaskIndexer.FLOW_ID_LOG;
 
 public class IndexRetryManager {
 
@@ -35,72 +32,72 @@ public class IndexRetryManager {
 
 
 	//Return failed amount of requests
-	public int retrySendDbBulkRequest(DbBulkRequest dbBulkRequest, BulkResponse responses, String failureMessage, String flowId, int bulkNum){
+	public List<BulkResponse> indexBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum){
 
-		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, responses);
-		if (shouldStopRetry(failureMessage)) {
-			reportStopRetry(dbBulkRequest,failureMessage);
-			return dbBulkRequest.size();
-		}
-
-		for (int tryNum = 2 ; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
-			LOG.info(FLOW_ID_LOG + " Bulk #{} Started bulk try # {}/{}", flowId, bulkNum, tryNum, numOfElasticSearchActionsTries);
+		List<BulkResponse> resList = Lists.newArrayList();
+		for (int tryNum = 1; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
 			// continuous retries of sending the failed bulk request
 			try {
-				BulkResponse retryResponse = bulker.bulk(dbBulkRequest);
-				if (retryResponse.hasFailures()) {
-					// FAILURE
-					failureMessage = retryResponse.buildFailureMessage();
-					LOG.warn(FLOW_ID_LOG + " Bulk #{} Try number # {}/{} has failed, failure message: {}.",
-							flowId, bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
-					dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, retryResponse);
-					if (shouldStopRetry(failureMessage)) {
-						reportStopRetry(dbBulkRequest,failureMessage);
-						return dbBulkRequest.size();
-					}
+				if (tryNum > 1) {
+					LOG.info("Bulk #{} Started bulk try # {}/{}", bulkNum, tryNum, numOfElasticSearchActionsTries);
 				}
-				else{
-					// SUCCESS
-					LOG.info(FLOW_ID_LOG + " Bulk #{} Try # {} finished successfully. Took: {} millis.", flowId, bulkNum, tryNum, retryResponse.getTook().millis());
-					if (dbBulkRequest.getTimesFetched() > 0 ){
-						KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
+				LOG.debug("Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", bulkNum, dbBulkRequest.numOfActions(), dbBulkRequest.estimatedSize());
+				BulkResponse response = bulker.bulk(dbBulkRequest);
+					resList.add(response);
+					if (!response.hasFailures()) {
+						return successfulResponseHandling(dbBulkRequest, bulkNum, resList, tryNum, response);
+					} else {
+						dbBulkRequest = failureResponseHandling(dbBulkRequest, bulkNum, tryNum, response);
 					}
-					return 0;
-				}
-			} catch (Throwable t) {
-				// EXCEPTION
-				failureMessage = t.getMessage();
-				LOG.warn(FLOW_ID_LOG + " Bulk #{} Try number # {}/{} has failed, failure message: {}.",
-						flowId, bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
-				if (shouldStopRetry(failureMessage)) {
-					reportStopRetry(dbBulkRequest,failureMessage);
-					return dbBulkRequest.size();
+				} catch (Throwable t) {
+					LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
 				}
 			}
-		}
-		// finishing to retry - if persistence is defined then try to persist the failed requests
-		LOG.error(FLOW_ID_LOG + " Bulk #{} Reached maximum tries ({}) attempt to index.{}", flowId, bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
-		tryPersistBulkRequest(dbBulkRequest, flowId, bulkNum);
-		return dbBulkRequest.size();
+			// finishing to retry - if persistence is defined then try to persist the failed requests
+			LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.{}", bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist to disk":"");
+			tryPersistBulkRequest(dbBulkRequest, bulkNum);
+			return resList;
 	}
 
-	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
+	private DbBulkRequest failureResponseHandling(DbBulkRequest dbBulkRequest, int bulkNum, int tryNum, BulkResponse response) {
+		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, response);
+		String failureMessage = response.buildFailureMessage();
+		LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
+		return dbBulkRequest;
+	}
+
+	private List<BulkResponse> successfulResponseHandling(DbBulkRequest dbBulkRequest, int bulkNum, List<BulkResponse> resList, int tryNum, BulkResponse response) {
+		if (dbBulkRequest.getTimesFetched() > 0) {
+			KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "success").record(1);
+		}
+		if (tryNum > 1) {
+			LOG.info("Bulk #{} Try # {} finished successfully. Took: {} millis.", bulkNum, tryNum, response.getTook().millis());
+		}
+		else {
+			LOG.debug("Bulk #{} Batch of {} index requests finished successfully. Took: {} millis.", bulkNum, dbBulkRequest.numOfActions(), response.getTook().millis());
+		}
+		if (dbBulkRequest.getTimesFetched() > 0 ){
+			KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome","success").record(1);
+		}
+		return resList;
+	}
+
+	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		if (hasPersistence()) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 				try {
-					diskHandler.persistBulkRequestToDisk(dbBulkRequest, flowId, bulkNum);
+					diskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
 				} catch (MaximumInsertTriesException e) {
-					LOG.error(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).",
-							flowId, bulkNum, e.getMaximumTriesNumber());
+					LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 					KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
 				}
 			} else {
-				LOG.error(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", flowId, bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
+				LOG.error("Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
 			}
 		}
 		else {
-			LOG.info(FLOW_ID_LOG + " Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", flowId, bulkNum);
+			LOG.info("Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", bulkNum);
 		}
 	}
 
@@ -108,10 +105,11 @@ public class IndexRetryManager {
 		return diskHandler != null;
 	}
 
-	private boolean shouldStopRetry(String failureMessage) {
+	private boolean isFailureBlackListed(String failureMessage, DocWriteRequest<?> request) {
 		if (failureMessage != null){
 			for (String ex : blackListExceptions){
 				if (failureMessage.contains(ex)){
+					LOG.error("Black list's exception in script. Exception {}, Requests: {}", failureMessage, request.toString());
 					return true;
 				}
 			}
@@ -119,12 +117,7 @@ public class IndexRetryManager {
 		return false;
 	}
 
-	private static void reportStopRetry(DbBulkRequest dbBulkRequest, String failureMessage) {
-		LOG.error("Black list's exception in script. Exception {}, Requests: {}",failureMessage, dbBulkRequest.getRequest().requests().
-				stream().map(DocWriteRequest::toString).collect(Collectors.joining(", ", "[", "]")));
-	}
-
-	public static DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
+	public DbBulkRequest extractFailedRequestsFromBulk(DbBulkRequest dbBulkRequest, BulkResponse bulkResponses) {
 		if (bulkResponses != null){
 			// if bulkResponses is null - an exception was thrown while bulking, then all requests failed. No change is needed in the bulk request.
 			List<DocWriteRequest<?>> requests = dbBulkRequest.getRequest().requests();
@@ -133,8 +126,10 @@ public class IndexRetryManager {
 			BulkRequest failedRequestsBulk = new BulkRequest();
 			int length = requests.size();
 			for (int i = 0 ; i < length; i++){
-				if (responses[i].isFailed()){
-					failedRequestsBulk.add(requests.get(i));
+				BulkItemResponse bulkItemResponse = responses[i];
+				DocWriteRequest<?> request = requests.get(i);
+				if (bulkItemResponse.isFailed() && !isFailureBlackListed(bulkItemResponse.getFailureMessage(), request)){
+					failedRequestsBulk.add(request);
 				}
 			}
 			dbBulkRequest = new DbBulkRequest(failedRequestsBulk).setId(dbBulkRequest.getId())

@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphansTest{
@@ -78,15 +79,19 @@ public class TimberLogAdvancedOrphansServerTest extends TimberLogAdvancedOrphans
 	}
 
 	@Test
+	@Ignore
 	public void testOrphanWithAdoptionFromDifferentNode() {super.testOrphanWithAdoptionFromDifferentNode(false); }
 
 	@Test
+	@Ignore
 	public void testOrphanWithAdoptionFromDifferentNodeRollover() {super.testOrphanWithAdoptionFromDifferentNode(true); }
 
 
 	@Test
+	@Ignore
 	public void testOrphanWithChainAdoptionFromDifferentNode() {super.testOrphanWithChainAdoptionFromDifferentNode(false); }
 
 	@Test
+	@Ignore
 	public void testOrphanWithChainAdoptionFromDifferentNodeRollover() {super.testOrphanWithChainAdoptionFromDifferentNode(true); }
 }
