@@ -3,10 +3,11 @@ package com.datorama.oss.timbermill;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.cache.CacheHandler;
+import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
-import com.google.common.cache.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -29,8 +30,7 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private Cache<String, LocalTask> tasksCache;
-    private Cache<String, List<String>> orphansCache;
+    private CacheHandler cacheHandler;
     private long daysRotation;
     private String timbermillVersion;
     private int recursionMax;
@@ -42,29 +42,7 @@ public class TaskIndexer {
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        tasksCache = CacheBuilder.newBuilder()
-                .maximumWeight(maximumCacheWeight)
-                .weigher((Weigher<String, LocalTask>) (key, value) -> key.length() + value.estimatedSize())
-                .removalListener(notification -> {
-                    String key = notification.getKey();
-                    LocalTask value = notification.getValue();
-                    KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().decrement(key.length() + value.estimatedSize());
-                })
-                .build();
-        orphansCache = CacheBuilder.newBuilder()
-                .maximumWeight(maximumCacheWeight)
-                .weigher((Weigher<String, List<String>>) (key, value) -> key.length() + value.stream().mapToInt(String::length).sum())
-                .removalListener(notification -> {
-                    int length = getEntryLength(notification.getKey(), notification.getValue());
-                    KamonConstants.ORPHANS_CACHE_RANGE_SAMPLER.withoutTags().decrement(length);
-                })
-                .build();
-    }
-
-    private int getEntryLength(String key, List<String> value) {
-        int valuesLengths = value.stream().mapToInt(String::length).sum();
-        int keyLegth = key.length();
-        return keyLegth + valuesLengths;
+        cacheHandler = CacheHandlerUtil.getCacheHandler("", maximumCacheWeight);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -148,7 +126,7 @@ public class TaskIndexer {
         for (Map.Entry<String, String> entry : idToIndex.entrySet()) {
             String id = entry.getKey();
             String index = entry.getValue();
-            LocalTask localTask = tasksCache.getIfPresent(id);
+            LocalTask localTask = cacheHandler.getFromTasksCache(id);
             if (localTask != null){
                 localTask.setIndex(index);
             }
@@ -181,7 +159,8 @@ public class TaskIndexer {
             LOG.info("{} orphans resolved", adopted);
         }
 
-        KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(orphansCache.size());
+        long orphansInCache = cacheHandler.orphansCacheSize();
+        KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(orphansInCache);
         KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adopted);
         start.stop();
     }
@@ -191,11 +170,10 @@ public class TaskIndexer {
             return;
         }
         if (parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan()){
-            List<String> orphans = orphansCache.getIfPresent(parentId);
+            List<String> orphans = cacheHandler.pullFromOrphansCache(parentId);
             if (orphans != null) {
-                orphansCache.invalidate(parentId);
                 for (String orphanId : orphans) {
-                    LocalTask adoptedTask = tasksCache.getIfPresent(orphanId);
+                    LocalTask adoptedTask = cacheHandler.getFromTasksCache(orphanId);
                     if (adoptedTask == null){
                         LOG.warn("Missing task from local cache {}", orphanId);
                     }
@@ -218,15 +196,13 @@ public class TaskIndexer {
             String parentId = orphanTask.getParentId();
             if (parentId != null) {
                 if (orphanTask.isOrphan() != null && orphanTask.isOrphan()) {
-                    List<String> tasks = orphansCache.getIfPresent(parentId);
+                    List<String> tasks = cacheHandler.getFromOrphansCache(parentId);
                     if (tasks == null) {
                         tasks = Lists.newArrayList(orphanId);
                     } else {
                         tasks.add(orphanId);
                     }
-                    orphansCache.put(parentId, tasks);
-                    int entryLength = getEntryLength(parentId, tasks);
-                    KamonConstants.ORPHANS_CACHE_RANGE_SAMPLER.withoutTags().increment(entryLength);
+                    cacheHandler.pushToOrphanCache(parentId, tasks);
                 }
             }
         }
@@ -237,12 +213,12 @@ public class TaskIndexer {
             Task task = entry.getValue();
             LocalTask localTask = new LocalTask(task);
             String id = entry.getKey();
-            LocalTask cachedTask = tasksCache.getIfPresent(id);
+            LocalTask cachedTask = cacheHandler.getFromTasksCache(id);
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
             }
-            KamonConstants.TASKS_IN_TASK_CACHE.withoutTags().increment(id.length() + localTask.estimatedSize());
-            tasksCache.put(id, localTask);
+            KamonConstants.TASK_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(id.length() + localTask.estimatedSize());
+            cacheHandler.pushToTasksCache(id, localTask);
         }
     }
 
@@ -256,7 +232,7 @@ public class TaskIndexer {
         try {
             if (!parentIds.isEmpty()) {
                 parentIds.forEach(parentId -> {
-                    Task parentTask = tasksCache.getIfPresent(parentId);
+                    Task parentTask = cacheHandler.getFromTasksCache(parentId);
                     if (parentTask != null) {
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
