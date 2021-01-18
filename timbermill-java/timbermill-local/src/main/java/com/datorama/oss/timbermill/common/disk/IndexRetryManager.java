@@ -48,6 +48,10 @@ public class IndexRetryManager {
 						return successfulResponseHandling(dbBulkRequest, bulkNum, resList, tryNum, response);
 					} else {
 						dbBulkRequest = failureResponseHandling(dbBulkRequest, bulkNum, tryNum, response);
+						if (dbBulkRequest.numOfActions() < 1) {
+							LOG.info("Bulk #{} Started bulk try # {}/{} all failed response were blacklisted, no further actions will be sent.", bulkNum, tryNum, numOfElasticSearchActionsTries);
+							return resList;
+						}
 					}
 				} catch (Throwable t) {
 					LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
