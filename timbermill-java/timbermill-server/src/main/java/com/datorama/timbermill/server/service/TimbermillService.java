@@ -71,7 +71,8 @@ public class TimbermillService {
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
-							 @Value("${MAXIMUM_CACHE_WEIGHT:1000000000}") int maximumCacheWeight,
+							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") int maximumTasksCacheWeight,
+							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") int maximumOrphansCacheWeight,
 							 @Value("${MAXIMUM_RECURSION:100}") int recursionMax,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
@@ -85,7 +86,7 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumCacheWeight, recursionMax);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumTasksCacheWeight, maximumOrphansCacheWeight, recursionMax);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);

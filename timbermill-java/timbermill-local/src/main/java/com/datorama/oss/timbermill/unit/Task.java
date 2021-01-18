@@ -25,7 +25,7 @@ public class Task {
 	private static final String TIMBERMILL_SUFFIX = "_timbermill2";
 	private static final int RETRIES_ON_CONFLICT = 3;
 
-	private String index;
+	protected String index;
 	private String env;
 
 	protected String name;

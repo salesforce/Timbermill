@@ -35,14 +35,14 @@ public class TaskIndexer {
     private String timbermillVersion;
     private int recursionMax;
 
-    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, int maximumCacheWeight, int recursionMax) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, long maximumTasksCacheWeight, long maximumOrphansCacheWeight, int recursionMax) {
 
         this.recursionMax = recursionMax;
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler("", maximumCacheWeight);
+        cacheHandler = CacheHandlerUtil.getCacheHandler("", maximumTasksCacheWeight, maximumOrphansCacheWeight);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -107,13 +107,12 @@ public class TaskIndexer {
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
         cacheTasks(tasksMap);
         cacheOrphans(tasksMap);
-
         resolveOrphansFromCache(tasksMap);
-
 
         String index = es.createTimbermillAlias(env);
         Map<String, String> idToIndex = es.index(tasksMap, index);
-        updateIndexToTasks(idToIndex);
+        updateIndexToTasks(tasksMap, idToIndex);
+        cacheTasks(tasksMap);
 
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index);
@@ -122,13 +121,13 @@ public class TaskIndexer {
         reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size());
     }
 
-    private void updateIndexToTasks(Map<String, String> idToIndex) {
+    private void updateIndexToTasks(Map<String, Task> tasksMap, Map<String, String> idToIndex) {
         for (Map.Entry<String, String> entry : idToIndex.entrySet()) {
             String id = entry.getKey();
             String index = entry.getValue();
-            LocalTask localTask = cacheHandler.getFromTasksCache(id);
-            if (localTask != null){
-                localTask.setIndex(index);
+            Task task = tasksMap.get(id);
+            if (task != null){
+                task.setIndex(index);
             }
         }
     }
@@ -159,8 +158,6 @@ public class TaskIndexer {
             LOG.info("{} orphans resolved", adopted);
         }
 
-        long orphansInCache = cacheHandler.orphansCacheSize();
-        KamonConstants.ORPHANS_FOUND_HISTOGRAM.withoutTags().record(orphansInCache);
         KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adopted);
         start.stop();
     }
@@ -179,8 +176,9 @@ public class TaskIndexer {
                     }
                     else {
                         adoptedTask.setOrphan(false);
-
                         populateParentParams(adoptedTask, parentIndexedTask);
+                        cacheHandler.pushToTasksCache(orphanId, adoptedTask);
+
                         adoptedTasksMap.put(orphanId, adoptedTask);
                         resolveOrphan(orphanId, adoptedTask, adoptedTasksMap, counter + 1);
                     }
@@ -217,7 +215,6 @@ public class TaskIndexer {
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
             }
-            KamonConstants.TASK_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(id.length() + localTask.estimatedSize());
             cacheHandler.pushToTasksCache(id, localTask);
         }
     }

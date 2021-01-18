@@ -7,8 +7,6 @@ import java.util.List;
 public interface CacheHandler {
     LocalTask getFromTasksCache(String id);
 
-    long orphansCacheSize();
-
     List<String> pullFromOrphansCache(String parentId);
 
     List<String> getFromOrphansCache(String parentId);

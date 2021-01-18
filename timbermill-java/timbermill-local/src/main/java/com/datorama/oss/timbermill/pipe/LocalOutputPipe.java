@@ -43,7 +43,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion, builder.maximumCacheWeight, builder.recursionMax);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight, builder.recursionMax);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -114,7 +114,8 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         Bulker bulker;
         //DEFAULTS
-        private int maximumCacheWeight = 1000000000;
+        private int maximumTasksCacheWeight = 1000000000;
+        private int maximumOrphansCacheWeight = 1000000000;
         private int recursionMax = 100;
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
@@ -257,8 +258,13 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder maximumCacheWeight(int maximumCacheWeight) {
-            this.maximumCacheWeight = maximumCacheWeight;
+        public Builder maximumTasksCacheWeight(int maximumTasksCacheWeight) {
+            this.maximumTasksCacheWeight = maximumTasksCacheWeight;
+            return this;
+        }
+
+        public Builder maximumOrphansCacheWeight(int maximumOrphansCacheWeight) {
+            this.maximumOrphansCacheWeight = maximumOrphansCacheWeight;
             return this;
         }
 
