@@ -3,7 +3,7 @@ package com.datorama.oss.timbermill;
 import com.datorama.oss.timbermill.common.Constants;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
-import com.datorama.oss.timbermill.common.cache.CacheHandler;
+import com.datorama.oss.timbermill.common.cache.AbstractCacheHandler;
 import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
@@ -30,19 +30,19 @@ public class TaskIndexer {
 
     private final ElasticsearchClient es;
     private final Collection<TaskLogPlugin> logPlugins;
-    private CacheHandler cacheHandler;
+    private AbstractCacheHandler cacheHandler;
     private long daysRotation;
     private String timbermillVersion;
     private int recursionMax;
 
-    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, long maximumTasksCacheWeight, long maximumOrphansCacheWeight, int recursionMax) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, int recursionMax, long maximumOrphansCacheWeight, long maximumTasksCacheWeight, String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory) {
 
         this.recursionMax = recursionMax;
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler("", maximumTasksCacheWeight, maximumOrphansCacheWeight);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -86,12 +86,13 @@ public class TaskIndexer {
         }
 
         if (!timbermillEvents.isEmpty()) {
-            handleTimbermillEvents(env, taskIndexerStartTime, timbermillEvents);
+            int previouslyIndexedParentSize = handleTimbermillEvents(env, timbermillEvents);
+            reportBatchMetrics(env, previouslyIndexedParentSize, taskIndexerStartTime, timbermillEvents.size());
         }
         LOG.info("#### Batch End ####");
     }
 
-    private void handleTimbermillEvents(String env, ZonedDateTime taskIndexerStartTime, Collection<Event> timbermillEvents) {
+    private int handleTimbermillEvents(String env, Collection<Event> timbermillEvents) {
         applyPlugins(timbermillEvents, env);
 
         Map<String, DefaultMutableTreeNode> nodesMap = Maps.newHashMap();
@@ -118,7 +119,7 @@ public class TaskIndexer {
             es.rolloverIndex(index);
         }
         LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
-        reportBatchMetrics(env, previouslyIndexedParentTasks.size(), taskIndexerStartTime, timbermillEvents.size());
+        return previouslyIndexedParentTasks.size();
     }
 
     private void updateIndexToTasks(Map<String, Task> tasksMap, Map<String, String> idToIndex) {
@@ -172,7 +173,7 @@ public class TaskIndexer {
                 for (String orphanId : orphans) {
                     LocalTask adoptedTask = cacheHandler.getFromTasksCache(orphanId);
                     if (adoptedTask == null){
-                        LOG.warn("Missing task from local cache {}", orphanId);
+                        LOG.warn("Missing task from cache {}", orphanId);
                     }
                     else {
                         adoptedTask.setOrphan(false);
@@ -243,16 +244,16 @@ public class TaskIndexer {
     }
 
     private void reportBatchMetrics(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize) {
-        ZonedDateTime now = ZonedDateTime.now();
-        long timesDuration = ElasticsearchUtil.getTimesDuration(taskIndexerStartTime, now);
-        reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, now);
+        ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
+        long timesDuration = ElasticsearchUtil.getTimesDuration(taskIndexerStartTime, taskIndexerEndTime);
+        reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, taskIndexerEndTime);
         reportToKamon(tasksFetchedSize, indexedTasksSize, timesDuration);
     }
 
     private void reportToKamon(int tasksFetchedSize, int indexedTasksSize, long duration) {
         KamonConstants.MISSING_PARENTS_TASKS_FETCHED_HISTOGRAM.withoutTags().record(tasksFetchedSize);
         KamonConstants.TASKS_INDEXED_HISTOGRAM.withoutTags().record(indexedTasksSize);
-        KamonConstants.BATCH_DURATION_HISTOGRAM.withoutTags().record(duration);
+        KamonConstants.BATCH_DURATION_TIMER.withoutTags().record(duration);
     }
 
     private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now) {

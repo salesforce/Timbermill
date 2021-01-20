@@ -74,6 +74,11 @@ public class TimbermillService {
 							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") int maximumTasksCacheWeight,
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") int maximumOrphansCacheWeight,
 							 @Value("${MAXIMUM_RECURSION:100}") int recursionMax,
+							 @Value("${CACHE_STRATEGY:redis}") String cacheStrategy,
+							 @Value("${REDIS_MAX_MEMORY:100mb}") String redisMaxMemory,
+							 @Value("${REDIS_HOST:localhost}") String redisHost,
+							 @Value("${REDIS_PORT:6335}") int redisPort,
+							 @Value("${REDIS_PASS:VraWCfh47SpYsFlXR8YZaYBDYxfPCfK9}") String redisPass,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -86,7 +91,7 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumTasksCacheWeight, maximumOrphansCacheWeight, recursionMax);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, recursionMax, maximumOrphansCacheWeight, maximumTasksCacheWeight, cacheStrategy, redisHost, redisPort, redisPass, redisMaxMemory);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
