@@ -5,7 +5,9 @@ import com.datorama.oss.timbermill.unit.LocalTask;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public abstract class AbstractCacheHandler {
     private Cache<String, List<String>> orphansCache;
@@ -47,7 +49,7 @@ public abstract class AbstractCacheHandler {
         KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment();
     }
 
-    public abstract LocalTask getFromTasksCache(String id);
+    public abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
 
-    public abstract void pushToTasksCache(String id, LocalTask localTask);
+    public abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
 }

@@ -75,10 +75,10 @@ public class TimbermillService {
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") int maximumOrphansCacheWeight,
 							 @Value("${MAXIMUM_RECURSION:100}") int recursionMax,
 							 @Value("${CACHE_STRATEGY:redis}") String cacheStrategy,
-							 @Value("${REDIS_MAX_MEMORY:100mb}") String redisMaxMemory,
+							 @Value("${REDIS_MAX_MEMORY:10gb}") String redisMaxMemory,
 							 @Value("${REDIS_HOST:localhost}") String redisHost,
-							 @Value("${REDIS_PORT:6335}") int redisPort,
-							 @Value("${REDIS_PASS:VraWCfh47SpYsFlXR8YZaYBDYxfPCfK9}") String redisPass,
+							 @Value("${REDIS_PORT:6379}") int redisPort,
+							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);

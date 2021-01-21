@@ -143,6 +143,9 @@ public class TaskIndexer {
                 resolveOrphan(id, parentTask, adoptedTasksMap, 1);
             }
         }
+        if (!adoptedTasksMap.isEmpty()) {
+            cacheHandler.pushToTasksCache(adoptedTasksMap);
+        }
 
         for (Map.Entry<String, LocalTask> adoptedEntry : adoptedTasksMap.entrySet()) {
             String adoptedId = adoptedEntry.getKey();
@@ -170,16 +173,16 @@ public class TaskIndexer {
         if (parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan()){
             List<String> orphans = cacheHandler.pullFromOrphansCache(parentId);
             if (orphans != null) {
-                for (String orphanId : orphans) {
-                    LocalTask adoptedTask = cacheHandler.getFromTasksCache(orphanId);
+                Map<String, LocalTask> orphansMap = cacheHandler.getFromTasksCache(orphans);
+                for (Map.Entry<String, LocalTask> entry : orphansMap.entrySet()) {
+                    String orphanId = entry.getKey();
+                    LocalTask adoptedTask = entry.getValue();
                     if (adoptedTask == null){
                         LOG.warn("Missing task from cache {}", orphanId);
                     }
                     else {
                         adoptedTask.setOrphan(false);
                         populateParentParams(adoptedTask, parentIndexedTask);
-                        cacheHandler.pushToTasksCache(orphanId, adoptedTask);
-
                         adoptedTasksMap.put(orphanId, adoptedTask);
                         resolveOrphan(orphanId, adoptedTask, adoptedTasksMap, counter + 1);
                     }
@@ -208,16 +211,19 @@ public class TaskIndexer {
     }
 
     private void cacheTasks(Map<String, Task> tasksMap) {
+        HashMap<String, LocalTask> updatedTasks = Maps.newHashMap();
+        Map<String, LocalTask> idToTaskMap = cacheHandler.getFromTasksCache(tasksMap.keySet());
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             Task task = entry.getValue();
             LocalTask localTask = new LocalTask(task);
             String id = entry.getKey();
-            LocalTask cachedTask = cacheHandler.getFromTasksCache(id);
+            LocalTask cachedTask = idToTaskMap.get(id);
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
             }
-            cacheHandler.pushToTasksCache(id, localTask);
+            updatedTasks.put(id, localTask);
         }
+        cacheHandler.pushToTasksCache(updatedTasks);
     }
 
     private Map<String, Task> getMissingParents(Set<String> parentIds) {
@@ -229,9 +235,11 @@ public class TaskIndexer {
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             if (!parentIds.isEmpty()) {
-                parentIds.forEach(parentId -> {
-                    Task parentTask = cacheHandler.getFromTasksCache(parentId);
-                    if (parentTask != null) {
+                Map<String, LocalTask> parentMap = cacheHandler.getFromTasksCache(parentIds);
+                parentMap.entrySet().forEach(entry -> {
+                    String parentId = entry.getKey();
+                    LocalTask parentTask = entry.getValue();
+                    if (parentTask != null){
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
                 });
