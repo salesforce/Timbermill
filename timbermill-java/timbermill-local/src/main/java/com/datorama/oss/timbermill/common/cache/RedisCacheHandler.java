@@ -4,6 +4,8 @@ import com.datorama.oss.timbermill.unit.LocalTask;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 
 import java.util.Collection;
@@ -15,9 +17,15 @@ import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 public class RedisCacheHandler extends AbstractCacheHandler {
 
     private final Jedis jedis;
+    private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
+
 
     RedisCacheHandler(long maximumOrphansCacheWeight, String redisHost, int redisPort, String redisPass, String redisMaxMemory) {
         super(maximumOrphansCacheWeight);
+
+        LOG.info("host {}", redisHost);
+        LOG.info("redisPort {}", redisPort);
+        LOG.info("redisPass {}", redisPass.substring(0, 5));
         jedis = new Jedis(redisHost, redisPort);
         if (!StringUtils.isEmpty(redisPass)){
             jedis.auth(redisPass);
