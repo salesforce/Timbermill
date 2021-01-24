@@ -26,11 +26,11 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         LOG.info("host {}", redisHost);
         LOG.info("redisPort {}", redisPort);
         LOG.info("redisPass {}", redisPass.substring(0, 5));
-        jedis = new Jedis(redisHost, redisPort, true);
+        jedis = new Jedis(redisHost, redisPort, false);
         if (!StringUtils.isEmpty(redisPass)){
             jedis.auth(redisPass);
         }
-        jedis.configSet("maxmemory", redisMaxMemory);
+//        jedis.configSet("maxmemory", redisMaxMemory);
         jedis.configSet("maxmemory-policy", "allkeys-lru");
     }
 
