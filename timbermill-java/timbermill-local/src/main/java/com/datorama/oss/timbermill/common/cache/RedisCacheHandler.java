@@ -31,7 +31,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             jedis.auth(redisPass);
         }
 //        jedis.configSet("maxmemory", redisMaxMemory);
-        jedis.configSet("maxmemory-policy", "allkeys-lru");
+//        jedis.configSet("maxmemory-policy", "allkeys-lru");
     }
 
     @Override
