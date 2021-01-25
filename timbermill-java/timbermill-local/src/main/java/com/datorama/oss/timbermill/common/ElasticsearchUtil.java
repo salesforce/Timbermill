@@ -350,7 +350,7 @@ public class ElasticsearchUtil {
 					LOG.error("InterruptedException was thrown from TaskIndexer:", e);
 				}
 			} catch (NullPointerException e) {
-				LOG.error("Error was thrown from TaskIndexer:{}\n {}", e.getMessage(), e.getStackTrace());
+				LOG.error("NullPointerException was thrown from TaskIndexer:{}\n {}", e.getMessage(), e.getStackTrace());
 			} catch (RuntimeException e) {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}

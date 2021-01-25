@@ -60,19 +60,16 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        Transaction multi = jedis.multi();
-        try {
+        try (Transaction multi = jedis.multi()) {
             for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
                 String id = entry.getKey();
                 LocalTask localTask = entry.getValue();
                 String taskString = GSON.toJson(localTask);
                 multi.setex(id, redisTtlInSeconds, taskString);
             }
-
-        } catch (Exception e){
-            LOG.error("Error pushing to Redis tasks' cache", e);
-        } finally {
             multi.exec();
+        } catch (Exception e) {
+            LOG.error("Error pushing to Redis tasks' cache", e);
         }
     }
 }
