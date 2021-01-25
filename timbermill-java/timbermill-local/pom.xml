@@ -41,6 +41,13 @@
 
     <dependencies>
         <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>3.4.1</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
             <groupId>com.datorama.oss</groupId>
             <artifactId>timbermill-client</artifactId>
             <version>2.2.9</version>

@@ -14,7 +14,7 @@ public class KamonConstants {
 	public static final Metric.Histogram PARTIAL_TASKS_FOUND_HISTOGRAM = Kamon.histogram("timbermill2.partial.tasks.found.histogram");
 	public static final Metric.Timer BULK_FETCH_JOB_LATENCY = Kamon.timer("timbermill2.failed.tasks.fetch.job.latency.timer");
 	public static final Metric.Histogram TASKS_FETCHED_FROM_DISK_HISTOGRAM = Kamon.histogram("timbermill2.failed.tasks.fetched.from.disk.histogram");
-	public static final Metric.Histogram BATCH_DURATION_HISTOGRAM = Kamon.histogram("timbermill2.batch.duration.histogram");
+	public static final Metric.Timer BATCH_DURATION_TIMER = Kamon.timer("timbermill2.batch.duration.timer");
 	public static final Metric.Histogram TASKS_INDEXED_HISTOGRAM = Kamon.histogram("timbermill2.tasks.indexed.histogram");
 	public static final Metric.Histogram MISSING_PARENTS_TASKS_FETCHED_HISTOGRAM = Kamon.histogram("timbermill2.missing.parents.tasks.fetched.histogram");
 	public static final Metric.Histogram MISSING_PARENTS_HISTOGRAM = Kamon.histogram("timbermill2.missing.parents.histogram");
