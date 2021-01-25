@@ -43,7 +43,9 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight, builder.recursionMax);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
+                builder.recursionMax, builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
+                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -114,6 +116,14 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         Bulker bulker;
         //DEFAULTS
+        private String redisHost = "localhost";
+        private int redisPort = 6379;
+        private String redisPass = "";
+        private String cacheStrategy = "none";
+        private String redisMaxMemory = "";
+        private String redisMaxMemoryPolicy = "";
+        private int redisTtlInSeconds = 604800;
+        private boolean redisUseSsl = false;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
         private int recursionMax = 100;
@@ -285,6 +295,46 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder timbermillVersion(String timbermillVersion) {
             this.timbermillVersion = timbermillVersion;
+            return this;
+        }
+
+        public Builder redisMaxMemory(String redisMaxMemory) {
+            this.redisMaxMemory = redisMaxMemory;
+            return this;
+        }
+
+        public Builder redisMaxMemoryPolicy(String redisMaxMemoryPolicy) {
+            this.redisMaxMemoryPolicy = redisMaxMemoryPolicy;
+            return this;
+        }
+
+        public Builder cacheStrategy(String cacheStrategy) {
+            this.cacheStrategy = cacheStrategy;
+            return this;
+        }
+
+        public Builder redisHost(String redisHost) {
+            this.redisHost = redisHost;
+            return this;
+        }
+
+        public Builder redisPort(int redisPort) {
+            this.redisPort = redisPort;
+            return this;
+        }
+
+        public Builder redisPass(String redisPass) {
+            this.redisPass = redisPass;
+            return this;
+        }
+
+        public Builder redisUseSsl(boolean redisUseSsl) {
+            this.redisUseSsl = redisUseSsl;
+            return this;
+        }
+
+        public Builder redisTtlInSeconds(int redisTtlInSeconds) {
+            this.redisTtlInSeconds = redisTtlInSeconds;
             return this;
         }
 

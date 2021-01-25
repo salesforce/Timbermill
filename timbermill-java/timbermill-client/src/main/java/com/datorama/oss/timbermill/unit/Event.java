@@ -384,9 +384,11 @@ public abstract class Event implements Serializable {
 	@JsonIgnore
 	private <T> HashMap<String, T> replaceFieldWithDots(Map<String, T> field) {
 		HashMap<String, T> newMap = new HashMap<>();
-		for (Map.Entry<String, ?> entry : field.entrySet()) {
-			String key = entry.getKey();
-			newMap.put(key.replace(".", "_"), field.get(key));
+		if (field != null) {
+			for (Map.Entry<String, ?> entry : field.entrySet()) {
+				String key = entry.getKey();
+				newMap.put(key.replace(".", "_"), field.get(key));
+			}
 		}
 		return newMap;
 	}
