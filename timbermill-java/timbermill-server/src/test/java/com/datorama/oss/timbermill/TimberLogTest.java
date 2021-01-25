@@ -47,7 +47,7 @@ public abstract class TimberLogTest {
 	}
 
 	public static void waitForTasks(String taskId, int tasksAmounts) {
-		Callable<Boolean> callable = () -> (client.getMultipleTasksByIds(taskId) != null) && (client.getMultipleTasksByIds(taskId).size() == tasksAmounts);
+		Callable<Boolean> callable = () -> (client.getMultipleTasksById(taskId) != null) && (client.getMultipleTasksById(taskId).size() == tasksAmounts);
 		waitForCallable(callable);
 	}
 
