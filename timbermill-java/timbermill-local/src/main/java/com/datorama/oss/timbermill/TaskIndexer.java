@@ -35,14 +35,17 @@ public class TaskIndexer {
     private String timbermillVersion;
     private int recursionMax;
 
-    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion, int recursionMax, long maximumOrphansCacheWeight, long maximumTasksCacheWeight, String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory) {
+    public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
+                       int recursionMax, long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
+                       String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory,
+                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds) {
 
         this.recursionMax = recursionMax;
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -57,6 +60,7 @@ public class TaskIndexer {
         String flowId = "Task Indexer - " + UUID.randomUUID().toString();
         ThreadContext.put("id", flowId);
         LOG.info("#### Batch Start ####");
+        Timer.Started start = KamonConstants.BATCH_DURATION_TIMER.withoutTags().start();
         ZonedDateTime taskIndexerStartTime = ZonedDateTime.now();
         LOG.info("{} events to be handled in current batch", events.size());
 
@@ -89,6 +93,7 @@ public class TaskIndexer {
             int previouslyIndexedParentSize = handleTimbermillEvents(env, timbermillEvents);
             reportBatchMetrics(env, previouslyIndexedParentSize, taskIndexerStartTime, timbermillEvents.size());
         }
+        start.stop();
         LOG.info("#### Batch End ####");
     }
 
@@ -255,13 +260,12 @@ public class TaskIndexer {
         ZonedDateTime taskIndexerEndTime = ZonedDateTime.now();
         long timesDuration = ElasticsearchUtil.getTimesDuration(taskIndexerStartTime, taskIndexerEndTime);
         reportToElasticsearch(env, tasksFetchedSize, taskIndexerStartTime, indexedTasksSize, timesDuration, taskIndexerEndTime);
-        reportToKamon(tasksFetchedSize, indexedTasksSize, timesDuration);
+        reportToKamon(tasksFetchedSize, indexedTasksSize);
     }
 
-    private void reportToKamon(int tasksFetchedSize, int indexedTasksSize, long duration) {
+    private void reportToKamon(int tasksFetchedSize, int indexedTasksSize) {
         KamonConstants.MISSING_PARENTS_TASKS_FETCHED_HISTOGRAM.withoutTags().record(tasksFetchedSize);
         KamonConstants.TASKS_INDEXED_HISTOGRAM.withoutTags().record(indexedTasksSize);
-        KamonConstants.BATCH_DURATION_TIMER.withoutTags().record(duration);
     }
 
     private void reportToElasticsearch(String env, int tasksFetchedSize, ZonedDateTime taskIndexerStartTime, int indexedTasksSize, long timesDuration, ZonedDateTime now) {
