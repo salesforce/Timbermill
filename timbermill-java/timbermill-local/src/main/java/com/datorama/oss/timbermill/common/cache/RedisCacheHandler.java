@@ -37,6 +37,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         if (!StringUtils.isEmpty(redisMaxMemoryPolicy)){
             jedis.configSet("maxmemory-policy", "allkeys-lru");
         }
+        LOG.info("Connected to Redis");
     }
 
     @Override
