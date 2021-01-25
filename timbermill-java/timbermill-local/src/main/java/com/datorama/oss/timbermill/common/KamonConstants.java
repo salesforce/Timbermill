@@ -24,4 +24,6 @@ public class KamonConstants {
 	public static final Metric.RangeSampler ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER = Kamon.rangeSampler("timbermill2.orphanCache.entries.range.sampler");
 	public static final Metric.Histogram ORPHANS_ADOPTED_HISTOGRAM = Kamon.histogram("timbermill2.orphans.adopted.histogram");
 	public static final Metric.Timer EVENTS_FETCH_JOB_LATENCY = Kamon.timer("timbermill2.overflowed.events.fetch.job.latency.timer");
+	public static final Metric.Timer GZIP_DECOMPRESS_REQUEST_DURATION = Kamon.timer("timbermill2.decompress.request.duration.timer");
+
 }

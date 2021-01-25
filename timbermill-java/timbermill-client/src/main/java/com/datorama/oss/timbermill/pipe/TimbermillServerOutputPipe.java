@@ -130,8 +130,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
-		try (OutputStream os = httpCon.getOutputStream()) {
-            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(os);
+        try (OutputStream os = httpCon.getOutputStream();
+                GZIPOutputStream gzipOutputStream = new GZIPOutputStream(os)) {
             gzipOutputStream.write(eventsWrapperBytes, 0, eventsWrapperBytes.length);
         }
     }
@@ -149,7 +149,6 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         httpURLConnection.setConnectTimeout(HTTP_TIMEOUT);
         httpURLConnection.setReadTimeout(HTTP_TIMEOUT);
         httpURLConnection.setRequestProperty("Content-Encoding","gzip");
-        httpURLConnection.setRequestProperty("Accept-Encoding","gzip");
         return httpURLConnection;
     }
 
