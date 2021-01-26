@@ -1,11 +1,13 @@
 package com.datorama.oss.timbermill.common.cache;
 
 import com.datorama.oss.timbermill.unit.LocalTask;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Transaction;
 
 import java.util.Collection;
@@ -43,13 +45,18 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
         Map<String, LocalTask> retMap = Maps.newHashMap();
-        for (String id : idsList) {
+        for (List<String> idsPartition : Iterables.partition(idsList, 1000)) {
+            String[] ids = idsPartition.toArray(new String[0]);
             try {
-                String taskString = jedis.get(id);
-                LocalTask localTask = GSON.fromJson(taskString, LocalTask.class);
-                retMap.put(id, localTask);
+                List<String> tasksStrings = jedis.mget(ids);
+                for (int i = 0; i < ids.length; i++) {
+                    String id = ids[i];
+                    String taskString = tasksStrings.get(i);
+                    LocalTask localTask = GSON.fromJson(taskString, LocalTask.class);
+                    retMap.put(id, localTask);
+                }
             } catch (Exception e){
-                LOG.error("Error getting from Redis tasks' cache", e);
+                LOG.error("Error getting ids: " + idsPartition + " from Redis tasks' cache", e);
             }
         }
         return retMap;
@@ -57,15 +64,21 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
-            String id = entry.getKey();
-            LocalTask localTask = entry.getValue();
-            String taskString = GSON.toJson(localTask);
-            try {
-                jedis.setex(id, redisTtlInSeconds, taskString);
-            } catch (Exception e){
-                LOG.error("Error pushing id " + id + " with value " + taskString + " to Redis tasks' cache", e);
+        Pipeline pipelined = jedis.pipelined();
+        try {
+            for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
+                String id = entry.getKey();
+                LocalTask localTask = entry.getValue();
+                String taskString = GSON.toJson(localTask);
+                try {
+                    pipelined.setex(id, redisTtlInSeconds, taskString);
+                } catch (Exception e) {
+                    LOG.error("Error pushing id " + id + " with value " + taskString + " to Redis tasks' cache", e);
+                }
             }
+        }
+        finally {
+            pipelined.sync();
         }
     }
 }

@@ -149,7 +149,7 @@ public class TaskIndexer {
             }
         }
         if (!adoptedTasksMap.isEmpty()) {
-            cacheHandler.pushToTasksCache(adoptedTasksMap);
+            cacheHandler.logPushToTasksCache(adoptedTasksMap, "update_orphans");
         }
 
         for (Map.Entry<String, LocalTask> adoptedEntry : adoptedTasksMap.entrySet()) {
@@ -178,7 +178,7 @@ public class TaskIndexer {
         if (parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan()){
             List<String> orphans = cacheHandler.pullFromOrphansCache(parentId);
             if (orphans != null) {
-                Map<String, LocalTask> orphansMap = cacheHandler.getFromTasksCache(orphans);
+                Map<String, LocalTask> orphansMap = cacheHandler.logGetFromTasksCache(orphans, "orphans_resolution");
                 for (Map.Entry<String, LocalTask> entry : orphansMap.entrySet()) {
                     String orphanId = entry.getKey();
                     LocalTask adoptedTask = entry.getValue();
@@ -217,7 +217,7 @@ public class TaskIndexer {
 
     private void cacheTasks(Map<String, Task> tasksMap) {
         HashMap<String, LocalTask> updatedTasks = Maps.newHashMap();
-        Map<String, LocalTask> idToTaskMap = cacheHandler.getFromTasksCache(tasksMap.keySet());
+        Map<String, LocalTask> idToTaskMap = cacheHandler.logGetFromTasksCache(tasksMap.keySet(), "cache_update");
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             Task task = entry.getValue();
             LocalTask localTask = new LocalTask(task);
@@ -228,7 +228,7 @@ public class TaskIndexer {
             }
             updatedTasks.put(id, localTask);
         }
-        cacheHandler.pushToTasksCache(updatedTasks);
+        cacheHandler.logPushToTasksCache(updatedTasks, "cache_update");
     }
 
     private Map<String, Task> getMissingParents(Set<String> parentIds) {
@@ -240,7 +240,7 @@ public class TaskIndexer {
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             if (!parentIds.isEmpty()) {
-                Map<String, LocalTask> parentMap = cacheHandler.getFromTasksCache(parentIds);
+                Map<String, LocalTask> parentMap = cacheHandler.logGetFromTasksCache(parentIds, "missing_parents");
                 parentMap.entrySet().forEach(entry -> {
                     String parentId = entry.getKey();
                     LocalTask parentTask = entry.getValue();
