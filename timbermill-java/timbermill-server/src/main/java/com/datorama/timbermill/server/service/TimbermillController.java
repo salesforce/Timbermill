@@ -73,7 +73,7 @@ public class TimbermillController {
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	@ResponseBody
-	public ResponseEntity<?> handleEmployeeNotFoundException(HttpServletRequest request, Exception ex) throws IOException {
+	public ResponseEntity<?> handleHttpMessageNotReadableException(HttpServletRequest request, Exception ex) throws IOException {
 		HttpServletRequestWrapper wrapper = (HttpServletRequestWrapper) request;
 		String body = IOUtils.toString(wrapper.getInputStream(), wrapper.getCharacterEncoding());
 		LOG.error("Error parsing request. Body:\n " + body, ex);
