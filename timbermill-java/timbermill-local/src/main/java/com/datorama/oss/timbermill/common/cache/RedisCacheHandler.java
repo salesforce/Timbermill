@@ -43,34 +43,29 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
         Map<String, LocalTask> retMap = Maps.newHashMap();
-        try {
-            String[] ids = idsList.toArray(new String[0]);
-            List<String> tasksStrings = jedis.mget(ids);
-            for (int i = 0; i < ids.length; i++) {
-                String id = ids[i];
-                String taskString = tasksStrings.get(i);
+        for (String id : idsList) {
+            try {
+                String taskString = jedis.get(id);
                 LocalTask localTask = GSON.fromJson(taskString, LocalTask.class);
                 retMap.put(id, localTask);
+            } catch (Exception e){
+                LOG.error("Error getting from Redis tasks' cache", e);
             }
-        } catch (Exception e){
-            LOG.error("Error getting from Redis tasks' cache", e);
         }
         return retMap;
     }
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        try {
-            Transaction multi = jedis.multi();
-            for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
-                String id = entry.getKey();
-                LocalTask localTask = entry.getValue();
-                String taskString = GSON.toJson(localTask);
-                multi.setex(id, redisTtlInSeconds, taskString);
+        for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
+            String id = entry.getKey();
+            LocalTask localTask = entry.getValue();
+            String taskString = GSON.toJson(localTask);
+            try {
+                jedis.setex(id, redisTtlInSeconds, taskString);
+            } catch (Exception e){
+                LOG.error("Error pushing id " + id + " with value " + taskString + " to Redis tasks' cache", e);
             }
-            multi.exec();
-        } catch (Exception e){
-            LOG.error("Error pushing to Redis tasks' cache", e);
         }
     }
 }

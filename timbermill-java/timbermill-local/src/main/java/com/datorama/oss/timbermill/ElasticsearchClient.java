@@ -208,7 +208,7 @@ public class ElasticsearchClient {
 		return tasksByIds.get(taskId);
 	}
 
-	public List<Task> getMultipleTasksByIds(String taskId) {
+	public List<Task> getMultipleTasksById(String taskId) {
         IdsQueryBuilder idsQueryBuilder = QueryBuilders.idsQuery().addIds(taskId);
 		Map<String, List<Task>> map = Maps.newHashMap();
 		List<Future<Map<String, List<Task>>>> futures = runScrollInSlices(idsQueryBuilder, "Test", EMPTY_ARRAY, ALL_TASK_FIELDS, TIMBERMILL_INDEX_WILDCARD);
