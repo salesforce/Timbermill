@@ -38,14 +38,15 @@ public class TaskIndexer {
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
                        int recursionMax, long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
                        String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory,
-                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds) {
+                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
 
         this.recursionMax = recursionMax;
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight,
+                redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {

@@ -45,7 +45,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
                 builder.recursionMax, builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
-                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds);
+                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -123,6 +123,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String redisMaxMemory = "";
         private String redisMaxMemoryPolicy = "";
         private int redisTtlInSeconds = 604800;
+        private int redisGetSize = 10000;
         private boolean redisUseSsl = false;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
@@ -335,6 +336,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder redisTtlInSeconds(int redisTtlInSeconds) {
             this.redisTtlInSeconds = redisTtlInSeconds;
+            return this;
+        }
+
+        public Builder redisGetSize(int redisGetSize) {
+            this.redisGetSize = redisGetSize;
             return this;
         }
 

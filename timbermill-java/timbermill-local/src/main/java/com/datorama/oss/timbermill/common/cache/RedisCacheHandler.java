@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-import redis.clients.jedis.Transaction;
 
 import java.util.Collection;
 import java.util.List;
@@ -22,12 +21,14 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private int redisTtlInSeconds;
 
     private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
+    private int redisGetSize;
 
 
     RedisCacheHandler(long maximumOrphansCacheWeight, String redisHost, int redisPort, String redisPass,
-                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds) {
+                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
         super(maximumOrphansCacheWeight);
         this.redisTtlInSeconds = redisTtlInSeconds;
+        this.redisGetSize = redisGetSize;
 
         jedis = new Jedis(redisHost, redisPort, redisUseSsl);
         if (!StringUtils.isEmpty(redisPass)){
@@ -45,7 +46,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
         Map<String, LocalTask> retMap = Maps.newHashMap();
-        for (List<String> idsPartition : Iterables.partition(idsList, 1000)) {
+        for (List<String> idsPartition : Iterables.partition(idsList, redisGetSize)) {
             String[] ids = idsPartition.toArray(new String[0]);
             try {
                 List<String> tasksStrings = jedis.mget(ids);
@@ -64,8 +65,9 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        Pipeline pipelined = jedis.pipelined();
+        Pipeline pipelined = null;
         try {
+            pipelined = jedis.pipelined();
             for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
                 String id = entry.getKey();
                 LocalTask localTask = entry.getValue();
@@ -78,7 +80,9 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             }
         }
         finally {
-            pipelined.sync();
+            if (pipelined != null) {
+                pipelined.sync();
+            }
         }
     }
 }
