@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.http.HttpHost;
 import org.slf4j.Logger;
@@ -30,6 +31,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     private URL timbermillServerUrl;
     private SizedBoundEventsQueue buffer;
     private ExecutorService executorService;
+    private boolean sendGzippedRequest;
 
     private TimbermillServerOutputPipe() {
     }
@@ -50,6 +52,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("timbermill-sender-%d").build();
 		this.executorService = Executors.newFixedThreadPool(builder.numOfThreads, namedThreadFactory);
         executeEventsSenders(builder.maxEventsBatchSize, builder.numOfThreads);
+        sendGzippedRequest = builder.sendGzippedRequest;
 
         // shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -57,7 +60,8 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
             keepRunning = false;
             executorService.shutdown();
             try {
-                if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
+                if (!executorService.awaitTermination(5000, TimeUnit.MILLISECONDS)) {
+                    LOG.info("Events buffer size was {} on shutdown", buffer.size());
                     executorService.shutdownNow();
                 }
             } catch (InterruptedException e) {
@@ -128,9 +132,10 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     }
 
     private void sendEventsOverConnection(HttpURLConnection httpCon, byte[] eventsWrapperBytes) throws IOException {
-		try (OutputStream os = httpCon.getOutputStream()) {
-			os.write(eventsWrapperBytes, 0, eventsWrapperBytes.length);
-		}
+        try (OutputStream httpConOS = httpCon.getOutputStream();
+                OutputStream os = sendGzippedRequest ? new GZIPOutputStream(httpConOS, eventsWrapperBytes.length) : httpConOS) {
+            os.write(eventsWrapperBytes);
+        }
     }
 
     private byte[] getEventsWrapperBytes(EventsWrapper eventsWrapper) throws JsonProcessingException {
@@ -145,6 +150,9 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
         httpURLConnection.setDoOutput(true);
         httpURLConnection.setConnectTimeout(HTTP_TIMEOUT);
         httpURLConnection.setReadTimeout(HTTP_TIMEOUT);
+        if (sendGzippedRequest) {
+            httpURLConnection.setRequestProperty("Content-Encoding", "gzip");
+        }
         return httpURLConnection;
     }
 

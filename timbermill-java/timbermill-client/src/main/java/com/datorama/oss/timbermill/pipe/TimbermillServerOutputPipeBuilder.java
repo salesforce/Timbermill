@@ -6,6 +6,7 @@ public class TimbermillServerOutputPipeBuilder {
 	long maxSecondsBeforeBatchTimeout = 3;
 	int maxBufferSize = 200000;
 	int numOfThreads = 1;
+	boolean sendGzippedRequest = true;
 
 
 	public TimbermillServerOutputPipeBuilder timbermillServerUrl(String timbermillServerUrl) {
@@ -30,6 +31,11 @@ public class TimbermillServerOutputPipeBuilder {
 
 	public TimbermillServerOutputPipeBuilder numOfThreads(int numOfThreads) {
 		this.numOfThreads = numOfThreads;
+		return this;
+	}
+
+	public TimbermillServerOutputPipeBuilder sendGzippedRequest(boolean sendGzippedRequest) {
+		this.sendGzippedRequest = sendGzippedRequest;
 		return this;
 	}
 
