@@ -1,18 +1,5 @@
 package com.datorama.timbermill.server.service;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import javax.annotation.PreDestroy;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
@@ -21,13 +8,23 @@ import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.unit.Event;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.PreDestroy;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class TimbermillService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillService.class);
 
-	private static final int THREAD_SLEEP = 2000;
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
@@ -66,7 +63,7 @@ public class TimbermillService {
 							 @Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
-							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
+							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
 							 @Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
@@ -98,20 +95,33 @@ public class TimbermillService {
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
-
+		startQueueSpillerThread();
 		startWorkingThread();
 	}
 
+	private void startQueueSpillerThread() {
+		Thread spillerThread = new Thread(() -> {
+			LOG.info("Starting Queue Spiller Thread");
+			while (keepRunning) {
+				diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+				try {
+					Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
+				} catch (InterruptedException e) {
+					LOG.error("InterruptedException was thrown from TaskIndexer:", e);
+				}
+			}
+		});
+		spillerThread.start();
+	}
+
 	private void startWorkingThread() {
-		Runnable eventsHandler = () -> {
+		Thread workingThread = new Thread(() -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, overflowedQueue, taskIndexer, diskHandler);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer);
 			}
 			stoppedRunning = true;
-		};
-
-		Thread workingThread = new Thread(eventsHandler);
+		});
 		workingThread.start();
 	}
 
@@ -122,7 +132,7 @@ public class TimbermillService {
 		long currentTimeMillis = System.currentTimeMillis();
 		while(!stoppedRunning && !reachTerminationTimeout(currentTimeMillis)){
 			try {
-				Thread.sleep(THREAD_SLEEP);
+				Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
 		if (diskHandler != null){
@@ -145,7 +155,10 @@ public class TimbermillService {
 		for (Event event : events) {
 			if(!this.eventsQueue.offer(event)){
 				if (!overflowedQueue.offer(event)){
-					LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+					diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+					if (!overflowedQueue.offer(event)) {
+						LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+					}
 				}
 				else {
 					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
