@@ -1,20 +1,17 @@
 package com.datorama.oss.timbermill.common;
 
+import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.TimberLogger;
+import com.datorama.oss.timbermill.unit.Event;
+import com.google.common.collect.Sets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.TimberLogger;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.unit.Event;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
 
@@ -319,11 +316,9 @@ public class ElasticsearchUtil {
 		return envsSet;
 	}
 
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, TaskIndexer taskIndexer, DiskHandler diskHandler) {
-		while (!eventsQueue.isEmpty() || !overflowedQueue.isEmpty()) {
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer) {
+		while (!eventsQueue.isEmpty()) {
 			try {
-				spillOverflownEventsToDisk(overflowedQueue, diskHandler);
-
 				Collection<Event> events = new ArrayList<>();
 				eventsQueue.drainTo(events, MAX_ELEMENTS);
 				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
@@ -355,17 +350,6 @@ public class ElasticsearchUtil {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}
 		}
-	}
-
-	private static void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue, DiskHandler diskHandler) {
-		if (!overflowedQueue.isEmpty()) {
-			ArrayList<Event> events = Lists.newArrayList();
-			overflowedQueue.drainTo(events, MAX_ELEMENTS * 10);
-			KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
-			diskHandler.persistEventsToDisk(events);
-		}
-
-
 	}
 
 	public static long getTimesDuration(ZonedDateTime taskIndexerStartTime, ZonedDateTime taskIndexerEndTime) {

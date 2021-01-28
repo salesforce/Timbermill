@@ -1,25 +1,28 @@
 package com.datorama.oss.timbermill.common.disk;
 
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
+import com.google.common.collect.Lists;
 
-public interface DiskHandler {
+public abstract class DiskHandler {
 
-	List<DbBulkRequest> fetchAndDeleteFailedBulks();
+	public abstract List<DbBulkRequest> fetchAndDeleteFailedBulks();
 
-	List<Event> fetchAndDeleteOverflowedEvents();
+	public abstract List<Event> fetchAndDeleteOverflowedEvents();
 
-	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) throws MaximumInsertTriesException;
+	public abstract void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) throws MaximumInsertTriesException;
 
-	void persistEventsToDisk(ArrayList<Event> events);
+	abstract void persistEventsToDisk(ArrayList<Event> events);
 
-	boolean hasFailedBulks();
+	public abstract boolean hasFailedBulks();
 
-	boolean isCreatedSuccessfully();
+	public abstract boolean isCreatedSuccessfully();
 
-	static Map<String, Object> buildDiskHandlerParams(int maxFetchedBulksInOneTime, int maxInsertTries, String locationInDisk) {
+	public static Map<String, Object> buildDiskHandlerParams(int maxFetchedBulksInOneTime, int maxInsertTries, String locationInDisk) {
 		Map<String, Object> diskHandlerParams = new HashMap<>();
 		diskHandlerParams.put(SQLJetDiskHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
 		diskHandlerParams.put(SQLJetDiskHandler.MAX_INSERT_TRIES, maxInsertTries);
@@ -27,10 +30,19 @@ public interface DiskHandler {
 		return diskHandlerParams;
 	}
 
-	long failedBulksAmount();
+	abstract long failedBulksAmount();
 
-	long overFlowedEventsAmount();
+	abstract long overFlowedEventsAmount();
 
-	void close();
+	public abstract void close();
+
+	public void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue) {
+		if (!overflowedQueue.isEmpty()) {
+			ArrayList<Event> events = Lists.newArrayList();
+			overflowedQueue.drainTo(events, 1000);
+			KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
+			persistEventsToDisk(events);
+		}
+	}
 }
 
