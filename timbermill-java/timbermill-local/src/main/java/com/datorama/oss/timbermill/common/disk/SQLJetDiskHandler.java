@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SQLJetDiskHandler implements DiskHandler {
+public class SQLJetDiskHandler extends DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
@@ -101,7 +101,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 	public synchronized List<Event> fetchAndDeleteOverflowedEvents() {
 		List<Event> allEvents = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
-		int fetchedCount = 0;
 		List<Event> events;
 
 		try {
@@ -109,15 +108,15 @@ public class SQLJetDiskHandler implements DiskHandler {
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
 			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
-				LOG.info("Fetching overflowed events from SQLite.");
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
+				int eventsSize = events.size();
+				LOG.info("Fetched bulk of {} overflowed events from SQLite.", eventsSize);
 				allEvents.addAll(events);
 				resultCursor.delete(); // also do next
-				fetchedCount += events.size();
 				KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).decrement(); // removed events from db
 			}
-			if (fetchedCount > 0) {
-				LOG.info("Overflowed events fetch was successful. Number of fetched events: {}.", fetchedCount);
+			if (!allEvents.isEmpty()) {
+				LOG.info("Overflowed events fetch was successful. Number of fetched events: {}.", allEvents.size());
 			}
 			else {
 				LOG.info("There are no overflowed events to fetch from disk.");
@@ -264,7 +263,6 @@ public class SQLJetDiskHandler implements DiskHandler {
 	List<DbBulkRequest> fetchFailedBulks(boolean deleteAfterFetch) {
 		List<DbBulkRequest> dbBulkRequests = new ArrayList<>();
 		ISqlJetCursor resultCursor = null;
-		int fetchedCount = 0;
 		DbBulkRequest dbBulkRequest;
 
 		try {
@@ -272,7 +270,7 @@ public class SQLJetDiskHandler implements DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
 
-			while (fetchedCount < maxFetchedBulksInOneTime && !resultCursor.eof()) {
+			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof(); i++) {
 				dbBulkRequest = createDbBulkRequestFromCursor(resultCursor);
 				dbBulkRequests.add(dbBulkRequest);
 				if (deleteAfterFetch) {
@@ -281,9 +279,8 @@ public class SQLJetDiskHandler implements DiskHandler {
 				} else {
 					resultCursor.next();
 				}
-				fetchedCount++;
 			}
-			LOG.info("Failed bulks fetch was successful. Number of fetched bulks: {}.", fetchedCount);
+			LOG.info("Failed bulks fetch was successful. Number of fetched bulks: {}.", dbBulkRequests.size());
 		} catch (Exception e) {
 			LOG.error("Fetching failed bulks has failed.", e);
 		} finally {
