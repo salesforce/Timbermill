@@ -1,23 +1,26 @@
 package com.datorama.oss.timbermill.common.cache;
 
 import com.datorama.oss.timbermill.unit.LocalTask;
+import com.datorama.oss.timbermill.unit.TaskMetaData;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.*;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
-
 public class RedisCacheHandler extends AbstractCacheHandler {
 
-    private final Jedis jedis;
+    private final JedisPool jedisPool;
+    private Kryo kryo;
     private int redisTtlInSeconds;
 
     private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
@@ -30,16 +33,30 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         this.redisTtlInSeconds = redisTtlInSeconds;
         this.redisGetSize = redisGetSize;
 
-        jedis = new Jedis(redisHost, redisPort, redisUseSsl);
-        if (!StringUtils.isEmpty(redisPass)){
-            jedis.auth(redisPass);
+        JedisPoolConfig poolConfig = new JedisPoolConfig();
+        poolConfig.setMaxTotal(5);
+        if (StringUtils.isEmpty(redisPass)) {
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+        } else {
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
-        if (!StringUtils.isEmpty(redisMaxMemory)){
-            jedis.configSet("maxmemory", redisMaxMemory);
+
+        try (Jedis jedis = jedisPool.getResource()) {
+            if (!StringUtils.isEmpty(redisMaxMemory)) {
+                jedis.configSet("maxmemory", redisMaxMemory);
+            }
+            if (!StringUtils.isEmpty(redisMaxMemoryPolicy)) {
+                jedis.configSet("maxmemory-policy", "allkeys-lru");
+            }
         }
-        if (!StringUtils.isEmpty(redisMaxMemoryPolicy)){
-            jedis.configSet("maxmemory-policy", "allkeys-lru");
-        }
+
+        kryo = new Kryo();
+        kryo.register(LocalTask.class);
+        kryo.register(java.util.HashMap.class);
+        kryo.register(java.util.ArrayList.class);
+        kryo.register(TaskMetaData.class);
+        kryo.register(java.time.ZonedDateTime.class);
+        kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
         LOG.info("Connected to Redis");
     }
 
@@ -47,16 +64,24 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
         Map<String, LocalTask> retMap = Maps.newHashMap();
         for (List<String> idsPartition : Iterables.partition(idsList, redisGetSize)) {
-            String[] ids = idsPartition.toArray(new String[0]);
-            try {
-                List<String> tasksStrings = jedis.mget(ids);
+            byte[][] ids = new byte[idsPartition.size()][];
+            for (int i = 0; i < idsPartition.size(); i++) {
+                ids[i] = idsPartition.get(i).getBytes();
+            }
+            try (Jedis jedis = jedisPool.getResource()) {
+                List<byte[]> serializedTasks = jedis.mget(ids);
                 for (int i = 0; i < ids.length; i++) {
-                    String id = ids[i];
-                    String taskString = tasksStrings.get(i);
-                    LocalTask localTask = GSON.fromJson(taskString, LocalTask.class);
+                    String id = new String(ids[i]);
+                    byte[] serializedTask = serializedTasks.get(i);
+
+                    if (serializedTask == null || serializedTask.length == 0) {
+                        continue;
+                    }
+                    LocalTask localTask = (LocalTask) kryo.readClassAndObject(new Input(serializedTask));
+
                     retMap.put(id, localTask);
                 }
-            } catch (Exception e){
+            } catch (Exception e) {
                 LOG.error("Error getting ids: " + idsPartition + " from Redis tasks' cache", e);
             }
         }
@@ -65,24 +90,30 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        Pipeline pipelined = null;
-        try {
-            pipelined = jedis.pipelined();
+        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
                 String id = entry.getKey();
                 LocalTask localTask = entry.getValue();
-                String taskString = GSON.toJson(localTask);
+
+
+                ByteArrayOutputStream objStream = new ByteArrayOutputStream();
+                Output objOutput = new Output(objStream);
+                kryo.writeClassAndObject(objOutput, localTask);
+                objOutput.close();
+                byte[] taskByteArr = objStream.toByteArray();
+
+
                 try {
-                    pipelined.setex(id, redisTtlInSeconds, taskString);
+                    pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr);
                 } catch (Exception e) {
-                    LOG.error("Error pushing id " + id + " with value " + taskString + " to Redis tasks' cache", e);
+                    LOG.error("Error pushing id " + id + " to Redis tasks' cache", e);
                 }
             }
         }
-        finally {
-            if (pipelined != null) {
-                pipelined.sync();
-            }
-        }
+    }
+
+    @Override
+    public void close() {
+        jedisPool.close();
     }
 }

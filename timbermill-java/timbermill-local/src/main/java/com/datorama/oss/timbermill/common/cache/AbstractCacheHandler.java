@@ -77,4 +77,6 @@ public abstract class AbstractCacheHandler {
     public abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
 
     public abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
+
+    public abstract void close();
 }

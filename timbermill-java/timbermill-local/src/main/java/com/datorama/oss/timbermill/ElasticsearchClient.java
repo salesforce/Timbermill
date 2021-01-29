@@ -75,6 +75,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
+import static org.elasticsearch.action.update.UpdateHelper.ContextFields.CTX;
 import static org.elasticsearch.common.Strings.EMPTY_ARRAY;
 
 public class ElasticsearchClient {
@@ -84,6 +85,7 @@ public class ElasticsearchClient {
 	public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
 	private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS);
     private static final String[] ALL_TASK_FIELDS = {"*"};
+	private static final String[] PARENT_FIELDS_TO_FETCH = {"name", "parentId", "primaryId", "parentsPath", "orphan", "_index", CTX + ".*"};
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchClient.class);
 	private static final String TTL_FIELD = "meta.dateToDelete";
@@ -489,6 +491,12 @@ public class ElasticsearchClient {
 		LOG.info("Found {} partials tasks in index {} with {} that can be migrated.", IndexPartialsIds.size(), index, matchedTasks.size());
 		KamonConstants.PARTIAL_TASKS_FOUND_HISTOGRAM.withTag("index", index).record(IndexPartialsIds.size());
 		KamonConstants.PARTIAL_TASKS_MIGRATED_HISTOGRAM.withTag("index", index).record(matchedTasks.size());
+	}
+
+	Map<String, Task> getMissingParents(Set<String> parentIds, String env) {
+		String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
+		String oldAlias = getOldAlias(timbermillAlias);
+		return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias, oldAlias);
 	}
 
 	private Set<String> findPartialsIds(String index) {

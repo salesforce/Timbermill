@@ -2,6 +2,9 @@ package com.datorama.oss.timbermill.unit;
 
 public class LocalTask extends Task{
 
+    public LocalTask() {
+    }
+
     public LocalTask(Task task) {
         name = task.getName();
         parentId = task.getParentId();

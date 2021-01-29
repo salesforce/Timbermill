@@ -55,6 +55,7 @@ public class TaskIndexer {
 
     public void close() {
         es.close();
+        cacheHandler.close();
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
@@ -108,7 +109,7 @@ public class TaskIndexer {
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
 
         Set<String> missingParentsIds = parentIds.stream().filter(id -> !startEventsIds.contains(id)).collect(Collectors.toSet());
-        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds);
+        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds, env);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
@@ -232,7 +233,7 @@ public class TaskIndexer {
         cacheHandler.logPushToTasksCache(updatedTasks, "cache_update");
     }
 
-    private Map<String, Task> getMissingParents(Set<String> parentIds) {
+    private Map<String, Task> getMissingParents(Set<String> parentIds, String env) {
         
         int missingParentAmount = parentIds.size();
         KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
@@ -242,10 +243,8 @@ public class TaskIndexer {
         try {
             if (!parentIds.isEmpty()) {
                 Map<String, LocalTask> parentMap = cacheHandler.logGetFromTasksCache(parentIds, "missing_parents");
-                parentMap.entrySet().forEach(entry -> {
-                    String parentId = entry.getKey();
-                    LocalTask parentTask = entry.getValue();
-                    if (parentTask != null){
+                parentMap.forEach((parentId, parentTask) -> {
+                    if (parentTask != null) {
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
                 });
@@ -253,7 +252,16 @@ public class TaskIndexer {
         } catch (Throwable t) {
             LOG.error("Error fetching indexed tasks from Elasticsearch", t);
         }
-        LOG.info("Fetched {} missing parents", previouslyIndexedParentTasks.size());
+
+        LOG.info("Fetched {} missing parents from cache", previouslyIndexedParentTasks.size());
+        parentIds.removeAll(previouslyIndexedParentTasks.keySet());
+        if (!parentIds.isEmpty()) {
+            Map<String, Task> fromEs = es.getMissingParents(parentIds, env);
+            previouslyIndexedParentTasks.putAll(fromEs);
+
+            LOG.info("Fetched {} missing parents from Elasticsearch", fromEs.size());
+        }
+
         return previouslyIndexedParentTasks;
     }
 

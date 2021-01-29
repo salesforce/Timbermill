@@ -8,7 +8,6 @@ import com.google.common.cache.Weigher;
 import com.google.common.collect.Maps;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
@@ -53,5 +52,10 @@ public class LocalCacheHandler extends AbstractCacheHandler {
             KamonConstants.TASK_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(2 * (id.length() + taskString.length()));
             KamonConstants.TASK_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment();
         }
+    }
+
+    @Override
+    public void close() {
+        tasksCache.cleanUp();
     }
 }
