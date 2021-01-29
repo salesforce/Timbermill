@@ -1,9 +1,12 @@
 package com.datorama.oss.timbermill.pipe;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
+import com.google.common.collect.Lists;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,27 +53,44 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
                 builder.mergingCronExp);
+        startQueueSpillerThread();
         startWorkingThread();
     }
 
+    private void startQueueSpillerThread() {
+        Thread spillerThread = new Thread(() -> {
+            LOG.info("Starting Queue Spiller Thread");
+            while (keepRunning) {
+                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+                try {
+                    Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
+                } catch (InterruptedException e) {
+                    LOG.error("InterruptedException was thrown from TaskIndexer:", e);
+                }
+            }
+        });
+        spillerThread.start();
+    }
+
     private void startWorkingThread() {
-        Runnable eventsHandler = () -> {
+        Thread workingThread = new Thread(() -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, overflowedQueue, taskIndexer, diskHandler);
+                ElasticsearchUtil.drainAndIndex(buffer, taskIndexer);
             }
             stoppedRunning = true;
-        };
-
-        Thread workingThread = new Thread(eventsHandler);
+        });
         workingThread.start();
     }
 
     @Override
-    public void send(Event e){
-        if(!this.buffer.offer(e)){
-            if (!overflowedQueue.offer(e)){
-                LOG.error("OverflowedQueue is full, event {} was discarded", e.getTaskId());
+    public void send(Event event){
+        if(!this.buffer.offer(event)){
+            if (!overflowedQueue.offer(event)){
+                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+                if (!overflowedQueue.offer(event)) {
+                    LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+                }
             }
         }
     }
@@ -150,7 +170,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
-        private int maxFetchedBulksInOneTime = 100;
+        private int maxFetchedBulksInOneTime = 10;
         private int maxInsertTries = 10;
         private String locationInDisk = "/tmp";
         private int scrollLimitation = 1000;

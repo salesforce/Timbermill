@@ -1,21 +1,19 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-
+import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.unit.Event;
+import kamon.metric.Timer;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.datorama.oss.timbermill.common.KamonConstants;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.unit.Event;
-
-import kamon.metric.Timer;
 import org.slf4j.MDC;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 
@@ -42,7 +40,10 @@ public class EventsPersistentFetchJob implements Job {
 					for (Event event : events) {
 						if(!eventsQueue.offer(event)){
 							if (!overflowedQueue.offer(event)){
-								LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+								diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+								if (!overflowedQueue.offer(event)) {
+									LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
+								}
 							}
 							else {
 								KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
