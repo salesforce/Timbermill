@@ -81,7 +81,7 @@ class ParentResolver {
     }
 
     private Map<String, LocalTask> findAdoptedOrphansInCache(Set<String> adoptingCandidates) {
-        Map<String, List<String>> adoptedOrphansFromCache = cacheHandler.pullFromOrphansCache(adoptingCandidates);
+        Map<String, List<String>> adoptedOrphansFromCache = cacheHandler.logPullFromOrphansCache(adoptingCandidates, "resolve_orphans");
         List<String> orphansIds = adoptedOrphansFromCache.values().stream().flatMap(List::stream).collect(Collectors.toList());
         return cacheHandler.logGetFromTasksCache(orphansIds, "resolve_orphans");
     }

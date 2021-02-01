@@ -25,8 +25,12 @@ public class KamonConstants {
 	public static final Metric.Histogram ORPHANS_ADOPTED_HISTOGRAM = Kamon.histogram("timbermill2.orphans.adopted.histogram");
 	public static final Metric.Timer EVENTS_FETCH_JOB_LATENCY = Kamon.timer("timbermill2.overflowed.events.fetch.job.latency.timer");
 	public static final Metric.Timer GZIP_DECOMPRESS_REQUEST_DURATION = Kamon.timer("timbermill2.decompress.request.duration.timer");
+	public static final Metric.Timer RETRIEVE_FROM_TASKS_CACHE_TIMER = Kamon.timer("timbermill2.retrieve.from.tasks.cache.duration.timer");
+	public static final Metric.Timer PULL_FROM_ORPHAN_CACHE_TIMER = Kamon.timer("timbermill2.pull.from.orphan.cache.duration.timer");
+	public static final Metric.Timer PUSH_TO_ORPHAN_CACHE_TIMER = Kamon.timer("timbermill2.push.to.orphan.cache.duration.timer");
+	public static final Metric.Histogram PARENTS_RETRIEVED_FROM_ORPHAN_CACHE_HISTOGRAM = Kamon.histogram("timbermill2.parents.retrieved.from.orphan.cache.histogram");
+	public static final Metric.Histogram PARENTS_PUSHED_TO_ORPHAN_CACHE_HISTOGRAM = Kamon.histogram("timbermill2.parents.pushed.to.orphan.cache.histogram");
 
-	public static final Metric.Timer RETRIEVE_FROM_CACHE_TIMER = Kamon.timer("timbermill2.retrieve.from.cache.duration.timer");
 	public static final Metric.Histogram TASKS_QUERIED_FROM_CACHE_HISTOGRAM = Kamon.histogram("timbermill2.tasks.queried.from.cache.histogram");
 	public static final Metric.Histogram TASKS_RETRIEVED_FROM_CACHE_HISTOGRAM = Kamon.histogram("timbermill2.tasks.retrieved.from.cache.histogram");
 	public static final Metric.Timer PUSH_TO_CACHE_TIMER = Kamon.timer("timbermill2.push.to.cache.duration.timer");

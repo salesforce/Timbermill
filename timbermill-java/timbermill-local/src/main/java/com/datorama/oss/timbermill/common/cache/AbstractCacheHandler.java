@@ -16,7 +16,7 @@ public abstract class AbstractCacheHandler {
 
     public Map<String, LocalTask> logGetFromTasksCache(Collection<String> idsList, String type){
         LOG.info("Retrieving {} tasks from cache, flow: [{}]", idsList.size(), type);
-        Timer.Started start = KamonConstants.RETRIEVE_FROM_CACHE_TIMER.withTag("type", type).start();
+        Timer.Started start = KamonConstants.RETRIEVE_FROM_TASKS_CACHE_TIMER.withTag("type", type).start();
         Map<String, LocalTask> retMap = getFromTasksCache(idsList);
         start.stop();
         KamonConstants.TASKS_QUERIED_FROM_CACHE_HISTOGRAM.withTag("type", type).record(idsList.size());
@@ -33,13 +33,31 @@ public abstract class AbstractCacheHandler {
         KamonConstants.TASKS_PUSHED_TO_CACHE_HISTOGRAM.withTag("type", type).record(idsToMap.size());
     }
 
-    public abstract Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds);
+    public Map<String, List<String>> logPullFromOrphansCache(Set<String> parentsIds, String type){
+        LOG.info("Pulling {} parents from orphan cache, flow: [{}]", parentsIds.size(), type);
+        Timer.Started start = KamonConstants.PULL_FROM_ORPHAN_CACHE_TIMER.withTag("type", type).start();
+        Map<String, List<String>> retMap = pullFromOrphansCache(parentsIds);
+        start.stop();
+        KamonConstants.PARENTS_RETRIEVED_FROM_ORPHAN_CACHE_HISTOGRAM.withTag("type", type).record(retMap.size());
+        LOG.info("{} parents retrieved from orphan cache, flow: [{}]", retMap.size(), type);
+        return retMap;
+    }
 
-    public abstract void pushToOrphanCache(Map<String, List<String>> orphansMap);
+    public void logPushToOrphanCache(Map<String, List<String>> orphansMap, String type){
+        LOG.info("Pushing {} parents to orphan cache, flow: [{}]", orphansMap.size(), type);
+        Timer.Started start = KamonConstants.PUSH_TO_ORPHAN_CACHE_TIMER.withTag("type", type).start();
+        pushToOrphanCache(orphansMap);
+        start.stop();
+        KamonConstants.PARENTS_PUSHED_TO_ORPHAN_CACHE_HISTOGRAM.withTag("type", type).record(orphansMap.size());
+    }
 
-    public abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
+    abstract Map<String, List<String>> pullFromOrphansCache(Collection<String> parentsIds);
 
-    public abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
+    abstract void pushToOrphanCache(Map<String, List<String>> orphansMap);
+
+    abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
+
+    abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
 
     public abstract void close();
 }

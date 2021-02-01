@@ -10,7 +10,6 @@ import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 
@@ -48,7 +47,7 @@ public class LocalCacheHandler extends AbstractCacheHandler {
     }
 
     @Override
-    public Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds) {
+    public Map<String, List<String>> pullFromOrphansCache(Collection<String> parentsIds) {
         Map<String, List<String>> orphans = orphansCache.getAllPresent(parentsIds);
         if (orphans != null){
             orphansCache.invalidateAll(parentsIds);

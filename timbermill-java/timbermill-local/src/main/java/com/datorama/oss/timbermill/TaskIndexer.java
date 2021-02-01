@@ -183,7 +183,7 @@ public class TaskIndexer {
         }
 
         if (!parentToOrphansMap.isEmpty()) {
-            Map<String, List<String>> fromOrphansCache = cacheHandler.pullFromOrphansCache(parentToOrphansMap.keySet());
+            Map<String, List<String>> fromOrphansCache = cacheHandler.logPullFromOrphansCache(parentToOrphansMap.keySet(), "cache_orphans");
             for (Map.Entry<String, List<String>> entry : fromOrphansCache.entrySet()) {
                 String parentId = entry.getKey();
                 List<String> orphansList = parentToOrphansMap.get(parentId);
@@ -191,13 +191,13 @@ public class TaskIndexer {
                 orphansList.addAll(orphanListFromCache);
             }
 
-            cacheHandler.pushToOrphanCache(parentToOrphansMap);
+            cacheHandler.logPushToOrphanCache(parentToOrphansMap, "cache_orphans");
         }
     }
 
     private void cacheTasks(Map<String, Task> tasksMap) {
         HashMap<String, LocalTask> updatedTasks = Maps.newHashMap();
-        Map<String, LocalTask> idToTaskMap = cacheHandler.logGetFromTasksCache(tasksMap.keySet(), "cache_update");
+        Map<String, LocalTask> idToTaskMap = cacheHandler.logGetFromTasksCache(tasksMap.keySet(), "cache_tasks");
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             Task task = entry.getValue();
             LocalTask localTask = new LocalTask(task);
@@ -208,7 +208,7 @@ public class TaskIndexer {
             }
             updatedTasks.put(id, localTask);
         }
-        cacheHandler.logPushToTasksCache(updatedTasks, "cache_update");
+        cacheHandler.logPushToTasksCache(updatedTasks, "cache_tasks");
     }
 
     private Map<String, Task> getMissingParents(Set<String> parentIds, String env) {

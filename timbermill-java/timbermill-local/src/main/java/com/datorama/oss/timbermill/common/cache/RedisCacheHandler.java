@@ -63,83 +63,56 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     }
 
     @Override
-    public Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds) {
+    public Map<String, List<String>> pullFromOrphansCache(Collection<String> parentsIds) {
         Set<String> orphanParentsIds = parentsIds.stream().map(s -> ORPHAN_PREFIX + s).collect(Collectors.toSet());
+        Map<String, List<String>> orphans = getFromRedis(orphanParentsIds, "orphans");
+
         Map<String, List<String>> retMap = Maps.newHashMap();
-        for (List<String> idsPartition : Iterables.partition(orphanParentsIds, redisGetSize)) {
-            byte[][] ids = new byte[idsPartition.size()][];
-            for (int i = 0; i < idsPartition.size(); i++) {
-                ids[i] = idsPartition.get(i).getBytes();
-            }
-            try (Jedis jedis = jedisPool.getResource()) {
-                List<byte[]> serializedOrphansIds = jedis.mget(ids);
-                jedis.del(ids);
-                for (int i = 0; i < ids.length; i++) {
-                    byte[] serializedOrphansId = serializedOrphansIds.get(i);
-
-                    if (serializedOrphansId == null || serializedOrphansId.length == 0) {
-                        continue;
-                    }
-                    List<String> orphanList = (List<String>) kryo.readClassAndObject(new Input(serializedOrphansId));
-
-                    String id = new String(ids[i]);
-                    id = id.substring(ORPHAN_PREFIX.length());
-                    retMap.put(id, orphanList);
-                }
-            } catch (Exception e) {
-                LOG.error("Error getting ids: " + idsPartition + " from Redis tasks' cache", e);
-            }
+        for (Map.Entry<String, List<String>> entry : orphans.entrySet()) {
+            String newKey = entry.getKey().substring(ORPHAN_PREFIX.length());
+            retMap.put(newKey, entry.getValue());
         }
+
         return retMap;
     }
 
     @Override
     public void pushToOrphanCache(Map<String, List<String>> orphansMap) {
-        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (Map.Entry<String, List<String>> entry : orphansMap.entrySet()) {
-                String id = ORPHAN_PREFIX + entry.getKey();
-                List<String> orphansIds = entry.getValue();
-
-
-                ByteArrayOutputStream objStream = new ByteArrayOutputStream();
-                Output objOutput = new Output(objStream);
-                kryo.writeClassAndObject(objOutput, orphansIds);
-                objOutput.close();
-                byte[] orphanIdsBytes = objStream.toByteArray();
-
-
-                try {
-                    pipelined.setex(id.getBytes(), redisTtlInSeconds, orphanIdsBytes);
-                } catch (Exception e) {
-                    LOG.error("Error pushing id " + id + " to Redis tasks' cache", e);
-                }
-            }
+        Map<String, List<String>> newOrphansMap = Maps.newHashMap();
+        for (Map.Entry<String, List<String>> entry : orphansMap.entrySet()) {
+            String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
+            newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
+        pushToRedis(newOrphansMap, "orphans");
     }
 
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
-        Map<String, LocalTask> retMap = Maps.newHashMap();
-        for (List<String> idsPartition : Iterables.partition(idsList, redisGetSize)) {
+        return getFromRedis(idsList, "tasks");
+    }
+
+    private <T> Map<String, T> getFromRedis(Collection<String> keys, String cacheName) {
+        Map<String, T> retMap = Maps.newHashMap();
+        for (List<String> idsPartition : Iterables.partition(keys, redisGetSize)) {
             byte[][] ids = new byte[idsPartition.size()][];
             for (int i = 0; i < idsPartition.size(); i++) {
                 ids[i] = idsPartition.get(i).getBytes();
             }
             try (Jedis jedis = jedisPool.getResource()) {
-                List<byte[]> serializedTasks = jedis.mget(ids);
+                List<byte[]> serializedObjects = jedis.mget(ids);
                 for (int i = 0; i < ids.length; i++) {
-                    String id = new String(ids[i]);
-                    byte[] serializedTask = serializedTasks.get(i);
+                    byte[] serializedObject = serializedObjects.get(i);
 
-                    if (serializedTask == null || serializedTask.length == 0) {
+                    if (serializedObject == null || serializedObject.length == 0) {
                         continue;
                     }
-                    LocalTask localTask = (LocalTask) kryo.readClassAndObject(new Input(serializedTask));
+                    T object = (T) kryo.readClassAndObject(new Input(serializedObject));
 
-                    retMap.put(id, localTask);
+                    String id = new String(ids[i]);
+                    retMap.put(id, object);
                 }
             } catch (Exception e) {
-                LOG.error("Error getting ids: " + idsPartition + " from Redis tasks' cache", e);
+                LOG.error("Error getting ids: " + idsPartition + " from Redis " + cacheName + " cache", e);
             }
         }
         return retMap;
@@ -147,23 +120,20 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
+        pushToRedis(idsToMap, "tasks");
+    }
+
+    private <T> void pushToRedis(Map<String, T> idsToValuesMap, String cacheName) {
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (Map.Entry<String, LocalTask> entry : idsToMap.entrySet()) {
+            for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
                 String id = entry.getKey();
-                LocalTask localTask = entry.getValue();
-
-
-                ByteArrayOutputStream objStream = new ByteArrayOutputStream();
-                Output objOutput = new Output(objStream);
-                kryo.writeClassAndObject(objOutput, localTask);
-                objOutput.close();
-                byte[] taskByteArr = objStream.toByteArray();
-
+                T object = entry.getValue();
+                byte[] taskByteArr = getBytes(object);
 
                 try {
                     pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr);
                 } catch (Exception e) {
-                    LOG.error("Error pushing id " + id + " to Redis tasks' cache", e);
+                    LOG.error("Error pushing id " + id + " to Redis " + cacheName + " cache", e);
                 }
             }
         }
@@ -172,5 +142,13 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     @Override
     public void close() {
         jedisPool.close();
+    }
+
+    private byte[] getBytes(Object orphansIds) {
+        ByteArrayOutputStream objStream = new ByteArrayOutputStream();
+        Output objOutput = new Output(objStream);
+        kryo.writeClassAndObject(objOutput, orphansIds);
+        objOutput.close();
+        return objStream.toByteArray();
     }
 }
