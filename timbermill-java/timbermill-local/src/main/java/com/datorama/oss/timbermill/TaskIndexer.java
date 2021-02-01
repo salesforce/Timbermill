@@ -182,15 +182,17 @@ public class TaskIndexer {
             }
         }
 
-        Map<String, List<String>> fromOrphansCache = cacheHandler.getFromOrphansCache(parentToOrphansMap.keySet());
-        for (Map.Entry<String, List<String>> entry : fromOrphansCache.entrySet()) {
-            String parentId = entry.getKey();
-            List<String> orphansList = parentToOrphansMap.get(parentId);
-            List<String> orphanListFromCache = entry.getValue();
-            orphansList.addAll(orphanListFromCache);
-        }
+        if (!parentToOrphansMap.isEmpty()) {
+            Map<String, List<String>> fromOrphansCache = cacheHandler.pullFromOrphansCache(parentToOrphansMap.keySet());
+            for (Map.Entry<String, List<String>> entry : fromOrphansCache.entrySet()) {
+                String parentId = entry.getKey();
+                List<String> orphansList = parentToOrphansMap.get(parentId);
+                List<String> orphanListFromCache = entry.getValue();
+                orphansList.addAll(orphanListFromCache);
+            }
 
-        cacheHandler.pushToOrphanCache(parentToOrphansMap);
+            cacheHandler.pushToOrphanCache(parentToOrphansMap);
+        }
     }
 
     private void cacheTasks(Map<String, Task> tasksMap) {

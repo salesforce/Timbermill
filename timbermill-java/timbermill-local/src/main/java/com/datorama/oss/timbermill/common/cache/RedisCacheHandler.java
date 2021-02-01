@@ -16,9 +16,12 @@ import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class RedisCacheHandler extends AbstractCacheHandler {
 
+    private static final String ORPHAN_PREFIX = "orphan###";
     private final JedisPool jedisPool;
     private Kryo kryo;
     private int redisTtlInSeconds;
@@ -27,9 +30,8 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private int redisGetSize;
 
 
-    RedisCacheHandler(long maximumOrphansCacheWeight, String redisHost, int redisPort, String redisPass,
+    RedisCacheHandler(String redisHost, int redisPort, String redisPass,
                       String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
-        super(maximumOrphansCacheWeight);
         this.redisTtlInSeconds = redisTtlInSeconds;
         this.redisGetSize = redisGetSize;
 
@@ -58,6 +60,61 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         kryo.register(java.time.ZonedDateTime.class);
         kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
         LOG.info("Connected to Redis");
+    }
+
+    @Override
+    public Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds) {
+        Set<String> orphanParentsIds = parentsIds.stream().map(s -> ORPHAN_PREFIX + s).collect(Collectors.toSet());
+        Map<String, List<String>> retMap = Maps.newHashMap();
+        for (List<String> idsPartition : Iterables.partition(orphanParentsIds, redisGetSize)) {
+            byte[][] ids = new byte[idsPartition.size()][];
+            for (int i = 0; i < idsPartition.size(); i++) {
+                ids[i] = idsPartition.get(i).getBytes();
+            }
+            try (Jedis jedis = jedisPool.getResource()) {
+                List<byte[]> serializedOrphansIds = jedis.mget(ids);
+                jedis.del(ids);
+                for (int i = 0; i < ids.length; i++) {
+                    byte[] serializedOrphansId = serializedOrphansIds.get(i);
+
+                    if (serializedOrphansId == null || serializedOrphansId.length == 0) {
+                        continue;
+                    }
+                    List<String> orphanList = (List<String>) kryo.readClassAndObject(new Input(serializedOrphansId));
+
+                    String id = new String(ids[i]);
+                    id = id.substring(ORPHAN_PREFIX.length());
+                    retMap.put(id, orphanList);
+                }
+            } catch (Exception e) {
+                LOG.error("Error getting ids: " + idsPartition + " from Redis tasks' cache", e);
+            }
+        }
+        return retMap;
+    }
+
+    @Override
+    public void pushToOrphanCache(Map<String, List<String>> orphansMap) {
+        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
+            for (Map.Entry<String, List<String>> entry : orphansMap.entrySet()) {
+                String id = ORPHAN_PREFIX + entry.getKey();
+                List<String> orphansIds = entry.getValue();
+
+
+                ByteArrayOutputStream objStream = new ByteArrayOutputStream();
+                Output objOutput = new Output(objStream);
+                kryo.writeClassAndObject(objOutput, orphansIds);
+                objOutput.close();
+                byte[] orphanIdsBytes = objStream.toByteArray();
+
+
+                try {
+                    pipelined.setex(id.getBytes(), redisTtlInSeconds, orphanIdsBytes);
+                } catch (Exception e) {
+                    LOG.error("Error pushing id " + id + " to Redis tasks' cache", e);
+                }
+            }
+        }
     }
 
     @Override

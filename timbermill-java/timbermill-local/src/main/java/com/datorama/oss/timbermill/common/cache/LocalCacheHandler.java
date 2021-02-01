@@ -8,15 +8,17 @@ import com.google.common.cache.Weigher;
 import com.google.common.collect.Maps;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 
 public class LocalCacheHandler extends AbstractCacheHandler {
     private Cache<String, String> tasksCache;
+    private Cache<String, List<String>> orphansCache;
 
     LocalCacheHandler(long maximumTasksCacheWeight, long maximumOrphansCacheWeight) {
-        super(maximumOrphansCacheWeight);
         tasksCache = CacheBuilder.newBuilder()
                 .maximumWeight(maximumTasksCacheWeight)
                 .weigher((Weigher<String, String>) (key, value) -> 2 * (key.length() + value.length()))
@@ -28,6 +30,38 @@ public class LocalCacheHandler extends AbstractCacheHandler {
                 })
                 .build();
 
+        orphansCache = CacheBuilder.newBuilder()
+                .maximumWeight(maximumOrphansCacheWeight)
+                .weigher(this::getEntryLength)
+                .removalListener(notification -> {
+                    int entryLength = getEntryLength(notification.getKey(), notification.getValue());
+                    KamonConstants.ORPHANS_CACHE_SIZE_RANGE_SAMPLER.withoutTags().decrement(entryLength);
+                    KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().decrement();
+                })
+                .build();
+    }
+
+    private int getEntryLength(String key, List<String> value) {
+        int valuesLengths = value.stream().mapToInt(String::length).sum();
+        int keyLength = key.length();
+        return 2 * (keyLength + valuesLengths);
+    }
+
+    @Override
+    public Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds) {
+        Map<String, List<String>> orphans = orphansCache.getAllPresent(parentsIds);
+        if (orphans != null){
+            orphansCache.invalidateAll(parentsIds);
+        }
+        return orphans;
+    }
+
+    @Override
+    public void pushToOrphanCache(Map<String, List<String>> orphansMap) {
+        orphansCache.putAll(orphansMap);
+        int entryLength = orphansMap.entrySet().stream().mapToInt(value -> getEntryLength(value.getKey(), value.getValue())).sum();
+        KamonConstants.ORPHANS_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(entryLength);
+        KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment(orphansMap.size());
     }
 
     @Override

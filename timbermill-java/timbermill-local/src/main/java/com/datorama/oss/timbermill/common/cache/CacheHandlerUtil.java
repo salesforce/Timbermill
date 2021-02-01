@@ -7,7 +7,7 @@ public class CacheHandlerUtil {
                                                        boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
 
         if (strategy.compareToIgnoreCase("redis") == 0){
-            return new RedisCacheHandler(maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory,
+            return new RedisCacheHandler(redisHost, redisPort, redisPass, redisMaxMemory,
                     redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize);
         }
         else {
