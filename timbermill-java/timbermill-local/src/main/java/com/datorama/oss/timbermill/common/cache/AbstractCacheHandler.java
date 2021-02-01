@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.google.common.cache.Cache;
@@ -12,13 +11,14 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public abstract class AbstractCacheHandler {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractCacheHandler.class);
 
     private Cache<String, List<String>> orphansCache;
 
-    public AbstractCacheHandler(long maximumOrphansCacheWeight) {
+    AbstractCacheHandler(long maximumOrphansCacheWeight) {
         orphansCache = CacheBuilder.newBuilder()
                 .maximumWeight(maximumOrphansCacheWeight)
                 .weigher(this::getEntryLength)
@@ -36,23 +36,23 @@ public abstract class AbstractCacheHandler {
         return 2 * (keyLength + valuesLengths);
     }
 
-    public List<String> pullFromOrphansCache(String parentId) {
-        List<String> orphans = getFromOrphansCache(parentId);
+    public Map<String, List<String>> pullFromOrphansCache(Set<String> parentsIds) {
+        Map<String, List<String>> orphans = getFromOrphansCache(parentsIds);
         if (orphans != null){
-            orphansCache.invalidate(parentId);
+            orphansCache.invalidateAll(parentsIds);
         }
         return orphans;
     }
 
-    public List<String> getFromOrphansCache(String parentId) {
-        return orphansCache.getIfPresent(parentId);
+    public Map<String, List<String>> getFromOrphansCache(Set<String> parentId) {
+        return orphansCache.getAllPresent(parentId);
     }
 
-    public void pushToOrphanCache(String parentId, List<String> tasks) {
-        orphansCache.put(parentId, tasks);
-        int entryLength = getEntryLength(parentId, tasks);
+    public void pushToOrphanCache(Map<String, List<String>> orphansMap) {
+        orphansCache.putAll(orphansMap);
+        int entryLength = orphansMap.entrySet().stream().mapToInt(value -> getEntryLength(value.getKey(), value.getValue())).sum();
         KamonConstants.ORPHANS_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(entryLength);
-        KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment();
+        KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment(orphansMap.size());
     }
 
     public Map<String, LocalTask> logGetFromTasksCache(Collection<String> idsList, String type){

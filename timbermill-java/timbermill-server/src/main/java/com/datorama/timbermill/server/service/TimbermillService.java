@@ -70,7 +70,6 @@ public class TimbermillService {
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
 							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") long maximumTasksCacheWeight,
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") long maximumOrphansCacheWeight,
-							 @Value("${MAXIMUM_RECURSION:100}") int recursionMax,
 							 @Value("${CACHE_STRATEGY:}") String cacheStrategy,
 							 @Value("${REDIS_MAX_MEMORY:}") String redisMaxMemory,
 							 @Value("${REDIS_MAX_MEMORY_POLICY:}") String redisMaxMemoryPolicy,
@@ -92,7 +91,7 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, recursionMax, maximumOrphansCacheWeight,
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumOrphansCacheWeight,
 				maximumTasksCacheWeight, cacheStrategy, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,

@@ -1,12 +1,9 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import com.datorama.oss.timbermill.common.KamonConstants;
-import com.google.common.collect.Lists;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +44,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.expiredMaxIndicesToDeleteInParallel);
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
-                builder.recursionMax, builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
+                builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
                 builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
@@ -147,7 +144,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private boolean redisUseSsl = false;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
-        private int recursionMax = 100;
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
@@ -296,11 +292,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder maximumOrphansCacheWeight(int maximumOrphansCacheWeight) {
             this.maximumOrphansCacheWeight = maximumOrphansCacheWeight;
-            return this;
-        }
-
-        public Builder recursionMax(int recursionMax) {
-            this.recursionMax = recursionMax;
             return this;
         }
 
