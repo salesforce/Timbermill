@@ -30,29 +30,36 @@ class ParentResolver {
     private Map<String, Task> resolveOrphans(Map<String, Task> potentialAdoptingTasks) {
         Set<String> adoptingCandidates = potentialAdoptingTasks.entrySet().stream().filter(entry -> {
             Task parentIndexedTask = entry.getValue();
-            boolean isAdoptedOrphan = parentIndexedTask instanceof LocalTask;
             boolean isParentStartedTask = parentIndexedTask.getStatus() == TaskStatus.UNTERMINATED || parentIndexedTask.getStatus() == TaskStatus.SUCCESS || parentIndexedTask.getStatus() == TaskStatus.ERROR;
             boolean isParentNotOrphan = parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan();
-            return isAdoptedOrphan || (isParentStartedTask && isParentNotOrphan);
+            return isParentStartedTask && isParentNotOrphan;
         }).map(Map.Entry::getKey).collect(Collectors.toSet());
 
-        Map<String, Task> orphansMap = findAdoptedOrphans(adoptingCandidates);
+        Map<String, LocalTask> orphansMap = findAdoptedOrphansInCache(adoptingCandidates);
+        return getEnrichedAdoptedOrphans(potentialAdoptingTasks, orphansMap);
+    }
 
+    private Map<String, Task> resolveOrphansWithAdoptedOrphans(Map<String, Task> potentialAdoptingTasks) {
+        Set<String> adoptingCandidates = potentialAdoptingTasks.keySet();
+        Map<String, Task> orphansMap = findAdoptedOrphans(adoptingCandidates);
+        return getEnrichedAdoptedOrphans(potentialAdoptingTasks, orphansMap);
+    }
+
+    private Map<String, Task> getEnrichedAdoptedOrphans(Map<String, Task> potentialAdoptingTasks, Map<String, ? extends Task> orphansMap) {
         Map<String, Task> adoptedTasksMap = Maps.newHashMap();
-        for (Map.Entry<String, Task> entry : orphansMap.entrySet()) {
+        for (Map.Entry<String, ? extends Task> entry : orphansMap.entrySet()) {
             String adoptedId = entry.getKey();
             Task adoptedTask = entry.getValue();
-            if (adoptedTask == null){
+            if (adoptedTask == null) {
                 LOG.warn("Missing adopted task from cache {}", adoptedId);
-            }
-            else {
+            } else {
                 adoptedTask.setOrphan(false);
                 populateParentParams(adoptedTask, potentialAdoptingTasks.get(adoptedTask.getParentId()));
                 adoptedTasksMap.put(adoptedId, adoptedTask);
             }
         }
         if (!adoptedTasksMap.isEmpty()) {
-            Map<String, Task> adoptedTasksNewlyAdoptedTask = resolveOrphans(adoptedTasksMap);
+            Map<String, Task> adoptedTasksNewlyAdoptedTask = resolveOrphansWithAdoptedOrphans(adoptedTasksMap);
             adoptedTasksMap.putAll(adoptedTasksNewlyAdoptedTask);
         }
         return adoptedTasksMap;
@@ -73,7 +80,7 @@ class ParentResolver {
         Map<String, Task> retMap = Maps.newHashMap();
         for (Map.Entry<String, Task> entry : receivedTasksMap.entrySet()) {
             Task task = entry.getValue();
-            if (adoptingCandidates.contains(task.getParentId())){
+            if (task.isOrphan() != null && task.isOrphan() && adoptingCandidates.contains(task.getParentId())){
                 retMap.put(entry.getKey(), task);
             }
         }
@@ -82,35 +89,60 @@ class ParentResolver {
 
     private Map<String, LocalTask> findAdoptedOrphansInCache(Set<String> adoptingCandidates) {
         Map<String, List<String>> adoptedOrphansFromCache = cacheHandler.logPullFromOrphansCache(adoptingCandidates, "resolve_orphans");
-        List<String> orphansIds = adoptedOrphansFromCache.values().stream().flatMap(List::stream).collect(Collectors.toList());
-        return cacheHandler.logGetFromTasksCache(orphansIds, "resolve_orphans");
+        if (adoptedOrphansFromCache.isEmpty()){
+            return Maps.newHashMap();
+        }
+        else {
+            List<String> orphansIds = adoptedOrphansFromCache.values().stream().flatMap(List::stream).collect(Collectors.toList());
+            return cacheHandler.logGetFromTasksCache(orphansIds, "resolve_orphans");
+        }
     }
 
     private static void populateParentParams(Task task, Task parentIndexedTask) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
-        List<String> parentsPath =  new ArrayList<>();
-        String primaryId = parentProperties.getPrimaryId();
-        task.setPrimaryId(primaryId);
+
+        List<String> parentsPath = getParentPath(parentProperties);
+        if(!parentsPath.isEmpty()) {
+            task.setParentsPath(parentsPath);
+        }
+
+        task.setPrimaryId(parentProperties.getPrimaryId());
         if (task.getCtx() == null){
             task.setCtx(Maps.newHashMap());
         }
         for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
             task.getCtx().putIfAbsent(entry.getKey(), entry.getValue());
         }
+    }
 
+    static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
+        ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
+
+        List<String> parentsPath = getParentPath(parentProperties);
+        if(!parentsPath.isEmpty()) {
+            event.setParentsPath(parentsPath);
+        }
+
+        event.setPrimaryId(parentProperties.getPrimaryId());
+        if (event.getContext() == null){
+            event.setContext(Maps.newHashMap());
+        }
+        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
+            event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static List<String> getParentPath(ParentProperties parentProperties) {
+        List<String> parentsPath = new ArrayList<>();
         Collection<String> parentParentsPath = parentProperties.getParentPath();
-        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
+        if ((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
             parentsPath.addAll(parentParentsPath);
         }
-
         String parentName = parentProperties.getParentName();
-        if(parentName != null) {
+        if (parentName != null) {
             parentsPath.add(parentName);
         }
-
-        if(!parentsPath.isEmpty()) {
-            task.setParentsPath(parentsPath);
-        }
+        return parentsPath;
     }
 
     private static ParentProperties getParentProperties(Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
@@ -163,33 +195,6 @@ class ParentResolver {
         }
 
         return new ParentProperties(primaryId, context, parentPath, parentName);
-    }
-
-    static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
-        ParentResolver.ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
-        List<String> parentsPath =  new ArrayList<>();
-        String primaryId = parentProperties.getPrimaryId();
-        event.setPrimaryId(primaryId);
-        if (event.getContext() == null){
-            event.setContext(Maps.newHashMap());
-        }
-        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
-            event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-        }
-
-        Collection<String> parentParentsPath = parentProperties.getParentPath();
-        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
-            parentsPath.addAll(parentParentsPath);
-        }
-
-        String parentName = parentProperties.getParentName();
-        if(parentName != null) {
-            parentsPath.add(parentName);
-        }
-
-        if(!parentsPath.isEmpty()) {
-            event.setParentsPath(parentsPath);
-        }
     }
 
     static class ParentProperties{

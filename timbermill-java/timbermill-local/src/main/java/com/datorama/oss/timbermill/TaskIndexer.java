@@ -216,7 +216,7 @@ public class TaskIndexer {
         int missingParentAmount = parentIds.size();
         KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
         LOG.info("Fetching {} missing parents", missingParentAmount);
-        
+
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             if (!parentIds.isEmpty()) {
@@ -231,7 +231,6 @@ public class TaskIndexer {
             LOG.error("Error fetching indexed tasks from Elasticsearch", t);
         }
 
-        LOG.info("Fetched {} missing parents from cache", previouslyIndexedParentTasks.size());
         parentIds.removeAll(previouslyIndexedParentTasks.keySet());
         if (!parentIds.isEmpty()) {
             Map<String, Task> fromEs = es.getMissingParents(parentIds, env);

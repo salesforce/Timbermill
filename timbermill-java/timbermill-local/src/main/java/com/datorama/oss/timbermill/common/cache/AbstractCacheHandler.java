@@ -15,7 +15,6 @@ public abstract class AbstractCacheHandler {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractCacheHandler.class);
 
     public Map<String, LocalTask> logGetFromTasksCache(Collection<String> idsList, String type){
-        LOG.info("Retrieving {} tasks from cache, flow: [{}]", idsList.size(), type);
         Timer.Started start = KamonConstants.RETRIEVE_FROM_TASKS_CACHE_TIMER.withTag("type", type).start();
         Map<String, LocalTask> retMap = getFromTasksCache(idsList);
         start.stop();
