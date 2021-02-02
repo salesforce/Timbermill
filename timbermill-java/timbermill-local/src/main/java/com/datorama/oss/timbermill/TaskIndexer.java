@@ -38,14 +38,14 @@ public class TaskIndexer {
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
                        long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
                        String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory,
-                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
+                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal) {
 
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
         cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight,
-                redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize);
+                redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxTotal);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -236,7 +236,9 @@ public class TaskIndexer {
             Map<String, Task> fromEs = es.getMissingParents(parentIds, env);
             previouslyIndexedParentTasks.putAll(fromEs);
 
-            LOG.info("Fetched {} missing parents from Elasticsearch", fromEs.size());
+            if (!fromEs.isEmpty()) {
+                LOG.info("Fetched {} missing parents from Elasticsearch", fromEs.size());
+            }
         }
 
         return previouslyIndexedParentTasks;

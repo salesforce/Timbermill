@@ -59,6 +59,7 @@ class ParentResolver {
             }
         }
         if (!adoptedTasksMap.isEmpty()) {
+            LOG.info("Resolving orphans using {} adopted orphans", adoptedTasksMap.size());
             Map<String, Task> adoptedTasksNewlyAdoptedTask = resolveOrphansWithAdoptedOrphans(adoptedTasksMap);
             adoptedTasksMap.putAll(adoptedTasksNewlyAdoptedTask);
         }

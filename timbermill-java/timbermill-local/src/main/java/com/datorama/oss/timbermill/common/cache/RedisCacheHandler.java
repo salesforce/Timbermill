@@ -31,12 +31,13 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
 
     RedisCacheHandler(String redisHost, int redisPort, String redisPass,
-                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize) {
+                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal) {
         this.redisTtlInSeconds = redisTtlInSeconds;
         this.redisGetSize = redisGetSize;
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(5);
+        poolConfig.setMaxTotal(redisPoolMaxTotal);
+        poolConfig.setMinIdle(redisPoolMinIdle);
         if (StringUtils.isEmpty(redisPass)) {
             jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
