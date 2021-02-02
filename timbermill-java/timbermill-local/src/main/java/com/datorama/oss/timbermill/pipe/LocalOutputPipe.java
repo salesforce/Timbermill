@@ -142,7 +142,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int redisTtlInSeconds = 604800;
         private int redisGetSize = 10000;
         private boolean redisUseSsl = false;
-        private int redisPoolMinIdle = 5;
+        private int redisPoolMinIdle = 10;
         private int redisPoolMaxTotal = 10;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
