@@ -391,7 +391,7 @@ public class Task {
 		}
 	}
 
-	public void mergeTask(LocalTask localTask, String id) {
+	public void mergeTask(Task localTask, String id) {
 		String localParentId = localTask.getParentId();
 		if (this.parentId == null) {
 			this.parentId = localParentId;

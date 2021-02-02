@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
+import static com.datorama.oss.timbermill.ParentResolver.populateParentParams;
 
 public class TaskIndexer {
 
@@ -33,19 +34,18 @@ public class TaskIndexer {
     private AbstractCacheHandler cacheHandler;
     private long daysRotation;
     private String timbermillVersion;
-    private int recursionMax;
 
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
-                       int recursionMax, long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
+                       long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
                        String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory,
-                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds) {
+                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal) {
 
-        this.recursionMax = recursionMax;
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight,
+                redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxTotal);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -54,6 +54,7 @@ public class TaskIndexer {
 
     public void close() {
         es.close();
+        cacheHandler.close();
     }
 
     public void retrieveAndIndex(Collection<Event> events, String env) {
@@ -107,18 +108,17 @@ public class TaskIndexer {
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
 
         Set<String> missingParentsIds = parentIds.stream().filter(id -> !startEventsIds.contains(id)).collect(Collectors.toSet());
-        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds);
+        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds, env);
         connectNodesByParentId(nodesMap);
 
         Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
-        cacheTasks(tasksMap);
-        cacheOrphans(tasksMap);
         resolveOrphansFromCache(tasksMap);
 
         String index = es.createTimbermillAlias(env);
         Map<String, String> idToIndex = es.index(tasksMap, index);
         updateIndexToTasks(tasksMap, idToIndex);
         cacheTasks(tasksMap);
+        cacheOrphans(tasksMap);
 
         if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
             es.rolloverIndex(index);
@@ -140,21 +140,13 @@ public class TaskIndexer {
 
     private void resolveOrphansFromCache(Map<String, Task> tasksMap) {
         Timer.Started start = KamonConstants.ORPHANS_JOB_LATENCY.withoutTags().start();
-        Map<String, LocalTask> adoptedTasksMap = Maps.newHashMap();
-        for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
-            String id = entry.getKey();
-            Task parentTask = entry.getValue();
-            if (parentTask.getStatus() == TaskStatus.UNTERMINATED || parentTask.getStatus() == TaskStatus.SUCCESS || parentTask.getStatus() == TaskStatus.ERROR) {
-                resolveOrphan(id, parentTask, adoptedTasksMap, 1);
-            }
-        }
-        if (!adoptedTasksMap.isEmpty()) {
-            cacheHandler.pushToTasksCache(adoptedTasksMap);
-        }
 
-        for (Map.Entry<String, LocalTask> adoptedEntry : adoptedTasksMap.entrySet()) {
+        ParentResolver resolver = new ParentResolver(tasksMap, cacheHandler);
+        Map<String, Task> adoptedTasksMap = resolver.resolveOrphansReceived();
+
+        for (Map.Entry<String, Task> adoptedEntry : adoptedTasksMap.entrySet()) {
             String adoptedId = adoptedEntry.getKey();
-            LocalTask adoptedTask = adoptedEntry.getValue();
+            Task adoptedTask = adoptedEntry.getValue();
             if (tasksMap.containsKey(adoptedId)){
                 tasksMap.get(adoptedId).mergeTask(adoptedTask, adoptedId);
             }
@@ -166,85 +158,71 @@ public class TaskIndexer {
         if (adopted > 0) {
             LOG.info("{} orphans resolved", adopted);
         }
-
         KamonConstants.ORPHANS_ADOPTED_HISTOGRAM.withoutTags().record(adopted);
         start.stop();
     }
 
-    private void resolveOrphan(String parentId, Task parentIndexedTask, Map<String, LocalTask> adoptedTasksMap, int counter) {
-        if (counter > this.recursionMax){
-            return;
-        }
-        if (parentIndexedTask.isOrphan() == null || !parentIndexedTask.isOrphan()){
-            List<String> orphans = cacheHandler.pullFromOrphansCache(parentId);
-            if (orphans != null) {
-                Map<String, LocalTask> orphansMap = cacheHandler.getFromTasksCache(orphans);
-                for (Map.Entry<String, LocalTask> entry : orphansMap.entrySet()) {
-                    String orphanId = entry.getKey();
-                    LocalTask adoptedTask = entry.getValue();
-                    if (adoptedTask == null){
-                        LOG.warn("Missing task from cache {}", orphanId);
-                    }
-                    else {
-                        adoptedTask.setOrphan(false);
-                        populateParentParams(adoptedTask, parentIndexedTask);
-                        adoptedTasksMap.put(orphanId, adoptedTask);
-                        resolveOrphan(orphanId, adoptedTask, adoptedTasksMap, counter + 1);
-                    }
-                }
-            }
-        }
-    }
-
     private void cacheOrphans(Map<String, Task> tasksMap) {
+        Map<String, List<String>> parentToOrphansMap = Maps.newHashMap();
+
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             Task orphanTask = entry.getValue();
             String orphanId = entry.getKey();
             String parentId = orphanTask.getParentId();
             if (parentId != null) {
                 if (orphanTask.isOrphan() != null && orphanTask.isOrphan()) {
-                    List<String> tasks = cacheHandler.getFromOrphansCache(parentId);
+                    List<String> tasks = parentToOrphansMap.get(parentId);
                     if (tasks == null) {
                         tasks = Lists.newArrayList(orphanId);
                     } else {
                         tasks.add(orphanId);
                     }
-                    cacheHandler.pushToOrphanCache(parentId, tasks);
+                    parentToOrphansMap.put(parentId, tasks);
                 }
             }
+        }
+
+        if (!parentToOrphansMap.isEmpty()) {
+            Map<String, List<String>> fromOrphansCache = cacheHandler.logPullFromOrphansCache(parentToOrphansMap.keySet(), "cache_orphans");
+            for (Map.Entry<String, List<String>> entry : fromOrphansCache.entrySet()) {
+                String parentId = entry.getKey();
+                List<String> orphansList = parentToOrphansMap.get(parentId);
+                List<String> orphanListFromCache = entry.getValue();
+                orphansList.addAll(orphanListFromCache);
+            }
+
+            cacheHandler.logPushToOrphanCache(parentToOrphansMap, "cache_orphans");
         }
     }
 
     private void cacheTasks(Map<String, Task> tasksMap) {
         HashMap<String, LocalTask> updatedTasks = Maps.newHashMap();
-        Map<String, LocalTask> idToTaskMap = cacheHandler.getFromTasksCache(tasksMap.keySet());
+        Map<String, LocalTask> idToTaskMap = cacheHandler.logGetFromTasksCache(tasksMap.keySet(), "cache_tasks");
         for (Map.Entry<String, Task> entry : tasksMap.entrySet()) {
             Task task = entry.getValue();
             LocalTask localTask = new LocalTask(task);
             String id = entry.getKey();
-            LocalTask cachedTask = idToTaskMap.get(id);
+            Task cachedTask = idToTaskMap.get(id);
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
             }
             updatedTasks.put(id, localTask);
         }
-        cacheHandler.pushToTasksCache(updatedTasks);
+        cacheHandler.logPushToTasksCache(updatedTasks, "cache_tasks");
     }
 
-    private Map<String, Task> getMissingParents(Set<String> parentIds) {
+    private Map<String, Task> getMissingParents(Set<String> parentIds, String env) {
         
         int missingParentAmount = parentIds.size();
         KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
         LOG.info("Fetching {} missing parents", missingParentAmount);
-        
+
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {
             if (!parentIds.isEmpty()) {
-                Map<String, LocalTask> parentMap = cacheHandler.getFromTasksCache(parentIds);
-                parentMap.entrySet().forEach(entry -> {
-                    String parentId = entry.getKey();
-                    LocalTask parentTask = entry.getValue();
-                    if (parentTask != null){
+                Map<String, LocalTask> parentMap = cacheHandler.logGetFromTasksCache(parentIds, "missing_parents");
+                parentMap.forEach((parentId, parentTask) -> {
+                    if (parentTask != null) {
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
                 });
@@ -252,7 +230,17 @@ public class TaskIndexer {
         } catch (Throwable t) {
             LOG.error("Error fetching indexed tasks from Elasticsearch", t);
         }
-        LOG.info("Fetched {} missing parents", previouslyIndexedParentTasks.size());
+
+        parentIds.removeAll(previouslyIndexedParentTasks.keySet());
+        if (!parentIds.isEmpty()) {
+            Map<String, Task> fromEs = es.getMissingParents(parentIds, env);
+            previouslyIndexedParentTasks.putAll(fromEs);
+
+            if (!fromEs.isEmpty()) {
+                LOG.info("Fetched {} missing parents from Elasticsearch", fromEs.size());
+            }
+        }
+
         return previouslyIndexedParentTasks;
     }
 
@@ -366,60 +354,6 @@ public class TaskIndexer {
         }
     }
 
-    private static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
-        ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
-        List<String> parentsPath =  new ArrayList<>();
-        String primaryId = parentProperties.getPrimaryId();
-        event.setPrimaryId(primaryId);
-        if (event.getContext() == null){
-            event.setContext(Maps.newHashMap());
-        }
-        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
-            event.getContext().putIfAbsent(entry.getKey(), entry.getValue());
-        }
-
-        Collection<String> parentParentsPath = parentProperties.getParentPath();
-        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
-            parentsPath.addAll(parentParentsPath);
-        }
-
-        String parentName = parentProperties.getParentName();
-        if(parentName != null) {
-            parentsPath.add(parentName);
-        }
-
-        if(!parentsPath.isEmpty()) {
-            event.setParentsPath(parentsPath);
-        }
-    }
-
-    private static void populateParentParams(Task task, Task parentIndexedTask) {
-        ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
-        List<String> parentsPath =  new ArrayList<>();
-        String primaryId = parentProperties.getPrimaryId();
-        task.setPrimaryId(primaryId);
-        if (task.getCtx() == null){
-            task.setCtx(Maps.newHashMap());
-        }
-        for (Map.Entry<String, String> entry : parentProperties.getContext().entrySet()) {
-            task.getCtx().putIfAbsent(entry.getKey(), entry.getValue());
-        }
-
-        Collection<String> parentParentsPath = parentProperties.getParentPath();
-        if((parentParentsPath != null) && !parentParentsPath.isEmpty()) {
-            parentsPath.addAll(parentParentsPath);
-        }
-
-        String parentName = parentProperties.getParentName();
-        if(parentName != null) {
-            parentsPath.add(parentName);
-        }
-
-        if(!parentsPath.isEmpty()) {
-            task.setParentsPath(parentsPath);
-        }
-    }
-
     private boolean isOrphan(Event event, Map<String, Task> previouslyIndexedTasks, Map<String, List<Event>> eventsMap) {
         String parentId = event.getParentId();
         if (parentId == null) {
@@ -473,89 +407,4 @@ public class TaskIndexer {
             LOG.error("Error running plugins", t);
         }
     }
-
-    private static ParentProperties getParentProperties(Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
-        Map<String, String> context = Maps.newHashMap();
-        String primaryId = null;
-        Collection<String> parentPath = null;
-        String parentName = null;
-        if (parentCurrentEvent != null && !parentCurrentEvent.isEmpty()){
-            for (Event previousEvent : parentCurrentEvent) {
-                String previousPrimaryId = previousEvent.getPrimaryId();
-                if (previousPrimaryId != null){
-                    primaryId = previousPrimaryId;
-                }
-                Map<String, String> previousContext = previousEvent.getContext();
-                if (previousContext != null){
-                    context.putAll(previousContext);
-                }
-                Collection<String> previousPath = previousEvent.getParentsPath();
-                if (previousPath != null){
-                    parentPath = previousPath;
-                }
-
-                String previousName = previousEvent.getName();
-                if (previousName != null){
-                    parentName = previousName;
-                }
-            }
-        }
-        if (parentIndexedTask != null){
-
-            String indexedPrimary = parentIndexedTask.getPrimaryId();
-            if (indexedPrimary != null) {
-                primaryId = indexedPrimary;
-            }
-
-            Map<String, String> indexedContext = parentIndexedTask.getCtx();
-            if (indexedContext != null) {
-                context.putAll(indexedContext);
-            }
-
-            List<String> indexedParentsPath = parentIndexedTask.getParentsPath();
-            if (indexedParentsPath != null) {
-                parentPath = indexedParentsPath;
-            }
-
-            String indexedName = parentIndexedTask.getName();
-            if (indexedName != null) {
-                parentName = indexedName;
-            }
-        }
-
-        return new ParentProperties(primaryId, context, parentPath, parentName);
-    }
-
-    private static class ParentProperties{
-
-        private final String primaryId;
-        private final Map<String, String> context;
-        private final Collection<String> parentPath;
-        private final String parentName;
-
-        ParentProperties(String primaryId, Map<String, String> context, Collection<String> parentPath, String parentName) {
-            this.primaryId = primaryId;
-            this.context = context;
-            this.parentPath = parentPath;
-            this.parentName = parentName;
-        }
-
-        String getPrimaryId() {
-            return primaryId;
-        }
-
-        Map<String, String> getContext() {
-            return context;
-        }
-
-        Collection<String> getParentPath() {
-            return parentPath;
-        }
-
-        String getParentName() {
-            return parentName;
-        }
-
-    }
-
 }

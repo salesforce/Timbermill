@@ -2,7 +2,7 @@ package com.datorama.oss.timbermill.unit;
 
 import java.time.ZonedDateTime;
 
-class TaskMetaData {
+public class TaskMetaData {
     private ZonedDateTime taskBegin;
     private ZonedDateTime taskEnd;
     private Long duration;

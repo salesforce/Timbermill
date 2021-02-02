@@ -158,11 +158,12 @@ public class TimberLogAdvancedOrphansTest {
         TimberLoggerAdvanced.logParams(orphan41TaskId, LogParams.create().context(ctx + "41", ctx + "41"));
         TimberLoggerAdvanced.success(orphan41TaskId);
 
+        waitForTask(orphan41TaskId, TaskStatus.SUCCESS);
+
         String orphan42TaskId = TimberLoggerAdvanced.start(ORPHAN +"42", orphan3TaskId);
         TimberLoggerAdvanced.logParams(orphan42TaskId, LogParams.create().context(ctx + "42", ctx + "42"));
         TimberLoggerAdvanced.success(orphan42TaskId);
 
-        waitForTask(orphan41TaskId, TaskStatus.SUCCESS);
         waitForTask(orphan42TaskId, TaskStatus.SUCCESS);
         Task task41 = client.getTaskById(orphan41TaskId);
         Task task42 = client.getTaskById(orphan42TaskId);

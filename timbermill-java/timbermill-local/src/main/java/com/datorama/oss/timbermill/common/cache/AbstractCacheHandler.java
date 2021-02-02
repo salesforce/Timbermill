@@ -2,54 +2,61 @@ package com.datorama.oss.timbermill.common.cache;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.unit.LocalTask;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import kamon.metric.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public abstract class AbstractCacheHandler {
-    private Cache<String, List<String>> orphansCache;
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractCacheHandler.class);
 
-    public AbstractCacheHandler(long maximumOrphansCacheWeight) {
-        orphansCache = CacheBuilder.newBuilder()
-                .maximumWeight(maximumOrphansCacheWeight)
-                .weigher(this::getEntryLength)
-                .removalListener(notification -> {
-                    int entryLength = getEntryLength(notification.getKey(), notification.getValue());
-                    KamonConstants.ORPHANS_CACHE_SIZE_RANGE_SAMPLER.withoutTags().decrement(entryLength);
-                    KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().decrement();
-                })
-                .build();
+    public Map<String, LocalTask> logGetFromTasksCache(Collection<String> idsList, String type){
+        Timer.Started start = KamonConstants.RETRIEVE_FROM_TASKS_CACHE_TIMER.withTag("type", type).start();
+        Map<String, LocalTask> retMap = getFromTasksCache(idsList);
+        start.stop();
+        KamonConstants.TASKS_QUERIED_FROM_CACHE_HISTOGRAM.withTag("type", type).record(idsList.size());
+        KamonConstants.TASKS_RETRIEVED_FROM_CACHE_HISTOGRAM.withTag("type", type).record(retMap.size());
+        LOG.info("{} tasks retrieved from cache, flow: [{}]", retMap.size(), type);
+        return retMap;
     }
 
-    private int getEntryLength(String key, List<String> value) {
-        int valuesLengths = value.stream().mapToInt(String::length).sum();
-        int keyLength = key.length();
-        return 2 * (keyLength + valuesLengths);
+    public void logPushToTasksCache(Map<String, LocalTask> idsToMap, String type){
+        LOG.info("Pushing {} tasks to cache, flow: [{}]", idsToMap.size(), type);
+        Timer.Started start = KamonConstants.PUSH_TO_CACHE_TIMER.withTag("type", type).start();
+        pushToTasksCache(idsToMap);
+        start.stop();
+        KamonConstants.TASKS_PUSHED_TO_CACHE_HISTOGRAM.withTag("type", type).record(idsToMap.size());
     }
 
-    public List<String> pullFromOrphansCache(String parentId) {
-        List<String> orphans = getFromOrphansCache(parentId);
-        if (orphans != null){
-            orphansCache.invalidate(parentId);
-        }
-        return orphans;
+    public Map<String, List<String>> logPullFromOrphansCache(Set<String> parentsIds, String type){
+        LOG.info("Pulling {} parents from orphan cache, flow: [{}]", parentsIds.size(), type);
+        Timer.Started start = KamonConstants.PULL_FROM_ORPHAN_CACHE_TIMER.withTag("type", type).start();
+        Map<String, List<String>> retMap = pullFromOrphansCache(parentsIds);
+        start.stop();
+        KamonConstants.PARENTS_RETRIEVED_FROM_ORPHAN_CACHE_HISTOGRAM.withTag("type", type).record(retMap.size());
+        LOG.info("{} parents retrieved from orphan cache, flow: [{}]", retMap.size(), type);
+        return retMap;
     }
 
-    public List<String> getFromOrphansCache(String parentId) {
-        return orphansCache.getIfPresent(parentId);
+    public void logPushToOrphanCache(Map<String, List<String>> orphansMap, String type){
+        LOG.info("Pushing {} parents to orphan cache, flow: [{}]", orphansMap.size(), type);
+        Timer.Started start = KamonConstants.PUSH_TO_ORPHAN_CACHE_TIMER.withTag("type", type).start();
+        pushToOrphanCache(orphansMap);
+        start.stop();
+        KamonConstants.PARENTS_PUSHED_TO_ORPHAN_CACHE_HISTOGRAM.withTag("type", type).record(orphansMap.size());
     }
 
-    public void pushToOrphanCache(String parentId, List<String> tasks) {
-        orphansCache.put(parentId, tasks);
-        int entryLength = getEntryLength(parentId, tasks);
-        KamonConstants.ORPHANS_CACHE_SIZE_RANGE_SAMPLER.withoutTags().increment(entryLength);
-        KamonConstants.ORPHANS_CACHE_ENTRIES_RANGE_SAMPLER.withoutTags().increment();
-    }
+    abstract Map<String, List<String>> pullFromOrphansCache(Collection<String> parentsIds);
 
-    public abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
+    abstract void pushToOrphanCache(Map<String, List<String>> orphansMap);
 
-    public abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
+    abstract Map<String, LocalTask> getFromTasksCache(Collection<String> idsList);
+
+    abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
+
+    public abstract void close();
 }

@@ -1,12 +1,9 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import com.datorama.oss.timbermill.common.KamonConstants;
-import com.google.common.collect.Lists;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,8 +44,8 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.expiredMaxIndicesToDeleteInParallel);
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
-                builder.recursionMax, builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
-                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds);
+                builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
+                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxTotal);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -143,10 +140,12 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String redisMaxMemory = "";
         private String redisMaxMemoryPolicy = "";
         private int redisTtlInSeconds = 604800;
+        private int redisGetSize = 10000;
         private boolean redisUseSsl = false;
+        private int redisPoolMinIdle = 10;
+        private int redisPoolMaxTotal = 10;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
-        private int recursionMax = 100;
         private int searchMaxSize = 1000;
         private int maxBulkIndexFetched = 3;
         private int numOfElasticSearchActionsTries = 3;
@@ -298,11 +297,6 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder recursionMax(int recursionMax) {
-            this.recursionMax = recursionMax;
-            return this;
-        }
-
         public Builder bulkPersistentFetchCronExp(String bulkPersistentFetchCronExp) {
             this.bulkPersistentFetchCronExp = bulkPersistentFetchCronExp;
             return this;
@@ -355,6 +349,21 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder redisTtlInSeconds(int redisTtlInSeconds) {
             this.redisTtlInSeconds = redisTtlInSeconds;
+            return this;
+        }
+
+        public Builder redisGetSize(int redisGetSize) {
+            this.redisGetSize = redisGetSize;
+            return this;
+        }
+
+        public Builder redisPoolMinIdle(int redisPoolMinIdle) {
+            this.redisPoolMinIdle = redisPoolMinIdle;
+            return this;
+        }
+
+        public Builder redisPoolMaxTotal(int redisPoolMaxTotal) {
+            this.redisPoolMaxTotal = redisPoolMaxTotal;
             return this;
         }
 
