@@ -1,9 +1,11 @@
 package com.datorama.oss.timbermill.pipe;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,13 +84,23 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event event){
-        if(!this.buffer.offer(event)){
+        pushEventToQueues(diskHandler, buffer, overflowedQueue, event);
+    }
+
+    public static void pushEventToQueues(DiskHandler diskHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
+        if(!eventsQueue.offer(event)){
             if (!overflowedQueue.offer(event)){
                 diskHandler.spillOverflownEventsToDisk(overflowedQueue);
                 if (!overflowedQueue.offer(event)) {
                     LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
                 }
             }
+            else {
+                KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            }
+        }
+        else{
+            KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
         }
     }
 
@@ -140,7 +152,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String redisMaxMemory = "";
         private String redisMaxMemoryPolicy = "";
         private int redisTtlInSeconds = 604800;
-        private int redisGetSize = 10000;
+        private int redisGetSize = 1000;
         private boolean redisUseSsl = false;
         private int redisPoolMinIdle = 10;
         private int redisPoolMaxTotal = 10;

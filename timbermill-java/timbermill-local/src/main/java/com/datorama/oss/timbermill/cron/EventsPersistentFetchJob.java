@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill.cron;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import kamon.metric.Timer;
 import org.quartz.DisallowConcurrentExecution;
@@ -38,20 +39,7 @@ public class EventsPersistentFetchJob implements Job {
 				}
 				else {
 					for (Event event : events) {
-						if(!eventsQueue.offer(event)){
-							if (!overflowedQueue.offer(event)){
-								diskHandler.spillOverflownEventsToDisk(overflowedQueue);
-								if (!overflowedQueue.offer(event)) {
-									LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
-								}
-							}
-							else {
-								KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-							}
-						}
-						else{
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-						}
+						LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
 					}
 				}
 			}

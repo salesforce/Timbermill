@@ -7,6 +7,7 @@ import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
+import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -78,7 +80,7 @@ public class TimbermillService {
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
 							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
-							 @Value("${REDIS_GET_SIZE:604800}") int redisGetSize,
+							 @Value("${REDIS_GET_SIZE:1000}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
 							 @Value("${REDIS_POOL_MAX_TOTAL:10}") int redisPoolMaxTotal,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
@@ -156,20 +158,7 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			if(!this.eventsQueue.offer(event)){
-				if (!overflowedQueue.offer(event)){
-					diskHandler.spillOverflownEventsToDisk(overflowedQueue);
-					if (!overflowedQueue.offer(event)) {
-						LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
-					}
-				}
-				else {
-					KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-				}
-			}
-			else{
-				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-			}
+			LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
 		}
 	}
 }

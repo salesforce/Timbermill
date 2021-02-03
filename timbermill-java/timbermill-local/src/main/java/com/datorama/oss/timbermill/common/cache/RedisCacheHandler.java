@@ -113,7 +113,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
                     retMap.put(id, object);
                 }
             } catch (Exception e) {
-                LOG.error("Error getting ids: " + idsPartition + " from Redis " + cacheName + " cache", e);
+                LOG.error("Error getting ids from Redis " + cacheName + " cache. Ids: " + idsPartition , e);
             }
         }
         return retMap;

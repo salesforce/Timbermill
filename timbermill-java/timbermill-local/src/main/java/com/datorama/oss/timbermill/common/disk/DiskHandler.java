@@ -37,9 +37,9 @@ public abstract class DiskHandler {
 	public abstract void close();
 
 	public void spillOverflownEventsToDisk(BlockingQueue<Event> overflowedQueue) {
-		if (!overflowedQueue.isEmpty()) {
+		while (!overflowedQueue.isEmpty()) {
 			ArrayList<Event> events = Lists.newArrayList();
-			overflowedQueue.drainTo(events, 1000);
+			overflowedQueue.drainTo(events, 100000);
 			KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 			persistEventsToDisk(events);
 		}
