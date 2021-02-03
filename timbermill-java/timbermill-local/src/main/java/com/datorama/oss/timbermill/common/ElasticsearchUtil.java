@@ -332,7 +332,7 @@ public class ElasticsearchUtil {
 
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
-					String env = eventsPerEnv.getKey();
+					String env = eventsPerEnv.getKey().toLowerCase();
 					envsSet.add(env);
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
