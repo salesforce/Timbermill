@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -47,7 +46,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
                 builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
-                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxTotal);
+                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -155,6 +154,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int redisGetSize = 1000;
         private boolean redisUseSsl = false;
         private int redisPoolMinIdle = 10;
+        private int redisPoolMaxIdle = 10;
         private int redisPoolMaxTotal = 10;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;

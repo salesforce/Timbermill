@@ -5,6 +5,7 @@ import com.datorama.oss.timbermill.unit.TaskMetaData;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.util.Pool;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
@@ -23,7 +24,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     private static final String ORPHAN_PREFIX = "orphan###";
     private final JedisPool jedisPool;
-    private Kryo kryo;
+    private final Pool<Kryo> kryoPool;
     private int redisTtlInSeconds;
 
     private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
@@ -31,17 +32,20 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
 
     RedisCacheHandler(String redisHost, int redisPort, String redisPass,
-                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal) {
+                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal, int redisPoolMaxIdle) {
         this.redisTtlInSeconds = redisTtlInSeconds;
         this.redisGetSize = redisGetSize;
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(redisPoolMaxTotal);
         poolConfig.setMinIdle(redisPoolMinIdle);
+        poolConfig.setMaxIdle(redisPoolMaxIdle);
+        poolConfig.setTestOnBorrow(true);
+
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT * 10, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT * 10, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
@@ -53,13 +57,18 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             }
         }
 
-        kryo = new Kryo();
-        kryo.register(LocalTask.class);
-        kryo.register(java.util.HashMap.class);
-        kryo.register(java.util.ArrayList.class);
-        kryo.register(TaskMetaData.class);
-        kryo.register(java.time.ZonedDateTime.class);
-        kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
+        kryoPool = new Pool<Kryo>(true, false, 10) {
+            protected Kryo create () {
+                Kryo kryo = new Kryo();
+                kryo.register(LocalTask.class);
+                kryo.register(java.util.HashMap.class);
+                kryo.register(java.util.ArrayList.class);
+                kryo.register(TaskMetaData.class);
+                kryo.register(java.time.ZonedDateTime.class);
+                kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
+                return kryo;
+            }
+        };
         LOG.info("Connected to Redis");
     }
 
@@ -107,10 +116,15 @@ public class RedisCacheHandler extends AbstractCacheHandler {
                     if (serializedObject == null || serializedObject.length == 0) {
                         continue;
                     }
-                    T object = (T) kryo.readClassAndObject(new Input(serializedObject));
+                    Kryo kryo  = kryoPool.obtain();
+                    try {
+                        T object = (T) kryo.readClassAndObject(new Input(serializedObject));
+                        String id = new String(ids[i]);
+                        retMap.put(id, object);
+                    } finally {
+                        kryoPool.free(kryo);
+                    }
 
-                    String id = new String(ids[i]);
-                    retMap.put(id, object);
                 }
             } catch (Exception e) {
                 LOG.error("Error getting ids from Redis " + cacheName + " cache. Ids: " + idsPartition , e);
@@ -148,8 +162,14 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private byte[] getBytes(Object orphansIds) {
         ByteArrayOutputStream objStream = new ByteArrayOutputStream();
         Output objOutput = new Output(objStream);
-        kryo.writeClassAndObject(objOutput, orphansIds);
-        objOutput.close();
-        return objStream.toByteArray();
+
+        Kryo kryo = kryoPool.obtain();
+        try {
+            kryo.writeClassAndObject(objOutput, orphansIds);
+            objOutput.close();
+            return objStream.toByteArray();
+        } finally {
+            kryoPool.free(kryo);
+        }
     }
 }

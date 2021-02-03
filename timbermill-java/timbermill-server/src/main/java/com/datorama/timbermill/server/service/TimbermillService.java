@@ -3,7 +3,6 @@ package com.datorama.timbermill.server.service;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -82,6 +80,7 @@ public class TimbermillService {
 							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
 							 @Value("${REDIS_GET_SIZE:1000}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
+							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
 							 @Value("${REDIS_POOL_MAX_TOTAL:10}") int redisPoolMaxTotal,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
@@ -96,7 +95,7 @@ public class TimbermillService {
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumOrphansCacheWeight,
-				maximumTasksCacheWeight, cacheStrategy, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxTotal);
+				maximumTasksCacheWeight, cacheStrategy, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle, redisPoolMaxTotal);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
