@@ -204,6 +204,7 @@ public class TaskIndexer {
             Task cachedTask = idToTaskMap.get(id);
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
+                localTask.setIndex(cachedTask.getIndex());
                 task.setIndex(cachedTask.getIndex());
             }
             updatedTasks.put(id, localTask);
