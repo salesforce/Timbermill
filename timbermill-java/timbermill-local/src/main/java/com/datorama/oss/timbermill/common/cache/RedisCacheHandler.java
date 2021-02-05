@@ -1,11 +1,18 @@
 package com.datorama.oss.timbermill.common.cache;
 
+import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.datorama.oss.timbermill.unit.TaskMetaData;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.util.Pool;
+import com.evanlennick.retry4j.CallExecutorBuilder;
+import com.evanlennick.retry4j.Status;
+import com.evanlennick.retry4j.config.RetryConfig;
+import com.evanlennick.retry4j.config.RetryConfigBuilder;
+import com.evanlennick.retry4j.exception.RetriesExhaustedException;
+import com.github.jedis.lock.JedisLock;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
@@ -14,44 +21,56 @@ import org.slf4j.LoggerFactory;
 import redis.clients.jedis.*;
 
 import java.io.ByteArrayOutputStream;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
 public class RedisCacheHandler extends AbstractCacheHandler {
 
     private static final String ORPHAN_PREFIX = "orphan###";
+    private static final String LOCK_NAME = "timbermill__lock";
+    private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
+
     private final JedisPool jedisPool;
     private final Pool<Kryo> kryoPool;
+    private final RetryConfig retryConfig;
     private int redisTtlInSeconds;
-
-    private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
     private int redisGetSize;
+    private JedisLock lock;
+    private int redisMaxTries;
 
 
-    RedisCacheHandler(String redisHost, int redisPort, String redisPass,
-                      String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxTotal, int redisPoolMaxIdle) {
-        this.redisTtlInSeconds = redisTtlInSeconds;
-        this.redisGetSize = redisGetSize;
+    RedisCacheHandler(RedisCacheConfig redisCacheConfig) {
+        redisTtlInSeconds = redisCacheConfig.getRedisTtlInSeconds();
+        redisGetSize = redisCacheConfig.getRedisGetSize();
+        redisMaxTries = redisCacheConfig.getRedisMaxTries();
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(redisPoolMaxTotal);
-        poolConfig.setMinIdle(redisPoolMinIdle);
-        poolConfig.setMaxIdle(redisPoolMaxIdle);
+        poolConfig.setMaxTotal(redisCacheConfig.getRedisPoolMaxTotal());
+        poolConfig.setMinIdle(redisCacheConfig.getRedisPoolMinIdle());
+        poolConfig.setMaxIdle(redisCacheConfig.getRedisPoolMaxIdle());
         poolConfig.setTestOnBorrow(true);
 
+        String redisHost = redisCacheConfig.getRedisHost();
+        int redisPort = redisCacheConfig.getRedisPort();
+        boolean redisUseSsl = redisCacheConfig.isRedisUseSsl();
+        String redisPass = redisCacheConfig.getRedisPass();
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT * 10, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT * 10, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
+            String redisMaxMemory = redisCacheConfig.getRedisMaxMemory();
             if (!StringUtils.isEmpty(redisMaxMemory)) {
                 jedis.configSet("maxmemory", redisMaxMemory);
             }
+            String redisMaxMemoryPolicy = redisCacheConfig.getRedisMaxMemoryPolicy();
             if (!StringUtils.isEmpty(redisMaxMemoryPolicy)) {
                 jedis.configSet("maxmemory-policy", "allkeys-lru");
             }
@@ -69,6 +88,12 @@ public class RedisCacheHandler extends AbstractCacheHandler {
                 return kryo;
             }
         };
+        retryConfig = new RetryConfigBuilder()
+                .withMaxNumberOfTries(redisMaxTries)
+                .retryOnAnyException()
+                .withDelayBetweenTries(1, ChronoUnit.SECONDS)
+                .withExponentialBackoff()
+                .build();
         LOG.info("Connected to Redis");
     }
 
@@ -109,7 +134,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
                 ids[i] = idsPartition.get(i).getBytes();
             }
             try (Jedis jedis = jedisPool.getResource()) {
-                List<byte[]> serializedObjects = jedis.mget(ids);
+                List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(ids), "MGET Keys");
                 for (int i = 0; i < ids.length; i++) {
                     byte[] serializedObject = serializedObjects.get(i);
 
@@ -155,6 +180,25 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     }
 
     @Override
+    public void lock() {
+        lock = new JedisLock(LOCK_NAME, 20000, 20000);
+        try (Jedis jedis = jedisPool.getResource()) {
+                lock.acquire(jedis);
+        } catch (Exception e) {
+            LOG.error("Error while locking lock in Redis", e);
+        }
+    }
+
+    @Override
+    public void release() {
+        try (Jedis jedis = jedisPool.getResource()) {
+            lock.release(jedis);
+        } catch (Exception e) {
+            LOG.error("Error while releasing lock in Redis", e);
+        }
+    }
+
+    @Override
     public void close() {
         jedisPool.close();
     }
@@ -171,5 +215,18 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         } finally {
             kryoPool.free(kryo);
         }
+    }
+
+    private <T> T runWithRetries(Callable<T> callable, String functionDescription) throws RetriesExhaustedException {
+        Status<T> status = new CallExecutorBuilder<T>()
+                .config(retryConfig)
+                .onFailureListener(this::printFailWarning)
+                .build()
+                .execute(callable, functionDescription);
+        return status.getResult();
+    }
+
+    private void printFailWarning(Status status) {
+        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
     }
 }

@@ -47,7 +47,8 @@ public class Task {
 	public Task() {
 	}
 
-	public Task(List<Event> events, long daysRotation, String timbermillVersion) {
+	public Task(List<Event> events, String index, long daysRotation, String timbermillVersion) {
+		this.index = index;
 		if (!StringUtils.isEmpty(timbermillVersion)){
 			string.put("timbermillVersion", timbermillVersion);
 		}
@@ -392,6 +393,10 @@ public class Task {
 	}
 
 	public void mergeTask(Task localTask, String id) {
+		if (index == null){
+			index = localTask.getIndex();
+		}
+
 		String localParentId = localTask.getParentId();
 		if (this.parentId == null) {
 			this.parentId = localParentId;

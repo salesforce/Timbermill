@@ -80,7 +80,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		startEvent.setEnv(TEST_MIGRATION);
 		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -90,13 +90,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		successEvent.setEnv(TEST_MIGRATION);
 		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		List<Event> newEvents = Lists.newArrayList(successEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -131,7 +131,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		InfoEvent infoEvent = new InfoEvent(id, infoLogParams);
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, infoEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -141,13 +141,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(successEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -183,7 +183,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(successEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -193,13 +193,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.PARTIAL_SUCCESS);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -231,7 +231,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -241,13 +241,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(errorEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -283,7 +283,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, infoEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -293,13 +293,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(successEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.UNTERMINATED);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -335,7 +335,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(errorEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 		Thread.sleep(10);
@@ -345,13 +345,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		startEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		startEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(startEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.PARTIAL_ERROR);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -388,7 +388,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		successEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		successEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, successEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 
@@ -397,13 +397,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(infoEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.SUCCESS);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 
@@ -444,7 +444,7 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		errorEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		errorEvent.setEnv(TEST_MIGRATION);
 		List<Event> oldEvents = Lists.newArrayList(startEvent, errorEvent);
-		Task oldTask = new Task(oldEvents, 1, null);
+		Task oldTask = new Task(oldEvents, oldIndex, 1, null);
 		oldTasks.put(id, oldTask);
 
 
@@ -453,13 +453,13 @@ public class TasksMergerJobsTest extends TimberLogTest {
 		infoEvent.setTime(ZonedDateTime.now().minusMinutes(15));
 		infoEvent.setEnv(TEST_MIGRATION);
 		List<Event> newEvents = Lists.newArrayList(infoEvent);
-		Task newTask = new Task(newEvents, 1, null);
+		Task newTask = new Task(newEvents, currentIndex, 1, null);
 		newTasks.put(id, newTask);
 
 
-		TimberLogTest.client.index(oldTasks, oldIndex);
+		TimberLogTest.client.index(oldTasks);
 		TimberLogTest.waitForTask(id, TaskStatus.ERROR);
-		TimberLogTest.client.index(newTasks, currentIndex);
+		TimberLogTest.client.index(newTasks);
 		TimberLogTest.waitForTasks(id, 2);
 		tasksMergerJobs.execute(context);
 

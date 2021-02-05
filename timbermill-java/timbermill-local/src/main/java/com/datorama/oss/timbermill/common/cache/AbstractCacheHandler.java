@@ -59,4 +59,12 @@ public abstract class AbstractCacheHandler {
     abstract void pushToTasksCache(Map<String, LocalTask> idsToMap);
 
     public abstract void close();
+
+    public void lock() {
+        //do nothing
+    }
+
+    public void release() {
+        //do nothing
+    }
 }

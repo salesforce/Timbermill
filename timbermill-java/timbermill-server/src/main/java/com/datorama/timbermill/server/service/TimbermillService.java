@@ -1,6 +1,8 @@
 package com.datorama.timbermill.server.service;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.LocalCacheConfig;
+import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
@@ -78,10 +80,11 @@ public class TimbermillService {
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
 							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
-							 @Value("${REDIS_GET_SIZE:1000}") int redisGetSize,
+							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
 							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
 							 @Value("${REDIS_POOL_MAX_TOTAL:10}") int redisPoolMaxTotal,
+							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -94,8 +97,13 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, maximumOrphansCacheWeight,
-				maximumTasksCacheWeight, cacheStrategy, redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle, redisPoolMaxTotal);
+		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
+				redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+				redisPoolMaxTotal, redisMaxTries);
+		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
+				localCacheConfig, cacheStrategy,
+				redisCacheConfig);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);

@@ -36,16 +36,13 @@ public class TaskIndexer {
     private String timbermillVersion;
 
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
-                       long maximumOrphansCacheWeight, long maximumTasksCacheWeight,
-                       String cacheStrategy, String redisHost, int redisPort, String redisPass, String redisMaxMemory,
-                       String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal) {
+                       LocalCacheConfig localCacheConfig, String cacheStrategy, RedisCacheConfig redisCacheConfig) {
 
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, maximumTasksCacheWeight, maximumOrphansCacheWeight,
-                redisHost, redisPort, redisPass, redisMaxMemory, redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle, redisPoolMaxTotal);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, localCacheConfig, redisCacheConfig);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {
@@ -106,36 +103,38 @@ public class TaskIndexer {
         Set<String> parentIds = Sets.newHashSet();
         Map<String, List<Event>> eventsMap = Maps.newHashMap();
         populateCollections(timbermillEvents, nodesMap, startEventsIds, parentIds, eventsMap);
-
-        Set<String> missingParentsIds = parentIds.stream().filter(id -> !startEventsIds.contains(id)).collect(Collectors.toSet());
-        Map<String, Task> previouslyIndexedParentTasks = getMissingParents(missingParentsIds, env);
         connectNodesByParentId(nodesMap);
 
-        Map<String, Task> tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks);
-        resolveOrphansFromCache(tasksMap);
+        Set<String> missingParentsIds = parentIds.stream().filter(id -> !startEventsIds.contains(id)).collect(Collectors.toSet());
 
-        String index = es.createTimbermillAlias(env);
-        Map<String, String> idToIndex = es.index(tasksMap, index);
-        updateIndexToTasks(tasksMap, idToIndex);
-        cacheTasks(tasksMap);
-        cacheOrphans(tasksMap);
+        Map<String, Task> tasksMap;
+        Map<String, Task> previouslyIndexedParentTasks;
 
-        if (!index.endsWith(ElasticsearchUtil.getIndexSerial(1))){
-            es.rolloverIndex(index);
+        String alias = es.createTimbermillAlias(env);
+
+        String index;
+        if (!alias.endsWith(ElasticsearchUtil.getIndexSerial(1))){
+            index = es.rolloverIndex(alias);
         }
+        else{
+            index = alias;
+        }
+
+        cacheHandler.lock();
+        try {
+            previouslyIndexedParentTasks = getMissingParents(missingParentsIds, env);
+            tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks, index);
+            resolveOrphansFromCache(tasksMap);
+            cacheTasks(tasksMap);
+            cacheOrphans(tasksMap);
+        } finally {
+            cacheHandler.release();
+        }
+
+
+        es.index(tasksMap);
         LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
         return previouslyIndexedParentTasks.size();
-    }
-
-    private void updateIndexToTasks(Map<String, Task> tasksMap, Map<String, String> idToIndex) {
-        for (Map.Entry<String, String> entry : idToIndex.entrySet()) {
-            String id = entry.getKey();
-            String index = entry.getValue();
-            Task task = tasksMap.get(id);
-            if (task != null){
-                task.setIndex(index);
-            }
-        }
     }
 
     private void resolveOrphansFromCache(Map<String, Task> tasksMap) {
@@ -205,6 +204,7 @@ public class TaskIndexer {
             Task cachedTask = idToTaskMap.get(id);
             if (cachedTask != null) {
                 localTask.mergeTask(cachedTask, id);
+                task.setIndex(cachedTask.getIndex());
             }
             updatedTasks.put(id, localTask);
         }
@@ -299,15 +299,15 @@ public class TaskIndexer {
     }
 
     private Map<String, Task> createEnrichedTasks(Map<String, DefaultMutableTreeNode> nodesMap, Map<String, List<Event>> eventsMap,
-            Map<String, Task> previouslyIndexedParentTasks) {
+                                                  Map<String, Task> previouslyIndexedParentTasks, String index) {
         enrichStartEventsByOrder(nodesMap.values(), eventsMap, previouslyIndexedParentTasks);
-        return getTasksFromEvents(eventsMap);
+        return getTasksFromEvents(eventsMap, index);
     }
 
-    private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap) {
+    private Map<String, Task> getTasksFromEvents(Map<String, List<Event>> eventsMap, String index) {
         Map<String, Task> tasksMap = new HashMap<>();
         for (Map.Entry<String, List<Event>> eventEntry : eventsMap.entrySet()) {
-            Task task = new Task(eventEntry.getValue(), daysRotation, timbermillVersion);
+            Task task = new Task(eventEntry.getValue(), index, daysRotation, timbermillVersion);
             tasksMap.put(eventEntry.getKey(), task);
         }
         return tasksMap;

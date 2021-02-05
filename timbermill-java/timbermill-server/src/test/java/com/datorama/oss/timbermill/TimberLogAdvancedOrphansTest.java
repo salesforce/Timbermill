@@ -488,7 +488,7 @@ public class TimberLogAdvancedOrphansTest {
         parentSuccessEvent.setEnv(TEST);
 
         String index = client.createTimbermillAlias(TEST);
-        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
+        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), index, 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
 
@@ -503,7 +503,7 @@ public class TimberLogAdvancedOrphansTest {
             client.rolloverIndexForTest(TEST);
         }
 
-        client.index(tasksMap, index);
+        client.index(tasksMap);
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForNonOrphanTask(childTaskId);
 
@@ -544,10 +544,10 @@ public class TimberLogAdvancedOrphansTest {
         }
 
         String index = client.createTimbermillAlias(TEST);
-        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), 1, null);
+        Task taskToIndex = new Task(Lists.newArrayList(parentStartEvent, parentSuccessEvent), index, 1, null);
         taskToIndex.setPrimaryId(parentTaskId);
         Map<String, Task> tasksMap = Collections.singletonMap(parentTaskId, taskToIndex);
-        client.index(tasksMap, index);
+        client.index(tasksMap);
 
         waitForTask(parentTaskId, TaskStatus.SUCCESS);
         waitForNonOrphanTask(orphanTaskId);

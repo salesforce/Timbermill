@@ -1,17 +1,16 @@
 package com.datorama.oss.timbermill.common.cache;
 
+import com.datorama.oss.timbermill.LocalCacheConfig;
+import com.datorama.oss.timbermill.RedisCacheConfig;
+
 public class CacheHandlerUtil {
-    public static AbstractCacheHandler getCacheHandler(String strategy, long maximumTasksCacheWeight,
-                                                       long maximumOrphansCacheWeight, String redisHost, int redisPort,
-                                                       String redisPass, String redisMaxMemory, String redisMaxMemoryPolicy,
-                                                       boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal) {
+    public static AbstractCacheHandler getCacheHandler(String strategy, LocalCacheConfig localCacheConfig , RedisCacheConfig redisCacheConfig) {
 
         if (strategy.compareToIgnoreCase("redis") == 0){
-            return new RedisCacheHandler(redisHost, redisPort, redisPass, redisMaxMemory,
-                    redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxTotal, redisPoolMaxIdle);
+            return new RedisCacheHandler(redisCacheConfig);
         }
         else {
-            return new LocalCacheHandler(maximumTasksCacheWeight, maximumOrphansCacheWeight);
+            return new LocalCacheHandler(localCacheConfig);
         }
     }
 }

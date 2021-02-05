@@ -4,14 +4,12 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import com.datorama.oss.timbermill.*;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.Bulker;
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
@@ -44,9 +42,11 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
+        LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
+        RedisCacheConfig redisCacheConfig = new RedisCacheConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
-                builder.maximumOrphansCacheWeight, builder.maximumTasksCacheWeight, builder.cacheStrategy,
-                builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal);
+                localCacheConfig, builder.cacheStrategy,
+                redisCacheConfig);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -151,11 +151,12 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String redisMaxMemory = "";
         private String redisMaxMemoryPolicy = "";
         private int redisTtlInSeconds = 604800;
-        private int redisGetSize = 1000;
+        private int redisGetSize = 100;
         private boolean redisUseSsl = false;
         private int redisPoolMinIdle = 10;
         private int redisPoolMaxIdle = 10;
         private int redisPoolMaxTotal = 10;
+        private int redisMaxTries = 3;
         private int maximumTasksCacheWeight = 1000000000;
         private int maximumOrphansCacheWeight = 1000000000;
         private int searchMaxSize = 1000;
@@ -376,6 +377,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder redisPoolMaxTotal(int redisPoolMaxTotal) {
             this.redisPoolMaxTotal = redisPoolMaxTotal;
+            return this;
+        }
+
+        public Builder redisMaxTries(int redisMaxTries) {
+            this.redisMaxTries = redisMaxTries;
             return this;
         }
 
