@@ -122,7 +122,7 @@ public class Task {
 			String primaryId = e.getPrimaryId();
 			if (this.primaryId == null) {
 				this.primaryId = primaryId;
-			} else if (primaryId != null && !this.primaryId.equals(primaryId)) {
+			} else if (!StringUtils.isEmpty(primaryId) && !this.primaryId.equals(primaryId)) {
 				if (this.primaryId.equals(e.getTaskId())) {
 					this.primaryId = primaryId; // Override with actual primary id
 				} else if (!primaryId.equals(e.getTaskId())) {
@@ -407,7 +407,7 @@ public class Task {
 		String localPrimaryId = localTask.getPrimaryId();
 		if (this.primaryId == null) {
 			this.primaryId = localPrimaryId;
-		} else if (localPrimaryId != null && !this.primaryId.equals(localPrimaryId)) {
+		} else if (!StringUtils.isEmpty(localPrimaryId) && !this.primaryId.equals(localPrimaryId)) {
 			if (this.primaryId.equals(id)) {
 				this.primaryId = localPrimaryId; // Override with actual primary id
 			} else if (!localPrimaryId.equals(id)) {
