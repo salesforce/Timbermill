@@ -66,7 +66,7 @@ public class TimbermillService {
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
-							 @Value("${MAX_INSERT_TRIES:10}") int maxInsertTries,
+							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,

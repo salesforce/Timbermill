@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SQLJetDiskHandler extends DiskHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
@@ -50,11 +52,13 @@ public class SQLJetDiskHandler extends DiskHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
+	private static ExecutorService executorService;
 
 	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
+		executorService = Executors.newFixedThreadPool(1);
 		init();
 	}
 
@@ -131,8 +135,15 @@ public class SQLJetDiskHandler extends DiskHandler {
 	}
 
 	@Override
-	public synchronized void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) throws MaximumInsertTriesException {
-		persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
+	public void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) {
+		executorService.submit(() -> {
+			try {
+				persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
+			} catch (MaximumInsertTriesException e) {
+				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
+				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
+			}
+		});
 	}
 
 	@Override
@@ -220,7 +231,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 
 	//region package methods
 
-	void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
+	synchronized  void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
 		int timesFetched = dbBulkRequest.getTimesFetched();
 		if (timesFetched > 0) {
 			LOG.info("Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");

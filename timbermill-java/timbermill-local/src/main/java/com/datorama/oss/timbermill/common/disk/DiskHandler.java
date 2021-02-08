@@ -14,7 +14,7 @@ public abstract class DiskHandler {
 
 	public abstract List<Event> fetchAndDeleteOverflowedEvents();
 
-	public abstract void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) throws MaximumInsertTriesException;
+	public abstract void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum);
 
 	abstract void persistEventsToDisk(ArrayList<Event> events);
 

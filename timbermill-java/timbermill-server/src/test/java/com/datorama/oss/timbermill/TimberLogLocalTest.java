@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill;
 
+import com.datorama.oss.timbermill.unit.LogParams;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;

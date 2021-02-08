@@ -21,7 +21,7 @@ public class IndexRetryManager {
 	private DiskHandler diskHandler;
 	private Bulker bulker;
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
-	private List<String> blackListExceptions =  Lists.newArrayList("type=null_pointer_exception");
+	private List<String> blackListExceptions =  Lists.newArrayList("type=null_pointer_exception", "index is missing");
 
 	public IndexRetryManager(int numOfElasticSearchActionsTries, int maxBulkIndexFetches, DiskHandler diskHandler, Bulker bulker) {
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
@@ -54,7 +54,7 @@ public class IndexRetryManager {
 						}
 					}
 				} catch (Throwable t) {
-					LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
+					LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
 				}
 			}
 			// finishing to retry - if persistence is defined then try to persist the failed requests
@@ -66,7 +66,7 @@ public class IndexRetryManager {
 	private DbBulkRequest failureResponseHandling(DbBulkRequest dbBulkRequest, int bulkNum, int tryNum, BulkResponse response) {
 		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, response);
 		String failureMessage = response.buildFailureMessage();
-		LOG.warn("Bulk #{} Try number # {}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
+		LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
 		return dbBulkRequest;
 	}
 
@@ -89,12 +89,7 @@ public class IndexRetryManager {
 	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		if (hasPersistence()) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
-				try {
-					diskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
-				} catch (MaximumInsertTriesException e) {
-					LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
-					KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
-				}
+				diskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
 			} else {
 				LOG.error("Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);

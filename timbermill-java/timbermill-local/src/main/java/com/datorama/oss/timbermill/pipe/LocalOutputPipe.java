@@ -182,7 +182,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String diskHandlerStrategy = "sqlite";
         private int maxFetchedBulksInOneTime = 10;
-        private int maxInsertTries = 10;
+        private int maxInsertTries = 3;
         private String locationInDisk = "/tmp";
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;

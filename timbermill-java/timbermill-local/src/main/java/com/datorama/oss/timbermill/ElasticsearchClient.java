@@ -417,7 +417,7 @@ public class ElasticsearchClient {
 			if (rolloverResponse.isRolledOver()){
 				LOG.info("Alias {} rolled over, new index is [{}]", timbermillAlias, rolloverResponse.getNewIndex());
 				updateOldAlias(rolloverResponse, timbermillAlias);
-				return rolloverRequest.getNewIndexName();
+				return rolloverResponse.getNewIndex();
 			}
 			else{
 				return rolloverResponse.getOldIndex();
