@@ -320,6 +320,9 @@ public class Task {
 	}
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
+		if (meta == null || meta.getTaskBegin() == null){
+			throw new RuntimeException("No taskBegin");
+		}
 		UpdateRequest updateRequest = new UpdateRequest(this.index == null ? index : this.index, ElasticsearchClient.TYPE, taskId);
 		updateRequest.upsert(ElasticsearchClient.GSON.toJson(this), XContentType.JSON);
 		updateRequest = updateRequest.retryOnConflict(RETRIES_ON_CONFLICT);

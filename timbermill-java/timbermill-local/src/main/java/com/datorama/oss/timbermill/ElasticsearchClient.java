@@ -614,7 +614,6 @@ public class ElasticsearchClient {
         Collection<UpdateRequest> requests = new ArrayList<>();
         for (Map.Entry<String, Task> taskEntry : tasksMap.entrySet()) {
             Task task = taskEntry.getValue();
-
             try {
 				UpdateRequest updateRequest = task.getUpdateRequest(task.getIndex(), taskEntry.getKey());
 				requests.add(updateRequest);

@@ -17,4 +17,8 @@ public class LocalTask extends Task{
         meta = task.getMeta();
     }
 
+    @Override
+    public String toString() {
+        return "LocalTask:" + super.toString();
+    }
 }
