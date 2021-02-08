@@ -220,11 +220,7 @@ public class SQLJetDiskHandlerTest {
 				return;
 			}
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				try {
-					sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
-				} catch (MaximumInsertTriesException e) {
-					e.printStackTrace();
-				}
+				sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
 			}
 		}
 	}
