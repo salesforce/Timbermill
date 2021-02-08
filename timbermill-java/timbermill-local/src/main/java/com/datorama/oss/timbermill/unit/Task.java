@@ -29,20 +29,20 @@ public class Task {
 	private String env;
 
 	protected String name;
-	private TaskStatus status;
+	protected TaskStatus status;
 	protected String parentId;
 	protected String primaryId;
 	protected List<String> parentsPath;
 
-	private TaskMetaData meta = new TaskMetaData();
+	protected TaskMetaData meta = new TaskMetaData();
 
 	protected Map<String, String> ctx = new HashMap<>();
+
 	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
 	private String log;
 	protected Boolean orphan;
-
 
 	public Task() {
 	}
@@ -305,6 +305,10 @@ public class Task {
 
 	public void setIndex(String index) {
 		this.index = index;
+	}
+
+	public TaskMetaData getMeta() {
+		return meta;
 	}
 
 	public Boolean isOrphan() {

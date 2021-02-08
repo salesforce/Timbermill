@@ -13,6 +13,8 @@ public class LocalTask extends Task{
         orphan = task.isOrphan();
         index = task.getIndex();
         ctx.putAll(task.getCtx());
+        status = task.getStatus();
+        meta = task.getMeta();
     }
 
 }
