@@ -50,7 +50,7 @@ public class SQLJetDiskHandlerTest {
 	@Test
 	public void hasFailedBulks() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 		assertTrue(sqlJetDiskHandler.hasFailedBulks());
 	}
 
@@ -58,7 +58,7 @@ public class SQLJetDiskHandlerTest {
 	public void fetchFailedBulksAdvanced() throws MaximumInsertTriesException {
 
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 		List<DbBulkRequest> fetchedRequests = sqlJetDiskHandler.fetchFailedBulks(false);
 		assertEquals(1, fetchedRequests.size());
 
@@ -66,7 +66,7 @@ public class SQLJetDiskHandlerTest {
 		assertEquals(getRequestAsString(dbBulkRequest), getRequestAsString(dbBulkRequestFromDisk));
 
 		DbBulkRequest dbBulkRequest2 = MockBulkRequest.createMockDbBulkRequest();
-		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest2, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest2,1000 , bulkNum);
 		assertEquals(2, sqlJetDiskHandler.fetchAndDeleteFailedBulks().size());
 		assertFalse(sqlJetDiskHandler.hasFailedBulks());
 	}
@@ -74,9 +74,9 @@ public class SQLJetDiskHandlerTest {
 	@Test
 	public void fetchTimesCounter() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 		DbBulkRequest fetchedRequest = sqlJetDiskHandler.fetchAndDeleteFailedBulks().get(0);
-		sqlJetDiskHandler.persistBulkRequestToDisk(fetchedRequest, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(fetchedRequest, 1000, bulkNum);
 		fetchedRequest= sqlJetDiskHandler.fetchFailedBulks(false).get(0);
 		assertEquals(2, fetchedRequest.getTimesFetched());
 	}
@@ -87,7 +87,7 @@ public class SQLJetDiskHandlerTest {
 		int amount = 3;
 		for (int i = 0 ; i < amount ; i++){
 			dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 		}
 		assertEquals(3, sqlJetDiskHandler.failedBulksAmount());
 		assertEquals(3, sqlJetDiskHandler.failedBulksAmount()); // to make sure the db didn't change after the call to failedBulksAmount
@@ -99,7 +99,7 @@ public class SQLJetDiskHandlerTest {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 		dbBulkRequest.setRequest(null); // will cause insert to fail
 		try {
-			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,0, bulkNum);
+			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
 		} catch (MaximumInsertTriesException e){
 			thrown = true;
 		}
@@ -113,7 +113,7 @@ public class SQLJetDiskHandlerTest {
 		for (int i = 0 ; i < maxFetchedBulks + extraBulks ; i++){
 			dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
 			dbBulkRequest.setId(i+1);
-			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000 , bulkNum);
 		}
 		List<DbBulkRequest> fetchedRequests = sqlJetDiskHandler.fetchAndDeleteFailedBulks();
 		assertEquals(maxFetchedBulks,fetchedRequests.size());
@@ -123,7 +123,7 @@ public class SQLJetDiskHandlerTest {
 	@Test
 	public void dropAndRecreateTable() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+		sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000 , bulkNum);
 
 		sqlJetDiskHandler.reset();
 		assertFalse(sqlJetDiskHandler.hasFailedBulks());
@@ -141,7 +141,7 @@ public class SQLJetDiskHandlerTest {
 		// insert some bulks to disk
 		for (int i = 0 ; i < 10 ; i++){
 			DbBulkRequest dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+			sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000 , bulkNum);
 		}
 
 
@@ -153,7 +153,11 @@ public class SQLJetDiskHandlerTest {
 					isHealthCheckFailed.set(true);
 					break;
 				}
-				fetchAndPersist();
+				try {
+					fetchAndPersist();
+				} catch (MaximumInsertTriesException e) {
+					e.printStackTrace();
+				}
 			}
 		};
 
@@ -213,14 +217,14 @@ public class SQLJetDiskHandlerTest {
 
 	// region Test Helpers
 
-	private void fetchAndPersist() {
+	private void fetchAndPersist() throws MaximumInsertTriesException {
 		if (sqlJetDiskHandler.hasFailedBulks()) {
 			List<DbBulkRequest> failedRequestsFromDisk = sqlJetDiskHandler.fetchAndDeleteFailedBulks();
 			if (failedRequestsFromDisk.size() == 0) {
 				return;
 			}
 			for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-				sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+				sqlJetDiskHandler.persistBulkRequestToDisk(dbBulkRequest,1000 , bulkNum);
 			}
 		}
 	}
