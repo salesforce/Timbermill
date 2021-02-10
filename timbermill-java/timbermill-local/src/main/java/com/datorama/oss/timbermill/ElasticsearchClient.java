@@ -540,7 +540,16 @@ public class ElasticsearchClient {
 
 	Map<String, Task> getMissingParents(Set<String> parentIds, String env) {
 		String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
-		return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias + "*");
+		String oldAlias = getOldAlias(timbermillAlias);
+		try {
+			boolean aliasExists = isAliasExists(oldAlias);
+			if (aliasExists){
+				return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias, oldAlias);
+			}
+		} catch (RetriesExhaustedException e) {
+			LOG.error("Failed checking if Timbermill Alias " + timbermillAlias + " exists", e);
+		}
+		return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias);
 	}
 
 	private Set<String> findPartialsIds(String index) {
