@@ -31,10 +31,13 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -49,6 +52,7 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
+import org.elasticsearch.cluster.metadata.AliasMetaData;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -445,7 +449,8 @@ public class ElasticsearchClient {
 
 	private void updateOldAlias(RolloverResponse rolloverResponse, String timbermillAlias) throws RetriesExhaustedException {
 		String oldAlias = getOldAlias(timbermillAlias);
-		if (isAliasExists(oldAlias)) {
+		Map<String, Set<AliasMetaData>> oldAliases = getAliases(oldAlias);
+		if (!oldAliases.isEmpty()) {
 			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
 			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
 			removeRequest.addAliasAction(removeAllIndicesAction);
@@ -455,6 +460,24 @@ public class ElasticsearchClient {
 			if (!acknowledged) {
 				LOG.error("Removing old index from alias [{}] failed", oldAlias);
 			}
+
+			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
+			if (oldIndexOptional.isPresent()){
+				String oldIndex = oldIndexOptional.get();
+				ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
+				client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
+					@Override
+					public void onResponse(ForceMergeResponse forceMergeResponse) {
+					}
+
+					@Override
+					public void onFailure(Exception e) {
+					}
+				});
+
+				LOG.info("Force merge index {} to 1 segment", oldIndex);
+			}
+
 		}
 		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
 		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
@@ -517,16 +540,7 @@ public class ElasticsearchClient {
 
 	Map<String, Task> getMissingParents(Set<String> parentIds, String env) {
 		String timbermillAlias = ElasticsearchUtil.getTimbermillIndexAlias(env);
-		String oldAlias = getOldAlias(timbermillAlias);
-		try {
-			boolean aliasExists = isAliasExists(oldAlias);
-			if (aliasExists){
-				return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias, oldAlias);
-			}
-		} catch (RetriesExhaustedException e) {
-			LOG.error("Failed checking if Timbermill Alias " + timbermillAlias + " exists", e);
-		}
-		return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias);
+		return getTasksByIds(parentIds, "Fetch missing parents tasks", PARENT_FIELDS_TO_FETCH, null, timbermillAlias + "*");
 	}
 
 	private Set<String> findPartialsIds(String index) {
@@ -535,11 +549,16 @@ public class ElasticsearchClient {
 		return singleTaskByIds.keySet();
 	}
 
-	private boolean isAliasExists(String currentIndex) throws RetriesExhaustedException {
-		GetAliasesRequest requestWithAlias = new GetAliasesRequest(currentIndex);
+	private boolean isAliasExists(String alias) throws RetriesExhaustedException {
+		Map<String, Set<AliasMetaData>> aliases = getAliases(alias);
+		return !aliases.isEmpty();
+	}
+
+	private Map<String, Set<AliasMetaData>> getAliases(String alias) {
+		GetAliasesRequest requestWithAlias = new GetAliasesRequest(alias);
 		GetAliasesResponse response = runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT),
 				"Is Timbermill alias exists");
-		return !response.getAliases().isEmpty();
+		return response.getAliases();
 	}
 
 	private BoolQueryBuilder getLatestPartialsQuery() {
