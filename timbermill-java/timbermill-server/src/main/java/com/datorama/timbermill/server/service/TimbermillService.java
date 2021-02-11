@@ -51,6 +51,8 @@ public class TimbermillService {
 							 @Value("${ELASTICSEARCH_MAX_TOTAL_FIELDS:4000}") int maxTotalFields,
 							 @Value("${ELASTICSEARCH_MAX_SEARCH_SIZE:1000}") int searchMaxSize,
 							 @Value("${ELASTICSEARCH_ACTION_TRIES:3}") int numOfElasticSearchActionsTries,
+							 @Value("${ELASTICSEARCH_MAX_MERGED_SEGMENT:1gb}") String maxMergedSegment,
+							 @Value("${ELASTICSEARCH_RECLAIM_DELETES_WEIGHT:12.0}") String reclaimDeletesWeight,
 							 @Value("${INDEXING_THREADS:10}") int indexingThreads,
 							 @Value("${DAYS_ROTATION:90}") Integer daysRotation,
 							 @Value("${TIMBERMILL_VERSION:}") String timbermillVersion,
@@ -95,7 +97,7 @@ public class TimbermillService {
 		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
+				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel, maxMergedSegment, reclaimDeletesWeight);
 
 		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
 				redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,

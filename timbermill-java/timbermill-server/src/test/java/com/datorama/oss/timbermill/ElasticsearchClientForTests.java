@@ -15,7 +15,7 @@ public class ElasticsearchClientForTests extends ElasticsearchClient{
 	public ElasticsearchClientForTests(String elasticUrl, String awsRegion) {
 			super(elasticUrl, 1000, 1, awsRegion, null, null,
 					7, 100, 1000000000,3, 3, 1000,null ,1, 1,
-					4000, null, 10 , 60, 10000, 10);
+					4000, null, 10 , 60, 10000, 10, "1gb", "12.0");
     }
 
 	public void createTimbermillAliasForMigrationTest(String currentIndex, String oldIndex, String env) throws IOException {

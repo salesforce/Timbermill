@@ -120,8 +120,8 @@ public class ElasticsearchClient {
 	private final int expiredMaxIndicesTodeleteInParallel;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-			long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-			int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
+							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
+							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel, String maxMergedSegment, String reclaimDeletesWeight) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
@@ -175,7 +175,7 @@ public class ElasticsearchClient {
 				.withDelayBetweenTries(1, ChronoUnit.SECONDS)
 				.withExponentialBackoff()
 				.build();
-		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
+		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields, maxMergedSegment, reclaimDeletesWeight);
     }
 
     private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
@@ -461,22 +461,22 @@ public class ElasticsearchClient {
 				LOG.error("Removing old index from alias [{}] failed", oldAlias);
 			}
 
-			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
-			if (oldIndexOptional.isPresent()){
-				String oldIndex = oldIndexOptional.get();
-				ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
-				client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
-					@Override
-					public void onResponse(ForceMergeResponse forceMergeResponse) {
-					}
-
-					@Override
-					public void onFailure(Exception e) {
-					}
-				});
-
-				LOG.info("Force merge index {} to 1 segment", oldIndex);
-			}
+//			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
+//			if (oldIndexOptional.isPresent()){
+//				String oldIndex = oldIndexOptional.get();
+//				ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
+//				client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
+//					@Override
+//					public void onResponse(ForceMergeResponse forceMergeResponse) {
+//					}
+//
+//					@Override
+//					public void onFailure(Exception e) {
+//					}
+//				});
+//
+//				LOG.info("Force merge index {} to 1 segment", oldIndex);
+//			}
 
 		}
 		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
@@ -652,8 +652,8 @@ public class ElasticsearchClient {
         return requests;
     }
 
-    private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
-		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
+    private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields, String maxMergedSegment, String reclaimDeletesWeight) {
+		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields, maxMergedSegment, reclaimDeletesWeight);
 		puStoredScript();
 	}
 
@@ -670,11 +670,14 @@ public class ElasticsearchClient {
 		runWithRetries(() -> client.putScript(request, RequestOptions.DEFAULT), "Put Timbermill stored script");
 	}
 
-	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
+	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields, String maxMergedSegment, String reclaimDeletesWeight) {
         PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill2-template");
 
         request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_WILDCARD));
-        request.settings(Settings.builder().put("index.mapping.total_fields.limit", maxTotalFields)
+        request.settings(Settings.builder()
+				.put("index.merge.policy.max_merged_segment", maxMergedSegment)
+				.put("index.merge.policy.reclaim_deletes_weight", reclaimDeletesWeight)
+				.put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));
 		request.mapping(ElasticsearchUtil.MAPPING, XContentType.JSON);
