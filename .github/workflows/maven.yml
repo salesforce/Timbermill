@@ -10,11 +10,9 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
-    name: Test Timbermill
+  create_env:
+    name: Create Testing Environment
     runs-on: ubuntu-latest
-    env:
-      LOCATION_IN_DISK: ./
     steps:
     - name: Configure sysctl limits
       run: |
@@ -23,7 +21,8 @@ jobs:
         sudo sysctl -w fs.file-max=262144
         sudo sysctl -w vm.max_map_count=262144
 
-    - uses: getong/elasticsearch-action@v1.2
+    - name: Run Elasticsearch
+      uses: getong/elasticsearch-action@v1.2
       with:
         elasticsearch version: '7.6.1'
         host port: 9200
@@ -31,9 +30,28 @@ jobs:
         host node port: 9300
         node port: 9300
         discovery type: 'single-node'
-      
+    - name: Cache Maven packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
     - uses: actions/checkout@v2
-    
+    - name: Build Timbermill Server For Testing
+      run: mvn -B package -DskipTests --file timbermill-java/pom.xml
+    - name: Run Timbermill Server
+      run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar
+ 
+    - name: Run Timbermill Server
+      run: java -jar jar/timbermill-server.jar &
+      
+  run_tests:
+    name: Run Timbermill Tests
+    needs: create_env
+    runs-on: ubuntu-latest
+    env:
+      LOCATION_IN_DISK: ./
+    steps:
     - name: Set up JDK 1.8
       uses: actions/setup-java@v1
       with:
@@ -41,19 +59,9 @@ jobs:
         server-id: ossrh
         server-username: MAVEN_USERNAME
         server-password: MAVEN_PASSWORD
-    - name: Cache Maven packages
-      uses: actions/cache@v2
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-    - name: Build with Maven
-      run: mvn -B package -DskipTests --file timbermill-java/pom.xml
-    - run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar 
-    - name: Run Timbermill Server
-      run: java -jar jar/timbermill-server.jar &
+    - uses: actions/checkout@v2
     - name: Run Tests and Deploy
-      run: mvn --batch-mode -DskipTests deploy --file timbermill-java/pom.xml
+      run: mvn --batch-mode deploy --file timbermill-java/pom.xml
       env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
