@@ -10,20 +10,54 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
-    name: Test Timbermill
+  create_env:
+    name: Build Timbermill For Testing
+    runs-on: ubuntu-latest
+    steps:
+    - name: Cache Maven packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+    - uses: actions/checkout@v2
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - name: Build Timbermill Server For Testing
+      run: mvn -B package -DskipTests --file timbermill-java/pom.xml
+    - run: sleep 5
+    - name: Move Timbermill Server Jar
+      run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar
+    - name: Upload Timbermill Server Jar
+      uses: actions/upload-artifact@v2
+      with:
+        name: server
+        path: jar/timbermill-server.jar
+      
+  run_tests:
+    name: Run Timbermill Tests
+    needs: create_env
     runs-on: ubuntu-latest
     env:
       LOCATION_IN_DISK: ./
     steps:
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - uses: actions/checkout@v2
     - name: Configure sysctl limits
       run: |
         sudo swapoff -a
         sudo sysctl -w vm.swappiness=1
         sudo sysctl -w fs.file-max=262144
         sudo sysctl -w vm.max_map_count=262144
-
-    - uses: getong/elasticsearch-action@v1.2
+    - name: Docker Layer Caching
+      uses: satackey/action-docker-layer-caching@v0.0.11
+    - name: Run Elasticsearch
+      uses: getong/elasticsearch-action@v1.2
       with:
         elasticsearch version: '7.6.1'
         host port: 9200
@@ -31,39 +65,37 @@ jobs:
         host node port: 9300
         node port: 9300
         discovery type: 'single-node'
-      
-    - uses: actions/checkout@v2
-    
-    - name: Set up JDK 1.8
+    - name: Download Timbermill Server
+      uses: actions/download-artifact@v2
+      with:
+        name: server
+    - name: Run Timbermill Server
+      run: java -jar timbermill-server.jar &
+    - name: Run Tests
+      run: mvn --batch-mode -DskipTests package --file timbermill-java/pom.xml
+ 
+  deploy_artifacts:
+    name: Deploy JARs To Maven Central
+    needs: run_tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Maven Central Repository
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - run: cd timbermill-java
-    - name: Cache Maven packages
-      uses: actions/cache@v2
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-    - name: Build with Maven
-      run: mvn -B package -DskipTests --file pom.xml
-    - run: mkdir jar & cp timbermill-server/target/timbermill-server-*.jar jars/timbermill-server.jar 
-    - name: Run Timbermill Server
-      run: java -jar jars/timbermill-server.jar &
-
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Maven Central Repository
-        uses: actions/setup-java@v1
-        with:
-          java-version: 1.8
-          server-id: ossrh
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
-      - name: Publish package
-        run: mvn --batch-mode deploy
-        env:
+        server-id: ossrh
+        server-username: MAVEN_USERNAME
+        server-password: MAVEN_PASSWORD
+    - uses: actions/checkout@v2
+    - name: Configure GPG Key
+      run: |
+        mkdir -p ~/.gnupg/
+        printf "$GPG_SIGNING_KEY" | base64 --decode > ~/.gnupg/private.key
+        gpg --import ~/.gnupg/private.key
+      env:
+        GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+    - name: Deploy To Maven Central
+      run: mvn deploy -DskipTests -P release --file timbermill-java/pom.xml -pl timbermill-client,timbermill-local
+      env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
