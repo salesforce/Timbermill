@@ -13,7 +13,8 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    env:
+      LOCATION_IN_DISK: ./
     steps:
     - name: Configure sysctl limits
       run: |
@@ -37,4 +38,4 @@ jobs:
         java-version: 1.8
     - name: Build with Maven
       run: mvn -B package -DskipTests --file timbermill-java/pom.xml
-    - run: java -jar timbermill-java/timbermill-server/target/timbermill-server-2.1.0.jar
+    - run: java -jar timbermill-java/timbermill-server/target/timbermill-server-2.1.0.jar &
