@@ -79,7 +79,7 @@ jobs:
     needs: run_tests
     runs-on: ubuntu-latest
     steps:
-    - name: Set up JDK 1.8
+    - name: Set up Maven Central Repository
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
@@ -95,7 +95,7 @@ jobs:
       env:
         GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
     - name: Deploy To Maven Central
-      run: mvn --batch-mode -DskipTests -P release --file timbermill-java/pom.xml
+      run: mvn deploy -DskipTests -P release --file timbermill-java/pom.xml
       env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
