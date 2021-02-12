@@ -717,38 +717,39 @@ public class ElasticsearchClient {
 				LOG.warn("Scroll search failed some shards for {}. First error was {}", functionDescription, searchResponse.getShardFailures()[0].toString());
 			}
 			String scrollId = searchResponse.getScrollId();
-			LOG.debug("Scroll ID {} opened. Open scrolls {}", scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.incrementAndGet());
-			scrollIds.add(scrollId);
-			searchResponses.add(searchResponse);
-			SearchHit[] searchHits = searchResponse.getHits().getHits();
-			boolean keepScrolling = searchHits != null && searchHits.length > 0;
-			Stopwatch stopWatch = Stopwatch.createUnstarted();
-			int numOfScrollsPerformed = 0;
-			boolean timeoutReached = false;
-			boolean numOfScrollsReached = false;
-			while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
-				SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-				scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
-				stopWatch.start();
-				searchResponse = runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), "Scroll search for scroll id: " + scrollId + " for " + functionDescription);
-				stopWatch.stop();
-				if (!searchResponse.getScrollId().equals(scrollId)){
-					concurrentScrolls.incrementAndGet();
-					scrollId = searchResponse.getScrollId();
-					scrollIds.add(scrollId);
-				}
-				LOG.debug("Scroll ID {} Scroll search. Open scrolls {}", scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.get());
-				searchResponses.add(searchResponse);
-				timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
-				numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
-				if (timeoutReached && keepScrolling) {
-					LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
-				}
-				if (numOfScrollsReached && keepScrolling) {
-					LOG.error("Scrolls amount  limit of [{} scroll operations] reached", scrollLimitation);
-				}
-			}
-
+			if (scrollId != null) {
+                LOG.debug("Scroll ID {} opened. Open scrolls {}", scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.incrementAndGet());
+                scrollIds.add(scrollId);
+                searchResponses.add(searchResponse);
+                SearchHit[] searchHits = searchResponse.getHits().getHits();
+                boolean keepScrolling = searchHits != null && searchHits.length > 0;
+                Stopwatch stopWatch = Stopwatch.createUnstarted();
+                int numOfScrollsPerformed = 0;
+                boolean timeoutReached = false;
+                boolean numOfScrollsReached = false;
+                while (shouldKeepScrolling(searchResponse, timeoutReached, numOfScrollsReached)) {
+                    SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+                    scrollRequest.scroll(TimeValue.timeValueSeconds(30L));
+                    stopWatch.start();
+                    searchResponse = runWithRetries(() -> client.scroll(scrollRequest, RequestOptions.DEFAULT), "Scroll search for scroll id: " + scrollId + " for " + functionDescription);
+                    stopWatch.stop();
+                    if (!searchResponse.getScrollId().equals(scrollId)) {
+                        concurrentScrolls.incrementAndGet();
+                        scrollId = searchResponse.getScrollId();
+                        scrollIds.add(scrollId);
+                    }
+                    LOG.debug("Scroll ID {} Scroll search. Open scrolls {}", scrollId.length() > 100 ? scrollId.substring(0, 100) : scrollId, concurrentScrolls.get());
+                    searchResponses.add(searchResponse);
+                    timeoutReached = stopWatch.elapsed(TimeUnit.SECONDS) > scrollTimeoutSeconds;
+                    numOfScrollsReached = ++numOfScrollsPerformed >= scrollLimitation;
+                    if (timeoutReached && keepScrolling) {
+                        LOG.error("Scroll timeout limit of [{} seconds] reached", scrollTimeoutSeconds);
+                    }
+                    if (numOfScrollsReached && keepScrolling) {
+                        LOG.error("Scrolls amount  limit of [{} scroll operations] reached", scrollLimitation);
+                    }
+                }
+            }
 		}
 		catch (RetriesExhaustedException e) {
 			// return what managed to be found before failing.
