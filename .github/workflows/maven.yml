@@ -95,7 +95,7 @@ jobs:
       env:
         GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
     - name: Deploy To Maven Central
-      run: mvn deploy -DskipTests -P release --file timbermill-java/pom.xml
+      run: mvn deploy -DskipTests -P release --file timbermill-java/pom.xml -pl timbermill-client,timbermill-local
       env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
