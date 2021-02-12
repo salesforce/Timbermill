@@ -49,9 +49,9 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
     - name: Build with Maven
       run: mvn -B package -DskipTests --file timbermill-java/pom.xml
-    - run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jars/timbermill-server.jar 
+    - run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar 
     - name: Run Timbermill Server
-      run: java -jar jars/timbermill-server.jar &
+      run: java -jar jar/timbermill-server.jar &
     - name: Run Tests and Deploy
       run: mvn --batch-mode -DskipTests deploy --file timbermill-java/pom.xml
       env:
