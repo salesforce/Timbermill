@@ -102,7 +102,7 @@ public class TimberLogAdvancedTest {
         assertEquals(string3, ongoingTask.getString().get(string3));
 
         String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
+        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTask() {
