@@ -37,4 +37,7 @@ jobs:
         java-version: 1.8
     - name: Build with Maven
       run: mvn -B package -DskipTests --file timbermill-java/pom.xml
-    - run: java -jar timbermill-java/target/timbermill-server-2.1.0.jar
+    - run: cd timbermill-java
+    - run: cd target
+    - run: ls
+    - run: java -jar timbermill-server-2.1.0.jar
