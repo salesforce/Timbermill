@@ -38,7 +38,9 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - run: cd timbermill-java
+        server-id: ossrh
+        server-username: MAVEN_USERNAME
+        server-password: MAVEN_PASSWORD
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
@@ -46,24 +48,13 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
     - name: Build with Maven
-      run: mvn -B package -DskipTests --file pom.xml
-    - run: mkdir jar & cp timbermill-server/target/timbermill-server-*.jar jars/timbermill-server.jar 
+      run: mvn -B package -DskipTests --file timbermill-java/pom.xml
+    - run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar timbermill-java/jars/timbermill-server.jar 
     - name: Run Timbermill Server
-      run: java -jar jars/timbermill-server.jar &
-
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Maven Central Repository
-        uses: actions/setup-java@v1
-        with:
-          java-version: 1.8
-          server-id: ossrh
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
-      - name: Publish package
-        run: mvn --batch-mode deploy
-        env:
+      run: java -jar timbermill-java/jars/timbermill-server.jar &
+    - name: Run Tests and Deploy
+      run: mvn --batch-mode deploy --file timbermill-java/pom.xml
+      env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+        
