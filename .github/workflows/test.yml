@@ -78,4 +78,4 @@ jobs:
     - name: Run Timbermill Server
       run: java -jar timbermill-server.jar &
     - name: Run Tests
-      run: mvn --batch-mode -DskipTests package --file timbermill-java/pom.xml
+      run: mvn -B test --file timbermill-java/pom.xml
