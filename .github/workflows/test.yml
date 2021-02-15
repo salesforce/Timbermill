@@ -28,8 +28,8 @@ jobs:
     - name: Build Timbermill Server For Testing
       run: mvn -B package -DskipTests --file timbermill-java/pom.xml
     - run: sleep 15
-    - name: Move Timbermill Server Jar
-      run: mkdir jar & cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar
+    - run: mkdir jar 
+    - run: cp timbermill-java/timbermill-server/target/timbermill-server-*.jar jar/timbermill-server.jar
     - name: Upload Timbermill Server Jar
       uses: actions/upload-artifact@v2
       with:
