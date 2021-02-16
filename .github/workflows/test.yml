@@ -59,8 +59,6 @@ jobs:
         sudo sysctl -w vm.swappiness=1
         sudo sysctl -w fs.file-max=262144
         sudo sysctl -w vm.max_map_count=262144
- #   - name: Docker Layer Caching
- #     uses: satackey/action-docker-layer-caching@v0.0.11
     - name: Run Elasticsearch
       uses: getong/elasticsearch-action@v1.2
       with:
@@ -76,8 +74,8 @@ jobs:
         name: server
     - name: Run Timbermill Server
       run: java -jar timbermill-server.jar &
- #   - name: Run Tests
- #     run: mvn -B test --file timbermill-java/pom.xml
+    - name: Run Tests
+      run: mvn -B test --file timbermill-java/pom.xml
 
   deploy_client_snapshot:
     name: Deploy Client Jar To Snapshot Repo
