@@ -14,6 +14,7 @@ jobs:
     name: Build Timbermill For Testing
     runs-on: ubuntu-latest
     steps:
+    - run: echo ${GITHUB_REF##*/}-SNAPSHOT
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
@@ -42,42 +43,42 @@ jobs:
     env:
       LOCATION_IN_DISK: ./
     steps:    
- #   - name: Cache Maven packages
- #     uses: actions/cache@v2
- #     with:
- #       path: ~/.m2
- #       key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
- #       restore-keys: ${{ runner.os }}-m2
+    - name: Cache Maven packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
     - name: Set up JDK 1.8
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
- #   - uses: actions/checkout@v2
- #   - name: Configure sysctl limits
- #     run: |
- #       sudo swapoff -a
- #       sudo sysctl -w vm.swappiness=1
- #       sudo sysctl -w fs.file-max=262144
- #       sudo sysctl -w vm.max_map_count=262144
+    - uses: actions/checkout@v2
+    - name: Configure sysctl limits
+      run: |
+        sudo swapoff -a
+        sudo sysctl -w vm.swappiness=1
+        sudo sysctl -w fs.file-max=262144
+        sudo sysctl -w vm.max_map_count=262144
  #   - name: Docker Layer Caching
  #     uses: satackey/action-docker-layer-caching@v0.0.11
- #   - name: Run Elasticsearch
- #     uses: getong/elasticsearch-action@v1.2
- #     with:
- #       elasticsearch version: '7.6.1'
- #       host port: 9200
- #       container port: 9200
- #       host node port: 9300
- #       node port: 9300
- #       discovery type: 'single-node'
- #   - name: Download Timbermill Server
- #     uses: actions/download-artifact@v2
- #     with:
- #       name: server
- #   - name: Run Timbermill Server
- #     run: java -jar timbermill-server.jar &
+    - name: Run Elasticsearch
+      uses: getong/elasticsearch-action@v1.2
+      with:
+        elasticsearch version: '7.6.1'
+        host port: 9200
+        container port: 9200
+        host node port: 9300
+        node port: 9300
+        discovery type: 'single-node'
+    - name: Download Timbermill Server
+      uses: actions/download-artifact@v2
+      with:
+        name: server
+    - name: Run Timbermill Server
+      run: java -jar timbermill-server.jar &
  #   - name: Run Tests
-  #    run: mvn -B test --file timbermill-java/pom.xml
+ #     run: mvn -B test --file timbermill-java/pom.xml
 
   deploy_client_snapshot:
     name: Deploy Client Jar To Snapshot Repo
