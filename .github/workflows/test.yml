@@ -14,10 +14,13 @@ jobs:
     name: Build Timbermill For Testing
     runs-on: ubuntu-latest
     steps:
-    - uses: github-actions-up-and-running/pr-comment@v1.0.0
+    - name: comment PR
+      uses: unsplash/comment-on-pr@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        message: Nice PR!👍
+        msg: "Check out this message!"
+        check_for_duplicate_msg: false  # OPTIONAL 
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
