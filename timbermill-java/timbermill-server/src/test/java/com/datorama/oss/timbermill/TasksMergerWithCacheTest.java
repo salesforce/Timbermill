@@ -241,6 +241,8 @@ public class TasksMergerWithCacheTest extends TimberLogTest {
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		TimberLoggerAdvanced.logParams(id, infoLogParams);
 
+		Thread.sleep(3000);
+
 		TimberLogTest.waitForTask(id, TaskStatus.SUCCESS);
 		Task task = TimberLogTest.client.getTaskById(id);
 
@@ -280,6 +282,7 @@ public class TasksMergerWithCacheTest extends TimberLogTest {
 		LogParams infoLogParams = LogParams.create().context(CTX_3, CTX_3).metric(METRIC_3,3).text(TEXT_3, TEXT_3).string(STRING_3, STRING_3);
 		TimberLoggerAdvanced.logParams(id, infoLogParams);
 
+		Thread.sleep(3000);
 		TimberLogTest.waitForTask(id, TaskStatus.ERROR);
 		Task task = TimberLogTest.client.getTaskById(id);
 
