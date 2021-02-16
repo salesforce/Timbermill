@@ -106,7 +106,7 @@ jobs:
       env:
         GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
     - name: Change Client Version
-      run: mvn versions:set --file timbermill-java/timbermill-client/pom.xml -DgenerateBackupPoms=false -DnewVersion=${GITHUB_REF##*/}-SNAPSHOT
+      run: mvn versions:set --file timbermill-java/timbermill-client/pom.xml -DgenerateBackupPoms=false -DnewVersion=${{ github.head_ref }}-SNAPSHOT
     - name: Deploy Snapshots
       run: mvn -B clean deploy -DskipTests --file timbermill-java/timbermill-client/pom.xml
       env:
