@@ -19,8 +19,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        msg: "Check out this message!"
-        check_for_duplicate_msg: false  # OPTIONAL 
+        msg: ${GITHUB_REF##*/}-SNAPSHOT
+        check_for_duplicate_msg: true
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
