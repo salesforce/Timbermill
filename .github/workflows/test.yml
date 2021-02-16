@@ -14,13 +14,6 @@ jobs:
     name: Build Timbermill For Testing
     runs-on: ubuntu-latest
     steps:
-    - name: comment PR
-      uses: unsplash/comment-on-pr@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        msg: Timbermill Client snapshot version is **${{ github.head_ref }}**
-        check_for_duplicate_msg: true
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
@@ -119,3 +112,10 @@ jobs:
       env:
         MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+    - name: Comment Snapshot Version In PR
+      uses: unsplash/comment-on-pr@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        msg: Deployed Timbermill Client snapshot version **${{ github.head_ref }}-SNAPSHOT**
+        check_for_duplicate_msg: true
