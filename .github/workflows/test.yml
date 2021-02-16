@@ -22,7 +22,7 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
     - uses: actions/checkout@v2
     - run: newVersion=${GITHUB_REF##*/}-SNAPSHOT
-    - run: echo running on branch $newVersion
+    - run: echo running on branch ${newVersion}
     - name: Set up JDK 1.8
       uses: actions/setup-java@v1
       with:
