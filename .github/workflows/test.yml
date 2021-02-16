@@ -14,10 +14,10 @@ jobs:
     name: Build Timbermill For Testing
     runs-on: ubuntu-latest
     steps:
-    - name: comment-pr
-      uses: JoseThen/comment-pr@v1
+    - uses: github-actions-up-and-running/pr-comment@v1.0.0
       with:
-        comment:  ${GITHUB_REF##*/}-SNAPSHOT
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        message: Nice PR!👍
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
