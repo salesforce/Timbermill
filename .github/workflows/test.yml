@@ -19,7 +19,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        msg: ${{ github.head_ref }}
+        msg: Timbermill Client snapshot version is **${{ github.head_ref }}**
         check_for_duplicate_msg: true
     - name: Cache Maven packages
       uses: actions/cache@v2
