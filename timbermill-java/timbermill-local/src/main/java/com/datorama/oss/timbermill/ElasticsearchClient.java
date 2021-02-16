@@ -31,13 +31,10 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
-import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -412,12 +409,19 @@ public class ElasticsearchClient {
 	}
 
 	String rolloverIndex(String timbermillAlias) {
-		try {
-			RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
-			rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
-			rolloverRequest.addMaxIndexSizeCondition(new ByteSizeValue(maxIndexSizeInGB, ByteSizeUnit.GB));
-			rolloverRequest.addMaxIndexDocsCondition(maxIndexDocs);
-			RolloverResponse rolloverResponse = runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), "Rollover alias " + timbermillAlias);
+        RolloverRequest rolloverRequest = getRolloverRequest(timbermillAlias, maxIndexAge, maxIndexSizeInGB, maxIndexDocs);
+        return handleRolloverRequest(timbermillAlias, rolloverRequest);
+    }
+
+	void rolloverIndexForTest(String env){
+		String index = createTimbermillAlias(env);
+		RolloverRequest rolloverRequest = getRolloverRequest(index, 1000, 100, 1);
+		handleRolloverRequest(index, rolloverRequest);
+	}
+
+    private String handleRolloverRequest(String timbermillAlias, RolloverRequest rolloverRequest) {
+        try {
+            RolloverResponse rolloverResponse = runWithRetries(() -> client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT), "Rollover alias " + timbermillAlias);
 			if (rolloverResponse.isRolledOver()){
 				LOG.info("Alias {} rolled over, new index is [{}]", timbermillAlias, rolloverResponse.getNewIndex());
 				updateOldAlias(rolloverResponse, timbermillAlias);
@@ -429,23 +433,16 @@ public class ElasticsearchClient {
 		} catch (Exception e) {
 			LOG.error("Could not rollovered alias " + timbermillAlias, e);
 		}
-		return timbermillAlias;
-	}
+        return timbermillAlias;
+    }
 
-	void rolloverIndexForTest(String env){
-		try {
-			String index = createTimbermillAlias(env);
-			RolloverRequest rolloverRequest = new RolloverRequest(index, null);
-			rolloverRequest.addMaxIndexDocsCondition(1);
-			RolloverResponse rolloverResponse = client.indices().rollover(rolloverRequest, RequestOptions.DEFAULT);
-			if (rolloverResponse.isRolledOver()){
-				updateOldAlias(rolloverResponse, index);
-			}
-		} catch (IOException e){
-			throw new RuntimeException(e);
-		}
-
-	}
+    private RolloverRequest getRolloverRequest(String timbermillAlias, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs) {
+        RolloverRequest rolloverRequest = new RolloverRequest(timbermillAlias, null);
+        rolloverRequest.addMaxIndexAgeCondition(new TimeValue(maxIndexAge, TimeUnit.DAYS));
+        rolloverRequest.addMaxIndexSizeCondition(new ByteSizeValue(maxIndexSizeInGB, ByteSizeUnit.GB));
+        rolloverRequest.addMaxIndexDocsCondition(maxIndexDocs);
+        return rolloverRequest;
+    }
 
 	private void updateOldAlias(RolloverResponse rolloverResponse, String timbermillAlias) throws RetriesExhaustedException {
 		String oldAlias = getOldAlias(timbermillAlias);
