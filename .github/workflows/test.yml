@@ -14,7 +14,10 @@ jobs:
     name: Build Timbermill For Testing
     runs-on: ubuntu-latest
     steps:
-    - run: echo ${GITHUB_REF##*/}-SNAPSHOT
+    - name: comment-pr
+      uses: JoseThen/comment-pr@v1
+      with:
+        comment:  ${GITHUB_REF##*/}-SNAPSHOT
     - name: Cache Maven packages
       uses: actions/cache@v2
       with:
