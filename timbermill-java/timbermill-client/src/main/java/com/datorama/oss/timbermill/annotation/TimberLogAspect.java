@@ -1,13 +1,12 @@
 package com.datorama.oss.timbermill.annotation;
 
+import com.datorama.oss.timbermill.TimberLogger;
 import com.datorama.oss.timbermill.unit.LogParams;
-import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 
-import com.datorama.oss.timbermill.TimberLogger;
 import org.aspectj.lang.reflect.CodeSignature;
 
 @Aspect

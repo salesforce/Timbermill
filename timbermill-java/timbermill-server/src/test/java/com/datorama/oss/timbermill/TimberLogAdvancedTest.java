@@ -3,11 +3,11 @@ package com.datorama.oss.timbermill;
 import java.time.ZonedDateTime;
 import java.util.concurrent.Callable;
 
+import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
-import com.datorama.oss.timbermill.annotation.TimberLogTask;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.StartEvent;
 import com.datorama.oss.timbermill.unit.Task;
@@ -62,12 +62,9 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
         String ongoingTaskName = EVENT + '1';
 
-        testOngoingTask1(taskId1Arr, taskId2Arr, ongoingTaskIdArr,ctx, ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, log1, log2, log3, ongoingTaskName);
+        testOngoingTask1(taskId1Arr, taskId2Arr, ongoingTaskIdArr,ctx, ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName);
 
 
         String taskId = taskId1Arr[0];
@@ -100,9 +97,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTask() {
@@ -118,16 +112,13 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
 
@@ -146,9 +137,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderWithParentTask() {
@@ -164,14 +152,11 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String ongoingTaskId = generateTaskId(ongoingTaskName);
-        String taskId = testOutOfOrderWithParentTask1(ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName, ongoingTaskId, log1, log2, log3);
+        String taskId = testOutOfOrderWithParentTask1(ctx1, ctx2, ctx3, metric1, metric2, metric3, text1, text2, text3, string1, string2, string3, ongoingTaskName, ongoingTaskId);
 
         TimberLogTest.waitForTask(ongoingTaskId, TaskStatus.SUCCESS);
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
@@ -194,16 +179,14 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     @TimberLogTask(name = EVENT)
-    private String testOutOfOrderWithParentTask1(String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName, String taskId, String log1, String log2, String log3) {
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
+    private String testOutOfOrderWithParentTask1(String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName, String taskId) {
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
         String currentTaskId = TimberLogger.getCurrentTaskId();
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, currentTaskId, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, currentTaskId, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
         return currentTaskId;
     }
 
@@ -220,17 +203,14 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
         String exception = "exception";
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.error(taskId, new Exception(exception), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.error(taskId, new Exception(exception), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
 
@@ -251,8 +231,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
         assertNotNull(ongoingTask.getText().get(exception));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTaskStartSuccessLog() {
@@ -268,16 +246,13 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log1));
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
         waitForValueInContext(ctx2, taskId);
@@ -297,8 +272,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTaskLogStartSuccess() {
@@ -314,16 +287,13 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
 
@@ -342,8 +312,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTaskSuccessLogStart() {
@@ -359,16 +327,13 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log3));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
 
@@ -387,8 +352,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTaskSuccessStartLog() {
@@ -404,16 +367,13 @@ public class TimberLogAdvancedTest {
         String string1 = "string1";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log3));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
         waitForValueInContext(ctx2, taskId);
@@ -433,8 +393,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     public void testOutOfOrderTaskSuccessLogNoStart() {
@@ -446,14 +404,12 @@ public class TimberLogAdvancedTest {
         String text3 = "text3";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS);
         waitForValueInContext(ctx2, taskId);
@@ -469,8 +425,6 @@ public class TimberLogAdvancedTest {
         assertEquals(text3, ongoingTask.getText().get(text3));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
     }
 
     public void testOutOfOrderTaskErrorLogNoStart() {
@@ -482,14 +436,12 @@ public class TimberLogAdvancedTest {
         String text3 = "text3";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.error(taskId, new Exception("exception"), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log1));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
+        TimberLoggerAdvanced.error(taskId, new Exception("exception"), LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_ERROR);
         waitForValueInContext(ctx2, taskId);
@@ -506,8 +458,6 @@ public class TimberLogAdvancedTest {
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
         assertNotNull(ongoingTask.getText().get("exception"));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
     }
 
     public void testOutOfOrderTaskLogSuccessNoStart() {
@@ -519,14 +469,12 @@ public class TimberLogAdvancedTest {
         String text3 = "text3";
         String string2 = "string2";
         String string3 = "string3";
-        String log1 = "log1";
-        String log2 = "log2";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log2));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
 
 
         TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS);
@@ -544,8 +492,6 @@ public class TimberLogAdvancedTest {
         assertEquals(text3, ongoingTask.getText().get(text3));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
     }
 
     public void testOutOfOrderTaskStartLogNoSuccess() {
@@ -557,14 +503,12 @@ public class TimberLogAdvancedTest {
         String text2 = "text2";
         String string1 = "string1";
         String string2 = "string2";
-        String log1 = "log1";
-        String log2 = "log2";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log1));
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED);
         waitForValueInContext(ctx2, taskId);
@@ -580,8 +524,6 @@ public class TimberLogAdvancedTest {
         assertEquals(text2, ongoingTask.getText().get(text2));
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
     }
 
     public void testOutOfOrderTaskLogStartNoSuccess() {
@@ -593,14 +535,12 @@ public class TimberLogAdvancedTest {
         String text2 = "text2";
         String string1 = "string1";
         String string2 = "string2";
-        String log1 = "log1";
-        String log2 = "log2";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1));
-        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1).logInfo(log2));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+        TimberLoggerAdvanced.start(taskId, ongoingTaskName, null, LogParams.create().context(ctx1, ctx1).metric(metric1, 1).text(text1, text1).string(string1, string1));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.UNTERMINATED);
         waitForValueInContext(ctx1, taskId);
@@ -616,8 +556,6 @@ public class TimberLogAdvancedTest {
         assertEquals(text2, ongoingTask.getText().get(text2));
         assertEquals(string1, ongoingTask.getString().get(string1));
         assertEquals(string2, ongoingTask.getString().get(string2));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(2, split.length);
     }
 
     public void testOnlyLog() {
@@ -625,14 +563,11 @@ public class TimberLogAdvancedTest {
         String metric2 = "metric2";
         String text2 = "text2";
         String string2 = "string2";
-        String log1 = "log1";
-        String log2 = "log2";
-        String log3 = "log3";
 
         String ongoingTaskName = EVENT + '1';
 
         String taskId = generateTaskId(ongoingTaskName);
-        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log1).logInfo(log2).logInfo(log3));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
 
         TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_INFO_ONLY);
 
@@ -643,22 +578,20 @@ public class TimberLogAdvancedTest {
         assertEquals(2, ongoingTask.getMetric().get(metric2).intValue());
         assertEquals(text2, ongoingTask.getText().get(text2));
         assertEquals(string2, ongoingTask.getString().get(string2));
-        String[] split = ongoingTask.getLog().split("\n");
-        assertEquals(3, split.length);
     }
 
     @TimberLogTask(name = EVENT)
-    private void testOngoingTask1(String[] taskId1Arr, String[] taskId2Arr, String[] ongoingTaskIdArr, String ctx, String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String log1, String log2, String log3, String ongoingTaskName) {
+    private void testOngoingTask1(String[] taskId1Arr, String[] taskId2Arr, String[] ongoingTaskIdArr, String ctx, String ctx1, String ctx2, String ctx3, String metric1, String metric2, String metric3, String text1, String text2, String text3, String string1, String string2, String string3, String ongoingTaskName) {
         TimberLogger.logParams(LogParams.create().context(ctx, ctx));
         taskId1Arr[0] = TimberLogger.getCurrentTaskId();
 
-        ongoingTaskIdArr[0] = TimberLoggerAdvanced.start(ongoingTaskName, taskId1Arr[0], LogParams.create().context(ctx1, ctx1).text(text1, text1).metric(metric1, 1).string(string1, string1).logInfo(log1));
+        ongoingTaskIdArr[0] = TimberLoggerAdvanced.start(ongoingTaskName, taskId1Arr[0], LogParams.create().context(ctx1, ctx1).text(text1, text1).metric(metric1, 1).string(string1, string1));
 
         taskId2Arr[0] = testOngoingTask2();
 
         new Thread(() -> {
-            TimberLoggerAdvanced.logParams(ongoingTaskIdArr[0], LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2).logInfo(log2));
-            TimberLoggerAdvanced.success(ongoingTaskIdArr[0], LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3).logInfo(log3));
+            TimberLoggerAdvanced.logParams(ongoingTaskIdArr[0], LogParams.create().context(ctx2, ctx2).metric(metric2, 2).text(text2, text2).string(string2, string2));
+            TimberLoggerAdvanced.success(ongoingTaskIdArr[0], LogParams.create().context(ctx3, ctx3).metric(metric3, 3).text(text3, text3).string(string3, string3));
         }).run();
     }
 

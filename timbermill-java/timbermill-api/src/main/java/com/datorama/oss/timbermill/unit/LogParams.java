@@ -1,11 +1,6 @@
 package com.datorama.oss.timbermill.unit;
 
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class LogParams {
@@ -15,33 +10,11 @@ public class LogParams {
 	private Map<String, Number> metrics = new HashMap<>();
 	private Map<String, String> context = new HashMap<>();
 
-	private List<String> logs = new ArrayList<>();
-
 	public static LogParams create() {
 		return new LogParams();
 	}
 
 	public LogParams() {
-	}
-
-	public LogParams logInfo(String s) {
-		addToLogs(s, "INFO");
-		return this;
-	}
-
-	public LogParams logWarn(String s) {
-		addToLogs(s, "WARN");
-		return this;
-	}
-
-	public LogParams logError(String s) {
-		addToLogs(s, "Error");
-		return this;
-	}
-
-	private void addToLogs(String log, String severity) {
-		String date = ZonedDateTime.now().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
-		logs.add(String.format("[%s] [%s] - %s", date, severity, log));
 	}
 
 	public LogParams string(String key, Object value) {
@@ -124,7 +97,4 @@ public class LogParams {
         return context;
     }
 
-	public List<String> getLogs() {
-		return logs;
-	}
 }

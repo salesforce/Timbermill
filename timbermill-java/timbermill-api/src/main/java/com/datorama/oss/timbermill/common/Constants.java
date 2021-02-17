@@ -11,6 +11,6 @@ public final class Constants {
 	public static final String TEXT = "text";
 	public static final String STRING = "string";
 	public static final String CTX = "ctx";
-	public static final String SQLITE = "sqlite";
+    public static final String DEFAULT = "default";
 }
 

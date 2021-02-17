@@ -2,8 +2,6 @@ package com.datorama.oss.timbermill.common.disk;
 
 import java.util.Map;
 
-import com.datorama.oss.timbermill.common.Constants;
-
 public class DiskHandlerUtil {
 
 	public static DiskHandler getDiskHandler(String diskHandlerStrategy,
@@ -20,7 +18,7 @@ public class DiskHandlerUtil {
 
 	private static DiskHandler getDiskHandlerByStrategy(String diskHandlerStrategy, Map<String, Object> params)  {
 		String strategy = diskHandlerStrategy.toLowerCase();
-		if (strategy.equals(Constants.SQLITE)){
+		if (strategy.equals("sqlite")){
 			return new SQLJetDiskHandler(
 					(int)params.get(SQLJetDiskHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
 					(int)params.get(SQLJetDiskHandler.MAX_INSERT_TRIES),

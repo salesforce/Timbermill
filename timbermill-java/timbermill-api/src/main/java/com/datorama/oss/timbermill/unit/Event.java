@@ -62,9 +62,6 @@ public abstract class Event implements Serializable {
 	private Map<String, Number> metrics;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	private List<String> logs;
-
-	@JsonInclude(JsonInclude.Include.NON_NULL)
 	private List<String> parentsPath;
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
@@ -93,7 +90,6 @@ public abstract class Event implements Serializable {
 		this.text = logParams.getTexts();
 		this.context = logParams.getContext();
 		this.metrics = logParams.getMetrics();
-		this.logs = logParams.getLogs();
 	}
 
     public String getTaskId() {
@@ -158,14 +154,6 @@ public abstract class Event implements Serializable {
 
 	public void setContext(Map<String, String> context) {
 		this.context = context;
-	}
-
-    public List<String> getLogs() {
-        return logs;
-    }
-
-	public void setLogs(List<String> logs) {
-		this.logs = logs;
 	}
 
 	public List<String> getParentsPath() {
@@ -261,13 +249,12 @@ public abstract class Event implements Serializable {
 		int textsSize = text == null ? 0 : getStringMapSize(text) + 10; // "text":{},
 		int contextSize = context == null ? 0 : getStringMapSize(context) + 13; // "context":{},
 		int metricsSize = metrics == null ? 0 : getNumberMapSize(metrics)+ 13; // "metrics":{},
-		int logsSize = logs == null ? 0 : stringListSize(logs) + 10; // "logs":[],
 		int parentsPathSize = parentsPath == null ? 0 : stringListSize(parentsPath) + 14; // "parentPath":[],
 		int orphanSize = orphan == null ? 0 : 16; // "orphan":"true",
 		int dateToDeleteSize = dateToDelete == null ? 0 : 42; // "orphan":"true",
 		return this.getClass().getSimpleName().length() + 13 + // {"@type":"StartEvent",}
 				34 + // "time":"2020-02-03T16:40:03.898Z",
-				primaryIdLength + taskIdLength + nameLength + parentIdLength + envLength + stringsSize + textsSize + contextSize + metricsSize + logsSize + parentsPathSize + orphanSize + dateToDeleteSize;
+				primaryIdLength + taskIdLength + nameLength + parentIdLength + envLength + stringsSize + textsSize + contextSize + metricsSize + parentsPathSize + orphanSize + dateToDeleteSize;
 	}
 
 	@JsonIgnore

@@ -29,7 +29,7 @@ public class TimberLoggerAdvanced {
         return start(null, name, parentTaskId, logParams);
     }
 
-    public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+    static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
         return startWithDateToDelete(taskId, name, parentTaskId, logParams,null);
     }
 
@@ -47,6 +47,10 @@ public class TimberLoggerAdvanced {
 
     public static String startWithDaysToKeep(String name, String parentTaskId, LogParams logParams, int daysToKeep) {
         return startWithDateToDelete(null, name, parentTaskId, logParams, TimberLogger.createDateToDelete(daysToKeep));
+    }
+
+    static String startWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+        return startWithDateToDelete(taskId, name, parentTaskId, logParams, TimberLogger.createDateToDelete(daysToKeep));
     }
 
     public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
@@ -71,33 +75,47 @@ public class TimberLoggerAdvanced {
 
     public static String logParams(@NotNull String ongoingTaskId, LogParams logParams) {
         if (StringUtils.isEmpty(ongoingTaskId)){
-            LOG.error("`ongoingTaskId` can't be empty, ignoring TimberLoggerAdvanced `logParams` method call");
+            LOG.error("`ongoingTaskId` can't be empty, ignoring TimberLoggerAdvanced method call. Stacktrace: {}", EventLogger.getStackTraceString());
         }
         return EventLogger.get().logParams(logParams, ongoingTaskId);
     }
 
-    public static void success(@NotNull String ongoingTaskId) {
-        success(ongoingTaskId, LogParams.create());
+    public static String logString(@NotNull String ongoingTaskId, String key, Object value) {
+        return logParams(ongoingTaskId, LogParams.create().string(key, value));
     }
 
-    public static void success(@NotNull String ongoingTaskId, LogParams logParams) {
+    public static String logContext(@NotNull String ongoingTaskId, String key, Object value) {
+        return logParams(ongoingTaskId, LogParams.create().context(key, value));
+    }
+
+    public static String logMetric(@NotNull String ongoingTaskId, String key, Number value) {
+        return logParams(ongoingTaskId, LogParams.create().metric(key, value));
+    }
+
+    public static String logText(@NotNull String ongoingTaskId, String key, String value) {
+        return logParams(ongoingTaskId, LogParams.create().text(key, value));
+    }
+
+    public static String success(@NotNull String ongoingTaskId) {
+        return success(ongoingTaskId, LogParams.create());
+    }
+
+    public static String success(@NotNull String ongoingTaskId, LogParams logParams) {
         if (StringUtils.isEmpty(ongoingTaskId)){
             LOG.error("`ongoingTaskId` can't be empty, ignoring TimberLoggerAdvanced `success` method call");
         }
-        EventLogger.get().successEvent(ongoingTaskId, logParams);
+        return EventLogger.get().successEvent(ongoingTaskId, logParams);
     }
 
-    public static void error(@NotNull String ongoingTaskId, Throwable t) {
-        error(ongoingTaskId, t, null);
+    public static String error(@NotNull String ongoingTaskId, Throwable t) {
+        return error(ongoingTaskId, t, null);
     }
 
-    public static void error(@NotNull String ongoingTaskId, Throwable t, LogParams logParams) {
+    public static String error(@NotNull String ongoingTaskId, Throwable t, LogParams logParams) {
         if (StringUtils.isEmpty(ongoingTaskId)){
             LOG.error("`ongoingTaskId` can't be empty, ignoring TimberLoggerAdvanced `error` method call");
         }
-        EventLogger.get().endWithError(t, ongoingTaskId, logParams);
+        return EventLogger.get().endWithError(t, ongoingTaskId, logParams);
     }
-
-
 
 }

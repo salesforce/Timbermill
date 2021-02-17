@@ -41,7 +41,6 @@ public class Task {
 	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
-	private String log;
 	protected Boolean orphan;
 
 	public Task() {
@@ -109,14 +108,6 @@ public class Task {
 			}
 			if (e.getMetrics() != null && !e.getMetrics().isEmpty()) {
 				metric.putAll(e.getMetrics());
-			}
-
-			if (e.getLogs() != null && !e.getLogs().isEmpty()) {
-				if (log != null) {
-					log += '\n' + StringUtils.join(e.getLogs(), '\n');
-				} else {
-					log = StringUtils.join(e.getLogs(), '\n');
-				}
 			}
 
 			String primaryId = e.getPrimaryId();
@@ -271,14 +262,6 @@ public class Task {
 		this.ctx = ctx;
 	}
 
-	public String getLog() {
-		return log;
-	}
-
-	public void setLog(String log) {
-		this.log = log;
-	}
-
 	public List<String> getParentsPath() {
 		return parentsPath;
 	}
@@ -346,7 +329,6 @@ public class Task {
 		params.put("string", string);
 		params.put("text", text);
 		params.put("metric", metric);
-		params.put("logi", log);
 		params.put("parentsPath", parentsPath);
 		params.put("status", status != null ? status.toString() : "");
 		if (orphan != null){
@@ -371,7 +353,6 @@ public class Task {
 				", string=" + string +
 				", text=" + text +
 				", metric=" + metric +
-				", log='" + log + '\'' +
 				", orphan=" + orphan +
 				'}';
 	}
