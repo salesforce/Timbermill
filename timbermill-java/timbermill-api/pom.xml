@@ -7,12 +7,39 @@
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-api</artifactId>
     <version>2.4.0</version>
+    <packaging>jar</packaging>
+    <name>timbermill-api</name>
+    <description>A better logging service</description>
+    <url>https://github.com/datorama/Timbermill</url>
+
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
         <slf4jVersion>1.7.28</slf4jVersion>
     </properties>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Eden Gal</name>
+            <email>egal@salesforce.com</email>
+            <organization>Salesforce</organization>
+            <organizationUrl>http://www.salesforce.com</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/datorama/Timbermill.git</connection>
+        <developerConnection>scm:git:ssh://github.com:datorama/Timbermill.git</developerConnection>
+        <url>https://github.com/datorama/Timbermill/tree/master</url>
+    </scm>
 
     <dependencies>
         <dependency>
