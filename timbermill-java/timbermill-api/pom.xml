@@ -6,7 +6,7 @@
 
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-api</artifactId>
-    <version>2.4.0</version>
+    <version>${timbermill.version}</version>
     <packaging>jar</packaging>
     <name>timbermill-api</name>
     <description>A better logging service</description>
@@ -16,6 +16,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
+        <timbermill.version>2.4.0</timbermill.version>
         <slf4jVersion>1.7.28</slf4jVersion>
     </properties>
 
