@@ -102,9 +102,9 @@ jobs:
       env:
         GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
     - name: Change Client Version
-      run: mvn versions:set --file timbermill-java/timbermill-client/pom.xml -DgenerateBackupPoms=false -DnewVersion=${{ github.head_ref }}-SNAPSHOT
+      run: mvn versions:set-property --file timbermill-java/pom.xml -Dproperty=timbermill.version -DgenerateBackupPoms=false -DnewVersion=${{ github.head_ref }}-SNAPSHOT
     - name: Deploy Snapshots
-      run: mvn -B clean deploy -DskipTests --file timbermill-java/timbermill-client/pom.xml
+      run: mvn -B clean deploy --file timbermill-java/pom.xml -DskipTests -pl timbermill-api,timbermill-client
       env:
         MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
