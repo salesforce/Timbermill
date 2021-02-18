@@ -40,7 +40,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
-                builder.expiredMaxIndicesToDeleteInParallel, builder.maxMergedSegment, builder.reclaimDeletesWeight);
+                builder.expiredMaxIndicesToDeleteInParallel);
 
         LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
         RedisCacheConfig redisCacheConfig = new RedisCacheConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
@@ -170,8 +170,6 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String elasticUser = null;
         private String awsRegion = null;
         private String elasticPassword = null;
-        private String maxMergedSegment = "1gb";
-        private String reclaimDeletesWeight = "12.0";
         private int numberOfShards = 10;
         private int numberOfReplicas = 1;
         private long maxIndexAge = 7;
@@ -204,16 +202,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder numberOfShards(int numberOfShards) {
             this.numberOfShards = numberOfShards;
-            return this;
-        }
-
-        public Builder maxMergedSegment(String maxMergedSegment) {
-            this.maxMergedSegment = maxMergedSegment;
-            return this;
-        }
-
-        public Builder reclaimDeletesWeight(String reclaimDeletesWeight) {
-            this.reclaimDeletesWeight = reclaimDeletesWeight;
             return this;
         }
 
