@@ -113,5 +113,5 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        msg: Deployed Timbermill Client snapshot version **${{ github.head_ref }}-SNAPSHOT**
+        msg: Deployed Timbermill Snapshot JARs version **${{ github.head_ref }}-SNAPSHOT**
         check_for_duplicate_msg: true
