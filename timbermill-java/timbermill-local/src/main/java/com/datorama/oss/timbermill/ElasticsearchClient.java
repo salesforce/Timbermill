@@ -49,7 +49,7 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
-import org.elasticsearch.cluster.metadata.AliasMetaData;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -446,7 +446,7 @@ public class ElasticsearchClient {
 
 	private void updateOldAlias(RolloverResponse rolloverResponse, String timbermillAlias) throws RetriesExhaustedException {
 		String oldAlias = getOldAlias(timbermillAlias);
-		Map<String, Set<AliasMetaData>> oldAliases = getAliases(oldAlias);
+		Map<String, Set<AliasMetadata>> oldAliases = getAliases(oldAlias);
 		if (!oldAliases.isEmpty()) {
 			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
 			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
@@ -556,11 +556,11 @@ public class ElasticsearchClient {
 	}
 
 	private boolean isAliasExists(String alias) throws RetriesExhaustedException {
-		Map<String, Set<AliasMetaData>> aliases = getAliases(alias);
+		Map<String, Set<AliasMetadata>> aliases = getAliases(alias);
 		return !aliases.isEmpty();
 	}
 
-	private Map<String, Set<AliasMetaData>> getAliases(String alias) {
+	private Map<String, Set<AliasMetadata>> getAliases(String alias) {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(alias);
 		GetAliasesResponse response = runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT),
 				"Is Timbermill alias exists");
