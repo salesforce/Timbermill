@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Service("timbermill2")
+@Service("timbermill")
 public class TimbermillBootstraperService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillBootstraperService.class);
