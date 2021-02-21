@@ -451,42 +451,39 @@ public class ElasticsearchClient {
 		String oldAlias = getOldAlias(timbermillAlias);
 		Map<String, Set<AliasMetadata>> oldAliases = getAliases(oldAlias);
 		if (!oldAliases.isEmpty()) {
-			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
-			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
-			removeRequest.addAliasAction(removeAllIndicesAction);
-			AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
-					"Removing old index from alias");
-			boolean acknowledged = acknowledgedResponse.isAcknowledged();
-			if (!acknowledged) {
-				LOG.error("Removing old index from alias [{}] failed", oldAlias);
-			}
-
-			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
-			if (oldIndexOptional.isPresent()){
-				String oldIndex = oldIndexOptional.get();
-				ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
-				client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
-					@Override
-					public void onResponse(ForceMergeResponse forceMergeResponse) {
-					}
-
-					@Override
-					public void onFailure(Exception e) {
-					}
-				});
-
-				LOG.info("Force merge index {} to 1 segment", oldIndex);
-			}
-
+			updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.REMOVE, "*", "Removing old index from alias", "Removing old index from alias [{}] failed");
+			forceMergeRetiredIndex(oldAliases);
 		}
-		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
-		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
-		addRequest.addAliasAction(addNewOldIndexAction);
-		AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
-				"Adding old index to alias");
+		updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.ADD, rolloverResponse.getOldIndex(), "Adding old index to alias", "Adding old index to alias [{}] failed");
+	}
+
+	private void forceMergeRetiredIndex(Map<String, Set<AliasMetadata>> oldAliases) {
+		Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
+		if (oldIndexOptional.isPresent()){
+			String oldIndex = oldIndexOptional.get();
+			ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
+			client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
+				@Override
+				public void onResponse(ForceMergeResponse forceMergeResponse) {
+				}
+
+				@Override
+				public void onFailure(Exception e) {
+				}
+			});
+
+			LOG.info("Force merge index {} to 1 segment", oldIndex);
+		}
+	}
+
+	private void updateTimbermillAlias(String oldAlias, IndicesAliasesRequest.AliasActions.Type actionType, String indexToUpdate, String functionDescription, String errorLog) {
+		IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
+		IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(actionType).index(indexToUpdate).alias(oldAlias);
+		removeRequest.addAliasAction(removeAllIndicesAction);
+		AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT), functionDescription);
 		boolean acknowledged = acknowledgedResponse.isAcknowledged();
 		if (!acknowledged) {
-			LOG.error("Adding old index to alias [{}] failed", oldAlias);
+			LOG.error(errorLog, oldAlias);
 		}
 	}
 
