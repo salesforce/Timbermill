@@ -20,7 +20,7 @@ public class TimbermillBootstraperService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillBootstraperService.class);
 
-	@Value("${timbermill.log.enabled:false}")
+	@ConditionalOnProperty(name = "timbermill.log.enabled", matchIfMissing = false, havingValue = "true")
 	private boolean timberLogEnabled;
 
 	@Value("${env:undefined}")
