@@ -310,7 +310,7 @@ public class ElasticsearchUtil {
 	public static final String INDEX_DELIMITER = "-";
 	private static final String OLD_SUFFIX = "old";
 
-	private static final Set<String> envsSet = Sets.newHashSet();
+	private static final Set<String> envsSet = Sets.newConcurrentHashSet();
 
 	public static Set<String> getEnvSet() {
 		return envsSet;
@@ -333,6 +333,7 @@ public class ElasticsearchUtil {
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));
 				for (Map.Entry<String, List<Event>> eventsPerEnv : eventsPerEnvMap.entrySet()) {
 					String env = eventsPerEnv.getKey().toLowerCase();
+
 					envsSet.add(env);
 
 					Collection<Event> currentEvents = eventsPerEnv.getValue();
