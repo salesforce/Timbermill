@@ -41,6 +41,7 @@ public class Task {
 	private Map<String, String> string = new HashMap<>();
 	private Map<String, String> text = new HashMap<>();
 	private Map<String, Number> metric = new HashMap<>();
+	private String log;
 	protected Boolean orphan;
 
 	public Task() {
@@ -260,6 +261,14 @@ public class Task {
 
 	public void setCtx(Map<String, String> ctx) {
 		this.ctx = ctx;
+	}
+
+	public String getLog() {
+		return log;
+	}
+
+	public void setLog(String log) {
+		this.log = log;
 	}
 
 	public List<String> getParentsPath() {
