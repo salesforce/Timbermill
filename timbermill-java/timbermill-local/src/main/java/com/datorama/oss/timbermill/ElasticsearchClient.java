@@ -31,10 +31,13 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -49,7 +52,7 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
-import org.elasticsearch.cluster.metadata.AliasMetaData;
+import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
@@ -118,7 +121,7 @@ public class ElasticsearchClient {
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
 							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
-							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel, String maxMergedSegment, String reclaimDeletesWeight) {
+							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
 
 		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
 			diskHandler = null;
@@ -172,7 +175,7 @@ public class ElasticsearchClient {
 				.withDelayBetweenTries(1, ChronoUnit.SECONDS)
 				.withExponentialBackoff()
 				.build();
-		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields, maxMergedSegment, reclaimDeletesWeight);
+		bootstrapElasticsearch(numberOfShards, numberOfReplicas, maxTotalFields);
     }
 
     private void validateProperties(int indexBulkSize, int indexingThreads, long maxIndexAge, long maxIndexSizeInGB, long maxIndexDocs, int numOfMergedTasksTries, int numOfElasticSearchActionsTries,
@@ -446,44 +449,41 @@ public class ElasticsearchClient {
 
 	private void updateOldAlias(RolloverResponse rolloverResponse, String timbermillAlias) throws RetriesExhaustedException {
 		String oldAlias = getOldAlias(timbermillAlias);
-		Map<String, Set<AliasMetaData>> oldAliases = getAliases(oldAlias);
+		Map<String, Set<AliasMetadata>> oldAliases = getAliases(oldAlias);
 		if (!oldAliases.isEmpty()) {
-			IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
-			IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.REMOVE).index("*").alias(oldAlias);
-			removeRequest.addAliasAction(removeAllIndicesAction);
-			AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT),
-					"Removing old index from alias");
-			boolean acknowledged = acknowledgedResponse.isAcknowledged();
-			if (!acknowledged) {
-				LOG.error("Removing old index from alias [{}] failed", oldAlias);
-			}
-
-//			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
-//			if (oldIndexOptional.isPresent()){
-//				String oldIndex = oldIndexOptional.get();
-//				ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
-//				client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
-//					@Override
-//					public void onResponse(ForceMergeResponse forceMergeResponse) {
-//					}
-//
-//					@Override
-//					public void onFailure(Exception e) {
-//					}
-//				});
-//
-//				LOG.info("Force merge index {} to 1 segment", oldIndex);
-//			}
-
+			updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.REMOVE, "*", "Removing old index from alias", "Removing old index from alias [{}] failed");
+			forceMergeRetiredIndex(oldAliases);
 		}
-		IndicesAliasesRequest addRequest = new IndicesAliasesRequest();
-		IndicesAliasesRequest.AliasActions addNewOldIndexAction = new IndicesAliasesRequest.AliasActions(IndicesAliasesRequest.AliasActions.Type.ADD).index(rolloverResponse.getOldIndex()).alias(oldAlias);
-		addRequest.addAliasAction(addNewOldIndexAction);
-		AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(addRequest, RequestOptions.DEFAULT),
-				"Adding old index to alias");
+		updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.ADD, rolloverResponse.getOldIndex(), "Adding old index to alias", "Adding old index to alias [{}] failed");
+	}
+
+	private void forceMergeRetiredIndex(Map<String, Set<AliasMetadata>> oldAliases) {
+		Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
+		if (oldIndexOptional.isPresent()){
+			String oldIndex = oldIndexOptional.get();
+			ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
+			client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
+				@Override
+				public void onResponse(ForceMergeResponse forceMergeResponse) {
+				}
+
+				@Override
+				public void onFailure(Exception e) {
+				}
+			});
+
+			LOG.info("Force merge index {} to 1 segment", oldIndex);
+		}
+	}
+
+	private void updateTimbermillAlias(String oldAlias, IndicesAliasesRequest.AliasActions.Type actionType, String indexToUpdate, String functionDescription, String errorLog) {
+		IndicesAliasesRequest removeRequest = new IndicesAliasesRequest();
+		IndicesAliasesRequest.AliasActions removeAllIndicesAction = new IndicesAliasesRequest.AliasActions(actionType).index(indexToUpdate).alias(oldAlias);
+		removeRequest.addAliasAction(removeAllIndicesAction);
+		AcknowledgedResponse acknowledgedResponse = runWithRetries(() -> client.indices().updateAliases(removeRequest, RequestOptions.DEFAULT), functionDescription);
 		boolean acknowledged = acknowledgedResponse.isAcknowledged();
 		if (!acknowledged) {
-			LOG.error("Adding old index to alias [{}] failed", oldAlias);
+			LOG.error(errorLog, oldAlias);
 		}
 	}
 
@@ -556,11 +556,11 @@ public class ElasticsearchClient {
 	}
 
 	private boolean isAliasExists(String alias) throws RetriesExhaustedException {
-		Map<String, Set<AliasMetaData>> aliases = getAliases(alias);
+		Map<String, Set<AliasMetadata>> aliases = getAliases(alias);
 		return !aliases.isEmpty();
 	}
 
-	private Map<String, Set<AliasMetaData>> getAliases(String alias) {
+	private Map<String, Set<AliasMetadata>> getAliases(String alias) {
 		GetAliasesRequest requestWithAlias = new GetAliasesRequest(alias);
 		GetAliasesResponse response = runWithRetries(() -> client.indices().getAlias(requestWithAlias, RequestOptions.DEFAULT),
 				"Is Timbermill alias exists");
@@ -649,8 +649,8 @@ public class ElasticsearchClient {
         return requests;
     }
 
-    private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields, String maxMergedSegment, String reclaimDeletesWeight) {
-		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields, maxMergedSegment, reclaimDeletesWeight);
+    private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
+		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 		puStoredScript();
 	}
 
@@ -667,13 +667,11 @@ public class ElasticsearchClient {
 		runWithRetries(() -> client.putScript(request, RequestOptions.DEFAULT), "Put Timbermill stored script");
 	}
 
-	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields, String maxMergedSegment, String reclaimDeletesWeight) {
+	private void putIndexTemplate(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
         PutIndexTemplateRequest request = new PutIndexTemplateRequest("timbermill2-template");
 
         request.patterns(Lists.newArrayList(TIMBERMILL_INDEX_WILDCARD));
         request.settings(Settings.builder()
-				.put("index.merge.policy.max_merged_segment", maxMergedSegment)
-				.put("index.merge.policy.reclaim_deletes_weight", reclaimDeletesWeight)
 				.put("index.mapping.total_fields.limit", maxTotalFields)
 				.put("number_of_shards", numberOfShards)
 				.put("number_of_replicas", numberOfReplicas));

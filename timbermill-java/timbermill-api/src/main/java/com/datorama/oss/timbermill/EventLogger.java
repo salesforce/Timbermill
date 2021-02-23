@@ -309,7 +309,7 @@ final class EventLogger {
 		return createSpotEvent(null, Constants.LOG_WITHOUT_CONTEXT, logParams, TaskStatus.CORRUPTED, null, null);
 	}
 
-	private static String getStackTraceString() {
+	static String getStackTraceString() {
 		StringBuilder sb = new StringBuilder();
 		StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
 		stackTrace = Arrays.copyOfRange(stackTrace, 5, 10);

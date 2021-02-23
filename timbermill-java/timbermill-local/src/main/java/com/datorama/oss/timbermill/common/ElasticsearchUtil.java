@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common;
 
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.TimberLogger;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -194,13 +193,6 @@ public class ElasticsearchUtil {
 					+ "                ctx._source.metric.putAll(params.metric);"
 					+ "            }"
 					+ "        }"
-					+ "        if (params.logi != null) {"
-					+ "            if (ctx._source.log == null) {"
-					+ "                ctx._source.log = params.logi;"
-					+ "            } else {"
-					+ "                ctx._source.log += '\\n' + params.logi;"
-					+ "            }"
-					+ "        }"
 					+ "        if (params.name != null) {"
 					+ "            ctx._source.name = params.name;"
 					+ "        }"
@@ -326,7 +318,7 @@ public class ElasticsearchUtil {
 
 				events.forEach(e -> {
 					if (e.getEnv() == null){
-						e.setEnv(TimberLogger.DEFAULT);
+						e.setEnv(Constants.DEFAULT);
 					}
 				});
 

@@ -127,10 +127,8 @@ public abstract class TimberLogTest {
 		String text1 = "text1";
 		String text2 = "text2";
 
-		String log1 = "log1";
-		String log2 = "log2";
 		String hugeField = "hugeField";
-		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, log1, log2, hugeField);
+		String taskId = testSimpleTaskIndexerJobTimberLog(str1, str2, metric1, metric2, text1, text2, hugeField);
 
 		waitForTask(taskId, TaskStatus.SUCCESS, client);
 		Task task = client.getTaskById(taskId);
@@ -143,7 +141,6 @@ public abstract class TimberLogTest {
 		Map<String, String> ctx = task.getCtx();
 		Map<String, Number> metrics = task.getMetric();
 		Map<String, String> texts = task.getText();
-		String log = task.getLog();
 
 		assertEquals(str1, strings.get(str1));
 		assertEquals(str2, strings.get(str2));
@@ -154,9 +151,6 @@ public abstract class TimberLogTest {
 		assertEquals(MAX_CHARS_ALLOWED_FOR_ANALYZED_FIELDS, texts.get(hugeField).length());
 		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, strings.get(hugeField).length());
 		assertEquals(MAX_CHARS_ALLOWED_FOR_NON_ANALYZED_FIELDS, ctx.get(hugeField).length());
-
-		String[] split = log.split("\n");
-		assertEquals(2, split.length);
 	}
 
 	protected void testSimpleTaskWithParams(){
@@ -181,11 +175,10 @@ public abstract class TimberLogTest {
 	}
 
 	@TimberLogTask(name = EVENT)
-	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String log1, String log2, String hugeField) throws InterruptedException {
+	private String testSimpleTaskIndexerJobTimberLog(String str1, String str2, String metric1, String metric2, String text1, String text2, String hugeField) throws InterruptedException {
 		TimberLogger.logString(str1, str1);
 		TimberLogger.logMetric(metric1, Double.NaN);
 		TimberLogger.logText(text1, text1);
-		TimberLogger.logInfo(log1);
 		StringBuilder stringBuilder = new StringBuilder();
 		for (int i = 0; i < 3270660; i++) {
 			stringBuilder.append("a");
@@ -195,7 +188,7 @@ public abstract class TimberLogTest {
 		TimberLogger.logString(hugeField, hugeString);
 		TimberLogger.logContext(hugeField, hugeString);
 		TimberLogger.logContext(null, "null");
-		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2).logInfo(log2));
+		TimberLogger.logParams(LogParams.create().string(str2, str2).metric(metric2, 2).text(text2, text2));
 		Thread.sleep(1000);
 		return TimberLogger.getCurrentTaskId();
 	}

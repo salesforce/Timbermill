@@ -11,6 +11,7 @@
     <version>2.0.0</version>
 
     <modules>
+        <module>timbermill-api</module>
         <module>timbermill-client</module>
         <module>timbermill-server</module>
         <module>timbermill-local</module>

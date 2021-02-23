@@ -18,13 +18,12 @@ import com.datorama.oss.timbermill.unit.TaskStatus;
 public final class TimberLogger {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimberLogger.class);
-	public static final String DEFAULT = "default";
 
 	private TimberLogger() {
 	}
 
 	public static void bootstrap(EventOutputPipe pipe) {
-		bootstrap(pipe, new HashMap<>(), DEFAULT);
+		bootstrap(pipe, new HashMap<>(), Constants.DEFAULT);
 	}
 
 	public static void bootstrap(EventOutputPipe pipe, String env) {
@@ -33,7 +32,7 @@ public final class TimberLogger {
 
 	public static void bootstrap(EventOutputPipe pipe, Map<String, String> staticParams, String env) {
 		if (env == null){
-			env = DEFAULT;
+			env = Constants.DEFAULT;
 		}
 		EventLogger.bootstrap(pipe, true, staticParams, env);
 	}
@@ -65,48 +64,48 @@ public final class TimberLogger {
 		return start(null, name, parentTaskId, logParams);
 	}
 
-	public static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
+	static String start(String taskId, String name, String parentTaskId, LogParams logParams) {
 		return startWithDateToDelete(taskId, name, parentTaskId, logParams, null);
 	}
 
 	public static String startWithDaysToKeep(String name, int daysToKeep) {
-		return startWithDaysToKeep(name, null, daysToKeep);
+		return startWithDaysToKeep(name, LogParams.create(), daysToKeep);
 	}
 
 	public static String startWithDaysToKeep(String name, LogParams logParams, int daysToKeep) {
 		return startWithDaysToKeep(name, null, logParams, daysToKeep);
 	}
 
+	public static String startWithDaysToKeep(String name, String parentTaskId, int daysToKeep) {
+		return startWithDaysToKeep(name, parentTaskId, null, daysToKeep);
+	}
+
 	public static String startWithDaysToKeep(String name, String parentTaskId, LogParams logParams, int daysToKeep) {
 		return startWithDaysToKeep(null, name, parentTaskId, logParams, daysToKeep);
 	}
 
-	public static String startWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+	static String startWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
 		return startWithDateToDelete(taskId, name, parentTaskId, logParams, createDateToDelete(daysToKeep));
 	}
 
 	public static String startWithDateToDelete(String name, ZonedDateTime dateToDelete) {
-		return startWithDateToDelete(name, null, dateToDelete);
+		return startWithDateToDelete(name, LogParams.create(), dateToDelete);
 	}
 
 	public static String startWithDateToDelete(String name, LogParams logParams, ZonedDateTime dateToDelete) {
 		return startWithDateToDelete(name, null, logParams, dateToDelete);
 	}
 
+	public static String startWithDateToDelete(String name, String parentTaskId, ZonedDateTime dateToDelete) {
+		return startWithDateToDelete(name, parentTaskId, null, dateToDelete);
+	}
+
 	public static String startWithDateToDelete(String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
 		return startWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
 	}
 
-	public static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+	static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
 		return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, false, dateToDelete);
-	}
-
-	public static String success() {
-		return EventLogger.get().successEvent(null, LogParams.create());
-	}
-
-	public static String error(Throwable t) {
-		return EventLogger.get().endWithError(t, null, null);
 	}
 
 	public static String logParams(LogParams logParams) {
@@ -129,16 +128,28 @@ public final class TimberLogger {
 		return EventLogger.get().logParams(LogParams.create().text(key, value));
 	}
 
-    public static String logInfo(String log) {
-        return EventLogger.get().logParams(LogParams.create().logInfo(log));
-    }
-
-	public static String logWarn(String log) {
-		return EventLogger.get().logParams(LogParams.create().logWarn(log));
+	public static String success() {
+		return success(LogParams.create());
 	}
 
-	public static String logError(String log) {
-		return EventLogger.get().logParams(LogParams.create().logError(log));
+	public static String success(LogParams logParams) {
+		return EventLogger.get().successEvent(null, logParams);
+	}
+
+	public static String error() {
+		return error(LogParams.create());
+	}
+
+	public static String error(LogParams logParams) {
+		return error(null, logParams);
+	}
+
+	public static String error(Throwable t) {
+		return error(t, LogParams.create());
+	}
+
+	public static String error(Throwable t, LogParams logParams) {
+		return EventLogger.get().endWithError(t, null, logParams);
 	}
 
 	public static String spot(String name) {
@@ -153,7 +164,7 @@ public final class TimberLogger {
 		return spot(null, name, parentTaskId, logParams);
 	}
 
-	public static String spot(String taskId, String name, String parentTaskId, LogParams logParams) {
+	static String spot(String taskId, String name, String parentTaskId, LogParams logParams) {
 		return spotWithDateToDelete(taskId, name, parentTaskId, logParams, null);
 	}
 
@@ -169,7 +180,7 @@ public final class TimberLogger {
 		return spotWithDaysToKeep(null, name, parentTaskId, logParams, daysToKeep);
 	}
 
-	public static String spotWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
+	static String spotWithDaysToKeep(String taskId, String name, String parentTaskId, LogParams logParams, int daysToKeep) {
 		return spotWithDateToDelete(taskId, name, parentTaskId, logParams, createDateToDelete(daysToKeep));
 	}
 
@@ -185,7 +196,7 @@ public final class TimberLogger {
 		return spotWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
 	}
 
-	public static String spotWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+	static String spotWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
 		return EventLogger.get().spotEvent(taskId, name, parentTaskId, logParams, TaskStatus.SUCCESS, dateToDelete);
 	}
 
