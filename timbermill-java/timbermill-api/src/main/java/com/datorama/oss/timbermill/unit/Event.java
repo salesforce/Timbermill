@@ -351,7 +351,7 @@ public abstract class Event implements Serializable {
 
 	@JsonIgnore
 	private String trimValue(String type, String key, String value, int maxChars) {
-		if (value.length() > maxChars) {
+		if (value != null && value.length() > maxChars) {
 			LOG.debug("Value for key {}.{} is too large, trimmed to {} chars. Value starts with: {}", type, key, maxChars, value.substring(0, 100));
 			value = value.substring(0, maxChars);
 		}
