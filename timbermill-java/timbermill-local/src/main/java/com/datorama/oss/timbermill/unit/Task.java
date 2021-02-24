@@ -338,7 +338,7 @@ public class Task {
 		Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, params);
 		updateRequest.script(script);
 
-		if (this.parentId != null && this.primaryId != null && (this.orphan == null || !this.orphan)){ //todo remove
+		if (this.parentId != null && this.primaryId == null && (this.orphan == null || !this.orphan)){ //todo remove
 			LOG.info("Found task with no primary ID. TaskID {} params: {} task gson {} ", taskId, params, ElasticsearchClient.GSON.toJson(this));
 		}
 		return updateRequest;
