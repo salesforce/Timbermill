@@ -320,6 +320,9 @@ public class ElasticsearchUtil {
 					if (e.getEnv() == null){
 						e.setEnv(Constants.DEFAULT);
 					}
+					if (e.getTaskId().startsWith("action_job_start")){ //todo remove
+						LOG.info("Event found {} with of type {}", e.getTaskId(), e.getClass().getSimpleName());
+					}
 				});
 
 				Map<String, List<Event>> eventsPerEnvMap = events.stream().collect(Collectors.groupingBy(Event::getEnv));

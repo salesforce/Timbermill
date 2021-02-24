@@ -303,9 +303,6 @@ public class Task {
 	}
 
 	public UpdateRequest getUpdateRequest(String index, String taskId) {
-		if (taskId.startsWith("action_job_start")){ //TODO remove
-			LOG.info("Found {} with status {}", taskId, this.status);
-		}
 		if (meta == null || meta.getTaskBegin() == null){
 			throw new RuntimeException("No taskBegin");
 		}
@@ -340,6 +337,10 @@ public class Task {
 
 		Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, params);
 		updateRequest.script(script);
+
+		if (this.parentId != null && this.primaryId != null && (this.orphan == null || !this.orphan)){ //todo remove
+			LOG.info("Found task with no primary ID. TaskID {} params: {} task gson {} ", taskId, params, ElasticsearchClient.GSON.toJson(this));
+		}
 		return updateRequest;
 	}
 
