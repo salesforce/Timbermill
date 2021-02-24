@@ -3,16 +3,25 @@ package com.datorama.oss.timbermill.pipe;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.datorama.oss.timbermill.unit.Event;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StatisticsCollectorOutputPipe implements EventOutputPipe {
 
-	private final EventOutputPipe delegate;
+	private static final Logger LOG = LoggerFactory.getLogger(StatisticsCollectorOutputPipe.class);
+
+	private EventOutputPipe delegate = new BlackHolePipe();
 	private final AtomicLong eventsAmount = new AtomicLong(0);
 	private final AtomicLong totalSubmitDuration = new AtomicLong(0);
 	private final AtomicLong maxSubmitDuration = new AtomicLong(0);
 
 	public StatisticsCollectorOutputPipe(EventOutputPipe delegate) {
-		this.delegate = delegate;
+		if (delegate == null){
+			LOG.error("EventOutputPipe sent to Timbermill was null, Timbermill will be disabled.");
+		}
+		else {
+			this.delegate = delegate;
+		}
 	}
 
 	@Override public void send(Event e) {
