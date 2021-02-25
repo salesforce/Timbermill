@@ -57,7 +57,7 @@ class ParentResolver {
                 LOG.warn("Missing adopted task from cache {}", adoptedId);
             } else {
                 adoptedTask.setOrphan(false);
-                populateParentParams(adoptedTask, potentialAdoptingTasks.get(adoptedTask.getParentId()));
+                populateParentParamsFromAdoptedTask(adoptedTask, potentialAdoptingTasks.get(adoptedTask.getParentId()));
                 adoptedTasksMap.put(adoptedId, adoptedTask);
             }
         }
@@ -102,8 +102,12 @@ class ParentResolver {
         }
     }
 
-    private static void populateParentParams(Task task, Task parentIndexedTask) {
+    private static void populateParentParamsFromAdoptedTask(Task task, Task parentIndexedTask) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
+
+        if (StringUtils.isEmpty(parentProperties.getPrimaryId()) && parentProperties.getParentPath() != null && !parentProperties.getParentPath().isEmpty()){
+            LOG.info("populateParentParamsFromAdoptedTask primary missing. parentIndexedTask {}", GSON.toJson(parentIndexedTask));
+        }
 
         List<String> parentsPath = getParentPath(parentProperties);
         if(!parentsPath.isEmpty()) {
@@ -121,6 +125,10 @@ class ParentResolver {
 
     static void populateParentParams(Event event, Task parentIndexedTask, Collection<Event> parentCurrentEvent) {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
+
+        if (StringUtils.isEmpty(parentProperties.getPrimaryId()) && parentProperties.getParentPath() != null && !parentProperties.getParentPath().isEmpty()){
+            LOG.info("populateParentParams primary missing. parentIndexedTask {} parentCurrentEvent {}", GSON.toJson(parentIndexedTask),  GSON.toJson(parentCurrentEvent));
+        }
 
         List<String> parentsPath = getParentPath(parentProperties);
         if(!parentsPath.isEmpty()) {
@@ -196,9 +204,6 @@ class ParentResolver {
             if (indexedName != null) {
                 parentName = indexedName;
             }
-        }
-        if (StringUtils.isEmpty(primaryId) && parentPath != null && !parentPath.isEmpty()){
-            LOG.info("ParentResolver primary missing. parentIndexedTask {} parentCurrentEvent {}", GSON.toJson(parentIndexedTask),  GSON.toJson(parentCurrentEvent));
         }
         return new ParentProperties(primaryId, context, parentPath, parentName);
     }
