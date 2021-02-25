@@ -226,6 +226,9 @@ public class TaskIndexer {
                     if (parentTask != null) {
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
+                    if (parentTask.getPrimaryId() == null && parentTask.getParentsPath() != null && !parentTask.getParentsPath().isEmpty()){
+                        LOG.info("getMissingParents CACHE missing primary localtask: {}", GSON.toJson(parentTask));
+                    }
                 });
             }
         } catch (Throwable t) {
@@ -235,6 +238,11 @@ public class TaskIndexer {
         parentIds.removeAll(previouslyIndexedParentTasks.keySet());
         if (!parentIds.isEmpty()) {
             Map<String, Task> fromEs = es.getMissingParents(parentIds, env);
+            for (Task value : fromEs.values()) {
+                if (value.getPrimaryId() == null && value.getParentsPath() != null && !value.getParentsPath().isEmpty()){
+                    LOG.info("getMissingParents ES missing primary task: {}", GSON.toJson(value));
+                }
+            }
             previouslyIndexedParentTasks.putAll(fromEs);
 
             if (!fromEs.isEmpty()) {
