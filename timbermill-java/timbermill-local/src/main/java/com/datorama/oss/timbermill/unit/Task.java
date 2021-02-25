@@ -17,6 +17,7 @@ import java.util.*;
 import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
 import static com.datorama.oss.timbermill.common.Constants.CORRUPTED_REASON;
 import static com.datorama.oss.timbermill.unit.TaskStatus.CORRUPTED;
+import static com.datorama.oss.timbermill.unit.TaskStatus.SUCCESS;
 
 public class Task {
 
@@ -112,6 +113,9 @@ public class Task {
 
 			String primaryId = e.getPrimaryId();
 			if (this.primaryId == null) {
+				if (StringUtils.isEmpty(primaryId)) {
+					LOG.info("Task Putting new primary {} on old primary {}", primaryId, this.primaryId); //todo remove
+				}
 				this.primaryId = primaryId;
 			} else if (!StringUtils.isEmpty(primaryId) && !this.primaryId.equals(primaryId)) {
 				if (this.primaryId.equals(e.getTaskId())) {

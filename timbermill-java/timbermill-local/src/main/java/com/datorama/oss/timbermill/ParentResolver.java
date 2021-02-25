@@ -6,6 +6,7 @@ import com.datorama.oss.timbermill.unit.LocalTask;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,6 +106,10 @@ class ParentResolver {
         List<String> parentsPath = getParentPath(parentProperties);
         if(!parentsPath.isEmpty()) {
             task.setParentsPath(parentsPath);
+        }
+
+        if (StringUtils.isEmpty(parentProperties.getPrimaryId())) {
+            LOG.info("ParentResolver Putting new primary {} on old primary {}", parentProperties.getPrimaryId(), task.getPrimaryId()); //todo remove
         }
 
         task.setPrimaryId(parentProperties.getPrimaryId());
