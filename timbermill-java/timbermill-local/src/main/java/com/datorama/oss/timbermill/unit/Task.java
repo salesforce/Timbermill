@@ -113,9 +113,6 @@ public class Task {
 
 			String primaryId = e.getPrimaryId();
 			if (this.primaryId == null) {
-				if (StringUtils.isEmpty(primaryId)) {
-					LOG.info("Task Putting new primary {} on old primary {}", primaryId, this.primaryId); //todo remove
-				}
 				this.primaryId = primaryId;
 			} else if (!StringUtils.isEmpty(primaryId) && !this.primaryId.equals(primaryId)) {
 				if (this.primaryId.equals(e.getTaskId())) {
@@ -163,6 +160,9 @@ public class Task {
 		if (isComplete()){
 			long duration = ElasticsearchUtil.getTimesDuration(startTime, endTime);
 			setDuration(duration);
+		}
+		if (this.parentId != null && this.primaryId == null && (this.orphan == null || !this.orphan)){ //todo remove
+			LOG.info("Found task with no primary ID. task gson {} ", ElasticsearchClient.GSON.toJson(this));
 		}
 	}
 
@@ -342,9 +342,6 @@ public class Task {
 		Script script = new Script(ScriptType.STORED, null, ElasticsearchClient.TIMBERMILL_SCRIPT, params);
 		updateRequest.script(script);
 
-		if (this.parentId != null && this.primaryId == null && (this.orphan == null || !this.orphan)){ //todo remove
-			LOG.info("Found task with no primary ID. TaskID {} params: {} task gson {} ", taskId, params, ElasticsearchClient.GSON.toJson(this));
-		}
 		return updateRequest;
 	}
 

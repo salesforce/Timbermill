@@ -108,10 +108,6 @@ class ParentResolver {
             task.setParentsPath(parentsPath);
         }
 
-        if (StringUtils.isEmpty(parentProperties.getPrimaryId())) {
-            LOG.info("ParentResolver Putting new primary {} on old primary {}", parentProperties.getPrimaryId(), task.getPrimaryId()); //todo remove
-        }
-
         task.setPrimaryId(parentProperties.getPrimaryId());
         if (task.getCtx() == null){
             task.setCtx(Maps.newHashMap());
