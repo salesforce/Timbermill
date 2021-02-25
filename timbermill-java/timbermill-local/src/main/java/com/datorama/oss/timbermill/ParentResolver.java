@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.datorama.oss.timbermill.ElasticsearchClient.GSON;
+
 class ParentResolver {
     private static final Logger LOG = LoggerFactory.getLogger(ParentResolver.class);
 
@@ -195,7 +197,9 @@ class ParentResolver {
                 parentName = indexedName;
             }
         }
-
+        if (StringUtils.isEmpty(primaryId) && parentPath != null && !parentPath.isEmpty()){
+            LOG.info("ParentResolver primary missing. parentIndexedTask {} parentCurrentEvent {}", GSON.toJson(parentIndexedTask),  GSON.toJson(parentCurrentEvent));
+        }
         return new ParentProperties(primaryId, context, parentPath, parentName);
     }
 
