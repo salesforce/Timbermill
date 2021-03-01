@@ -465,10 +465,12 @@ public class ElasticsearchClient {
 			client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
 				@Override
 				public void onResponse(ForceMergeResponse forceMergeResponse) {
+					LOG.info("Force merge success");
 				}
 
 				@Override
 				public void onFailure(Exception e) {
+					LOG.error("Force merge failed", e);
 				}
 			});
 
