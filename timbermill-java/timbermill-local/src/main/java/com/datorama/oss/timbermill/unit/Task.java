@@ -162,7 +162,7 @@ public class Task {
 			setDuration(duration);
 		}
 		if (this.parentId != null && this.primaryId == null && (this.orphan == null || !this.orphan)){ //todo remove
-			LOG.info("Found task with no primary ID. events: {} task gson {} ", ElasticsearchClient.GSON.toJson(events), ElasticsearchClient.GSON.toJson(this));
+			LOG.debug("Found task with no primary ID. events: {} task gson {} ", ElasticsearchClient.GSON.toJson(events), ElasticsearchClient.GSON.toJson(this));
 		}
 	}
 

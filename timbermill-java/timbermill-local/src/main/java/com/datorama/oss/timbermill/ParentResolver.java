@@ -106,7 +106,7 @@ class ParentResolver {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, null);
 
         if (StringUtils.isEmpty(parentProperties.getPrimaryId()) && parentProperties.getParentPath() != null && !parentProperties.getParentPath().isEmpty()){
-            LOG.info("populateParentParamsFromAdoptedTask primary missing. parentIndexedTask {}", GSON.toJson(parentIndexedTask));
+            LOG.debug("populateParentParamsFromAdoptedTask primary missing. parentIndexedTask {}", GSON.toJson(parentIndexedTask));
         }
 
         List<String> parentsPath = getParentPath(parentProperties);
@@ -127,7 +127,7 @@ class ParentResolver {
         ParentProperties parentProperties = getParentProperties(parentIndexedTask, parentCurrentEvent);
 
         if (StringUtils.isEmpty(parentProperties.getPrimaryId()) && parentProperties.getParentPath() != null && !parentProperties.getParentPath().isEmpty()){
-            LOG.info("populateParentParams primary missing. parentIndexedTask {} parentCurrentEvent {}", GSON.toJson(parentIndexedTask),  GSON.toJson(parentCurrentEvent));
+            LOG.debug("populateParentParams primary missing. parentIndexedTask {} parentCurrentEvent {}", GSON.toJson(parentIndexedTask),  GSON.toJson(parentCurrentEvent));
         }
 
         List<String> parentsPath = getParentPath(parentProperties);
