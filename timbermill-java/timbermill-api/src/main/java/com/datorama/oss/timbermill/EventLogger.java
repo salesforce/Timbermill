@@ -305,6 +305,7 @@ final class EventLogger {
 
 	private Event getCorruptedEvent(@NotNull LogParams logParams) {
 		String stackTrace = getStackTraceString();
+		addStaticParams(logParams);
 		logParams.text(STACK_TRACE, stackTrace);
 		return createSpotEvent(null, Constants.LOG_WITHOUT_CONTEXT, logParams, TaskStatus.CORRUPTED, null, null);
 	}

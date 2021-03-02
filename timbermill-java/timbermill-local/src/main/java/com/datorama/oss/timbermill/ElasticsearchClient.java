@@ -31,13 +31,10 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
-import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -452,30 +449,30 @@ public class ElasticsearchClient {
 		Map<String, Set<AliasMetadata>> oldAliases = getAliases(oldAlias);
 		if (!oldAliases.isEmpty()) {
 			updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.REMOVE, "*", "Removing old index from alias", "Removing old index from alias [{}] failed");
-			forceMergeRetiredIndex(oldAliases);
+			Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
+			if (oldIndexOptional.isPresent()) {
+				String oldIndex = oldIndexOptional.get();
+				forceMergeRetiredIndex(oldIndex);
+			}
 		}
 		updateTimbermillAlias(oldAlias, IndicesAliasesRequest.AliasActions.Type.ADD, rolloverResponse.getOldIndex(), "Adding old index to alias", "Adding old index to alias [{}] failed");
 	}
 
-	private void forceMergeRetiredIndex(Map<String, Set<AliasMetadata>> oldAliases) {
-		Optional<String> oldIndexOptional = oldAliases.keySet().stream().findAny();
-		if (oldIndexOptional.isPresent()){
-			String oldIndex = oldIndexOptional.get();
-			ForceMergeRequest forceMergeRequest = new ForceMergeRequest(oldIndex).maxNumSegments(1);
-			client.indices().forcemergeAsync(forceMergeRequest, RequestOptions.DEFAULT, new ActionListener<ForceMergeResponse>() {
-				@Override
-				public void onResponse(ForceMergeResponse forceMergeResponse) {
-					LOG.info("Force merge success");
-				}
+	private void forceMergeRetiredIndex(String oldIndex) {
+		Request request = new Request("POST", "/" + oldIndex + "/_forcemerge");
+		request.addParameter("max_num_segments","1");
+		client.getLowLevelClient().performRequestAsync(request, new ResponseListener() {
+			@Override
+			public void onSuccess(Response response) {
+				LOG.info("Force merge success");
+			}
 
-				@Override
-				public void onFailure(Exception e) {
-					LOG.error("Force merge failed", e);
-				}
-			});
-
-			LOG.info("Force merge index {} to 1 segment", oldIndex);
-		}
+			@Override
+			public void onFailure(Exception e) {
+				LOG.error("Force merge failed", e);
+			}
+		});
+		LOG.info("Force merge index {} to 1 segment", oldIndex);
 	}
 
 	private void updateTimbermillAlias(String oldAlias, IndicesAliasesRequest.AliasActions.Type actionType, String indexToUpdate, String functionDescription, String errorLog) {
@@ -654,6 +651,7 @@ public class ElasticsearchClient {
     private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
 		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 		puStoredScript();
+		forceMergeRetiredIndex("timbermill2-stg-000002"); //todo delete
 	}
 
 	private void puStoredScript(){
