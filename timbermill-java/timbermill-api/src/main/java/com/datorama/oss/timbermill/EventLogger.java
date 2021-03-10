@@ -94,6 +94,15 @@ final class EventLogger {
 		}
 	}
 
+	void successEvent(String taskId) {
+		if (!taskIdStack.isEmpty()) {
+			String latestTaskId = taskIdStack.peek();
+			if (latestTaskId != null && latestTaskId.equals(taskId)) {
+				successEvent();
+			}
+		}
+	}
+
 	String successEvent() {
 		return successEvent(null, LogParams.create());
 	}
@@ -108,6 +117,15 @@ final class EventLogger {
 		} catch (Throwable throwable){
 			LOG.error("Was unable to send event to Timbermill", throwable);
 			return null;
+		}
+	}
+
+	void endWithError(String taskId, Throwable t) {
+		if (!taskIdStack.isEmpty()) {
+			String latestTaskId = taskIdStack.peek();
+			if (latestTaskId != null && latestTaskId.equals(taskId)) {
+				endWithError(t);
+			}
 		}
 	}
 
