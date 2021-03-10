@@ -41,6 +41,11 @@ public class TimberLogServerTest extends TimberLogTest{
     }
 
     @Test
+    public void testEndWithingAnnotation(){
+        super.testEndWithingAnnotation();
+    }
+
+    @Test
     public void testSwitchCasePlugin() {
         super.testSwitchCasePlugin();
     }

@@ -18,13 +18,13 @@ public class TimberLogAspect {
         if (timberLogAnnotation.logParameters()) {
             logParams = getLogParamsForMethodParams(pjp, logParams);
         }
-        TimberLogger.start(timberLogAnnotation.name(), logParams);
+        String taskId = TimberLogger.start(timberLogAnnotation.name(), logParams);
         try {
             Object obj = pjp.proceed();
-            TimberLogger.success();
+            TimberLogger.success(taskId);
             return obj;
         } catch (Exception e){
-            TimberLogger.error(e);
+            TimberLogger.error(taskId, e);
             throw e;
         }
     }

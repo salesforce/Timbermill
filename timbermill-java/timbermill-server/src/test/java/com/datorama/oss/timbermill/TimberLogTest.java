@@ -6,10 +6,12 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -167,6 +169,43 @@ public abstract class TimberLogTest {
 
 		assertEquals(str1, strings.get("str"));
 		assertEquals(str2, strings.get(str2));
+	}
+
+	protected void testEndWithingAnnotation(){
+		List<String> taskIds = simpleTask1();
+
+		String taskId3 = taskIds.get(0);
+		String taskId2 = taskIds.get(1);
+		String taskId1 = taskIds.get(2);
+
+		waitForTask(taskId1, TaskStatus.SUCCESS, client);
+		waitForTask(taskId2, TaskStatus.ERROR, client);
+		waitForTask(taskId3, TaskStatus.SUCCESS, client);
+
+	}
+
+	@TimberLogTask(name = EVENT  + "1")
+	private ArrayList<String> simpleTask1() {
+		String currentTaskId = TimberLogger.getCurrentTaskId();
+		ArrayList<String> ids = simpleTask2();
+		TimberLogger.success();
+		ids.add(currentTaskId);
+		return ids;
+	}
+
+	@TimberLogTask(name = EVENT + "2")
+	private ArrayList<String> simpleTask2() {
+		String currentTaskId = TimberLogger.getCurrentTaskId();
+		String taskId3 = simpleTask3();
+		TimberLogger.error();
+		return Lists.newArrayList(taskId3, currentTaskId);
+	}
+
+	@TimberLogTask(name = EVENT + "3")
+	private String simpleTask3() {
+		String currentTaskId = TimberLogger.getCurrentTaskId();
+		TimberLogger.success();
+		return currentTaskId;
 	}
 
 	@TimberLogTask(name = EVENT, logParameters = true)

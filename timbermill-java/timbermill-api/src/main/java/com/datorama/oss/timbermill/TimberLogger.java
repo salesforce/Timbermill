@@ -136,6 +136,10 @@ public final class TimberLogger {
 		return EventLogger.get().successEvent(null, logParams);
 	}
 
+	public static void success(String taskId) {
+		EventLogger.get().successEvent(taskId);
+	}
+
 	public static String error() {
 		return error(LogParams.create());
 	}
@@ -150,6 +154,10 @@ public final class TimberLogger {
 
 	public static String error(Throwable t, LogParams logParams) {
 		return EventLogger.get().endWithError(t, null, logParams);
+	}
+
+	public static void error(String taskId, Throwable t) {
+		EventLogger.get().endWithError(taskId, t);
 	}
 
 	public static String spot(String name) {
