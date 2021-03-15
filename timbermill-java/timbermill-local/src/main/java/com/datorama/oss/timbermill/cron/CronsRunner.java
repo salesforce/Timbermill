@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.unit.Event;
 
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
@@ -22,18 +22,18 @@ public class CronsRunner {
 	private static final Logger LOG = LoggerFactory.getLogger(CronsRunner.class);
 	private Scheduler scheduler;
 
-	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, DiskHandler diskHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
+	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
 						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
-			if (diskHandler != null) {
+			if (persistenceHandler != null) {
 				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
-					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, diskHandler);
+					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, persistenceHandler);
 				}
 
 				if (!Strings.isEmpty(eventsPersistentFetchCronExp)) {
-					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, diskHandler, buffer, overFlowedEvents);
+					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, persistenceHandler, buffer, overFlowedEvents);
 				}
 			}
 			if (!Strings.isEmpty(deletionCronExp)) {
@@ -57,10 +57,10 @@ public class CronsRunner {
 		}
 	}
 
-	private void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, DiskHandler diskHandler, BlockingQueue<Event> buffer,
-			BlockingQueue<Event> overFlowedEvents) throws SchedulerException {
+	private void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, BlockingQueue<Event> buffer,
+											  BlockingQueue<Event> overFlowedEvents) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
-		jobDataMap.put(DISK_HANDLER, diskHandler);
+		jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
 		jobDataMap.put(EVENTS_QUEUE, buffer);
 		jobDataMap.put(OVERFLOWED_EVENTS_QUEUE, overFlowedEvents);
 
@@ -75,10 +75,10 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, DiskHandler diskHandler) throws SchedulerException {
+	private void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, PersistenceHandler persistenceHandler) throws SchedulerException {
 			JobDataMap jobDataMap = new JobDataMap();
 			jobDataMap.put(CLIENT, es);
-			jobDataMap.put(DISK_HANDLER, diskHandler);
+			jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
 			JobDetail job = newJob(BulkPersistentFetchJob.class)
 					.withIdentity("job2", "group2").usingJobData(jobDataMap)
 					.build();

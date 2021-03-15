@@ -10,9 +10,9 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
+import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.IndexRetryManager;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 	private static LocalOutputPipe pipe;
-    private static DiskHandler origDiskHandler;
+    private static PersistenceHandler origPersistenceHandler;
     private static IndexRetryManager retryManager;
 
     @BeforeClass
@@ -37,20 +37,20 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 		client = new ElasticsearchClientForTests(elasticUrl, null);
 		pipe = buildLocalOutputPipeForTest(elasticUrl);
-		origDiskHandler = pipe.getDiskHandler();
+		origPersistenceHandler = pipe.getPersistenceHandler();
         retryManager = pipe.getEsClient().getRetryManager();
 		TimberLogger.bootstrap(pipe, TEST);
 	}
 
 	@Before
 	public void resetDiskHandlerMock() {
-        DiskHandler diskHandlerSpy = Mockito.spy(origDiskHandler);
-        retryManager.setDiskHandler(diskHandlerSpy);
+        PersistenceHandler persistenceHandlerSpy = Mockito.spy(origPersistenceHandler);
+        retryManager.setPersistenceHandler(persistenceHandlerSpy);
 	}
 
 	@After
 	public void checkTaskFailedAndPersisted() throws MaximumInsertTriesException {
-		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), anyInt());
+		Mockito.verify(retryManager.getPersistenceHandler(), atLeastOnce()).persistBulkRequest(any(), anyInt());
 	}
 
 	@AfterClass

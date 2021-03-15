@@ -1,4 +1,4 @@
-package com.datorama.oss.timbermill.common.disk;
+package com.datorama.oss.timbermill.common.persistence;
 
 import java.io.Serializable;
 

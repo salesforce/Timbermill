@@ -1,4 +1,4 @@
-package com.datorama.oss.timbermill.common.disk;
+package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
@@ -26,15 +26,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
 
-public class SQLJetDiskHandlerTest {
+public class SQLJetPersistenceHandlerTest {
 
-	private static SQLJetDiskHandler sqlJetDiskHandler;
+	private static SQLJetPersistenceHandler sqlJetDiskHandler;
 	private static int maxFetchedBulks = 10;
 	private int bulkNum = 1;
 
 	@BeforeClass
 	public static void init()  {
-		sqlJetDiskHandler = new SQLJetDiskHandler(maxFetchedBulks, 3,"/tmp/SQLJetDiskHandlerTest");
+		sqlJetDiskHandler = new SQLJetPersistenceHandler(maxFetchedBulks, 3,"/tmp/SQLJetDiskHandlerTest");
 	}
 
 	@Before
@@ -180,7 +180,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of Event
 		boolean deserializationSuccess = true;
 
-		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_event").toURI());
+		Path path = Paths.get(SQLJetPersistenceHandlerTest.class.getResource("/old_version_event").toURI());
 
 		byte[] oldVersionEventBytes = Files.readAllBytes(path);
 		try {
@@ -199,7 +199,7 @@ public class SQLJetDiskHandlerTest {
 		// Checking if can deserialize previous version of BulkRequest
 		boolean deserializationSuccess = true;
 
-		Path path = Paths.get(SQLJetDiskHandlerTest.class.getResource("/old_version_bulk_request").toURI());
+		Path path = Paths.get(SQLJetPersistenceHandlerTest.class.getResource("/old_version_bulk_request").toURI());
 
 		BulkRequest oldVersionBulk = null;
 		byte[] oldVersionBulkBytes = Files.readAllBytes(path);

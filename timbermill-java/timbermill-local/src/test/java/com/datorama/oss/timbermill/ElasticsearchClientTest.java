@@ -18,7 +18,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;

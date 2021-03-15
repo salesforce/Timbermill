@@ -5,8 +5,8 @@ import com.datorama.oss.timbermill.LocalCacheConfig;
 import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
@@ -34,7 +34,7 @@ public class TimbermillService {
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
-	private DiskHandler diskHandler;
+	private PersistenceHandler persistenceHandler;
 	private CronsRunner cronsRunner;
 
 	@Autowired
@@ -62,7 +62,7 @@ public class TimbermillService {
 							 @Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
 							 @Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 							 @Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
-							 @Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
+							 @Value("${DISK_HANDLER_STRATEGY:sqlite}") String persistenceHandlerStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
@@ -91,10 +91,10 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
-		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
+		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
 		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
@@ -105,7 +105,7 @@ public class TimbermillService {
 				localCacheConfig, cacheStrategy,
 				redisCacheConfig);
 		cronsRunner = new CronsRunner();
-		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
+		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
 		startQueueSpillerThread();
 		startWorkingThread();
@@ -115,7 +115,7 @@ public class TimbermillService {
 		Thread spillerThread = new Thread(() -> {
 			LOG.info("Starting Queue Spiller Thread");
 			while (keepRunning) {
-				diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+				persistenceHandler.spillOverflownEvents(overflowedQueue);
 				try {
 					Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 				} catch (InterruptedException e) {
@@ -147,8 +147,8 @@ public class TimbermillService {
 				Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
-		if (diskHandler != null){
-			diskHandler.close();
+		if (persistenceHandler != null){
+			persistenceHandler.close();
 		}
 		taskIndexer.close();
 		cronsRunner.close();
@@ -165,7 +165,7 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
+			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
 		}
 	}
 }

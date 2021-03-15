@@ -1,4 +1,4 @@
-package com.datorama.oss.timbermill.common.disk;
+package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class SQLJetDiskHandler extends DiskHandler {
+public class SQLJetPersistenceHandler extends PersistenceHandler {
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
@@ -44,7 +44,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String CREATE_EVENT_TABLE =
 			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
-	private static final Logger LOG = LoggerFactory.getLogger(SQLJetDiskHandler.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SQLJetPersistenceHandler.class);
 
 	private int maxFetchedBulksInOneTime;
 	private int maxInsertTries;
@@ -54,7 +54,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 	private ISqlJetTable overFlowedEventsTable;
 	private static ExecutorService executorService;
 
-	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
+	SQLJetPersistenceHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
 		this.maxFetchedBulksInOneTime = maxFetchedBulks;
 		this.maxInsertTries = maxInsertTries;
 		this.locationInDisk = locationInDisk;
@@ -135,7 +135,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 	}
 
 	@Override
-	public void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) {
+	public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		executorService.submit(() -> {
 			try {
 				persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
@@ -147,7 +147,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 	}
 
 	@Override
-	public synchronized void persistEventsToDisk(ArrayList<Event> events) {
+	public synchronized void persistEvents(ArrayList<Event> events) {
 		try {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			overFlowedEventsTable.insert(serializeEvents(events), DateTime.now().toString());
