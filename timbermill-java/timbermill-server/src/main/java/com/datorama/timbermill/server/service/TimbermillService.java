@@ -5,8 +5,8 @@ import com.datorama.oss.timbermill.LocalCacheConfig;
 import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.disk.selfHealingHandler;
-import com.datorama.oss.timbermill.common.disk.SelfHealingHandlerUtil;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
@@ -34,7 +34,7 @@ public class TimbermillService {
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
-	private selfHealingHandler selfHealingHandler;
+	private DiskHandler diskHandler;
 	private CronsRunner cronsRunner;
 
 	@Autowired
@@ -91,10 +91,10 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		Map<String, Object> params = selfHealingHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
-		selfHealingHandler = SelfHealingHandlerUtil.getSelfHealingHandler(diskHandlerStrategy, params);
+		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
+		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, selfHealingHandler, numberOfShards, numberOfReplicas,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
 		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
@@ -105,7 +105,7 @@ public class TimbermillService {
 				localCacheConfig, cacheStrategy,
 				redisCacheConfig);
 		cronsRunner = new CronsRunner();
-		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, selfHealingHandler, es, deletionCronExp,
+		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
 		startQueueSpillerThread();
 		startWorkingThread();
@@ -115,7 +115,7 @@ public class TimbermillService {
 		Thread spillerThread = new Thread(() -> {
 			LOG.info("Starting Queue Spiller Thread");
 			while (keepRunning) {
-				selfHealingHandler.spillOverflownEventsToDisk(overflowedQueue);
+				diskHandler.spillOverflownEventsToDisk(overflowedQueue);
 				try {
 					Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 				} catch (InterruptedException e) {
@@ -147,8 +147,8 @@ public class TimbermillService {
 				Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
-		if (selfHealingHandler != null){
-			selfHealingHandler.close();
+		if (diskHandler != null){
+			diskHandler.close();
 		}
 		taskIndexer.close();
 		cronsRunner.close();
@@ -165,7 +165,7 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			LocalOutputPipe.pushEventToQueues(selfHealingHandler, eventsQueue, overflowedQueue, event);
+			LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
 		}
 	}
 }

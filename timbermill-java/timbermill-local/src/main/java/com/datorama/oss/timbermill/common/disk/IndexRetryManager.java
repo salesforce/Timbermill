@@ -11,20 +11,21 @@ import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.Bulker;
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.google.common.collect.Lists;
 
 public class IndexRetryManager {
 
 	private static final Logger LOG = LoggerFactory.getLogger(IndexRetryManager.class);
 	private int numOfElasticSearchActionsTries;
-	private selfHealingHandler selfHealingHandler;
+	private DiskHandler diskHandler;
 	private Bulker bulker;
 	private int maxBulkIndexFetches; // after such number of fetches, bulk is considered as failed and won't be persisted anymore
 	private List<String> blackListExceptions =  Lists.newArrayList("type=null_pointer_exception", "index is missing");
 
-	public IndexRetryManager(int numOfElasticSearchActionsTries, int maxBulkIndexFetches, selfHealingHandler selfHealingHandler, Bulker bulker) {
+	public IndexRetryManager(int numOfElasticSearchActionsTries, int maxBulkIndexFetches, DiskHandler diskHandler, Bulker bulker) {
 		this.numOfElasticSearchActionsTries = numOfElasticSearchActionsTries;
-		this.selfHealingHandler = selfHealingHandler;
+		this.diskHandler = diskHandler;
 		this.bulker = bulker;
 		this.maxBulkIndexFetches = maxBulkIndexFetches;
 	}
@@ -88,7 +89,7 @@ public class IndexRetryManager {
 	private void tryPersistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		if (hasPersistence()) {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
-				selfHealingHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
+				diskHandler.persistBulkRequestToDisk(dbBulkRequest, bulkNum);
 			} else {
 				LOG.error("Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
@@ -100,7 +101,7 @@ public class IndexRetryManager {
 	}
 
 	private boolean hasPersistence() {
-		return selfHealingHandler != null;
+		return diskHandler != null;
 	}
 
 	private boolean isFailureBlackListed(String failureMessage, DocWriteRequest<?> request) {
@@ -136,11 +137,11 @@ public class IndexRetryManager {
 		return dbBulkRequest;
 	}
 
-	public selfHealingHandler getSelfHealingHandler() {
-		return selfHealingHandler;
+	public DiskHandler getDiskHandler() {
+		return diskHandler;
 	}
 
-	public void setSelfHealingHandler(selfHealingHandler selfHealingHandler) {
-		this.selfHealingHandler = selfHealingHandler;
+	public void setDiskHandler(DiskHandler diskHandler) {
+		this.diskHandler = diskHandler;
 	}
 }

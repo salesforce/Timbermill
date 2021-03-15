@@ -28,13 +28,13 @@ import static org.junit.Assert.*;
 
 public class SQLJetDiskHandlerTest {
 
-	private static SQLJetHandler sqlJetDiskHandler;
+	private static SQLJetDiskHandler sqlJetDiskHandler;
 	private static int maxFetchedBulks = 10;
 	private int bulkNum = 1;
 
 	@BeforeClass
 	public static void init()  {
-		sqlJetDiskHandler = new SQLJetHandler(maxFetchedBulks, 3,"/tmp/SQLJetDiskHandlerTest");
+		sqlJetDiskHandler = new SQLJetDiskHandler(maxFetchedBulks, 3,"/tmp/SQLJetDiskHandlerTest");
 	}
 
 	@Before

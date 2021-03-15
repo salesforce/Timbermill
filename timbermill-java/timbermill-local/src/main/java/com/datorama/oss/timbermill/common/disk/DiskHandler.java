@@ -4,10 +4,11 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
 
-public abstract class selfHealingHandler {
+public abstract class DiskHandler {
 
 	public abstract List<DbBulkRequest> fetchAndDeleteFailedBulks();
 
@@ -23,9 +24,9 @@ public abstract class selfHealingHandler {
 
 	public static Map<String, Object> buildDiskHandlerParams(int maxFetchedBulksInOneTime, int maxInsertTries, String locationInDisk) {
 		Map<String, Object> diskHandlerParams = new HashMap<>();
-		diskHandlerParams.put(SQLJetHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
-		diskHandlerParams.put(SQLJetHandler.MAX_INSERT_TRIES, maxInsertTries);
-		diskHandlerParams.put(SQLJetHandler.LOCATION_IN_DISK, locationInDisk);
+		diskHandlerParams.put(SQLJetDiskHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
+		diskHandlerParams.put(SQLJetDiskHandler.MAX_INSERT_TRIES, maxInsertTries);
+		diskHandlerParams.put(SQLJetDiskHandler.LOCATION_IN_DISK, locationInDisk);
 		return diskHandlerParams;
 	}
 

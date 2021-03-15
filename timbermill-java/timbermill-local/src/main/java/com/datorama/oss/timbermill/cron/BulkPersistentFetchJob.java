@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.selfHealingHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
 
 import kamon.metric.Timer;
 import org.slf4j.MDC;
@@ -26,24 +26,24 @@ public class BulkPersistentFetchJob implements Job {
 	private static final Logger LOG = LoggerFactory.getLogger(BulkPersistentFetchJob.class);
 
 	@Override public void execute(JobExecutionContext context) {
-		selfHealingHandler selfHealingHandler = (selfHealingHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
-		if (selfHealingHandler != null) {
+		DiskHandler diskHandler = (DiskHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
+		if (diskHandler != null) {
 			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
 			MDC.put("id", flowId);
 			LOG.info("Failed Bulks Persistent Fetch Job started.");
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
-			retryFailedRequestsFromDisk(es, selfHealingHandler);
+			retryFailedRequestsFromDisk(es, diskHandler);
 			LOG.info("Failed Bulks Persistent Fetch Job ended.");
 			start.stop();
 		}
 	}
 
-	private static void retryFailedRequestsFromDisk(ElasticsearchClient es, selfHealingHandler selfHealingHandler) {
+	private static void retryFailedRequestsFromDisk(ElasticsearchClient es, DiskHandler diskHandler) {
 		String flowId = MDC.get("id");
-		while(selfHealingHandler.hasFailedBulks()){
+		while(diskHandler.hasFailedBulks()){
 			LOG.info("#### Retry Failed-Requests From Disk Start ####");
-			List<DbBulkRequest> failedRequestsFromDisk = selfHealingHandler.fetchAndDeleteFailedBulks();
+			List<DbBulkRequest> failedRequestsFromDisk = diskHandler.fetchAndDeleteFailedBulks();
 			int failedRequests = failedRequestsFromDisk.stream().mapToInt(DbBulkRequest::numOfActions).sum();
 
 			int successBulks = 0;

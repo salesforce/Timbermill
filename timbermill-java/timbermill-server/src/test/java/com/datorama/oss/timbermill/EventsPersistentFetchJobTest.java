@@ -110,7 +110,7 @@ public class EventsPersistentFetchJobTest {
 		@Override public JobDetail getJobDetail() {
 			JobDetailImpl jobDetail = new JobDetailImpl();
 			Map<String, Object> map = Maps.newHashMap();
-			map.put(DISK_HANDLER, pipe.getSelfHealingHandler());
+			map.put(DISK_HANDLER, pipe.getDiskHandler());
 			map.put(EVENTS_QUEUE, pipe.getBuffer());
 			map.put(OVERFLOWED_EVENTS_QUEUE, pipe.getOverflowedQueue());
 			JobDataMap jobMap = new JobDataMap(map);

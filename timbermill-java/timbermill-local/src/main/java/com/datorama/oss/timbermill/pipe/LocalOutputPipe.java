@@ -11,8 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.disk.selfHealingHandler;
-import com.datorama.oss.timbermill.common.disk.SelfHealingHandlerUtil;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.unit.Event;
 
@@ -22,7 +22,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
-    private selfHealingHandler selfHealingHandler;
+    private DiskHandler diskHandler;
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
     private final CronsRunner cronsRunner;
@@ -35,10 +35,10 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        Map<String, Object> params = selfHealingHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
-        selfHealingHandler = SelfHealingHandlerUtil.getSelfHealingHandler(builder.diskHandlerStrategy, params);
+        Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
+        diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, selfHealingHandler,
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
@@ -48,7 +48,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 localCacheConfig, builder.cacheStrategy,
                 redisCacheConfig);
         cronsRunner = new CronsRunner();
-        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, selfHealingHandler, esClient,
+        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
                 builder.mergingCronExp);
         startQueueSpillerThread();
@@ -59,7 +59,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Thread spillerThread = new Thread(() -> {
             LOG.info("Starting Queue Spiller Thread");
             while (keepRunning) {
-                selfHealingHandler.spillOverflownEventsToDisk(overflowedQueue);
+                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
                 try {
                     Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
                 } catch (InterruptedException e) {
@@ -83,13 +83,13 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event event){
-        pushEventToQueues(selfHealingHandler, buffer, overflowedQueue, event);
+        pushEventToQueues(diskHandler, buffer, overflowedQueue, event);
     }
 
-    public static void pushEventToQueues(selfHealingHandler selfHealingHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
+    public static void pushEventToQueues(DiskHandler diskHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
         if(!eventsQueue.offer(event)){
             if (!overflowedQueue.offer(event)){
-                selfHealingHandler.spillOverflownEventsToDisk(overflowedQueue);
+                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
                 if (!overflowedQueue.offer(event)) {
                     LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
                 }
@@ -112,8 +112,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }
-        if (selfHealingHandler != null){
-            selfHealingHandler.close();
+        if (diskHandler != null){
+            diskHandler.close();
         }
         taskIndexer.close();
         cronsRunner.close();
@@ -136,8 +136,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         return overflowedQueue;
     }
 
-    public selfHealingHandler getSelfHealingHandler() {
-        return selfHealingHandler;
+    public DiskHandler getDiskHandler() {
+        return diskHandler;
     }
 
     public static class Builder {

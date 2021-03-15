@@ -7,7 +7,7 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.ZonedDateTimeConverter;
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.selfHealingHandler;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
@@ -117,11 +117,11 @@ public class ElasticsearchClient {
 	private final int expiredMaxIndicesTodeleteInParallel;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, selfHealingHandler selfHealingHandler, int numberOfShards, int numberOfReplicas,
+							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
 							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
 
-		if (selfHealingHandler !=null && !selfHealingHandler.isCreatedSuccessfully()){
-			selfHealingHandler = null;
+		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
+			diskHandler = null;
 		}
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation,
@@ -165,7 +165,7 @@ public class ElasticsearchClient {
         	bulker = new Bulker(client);
 		}
         this.bulker = bulker;
-		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, selfHealingHandler, bulker);
+		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker);
 		retryConfig = new RetryConfigBuilder()
 				.withMaxNumberOfTries(numOfElasticSearchActionsTries)
 				.retryOnAnyException()
