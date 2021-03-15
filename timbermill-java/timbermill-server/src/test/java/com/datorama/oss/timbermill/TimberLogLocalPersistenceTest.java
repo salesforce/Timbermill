@@ -11,7 +11,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
 import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.selfHealingHandler;
 import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 	private static LocalOutputPipe pipe;
-    private static DiskHandler origDiskHandler;
+    private static selfHealingHandler origSelfHealingHandler;
     private static IndexRetryManager retryManager;
 
     @BeforeClass
@@ -37,20 +37,20 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 
 		client = new ElasticsearchClientForTests(elasticUrl, null);
 		pipe = buildLocalOutputPipeForTest(elasticUrl);
-		origDiskHandler = pipe.getDiskHandler();
+		origSelfHealingHandler = pipe.getSelfHealingHandler();
         retryManager = pipe.getEsClient().getRetryManager();
 		TimberLogger.bootstrap(pipe, TEST);
 	}
 
 	@Before
 	public void resetDiskHandlerMock() {
-        DiskHandler diskHandlerSpy = Mockito.spy(origDiskHandler);
-        retryManager.setDiskHandler(diskHandlerSpy);
+        selfHealingHandler selfHealingHandlerSpy = Mockito.spy(origSelfHealingHandler);
+        retryManager.setSelfHealingHandler(selfHealingHandlerSpy);
 	}
 
 	@After
 	public void checkTaskFailedAndPersisted() throws MaximumInsertTriesException {
-		Mockito.verify(retryManager.getDiskHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), anyInt());
+		Mockito.verify(retryManager.getSelfHealingHandler(), atLeastOnce()).persistBulkRequestToDisk(any(), anyInt());
 	}
 
 	@AfterClass
