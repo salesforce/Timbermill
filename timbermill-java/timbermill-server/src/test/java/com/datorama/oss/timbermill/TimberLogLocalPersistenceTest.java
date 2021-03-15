@@ -43,7 +43,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 	}
 
 	@Before
-	public void resetDiskHandlerMock() {
+	public void resetPersistenceHandlerMock() {
         PersistenceHandler persistenceHandlerSpy = Mockito.spy(origPersistenceHandler);
         retryManager.setPersistenceHandler(persistenceHandlerSpy);
 	}

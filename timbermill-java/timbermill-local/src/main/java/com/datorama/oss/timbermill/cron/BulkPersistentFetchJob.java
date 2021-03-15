@@ -33,26 +33,26 @@ public class BulkPersistentFetchJob implements Job {
 			MDC.put("id", flowId);
 			LOG.info("Failed Bulks Persistent Fetch Job started.");
 			ElasticsearchClient es = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(CLIENT);
-			retryFailedRequestsFromDisk(es, persistenceHandler);
+			retryFailedRequests(es, persistenceHandler);
 			LOG.info("Failed Bulks Persistent Fetch Job ended.");
 			start.stop();
 		}
 	}
 
-	private static void retryFailedRequestsFromDisk(ElasticsearchClient es, PersistenceHandler persistenceHandler) {
+	private static void retryFailedRequests(ElasticsearchClient es, PersistenceHandler persistenceHandler) {
 		String flowId = MDC.get("id");
 		while(persistenceHandler.hasFailedBulks()){
-			LOG.info("#### Retry Failed-Requests From Disk Start ####");
-			List<DbBulkRequest> failedRequestsFromDisk = persistenceHandler.fetchAndDeleteFailedBulks();
-			int failedRequests = failedRequestsFromDisk.stream().mapToInt(DbBulkRequest::numOfActions).sum();
+			LOG.info("#### Retry Failed-Requests Start ####");
+			List<DbBulkRequest> failedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
+			int numOfFailedRequests = failedRequests.stream().mapToInt(DbBulkRequest::numOfActions).sum();
 
 			int successBulks = 0;
 			int bulkNum = 0;
-			for (DbBulkRequest failedDbBulkRequest : failedRequestsFromDisk) {
+			for (DbBulkRequest failedDbBulkRequest : failedRequests) {
 				successBulks += es.sendDbFailedBulkRequest(failedDbBulkRequest, flowId, bulkNum);
 				bulkNum++;
 			}
-			LOG.info("#### Retry Failed-Requests From Disk End ({}/{} fetched bulks re-processed successfully) ####", successBulks, failedRequests);
+			LOG.info("#### Retry Failed-Requests End ({}/{} fetched bulks re-processed successfully) ####", successBulks, numOfFailedRequests);
 		}
 	}
 }

@@ -285,8 +285,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder location(String locationInDisk) {
-            this.location = locationInDisk;
+        public Builder location(String location) {
+            this.location = location;
             return this;
         }
 

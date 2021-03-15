@@ -138,7 +138,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		executorService.submit(() -> {
 			try {
-				persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
+				persistBulkRequest(dbBulkRequest,1000, bulkNum);
 			} catch (MaximumInsertTriesException e) {
 				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
@@ -231,7 +231,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 
 	//region package methods
 
-	synchronized  void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
+	synchronized void persistBulkRequest(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
 		int timesFetched = dbBulkRequest.getTimesFetched();
 		if (timesFetched > 0) {
 			LOG.info("Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
