@@ -27,8 +27,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SQLJetPersistenceHandler extends PersistenceHandler {
-	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
-	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
 
 	private static final String DB_NAME = "timbermillJetDB26012021.db";
@@ -40,14 +38,12 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
 	private static final String CREATE_BULK_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String CREATE_EVENT_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
+			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetPersistenceHandler.class);
 
-	private int maxFetchedBulksInOneTime;
-	private int maxInsertTries;
 	private String locationInDisk;
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
@@ -55,8 +51,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private static ExecutorService executorService;
 
 	SQLJetPersistenceHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
-		this.maxFetchedBulksInOneTime = maxFetchedBulks;
-		this.maxInsertTries = maxInsertTries;
+		super(maxFetchedBulks, maxInsertTries);
 		this.locationInDisk = locationInDisk;
 		executorService = Executors.newFixedThreadPool(1);
 		init();
@@ -349,7 +344,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
 		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
-		dbBulkRequest.setId((int) resultCursor.getInteger(ID));
+		dbBulkRequest.setId(resultCursor.getString(ID));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;

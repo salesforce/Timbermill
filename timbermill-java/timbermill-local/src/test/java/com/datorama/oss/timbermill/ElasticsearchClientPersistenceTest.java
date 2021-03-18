@@ -1,9 +1,6 @@
 package com.datorama.oss.timbermill;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.UUID;
-
+import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -18,13 +15,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.UUID;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 @RunWith(MockitoJUnitRunner.class)
-public class ElasticsearchClientTest {
+public class ElasticsearchClientPersistenceTest {
 
 	private static final String DEFAULT_ELASTICSEARCH_URL = "http://localhost:9200";
 	private static ElasticsearchClient elasticsearchClient;
