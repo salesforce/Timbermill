@@ -38,10 +38,10 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
 	private static final String CREATE_BULK_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String CREATE_EVENT_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " TEXT PRIMARY KEY, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
+			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetPersistenceHandler.class);
 
 	private String locationInDisk;
@@ -344,7 +344,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
 		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
-		dbBulkRequest.setId(resultCursor.getString(ID));
+		dbBulkRequest.setId(resultCursor.getInteger(ID));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;

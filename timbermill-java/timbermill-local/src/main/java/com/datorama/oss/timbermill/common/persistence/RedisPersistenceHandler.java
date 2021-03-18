@@ -159,7 +159,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         }
     }
 
-    private <T> void pushToRedis(Map<String, T> idsToValuesMap, String cacheName) {
+    private <T> void pushToRedisHash(Map<String, T> idsToValuesMap, String cacheName) {
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
                 String id = entry.getKey();
@@ -260,9 +260,10 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     @Override
     public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
         Map<String, DbBulkRequest> map = new HashMap<>();
-//        map.put(dbBulkRequest.getId(), dbBulkRequest);
-        pushToRedis(map, FAILED_BULKS_KEY_NAME);
-//        pushToRedisList(FAILED_BULKS_QUEUE_NAME, dbBulkRequest.getId());
+        String key = UUID.randomUUID().toString();
+        map.put(key, dbBulkRequest);
+        pushToRedisHash(map, FAILED_BULKS_KEY_NAME);
+        pushToRedisList(FAILED_BULKS_QUEUE_NAME, key);
     }
 
     @Override

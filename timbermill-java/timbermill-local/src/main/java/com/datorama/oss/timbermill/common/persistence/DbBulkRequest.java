@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.UUID;
 
 public class DbBulkRequest implements Serializable {
-	private String id = UUID.randomUUID().toString();
+	private long id;
 	private int timesFetched = 0;
 	private String insertTime;
 	private BulkRequest request;
@@ -22,11 +22,11 @@ public class DbBulkRequest implements Serializable {
 		return request.numberOfActions();
 	}
 
-	public String getId() {
+	public long getId() {
 		return id;
 	}
 
-	public DbBulkRequest setId(String id) {
+	public DbBulkRequest setId(long id) {
 		this.id = id;
 		return this;
 	}

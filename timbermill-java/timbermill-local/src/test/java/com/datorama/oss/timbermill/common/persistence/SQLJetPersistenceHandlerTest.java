@@ -107,12 +107,11 @@ public class SQLJetPersistenceHandlerTest {
 	}
 
 	@Test
-	public void persistManyBulks() throws MaximumInsertTriesException {
+	public void fetchMaximumBulksAmount() throws MaximumInsertTriesException {
 		DbBulkRequest dbBulkRequest;
 		int extraBulks = 2;
 		for (int i = 0 ; i < maxFetchedBulks + extraBulks ; i++){
 			dbBulkRequest = MockBulkRequest.createMockDbBulkRequest();
-			dbBulkRequest.setId(i+1);
 			sqlJetPersistenceHandler.persistBulkRequest(dbBulkRequest,1000 , bulkNum);
 		}
 		List<DbBulkRequest> fetchedRequests = sqlJetPersistenceHandler.fetchAndDeleteFailedBulks();
