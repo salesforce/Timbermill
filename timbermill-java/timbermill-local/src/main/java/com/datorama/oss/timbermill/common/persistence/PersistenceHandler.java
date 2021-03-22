@@ -14,7 +14,7 @@ import java.util.concurrent.BlockingQueue;
 public abstract class PersistenceHandler {
 
 	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
-	static final String MAX_OVERFLOWED_EVENTS_IN_ONE_TIME = "MAX_OVERFLOWED_EVENTS_IN_ONE_TIME";
+	static final String MAX_FETCHED_EVENTS_IN_ONE_TIME = "MAX_FETCHED_EVENTS_IN_ONE_TIME";
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 
 	protected int maxFetchedBulksInOneTime;
@@ -39,9 +39,10 @@ public abstract class PersistenceHandler {
 
 	public abstract boolean isCreatedSuccessfully();
 
-	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxInsertTries, String locationInDisk, RedisServiceConfig redisServiceConfig) {
+	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, RedisServiceConfig redisServiceConfig) {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
+		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, maxFetchedEventsInOneTime);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, maxInsertTries);
 		persistenceHandlerParams.put(SQLJetPersistenceHandler.LOCATION_IN_DISK, locationInDisk);
 		persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, redisServiceConfig);

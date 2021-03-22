@@ -182,15 +182,15 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 
 	@Override
 	public synchronized long failedBulksAmount() {
-		return getTableRows(failedBulkTable);
+		return getTableRowCount(failedBulkTable);
 	}
 
 	@Override
 	public synchronized long overFlowedEventsAmount() {
-		return getTableRows(overFlowedEventsTable);
+		return getTableRowCount(overFlowedEventsTable);
 	}
 
-	private long getTableRows(ISqlJetTable table) {
+	private long getTableRowCount(ISqlJetTable table) {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);

@@ -82,6 +82,9 @@ public class RedisService {
                 kryo.register(TaskMetaData.class);
                 kryo.register(java.time.ZonedDateTime.class);
                 kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
+                kryo.register(com.datorama.oss.timbermill.unit.SpotEvent.class);
+                kryo.register(com.datorama.oss.timbermill.unit.InfoEvent.class);
+                kryo.register(com.datorama.oss.timbermill.unit.SuccessEvent.class);
                 kryo.register(byte[].class);
                 kryo.register(com.datorama.oss.timbermill.common.persistence.DbBulkRequest.class);
                 kryo.register(org.elasticsearch.action.bulk.BulkRequest.class, new BulkRequestSerializer());
@@ -152,9 +155,9 @@ public class RedisService {
             for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
                 String id = entry.getKey();
                 T object = entry.getValue();
-                byte[] taskByteArr = getBytes(object);
 
                 try {
+                    byte[] taskByteArr = getBytes(object);
                     pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr);
                 } catch (Exception e) {
                     allPushed = false;

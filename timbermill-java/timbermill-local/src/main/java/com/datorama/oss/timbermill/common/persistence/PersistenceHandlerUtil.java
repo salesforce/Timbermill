@@ -24,13 +24,13 @@ public class PersistenceHandlerUtil {
 			case "sqlite":
 				return new SQLJetPersistenceHandler(
 						(int) params.get(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
-						(int) params.get(PersistenceHandler.MAX_OVERFLOWED_EVENTS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME),
 						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
 						(String) params.get(SQLJetPersistenceHandler.LOCATION_IN_DISK));
 			case "redis":
 				return new RedisPersistenceHandler(
 						(int) params.get(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
-						(int) params.get(PersistenceHandler.MAX_OVERFLOWED_EVENTS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME),
 						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
 						(RedisServiceConfig) params.get(RedisPersistenceHandler.REDIS_CONFIG));
 			default:

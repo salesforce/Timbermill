@@ -17,7 +17,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private static final String OVERFLOWED_EVENTS_QUEUE_NAME = "overflowed_events_queue";
 
     private static final String FAILED_BULK_PREFIX = "failed_bulk#";
-    private static final String OVERFLOW_EVENT_PREFIX = "overflow_event#";
+    private static final String OVERFLOW_EVENTS_PREFIX = "overflow_events#";
 
     private final RedisService redisService;
 
@@ -36,12 +36,12 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             failedBulkRequests.clear();
 
             // pop keys from redis list
-            ids.addAll(popElementsFromRedisList(maxFetchedBulksInOneTime));
+            ids.addAll(popElementsFromRedisList(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime));
             // get matching failed bulks from redis
             Map<String, DbBulkRequest> idsToValues = redisService.getFromRedis(ids);
             failedBulkRequests.putAll(idsToValues);
             if (idsToValues.size() < ids.size()) {
-                LOG.error("Failed to pull some ids from Redis failed bulks persistence");
+                LOG.error("Failed to pull {} ids from Redis failed bulks persistence", ids.size() - idsToValues.size());
             }
         }
         while (areExpiredIds(ids, failedBulkRequests));
@@ -59,12 +59,12 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             overflowedEvents.clear();
 
             // pop keys from redis list
-            ids.addAll(popElementsFromRedisList(maxFetchedEventsInOneTime));
+            ids.addAll(popElementsFromRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsInOneTime));
             // get matching overflowed events from redis
             Map<String, Event> idsToValues = redisService.getFromRedis(ids);
             overflowedEvents.putAll(idsToValues);
             if (idsToValues.size() < ids.size()) {
-                LOG.error("Failed to pull some ids from Redis overflowed events persistence");
+                LOG.error("Failed to pull {} ids from Redis overflowed events persistence", ids.size() - idsToValues.size());
             }
         }
         while (areExpiredIds(ids, overflowedEvents));
@@ -78,16 +78,19 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         Map<String, DbBulkRequest> map = new HashMap<>();
         String key = FAILED_BULK_PREFIX + UUID.randomUUID().toString();
         map.put(key, dbBulkRequest);
-        if (redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key)){
-            redisService.pushToRedisHash(map);
-        } else {
+        if (!(redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key) && redisService.pushToRedisHash(map))) {
             LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
         }
     }
 
     @Override
     void persistEvents(ArrayList<Event> events) {
-
+        Map<String, ArrayList<Event>> map = new HashMap<>();
+        String key = OVERFLOW_EVENTS_PREFIX + UUID.randomUUID().toString();
+        map.put(key, events);
+        if (!(redisService.pushToRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, key) && redisService.pushToRedisHash(map))) {
+            LOG.error("Failed to persist overflowed events list to Redis");
+        }
     }
 
     @Override
@@ -142,9 +145,9 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         redisService.close();
     }
 
-    private List<String> popElementsFromRedisList(int amount) {
-        List<String> elements = redisService.getRangeFromRedisList(FAILED_BULKS_QUEUE_NAME, 0, amount);
-        redisService.trimRedisList(FAILED_BULKS_QUEUE_NAME, elements.size(), -1);
+    private List<String> popElementsFromRedisList(String listName, int amount) {
+        List<String> elements = redisService.getRangeFromRedisList(listName, 0, amount - 1);
+        redisService.trimRedisList(listName, elements.size(), -1);
         return elements;
     }
 
