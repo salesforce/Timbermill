@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Future;
 
 public abstract class PersistenceHandler {
 
@@ -31,13 +32,21 @@ public abstract class PersistenceHandler {
 
 	public abstract List<Event> fetchAndDeleteOverflowedEvents();
 
-	public abstract void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum);
+	public abstract Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum);
 
 	abstract void persistEvents(ArrayList<Event> events);
 
 	public abstract boolean hasFailedBulks();
 
 	public abstract boolean isCreatedSuccessfully();
+
+	abstract long failedBulksAmount();
+
+	abstract long overFlowedEventsAmount();
+
+	public abstract void close();
+
+	public abstract void reset();
 
 	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, RedisServiceConfig redisServiceConfig) {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();
@@ -48,12 +57,6 @@ public abstract class PersistenceHandler {
 		persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, redisServiceConfig);
 		return persistenceHandlerParams;
 	}
-
-	abstract long failedBulksAmount();
-
-	abstract long overFlowedEventsAmount();
-
-	public abstract void close();
 
 	public void spillOverflownEvents(BlockingQueue<Event> overflowedQueue) {
 		while (!overflowedQueue.isEmpty()) {

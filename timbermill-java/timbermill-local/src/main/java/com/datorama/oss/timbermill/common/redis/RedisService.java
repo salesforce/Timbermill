@@ -235,6 +235,14 @@ public class RedisService {
         }
     }
 
+    public void flushAll() {
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.flushAll();
+        } catch (Exception e) {
+            LOG.error("Error while flushing Redis", e);
+        }
+    }
+
     public void close() {
         jedisPool.close();
     }

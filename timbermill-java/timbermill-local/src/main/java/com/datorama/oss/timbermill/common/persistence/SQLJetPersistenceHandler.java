@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class SQLJetPersistenceHandler extends PersistenceHandler {
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
@@ -130,10 +131,10 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	}
 
 	@Override
-	public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
-		executorService.submit(() -> {
+	public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
+		return executorService.submit(() -> {
 			try {
-				persistBulkRequest(dbBulkRequest,1000, bulkNum);
+				persistBulkRequest(dbBulkRequest, 1000, bulkNum);
 			} catch (MaximumInsertTriesException e) {
 				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
@@ -208,7 +209,8 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	public void close() {
 	}
 
-	void reset() {
+	@Override
+	public void reset() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
 			db.createTable(CREATE_BULK_TABLE);
@@ -322,17 +324,6 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 		} catch (SerializationException e){
 			LOG.error("Error deserializing Bulk request from DB", e);
 			return new BulkRequest();
-		}
-	}
-
-	synchronized void healthCheck() throws SqlJetException{
-		ISqlJetCursor resultCursor = null;
-		try {
-			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
-		}
-		finally {
-			closeCursor(resultCursor);
 		}
 	}
 
