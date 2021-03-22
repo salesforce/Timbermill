@@ -141,7 +141,7 @@ public class RedisService {
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (String key : keys) {
                 try {
-                    pipelined.del(key);
+                    runWithRetries(() -> pipelined.del(key), "DEL");
                 } catch (Exception e) {
                     LOG.error("Error deleting key " + key + " from Redis.", e);
                 }
@@ -158,7 +158,7 @@ public class RedisService {
 
                 try {
                     byte[] taskByteArr = getBytes(object);
-                    pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr);
+                    runWithRetries(() -> pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr), "SETEX");
                 } catch (Exception e) {
                     allPushed = false;
                     LOG.error("Error pushing id " + id + " to Redis.", e);
@@ -170,10 +170,10 @@ public class RedisService {
 
     public <T> boolean pushToRedisList(String listName, T value) {
         boolean allPushed = true;
-        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
+        try (Jedis jedis = jedisPool.getResource()) {
             try {
                 byte[] valueByteArr = getBytes(value);
-                pipelined.lpush(listName.getBytes(), valueByteArr);
+                runWithRetries(() -> jedis.lpush(listName.getBytes(), valueByteArr), "LPUSH");
             } catch (Exception e) {
                 allPushed = false;
                 LOG.error("Error pushing item to Redis " + listName + " list", e);
@@ -273,17 +273,6 @@ public class RedisService {
 
     private void printFailWarning(Status status) {
         LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
-    }
-
-    public Set<String> getAll(String pattern){
-        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            try {
-                return pipelined.hkeys(pattern).get();
-            } catch (Exception e) {
-                LOG.error("Error getting all keys from Redis.", e);
-            }
-        }
-        return null;
     }
 
     // endregion
