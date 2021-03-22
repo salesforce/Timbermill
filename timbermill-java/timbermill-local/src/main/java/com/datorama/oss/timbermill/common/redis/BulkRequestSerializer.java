@@ -1,4 +1,4 @@
-package com.datorama.oss.timbermill.common.persistence;
+package com.datorama.oss.timbermill.common.redis;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;

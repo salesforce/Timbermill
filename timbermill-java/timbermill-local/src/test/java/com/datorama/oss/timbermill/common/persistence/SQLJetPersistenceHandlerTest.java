@@ -34,7 +34,7 @@ public class SQLJetPersistenceHandlerTest {
 
 	@BeforeClass
 	public static void init()  {
-		sqlJetPersistenceHandler = new SQLJetPersistenceHandler(maxFetchedBulks, 3,"/tmp/SQLJetPersistenceHandler");
+		sqlJetPersistenceHandler = new SQLJetPersistenceHandler(maxFetchedBulks, 3, 3,"/tmp/SQLJetPersistenceHandler");
 	}
 
 	@Before

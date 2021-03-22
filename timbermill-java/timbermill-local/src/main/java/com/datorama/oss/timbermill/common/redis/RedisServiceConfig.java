@@ -1,6 +1,6 @@
-package com.datorama.oss.timbermill;
+package com.datorama.oss.timbermill.common.redis;
 
-public class RedisCacheConfig {
+public class RedisServiceConfig {
     private final String redisHost;
     private final int redisPort;
     private final String redisPass;
@@ -14,7 +14,7 @@ public class RedisCacheConfig {
     private final int redisPoolMaxTotal;
     private int redisMaxTries;
 
-    public RedisCacheConfig(String redisHost, int redisPort, String redisPass, String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal, int redisMaxTries) {
+    public RedisServiceConfig(String redisHost, int redisPort, String redisPass, String redisMaxMemory, String redisMaxMemoryPolicy, boolean redisUseSsl, int redisTtlInSeconds, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal, int redisMaxTries) {
         this.redisHost = redisHost;
         this.redisPort = redisPort;
         this.redisPass = redisPass;

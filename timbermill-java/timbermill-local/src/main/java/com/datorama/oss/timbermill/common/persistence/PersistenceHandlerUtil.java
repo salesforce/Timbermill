@@ -1,6 +1,6 @@
 package com.datorama.oss.timbermill.common.persistence;
 
-import com.datorama.oss.timbermill.RedisCacheConfig;
+import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 
 import java.util.Map;
 
@@ -23,14 +23,16 @@ public class PersistenceHandlerUtil {
 		switch (strategy) {
 			case "sqlite":
 				return new SQLJetPersistenceHandler(
-						(int) params.get(RedisPersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
-						(int) params.get(RedisPersistenceHandler.MAX_INSERT_TRIES),
+						(int) params.get(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_OVERFLOWED_EVENTS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
 						(String) params.get(SQLJetPersistenceHandler.LOCATION_IN_DISK));
 			case "redis":
 				return new RedisPersistenceHandler(
-						(int) params.get(RedisPersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
-						(int) params.get(RedisPersistenceHandler.MAX_INSERT_TRIES),
-						(RedisCacheConfig) params.get(RedisPersistenceHandler.REDIS_CONFIG));
+						(int) params.get(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_OVERFLOWED_EVENTS_IN_ONE_TIME),
+						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
+						(RedisServiceConfig) params.get(RedisPersistenceHandler.REDIS_CONFIG));
 			default:
 				throw new RuntimeException("Unsupported persistence handler strategy " + persistenceHandlerStrategy);
 		}

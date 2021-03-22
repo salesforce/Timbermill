@@ -50,8 +50,8 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private ISqlJetTable overFlowedEventsTable;
 	private static ExecutorService executorService;
 
-	SQLJetPersistenceHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
-		super(maxFetchedBulks, maxInsertTries);
+	SQLJetPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, String locationInDisk) {
+		super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
 		this.locationInDisk = locationInDisk;
 		executorService = Executors.newFixedThreadPool(1);
 		init();
@@ -106,7 +106,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
-			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
+			for (int i = 0; i < maxFetchedEventsInOneTime && !resultCursor.eof() ; i++) {
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				int eventsSize = events.size();
 				LOG.info("Fetched bulk of {} overflowed events from SQLite.", eventsSize);
