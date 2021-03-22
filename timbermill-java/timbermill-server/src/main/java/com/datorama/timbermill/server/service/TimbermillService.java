@@ -2,7 +2,7 @@ package com.datorama.timbermill.server.service;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.LocalCacheConfig;
-import com.datorama.oss.timbermill.RedisCacheConfig;
+import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
@@ -62,12 +62,13 @@ public class TimbermillService {
 							 @Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
 							 @Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 							 @Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
-							 @Value("${DISK_HANDLER_STRATEGY:sqlite}") String persistenceHandlerStrategy, //TODO change property name from disk to persistence
+							 @Value("${PERSISTENCE_HANDLER_STRATEGY:redis}") String persistenceHandlerStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
+							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
-							 @Value("${LOCATION_IN_DISK:/db}") String location, // TODO change property name from disk to persistence
+							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
 							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") long maximumTasksCacheWeight,
@@ -91,19 +92,19 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, location);
-		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
+		RedisServiceConfig redisServiceConfig = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
 				redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
 				redisPoolMaxTotal, redisMaxTries);
 		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
 				localCacheConfig, cacheStrategy,
-				redisCacheConfig);
+				redisServiceConfig);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, redisServiceConfig);
+		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);

@@ -1,20 +1,23 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-
-import com.datorama.oss.timbermill.*;
+import com.datorama.oss.timbermill.Bulker;
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.LocalCacheConfig;
+import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.cron.CronsRunner;
+import com.datorama.oss.timbermill.unit.Event;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
-import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
-import com.datorama.oss.timbermill.cron.CronsRunner;
-import com.datorama.oss.timbermill.unit.Event;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -35,18 +38,18 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.location);
-        persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
         LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
-        RedisCacheConfig redisCacheConfig = new RedisCacheConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
+        RedisServiceConfig redisServiceConfig = new RedisServiceConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
+        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, redisServiceConfig);
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
                 localCacheConfig, builder.cacheStrategy,
-                redisCacheConfig);
+                redisServiceConfig);
+        persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
@@ -180,10 +183,11 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String mergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
-        private String persistenceHandlerStrategy = "sqlite";
+        private String persistenceHandlerStrategy = "redis";
         private int maxFetchedBulksInOneTime = 10;
+        private int maxFetchedEventsInOneTime = 10;
         private int maxInsertTries = 3;
-        private String location = "/tmp";
+        private String locationInDisk = "/tmp";
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
@@ -285,8 +289,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder location(String location) {
-            this.location = location;
+        public Builder locationInDisk(String locationInDisk) {
+            this.locationInDisk = locationInDisk;
             return this;
         }
 
