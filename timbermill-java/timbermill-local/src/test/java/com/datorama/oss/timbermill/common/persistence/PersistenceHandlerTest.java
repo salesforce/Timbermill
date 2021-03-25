@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.unit.*;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.script.Script;
@@ -8,10 +9,7 @@ import org.elasticsearch.script.ScriptType;
 import org.junit.AfterClass;
 import org.junit.Before;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,7 +20,6 @@ import static org.junit.Assert.*;
 
 public abstract class PersistenceHandlerTest {
     protected static PersistenceHandler persistenceHandler;
-    protected static int maxFetchedBulks = 10;
     protected static int bulkNum = 1;
 
     protected static void init(Map<String, Object> params, String persistenceHandlerStrategy) {
@@ -41,14 +38,14 @@ public abstract class PersistenceHandlerTest {
     }
 
     public void hasFailedBulks() throws ExecutionException, InterruptedException {
-        DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
         assertTrue(persistenceHandler.hasFailedBulks());
     }
 
     public void fetchFailedBulks() throws ExecutionException, InterruptedException {
 
-        DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
         List<DbBulkRequest> fetchedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         assertEquals(1, fetchedRequests.size());
@@ -56,15 +53,25 @@ public abstract class PersistenceHandlerTest {
         DbBulkRequest dbBulkRequestFromDisk = fetchedRequests.get(0);
         assertEquals(getRequestAsString(dbBulkRequest), getRequestAsString(dbBulkRequestFromDisk));
 
-        DbBulkRequest dbBulkRequest2 = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
-        DbBulkRequest dbBulkRequest3 = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest2 = Mock.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest3 = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest2, bulkNum).get();
         persistenceHandler.persistBulkRequest(dbBulkRequest3, bulkNum).get();
         assertEquals(2, persistenceHandler.failedBulksAmount());
     }
 
+    public void fetchOverflowedEvents() throws ExecutionException, InterruptedException {
+        ArrayList<Event> events = Mock.createMockEventsList();
+
+        persistenceHandler.persistEvents(events);
+        List<Event> fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
+        assertEquals(5, fetchedEvents.size());
+        fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
+        assertEquals(0, fetchedEvents.size());
+    }
+
     public void fetchesCounter() throws InterruptedException, ExecutionException {
-        DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
         DbBulkRequest fetchedRequest = persistenceHandler.fetchAndDeleteFailedBulks().get(0);
         persistenceHandler.persistBulkRequest(fetchedRequest, bulkNum).get();
@@ -74,29 +81,50 @@ public abstract class PersistenceHandlerTest {
 
     public void failedBulksAmount() throws InterruptedException, ExecutionException {
         int amount = 3;
-        DbBulkRequest dbBulkRequest;
         for (int i = 0 ; i < amount ; i++){
-            dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
-            persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
         }
-        assertEquals(3, persistenceHandler.failedBulksAmount());
-        assertEquals(3, persistenceHandler.failedBulksAmount()); // to make sure the db didn't change after the call to failedBulksAmount
+
+        assertEquals(amount, persistenceHandler.failedBulksAmount());
+        assertEquals(amount, persistenceHandler.failedBulksAmount()); // to make sure the db didn't change after the call to failedBulksAmount
+    }
+
+    public void overflowedEventsListsAmount() throws InterruptedException, ExecutionException {
+        int amount = 3;
+        for (int i = 0 ; i < amount ; i++){
+            persistenceHandler.persistEvents(Mock.createMockEventsList());
+        }
+
+        assertEquals(amount, persistenceHandler.overFlowedEventsListsAmount());
+        assertEquals(amount, persistenceHandler.overFlowedEventsListsAmount()); // to make sure the db didn't change after the call to OverflowedEventsAmount
     }
 
     public void fetchMaximumBulksAmount() throws InterruptedException, ExecutionException {
-        DbBulkRequest dbBulkRequest;
-        int extraBulks = 2;
-        for (int i = 0 ; i < maxFetchedBulks + extraBulks ; i++){
-            dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
-            persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        int extraBulks = 30;
+        int maxFetchedBulks = persistenceHandler.getMaxFetchedBulksInOneTime();
+        for (int i = 0; i < maxFetchedBulks + extraBulks ; i++){
+            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
         }
         List<DbBulkRequest> fetchedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         assertEquals(maxFetchedBulks,fetchedRequests.size());
         assertEquals(extraBulks, persistenceHandler.failedBulksAmount());
     }
 
+    public void fetchMaximumEventsAmount() throws InterruptedException, ExecutionException {
+        int extraEventLists = 2;
+        int maxFetchedEventsLists = persistenceHandler.getMaxFetchedEventsListsInOneTime();
+        for (int i = 0; i < maxFetchedEventsLists + extraEventLists ; i++){
+            persistenceHandler.persistEvents(Mock.createMockEventsList());
+        }
+
+        int mockListSize = Mock.createMockEventsList().size();
+        List<Event> fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
+        assertEquals(maxFetchedEventsLists * mockListSize, fetchedEvents.size());
+        assertEquals(extraEventLists, persistenceHandler.overFlowedEventsListsAmount());
+    }
+
     public void dropAndRecreateTable() throws InterruptedException, ExecutionException {
-        DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+        DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
 
         persistenceHandler.reset();
@@ -113,7 +141,7 @@ public abstract class PersistenceHandlerTest {
 
         // insert some bulks to disk
         for (int i = 0 ; i < 10 ; i++){
-            DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+            DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
             persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
         }
 
@@ -148,7 +176,6 @@ public abstract class PersistenceHandlerTest {
     }
 
     // region Test Helpers
-
     private void fetchAndPersist() {
         if (persistenceHandler.hasFailedBulks()) {
             List<DbBulkRequest> failedRequestsFromDisk = persistenceHandler.fetchAndDeleteFailedBulks();
@@ -165,7 +192,8 @@ public abstract class PersistenceHandlerTest {
         return dbBulkRequest.getRequest().requests().get(0).toString();
     }
 
-    public static class MockBulkRequest {
+    public static class Mock {
+
         static UpdateRequest createMockRequest() {
             String taskId = UUID.randomUUID().toString();
             String index = "timbermill-test";
@@ -174,7 +202,6 @@ public abstract class PersistenceHandlerTest {
             updateRequest.script(script);
             return updateRequest;
         }
-
         static DbBulkRequest createMockDbBulkRequest() {
             BulkRequest bulkRequest = new BulkRequest();
             for (int i = 0 ; i < 3 ; i++){
@@ -182,10 +209,15 @@ public abstract class PersistenceHandlerTest {
             }
             return new DbBulkRequest(bulkRequest);
         }
+
+        static ArrayList<Event> createMockEventsList() {
+            return new ArrayList<>(
+                    Arrays.asList(new StartEvent(), new InfoEvent(), new SuccessEvent(), new ErrorEvent(), new SpotEvent()));
+        }
+
     }
 
     // endregion
-
 }
 
 

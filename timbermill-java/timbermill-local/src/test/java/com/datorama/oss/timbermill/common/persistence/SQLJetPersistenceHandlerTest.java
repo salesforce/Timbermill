@@ -19,7 +19,7 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	@BeforeClass
 	public static void init()  {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();
-		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulks);
+		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, 10);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, 3);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, 3);
 		persistenceHandlerParams.put(SQLJetPersistenceHandler.LOCATION_IN_DISK, "/tmp/SQLJetPersistenceHandler");
@@ -37,6 +37,11 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	}
 
 	@Test
+	public void fetchOverflowedEvents() throws InterruptedException, ExecutionException {
+		super.fetchOverflowedEvents();
+	}
+
+	@Test
 	public void fetchesCounter() throws InterruptedException, ExecutionException {
 		super.fetchesCounter();
 	}
@@ -47,8 +52,18 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	}
 
 	@Test
+	public void overflowedEventsListsAmount() throws InterruptedException, ExecutionException {
+		super.overflowedEventsListsAmount();
+	}
+
+	@Test
 	public void fetchMaximumBulksAmount() throws InterruptedException, ExecutionException {
 		super.fetchMaximumBulksAmount();
+	}
+
+	@Test
+	public void fetchMaximumEventsAmount() throws InterruptedException, ExecutionException {
+		super.fetchMaximumEventsAmount();
 	}
 
 	@Test
@@ -82,7 +97,7 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 
 	@Test
 	public void failToInsert() throws ExecutionException, InterruptedException {
-		DbBulkRequest dbBulkRequest = PersistenceHandlerTest.MockBulkRequest.createMockDbBulkRequest();
+		DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
 		dbBulkRequest.setRequest(null); // will cause insert to fail
 
 		persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();

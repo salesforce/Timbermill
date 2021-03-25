@@ -80,7 +80,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 
 			// update kamon gauge (counter)
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
-			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsListsAmount());
 
 			silentDbCommit();
 			LOG.info("SQLite was created successfully");
@@ -107,7 +107,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
-			for (int i = 0; i < maxFetchedEventsInOneTime && !resultCursor.eof() ; i++) {
+			for (int i = 0; i < maxFetchedEventsListsInOneTime && !resultCursor.eof() ; i++) {
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				int eventsSize = events.size();
 				LOG.info("Fetched bulk of {} overflowed events from SQLite.", eventsSize);
@@ -134,7 +134,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		return executorService.submit(() -> {
 			try {
-				persistBulkRequest(dbBulkRequest, 1000, bulkNum);
+				persistBulkRequest(dbBulkRequest, 300, bulkNum);
 			} catch (MaximumInsertTriesException e) {
 				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
@@ -187,7 +187,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	}
 
 	@Override
-	public synchronized long overFlowedEventsAmount() {
+	public synchronized long overFlowedEventsListsAmount() {
 		return getTableRowCount(overFlowedEventsTable);
 	}
 
@@ -213,6 +213,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	public void reset() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
+			db.dropTable(OVERFLOWED_EVENTS_TABLE_NAME);
 			db.createTable(CREATE_BULK_TABLE);
 			db.createTable(CREATE_EVENT_TABLE);
 			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);

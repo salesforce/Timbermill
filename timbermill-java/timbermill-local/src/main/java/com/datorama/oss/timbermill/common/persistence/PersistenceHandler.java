@@ -19,12 +19,12 @@ public abstract class PersistenceHandler {
 	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
 
 	protected int maxFetchedBulksInOneTime;
-	protected int maxFetchedEventsInOneTime;
+	protected int maxFetchedEventsListsInOneTime;
 	protected int maxInsertTries;
 
-	PersistenceHandler(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries){
+	PersistenceHandler(int maxFetchedBulksInOneTime, int maxFetchedEventsListsInOneTime, int maxInsertTries){
 		this.maxFetchedBulksInOneTime = maxFetchedBulksInOneTime;
-		this.maxFetchedEventsInOneTime = maxFetchedEventsInOneTime;
+		this.maxFetchedEventsListsInOneTime = maxFetchedEventsListsInOneTime;
 		this.maxInsertTries = maxInsertTries;
 	}
 
@@ -42,11 +42,19 @@ public abstract class PersistenceHandler {
 
 	abstract long failedBulksAmount();
 
-	abstract long overFlowedEventsAmount();
+	abstract long overFlowedEventsListsAmount();
 
 	public abstract void close();
 
 	public abstract void reset();
+
+	public int getMaxFetchedBulksInOneTime() {
+		return maxFetchedBulksInOneTime;
+	}
+
+	public int getMaxFetchedEventsListsInOneTime() {
+		return maxFetchedEventsListsInOneTime;
+	}
 
 	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, RedisServiceConfig redisServiceConfig) {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();

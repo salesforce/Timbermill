@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common.redis;
 
-import com.datorama.oss.timbermill.unit.LocalTask;
-import com.datorama.oss.timbermill.unit.TaskMetaData;
+import com.datorama.oss.timbermill.unit.*;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
@@ -85,6 +84,8 @@ public class RedisService {
                 kryo.register(com.datorama.oss.timbermill.unit.SpotEvent.class);
                 kryo.register(com.datorama.oss.timbermill.unit.InfoEvent.class);
                 kryo.register(com.datorama.oss.timbermill.unit.SuccessEvent.class);
+                kryo.register(com.datorama.oss.timbermill.unit.ErrorEvent.class);
+                kryo.register(com.datorama.oss.timbermill.unit.StartEvent.class);
                 kryo.register(byte[].class);
                 kryo.register(com.datorama.oss.timbermill.common.persistence.DbBulkRequest.class);
                 kryo.register(org.elasticsearch.action.bulk.BulkRequest.class, new BulkRequestSerializer());
