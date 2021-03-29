@@ -11,10 +11,6 @@ import org.junit.Before;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
 
@@ -131,62 +127,7 @@ public abstract class PersistenceHandlerTest {
         assertFalse(persistenceHandler.hasFailedBulks());
     }
 
-    public void testMultiThreadSafety() throws InterruptedException, ExecutionException {
-
-        int numOfThreads = 15;
-        AtomicBoolean isHealthCheckFailed = new AtomicBoolean(false);
-        AtomicBoolean keepExecuting = new AtomicBoolean(true);
-        ExecutorService executorService = Executors.newFixedThreadPool(numOfThreads);
-
-
-        // insert some bulks to disk
-        for (int i = 0 ; i < 10 ; i++){
-            DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-            persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
-        }
-
-        Runnable fetchAndPersistTask = () -> {
-            while (keepExecuting.get()) {
-                try {
-                    persistenceHandler.hasFailedBulks();
-                } catch (Exception e) {
-                    isHealthCheckFailed.set(true);
-                    break;
-                }
-                try {
-                    fetchAndPersist();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-
-        for (int i = 0; i < numOfThreads; i++) {
-            executorService.execute(fetchAndPersistTask);
-        }
-
-        Thread.sleep(2000);
-
-        // stop threads and wait
-        keepExecuting.set(false);
-        executorService.shutdown();
-        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-
-        assertFalse(isHealthCheckFailed.get());
-    }
-
     // region Test Helpers
-    private void fetchAndPersist() {
-        if (persistenceHandler.hasFailedBulks()) {
-            List<DbBulkRequest> failedRequestsFromDisk = persistenceHandler.fetchAndDeleteFailedBulks();
-            if (failedRequestsFromDisk.size() == 0) {
-                return;
-            }
-            for (DbBulkRequest dbBulkRequest : failedRequestsFromDisk) {
-                persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
-            }
-        }
-    }
 
     private String getRequestAsString(DbBulkRequest dbBulkRequest) {
         return dbBulkRequest.getRequest().requests().get(0).toString();

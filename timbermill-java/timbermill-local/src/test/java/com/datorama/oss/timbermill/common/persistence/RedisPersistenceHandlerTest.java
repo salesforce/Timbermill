@@ -69,11 +69,6 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
     }
 
     @Test
-    public void testMultiThreadSafety() throws InterruptedException, ExecutionException {
-        super.testMultiThreadSafety();
-    }
-
-    @Test
     public void fetchExpiredFailedBulks() throws InterruptedException, ExecutionException {
         int amount = 15;
         for (int i = 0 ; i < amount ; i++){
