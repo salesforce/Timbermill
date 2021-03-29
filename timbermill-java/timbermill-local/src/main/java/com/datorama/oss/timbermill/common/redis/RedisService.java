@@ -125,7 +125,7 @@ public class RedisService {
                         String id = new String(ids[i]);
                         retMap.put(id, object);
                     } catch (Exception e) {
-                        System.out.println(e.getMessage());
+                        LOG.error("Error getting ids from Redis. Ids: " + idsPartition, e);
                     } finally {
                         kryoPool.free(kryo);
                     }
@@ -150,7 +150,7 @@ public class RedisService {
         }
     }
 
-    public <T> boolean pushToRedisHash(Map<String, T> idsToValuesMap) {
+    public <T> boolean pushToRedisHash(Map<String, T> idsToValuesMap, int redisTtlInSeconds) {
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
@@ -169,12 +169,16 @@ public class RedisService {
         return allPushed;
     }
 
+    public <T> boolean pushToRedisHash(Map<String, T> idsToValuesMap) {
+        return pushToRedisHash(idsToValuesMap, redisTtlInSeconds);
+    }
+
     public <T> boolean pushToRedisList(String listName, T value) {
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource()) {
             try {
                 byte[] valueByteArr = getBytes(value);
-                runWithRetries(() -> jedis.lpush(listName.getBytes(), valueByteArr), "LPUSH");
+                runWithRetries(() -> jedis.rpush(listName.getBytes(), valueByteArr), "RPUSH");
             } catch (Exception e) {
                 allPushed = false;
                 LOG.error("Error pushing item to Redis " + listName + " list", e);
@@ -198,7 +202,7 @@ public class RedisService {
                     T object = (T) kryo.readClassAndObject(new Input(serializedObject));
                     ids.add(object);
                 } catch (Exception e) {
-                    System.out.println(e.getMessage());
+                    LOG.error("Error getting elements from Redis " + listName + " list", e);
                 } finally {
                     kryoPool.free(kryo);
                 }
@@ -246,6 +250,7 @@ public class RedisService {
 
     public void close() {
         jedisPool.close();
+        connected = false;
     }
 
     public boolean isConnected() {

@@ -69,18 +69,19 @@ public class TimbermillService {
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
+							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
 							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") long maximumTasksCacheWeight,
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") long maximumOrphansCacheWeight,
 							 @Value("${CACHE_STRATEGY:}") String cacheStrategy,
+							 @Value("${CACHE_TTL_IN_SECONDS:604800}") int cacheRedisTtlInSeconds,
 							 @Value("${REDIS_MAX_MEMORY:}") String redisMaxMemory,
 							 @Value("${REDIS_MAX_MEMORY_POLICY:}") String redisMaxMemoryPolicy,
 							 @Value("${REDIS_HOST:localhost}") String redisHost,
 							 @Value("${REDIS_PORT:6379}") int redisPort,
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
-							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
 							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
 							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
@@ -96,14 +97,17 @@ public class TimbermillService {
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		RedisServiceConfig redisServiceConfig = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
-				redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+		RedisServiceConfig redisServiceConfigCache = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
+				redisMaxMemoryPolicy, redisUseSsl, cacheRedisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
 				redisPoolMaxTotal, redisMaxTries);
 		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
 				localCacheConfig, cacheStrategy,
-				redisServiceConfig);
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, redisServiceConfig);
+				redisServiceConfigCache);
+        RedisServiceConfig redisServiceConfigPersistence = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
+                redisMaxMemoryPolicy, redisUseSsl, persistenceRedisTtlInSec, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+                redisPoolMaxTotal, maxInsertTries);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk,redisServiceConfigPersistence);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
