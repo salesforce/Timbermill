@@ -651,7 +651,7 @@ public class ElasticsearchClient {
     private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
 		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 		puStoredScript();
-		forceMergeRetiredIndex("timbermill2-stg-000002"); //todo delete
+		forceMergeRetiredIndex("timbermill2-feature_env-000434"); //todo delete
 	}
 
 	private void puStoredScript(){
