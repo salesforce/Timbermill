@@ -28,6 +28,7 @@ public class BulkPersistentFetchJob implements Job {
 	@Override public void execute(JobExecutionContext context) {
 		PersistenceHandler persistenceHandler = (PersistenceHandler) context.getJobDetail().getJobDataMap().get(PERSISTENCE_HANDLER);
 		if (persistenceHandler != null) {
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", "failed_bulks_amount").update(persistenceHandler.failedBulksAmount());
 			Timer.Started start = KamonConstants.BULK_FETCH_JOB_LATENCY.withoutTags().start();
 			String flowId = "Failed Bulk Persistent Fetch Job - " + UUID.randomUUID().toString();
 			MDC.put("id", flowId);

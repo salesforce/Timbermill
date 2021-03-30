@@ -34,15 +34,15 @@ public abstract class PersistenceHandler {
 
 	public abstract Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum);
 
-	abstract void persistEvents(ArrayList<Event> events);
+	public abstract void persistEvents(ArrayList<Event> events);
 
 	public abstract boolean hasFailedBulks();
 
 	public abstract boolean isCreatedSuccessfully();
 
-	abstract long failedBulksAmount();
+	public abstract long failedBulksAmount();
 
-	abstract long overFlowedEventsListsAmount();
+	public abstract long overFlowedEventsListsAmount();
 
 	public abstract void close();
 

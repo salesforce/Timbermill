@@ -76,7 +76,7 @@ public abstract class PersistenceHandlerTest {
     }
 
     public void failedBulksAmount() throws InterruptedException, ExecutionException {
-        int amount = 3;
+        int amount = 250;
         for (int i = 0 ; i < amount ; i++){
             persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
         }

@@ -1,9 +1,11 @@
 package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.unit.Event;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -70,7 +72,7 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
 
     @Test
     public void fetchExpiredFailedBulks() throws InterruptedException, ExecutionException {
-        int amount = 15;
+        int amount = 150;
         for (int i = 0 ; i < amount ; i++){
             ((RedisPersistenceHandler)persistenceHandler).persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum, 0).get();
         }
@@ -80,5 +82,20 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
 
         assertEquals(1, persistenceHandler.failedBulksAmount());
         assertEquals(1, persistenceHandler.fetchAndDeleteFailedBulks().size());
+    }
+
+    @Test
+    public void fetchExpiredOverFlowedEvents() {
+        int amount = 150;
+        ArrayList<Event> mockEventsList = Mock.createMockEventsList();
+        for (int i = 0; i < amount ; i++){
+            ((RedisPersistenceHandler)persistenceHandler).persistEvents(mockEventsList, 0);
+        }
+        // all previous keys should be expired
+
+        persistenceHandler.persistEvents(mockEventsList);
+
+        assertEquals(1, persistenceHandler.overFlowedEventsListsAmount());
+        assertEquals(mockEventsList.size(), persistenceHandler.fetchAndDeleteOverflowedEvents().size());
     }
 }

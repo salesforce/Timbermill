@@ -28,6 +28,7 @@ public class EventsPersistentFetchJob implements Job {
 		BlockingQueue<Event> eventsQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(EVENTS_QUEUE);
 		BlockingQueue<Event> overflowedQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(OVERFLOWED_EVENTS_QUEUE);
 		if (persistenceHandler != null && hasEnoughRoomLeft(eventsQueue)) {
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", "overflowed_events_lists_amount").update(persistenceHandler.overFlowedEventsListsAmount());
 			String flowId = "Overflowed Event Persistent Fetch Job - " + UUID.randomUUID().toString();
 			MDC.put("id", flowId);
 			LOG.info("Overflowed Events Fetch Job started.");

@@ -49,12 +49,11 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
-	private static ExecutorService executorService;
+	private static ExecutorService executorService = Executors.newFixedThreadPool(1);
 
 	SQLJetPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, String locationInDisk) {
 		super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
 		this.locationInDisk = locationInDisk;
-		executorService = Executors.newFixedThreadPool(1);
 		init();
 	}
 

@@ -93,22 +93,23 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
-
 		RedisServiceConfig redisServiceConfigCache = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
 				redisMaxMemoryPolicy, redisUseSsl, cacheRedisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
 				redisPoolMaxTotal, redisMaxTries);
 		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
+
+		RedisServiceConfig redisServiceConfigPersistence = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
+				redisMaxMemoryPolicy, redisUseSsl, persistenceRedisTtlInSec, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+				redisPoolMaxTotal, maxInsertTries);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk,redisServiceConfigPersistence);
+		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
+
+		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
+				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
 				localCacheConfig, cacheStrategy,
 				redisServiceConfigCache);
-        RedisServiceConfig redisServiceConfigPersistence = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
-                redisMaxMemoryPolicy, redisUseSsl, persistenceRedisTtlInSec, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
-                redisPoolMaxTotal, maxInsertTries);
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk,redisServiceConfigPersistence);
-		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
@@ -172,5 +173,9 @@ public class TimbermillService {
 		for (Event event : events) {
 			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
 		}
+	}
+
+	PersistenceHandler getPersistenceHandler() {
+		return persistenceHandler;
 	}
 }

@@ -187,6 +187,17 @@ public class RedisService {
         return allPushed;
     }
 
+    public long getListLength(String listName) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            try {
+                return runWithRetries(() -> jedis.llen(listName.getBytes()), "LLEN").longValue();
+            } catch (Exception e) {
+                LOG.error("Error returning Redis " + listName + " list length", e);
+                return -1;
+            }
+        }
+    }
+
     public <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
         List<T> ids = new ArrayList<>();
         try (Jedis jedis = jedisPool.getResource()) {

@@ -71,12 +71,6 @@ public class TimbermillController {
 		return "Event received";
 	}
 
-//	@RequestMapping(method = RequestMethod.POST, value = "/events/v2")
-//	public String ingestEventsNew(@RequestBody @Valid EventsList events) {
-//		executorService.submit(() -> timbermillService.handleEvents(events));
-//		return "Event received";
-//	}
-
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	@ResponseBody
 	public ResponseEntity<?> handleHttpMessageNotReadableException(HttpServletRequest request, Exception ex) throws IOException {
