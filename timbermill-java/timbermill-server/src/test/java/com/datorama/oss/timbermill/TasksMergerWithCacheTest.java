@@ -6,10 +6,12 @@ import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
+@Ignore
 public class TasksMergerWithCacheTest extends TimberLogTest {
 
 	private static final String CTX_1 = "ctx1";

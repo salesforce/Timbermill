@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
@@ -25,6 +26,7 @@ import com.google.common.collect.Lists;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.*;
 
+@Ignore
 public class TasksMergerJobsTest extends TimberLogTest {
 
 	private static final String CTX_1 = "ctx1";

@@ -3,8 +3,10 @@ package com.datorama.oss.timbermill;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class TimberLogAdvancedServerTest extends TimberLogAdvancedTest {
 
     @BeforeClass

@@ -3,10 +3,12 @@ package com.datorama.oss.timbermill;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
+@Ignore
 public class TimberLogLocalTest extends TimberLogTest {
 
     @BeforeClass
