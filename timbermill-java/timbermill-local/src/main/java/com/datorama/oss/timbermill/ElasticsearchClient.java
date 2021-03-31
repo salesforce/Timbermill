@@ -74,6 +74,7 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -469,7 +470,12 @@ public class ElasticsearchClient {
 
 			@Override
 			public void onFailure(Exception e) {
-				LOG.error("Force merge failed", e);
+				if (e instanceof SocketTimeoutException){
+					LOG.info("Force merge for index {} got a timeout, will continue to run on the cluster.", oldIndex);
+				}
+				else {
+					LOG.error("Force merge for index " + oldIndex + " failed", e);
+				}
 			}
 		});
 		LOG.info("Force merge index {} to 1 segment", oldIndex);
@@ -651,7 +657,6 @@ public class ElasticsearchClient {
     private void bootstrapElasticsearch(int numberOfShards, int numberOfReplicas, int maxTotalFields) {
 		putIndexTemplate(numberOfShards, numberOfReplicas, maxTotalFields);
 		puStoredScript();
-		forceMergeRetiredIndex("timbermill2-stg-000002"); //todo delete
 	}
 
 	private void puStoredScript(){
