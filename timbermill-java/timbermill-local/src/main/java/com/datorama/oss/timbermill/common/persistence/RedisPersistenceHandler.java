@@ -20,7 +20,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private static final String FAILED_BULK_PREFIX = "failed_bulk#";
     private static final String OVERFLOW_EVENTS_PREFIX = "overflow_events#";
 
-    public static final String REDIS_CONFIG = "redis_config";
+    static final String REDIS_CONFIG = "redis_config";
 
     private RedisService redisService;
 
@@ -40,11 +40,11 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             ids.clear();
 
             // pop keys from redis list
-            ids.addAll(popElementsFromRedisList(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime));
+            ids.addAll(redisService.popElementsFromRedisList(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime));
             // get matching failed bulks from redis
             failedBulkRequests.putAll(redisService.getFromRedis(ids));
             // increase times fetched for each fetched one
-            failedBulkRequests.values().stream().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
+            failedBulkRequests.values().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
         }
         while (areAllIdsExpired(ids, failedBulkRequests));
 
@@ -63,7 +63,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             ids.clear();
 
             // pop keys from redis list
-            ids.addAll(popElementsFromRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime));
+            ids.addAll(redisService.popElementsFromRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime));
             // get matching overflowed events from redis
             overflowedEventsLists.putAll(redisService.getFromRedis(ids));
         }
@@ -104,21 +104,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     @Override
     public boolean hasFailedBulks() {
-        int iteration = 0;
-        int iterationSize = 100;
-
-        List<String> ids = new ArrayList<>();
-        Map<String, DbBulkRequest> failedBulkRequests = new HashMap<>();
-        do {
-            ids.clear();
-
-            ids.addAll(redisService.getRangeFromRedisList(FAILED_BULKS_QUEUE_NAME, iterationSize * iteration, iterationSize * (iteration + 1) - 1));
-            failedBulkRequests.putAll(redisService.getFromRedis(ids));
-            iteration += 1;
-        }
-        while (areAllIdsExpired(ids, failedBulkRequests));
-
-        return failedBulkRequests.size() > 0;
+        return redisService.getListLength(FAILED_BULKS_QUEUE_NAME) > 0;
     }
 
     @Override
@@ -176,12 +162,6 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         }  else {
             LOG.info("List of {} overflowed events was pushed successfully to Redis.", events.size());
         }
-    }
-
-    private List<String> popElementsFromRedisList(String listName, int amount) {
-        List<String> elements = redisService.getRangeFromRedisList(listName, 0, amount - 1);
-        redisService.trimRedisList(listName, elements.size(), -1);
-        return elements;
     }
 
     private <T> boolean areAllIdsExpired(List<String> ids, Map<String, T> failedBulkRequests) {

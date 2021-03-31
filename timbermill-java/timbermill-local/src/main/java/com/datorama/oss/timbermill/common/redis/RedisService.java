@@ -199,7 +199,7 @@ public class RedisService {
         }
     }
 
-    public <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
+    public  <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
         List<T> ids = new ArrayList<>();
         try (Jedis jedis = jedisPool.getResource()) {
             List<byte[]> serializedObjects = runWithRetries(() -> jedis.lrange(listName.getBytes(), start, end), "LRANGE");
@@ -227,12 +227,12 @@ public class RedisService {
         return ids;
     }
 
-    public void trimRedisList(String listName, int start, int end) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
-        } catch (Exception e) {
-            LOG.error("Error trimming Redis " + listName + " list", e);
-        }
+    public List<String> popElementsFromRedisList(String listName, int amount) {
+        lock();
+        List<String> elements = getRangeFromRedisList(listName, 0, amount - 1);
+        trimRedisList(listName, elements.size(), -1);
+        release();
+        return elements;
     }
 
     public void lock() {
@@ -264,6 +264,14 @@ public class RedisService {
 
 
     // region private methods
+
+    private void trimRedisList(String listName, int start, int end) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
+        } catch (Exception e) {
+            LOG.error("Error trimming Redis " + listName + " list", e);
+        }
+    }
 
     private byte[] getBytes(Object object) {
         ByteArrayOutputStream objStream = new ByteArrayOutputStream();
