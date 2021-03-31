@@ -62,7 +62,7 @@ jobs:
     - name: Run Elasticsearch
       uses: getong/elasticsearch-action@v1.2
       with:
-        elasticsearch version: '7.6.1'
+        elasticsearch version: '7.8.1'
         host port: 9200
         container port: 9200
         host node port: 9300
@@ -75,7 +75,7 @@ jobs:
       with:
         name: server
     - name: Run Timbermill Server
-      run: java -jar timbermill-server.jar &
+      run: java -jar timbermill-server.jar
     - name: Run Tests
       run: mvn -B test --file timbermill-java/pom.xml
 
