@@ -75,7 +75,7 @@ jobs:
       with:
         name: server
     - name: Run Timbermill Server
-      run: java -jar timbermill-server.jar
+      run: java -jar timbermill-server.jar &
     - name: Run Tests
       run: mvn -B test --file timbermill-java/pom.xml
 
