@@ -80,7 +80,6 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
 
         persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
 
-        assertEquals(1, persistenceHandler.failedBulksAmount());
         assertEquals(1, persistenceHandler.fetchAndDeleteFailedBulks().size());
     }
 
@@ -95,7 +94,6 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
 
         persistenceHandler.persistEvents(mockEventsList);
 
-        assertEquals(1, persistenceHandler.overFlowedEventsListsAmount());
         assertEquals(mockEventsList.size(), persistenceHandler.fetchAndDeleteOverflowedEvents().size());
     }
 }

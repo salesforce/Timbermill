@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class TimbermillPersistenceController {
+public class AdminController {
 
-	private static final Logger LOG = LoggerFactory.getLogger(TimbermillPersistenceController.class);
+	private static final Logger LOG = LoggerFactory.getLogger(AdminController.class);
 
 	@Autowired
 	private TimbermillService timbermillService;

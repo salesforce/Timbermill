@@ -3,7 +3,6 @@ package com.datorama.oss.timbermill.common.persistence;
 import org.elasticsearch.action.bulk.BulkRequest;
 
 import java.io.Serializable;
-import java.util.UUID;
 
 public class DbBulkRequest implements Serializable {
 	private long id;

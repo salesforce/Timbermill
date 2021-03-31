@@ -57,7 +57,7 @@ public class IndexRetryManager {
 				}
 			}
 			// finishing to retry - if persistence is defined then try to persist the failed requests
-			LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.{}", bulkNum, numOfElasticSearchActionsTries, hasPersistence()? " Bulk will be persist":"");
+			LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.", bulkNum, numOfElasticSearchActionsTries);
 			tryPersistBulkRequest(dbBulkRequest, bulkNum);
 			return resList;
 	}

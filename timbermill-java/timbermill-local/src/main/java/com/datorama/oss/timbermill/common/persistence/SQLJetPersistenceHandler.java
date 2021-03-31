@@ -39,10 +39,10 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private static final String INSERT_TIME = "insertTime";
 	private static final String TIMES_FETCHED = "timesFetched";
 	private static final String CREATE_BULK_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
+			"CREATE TABLE IF NOT EXISTS " + FAILED_BULKS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + FAILED_TASK + " BLOB NOT NULL, " + INSERT_TIME + " TEXT, "
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String CREATE_EVENT_TABLE =
-			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
+			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
 	private static final Logger LOG = LoggerFactory.getLogger(SQLJetPersistenceHandler.class);
 
 	private String locationInDisk;
@@ -133,7 +133,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 		return executorService.submit(() -> {
 			try {
-				persistBulkRequest(dbBulkRequest, 300, bulkNum);
+				persistBulkRequest(dbBulkRequest, 1000, bulkNum);
 			} catch (MaximumInsertTriesException e) {
 				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);

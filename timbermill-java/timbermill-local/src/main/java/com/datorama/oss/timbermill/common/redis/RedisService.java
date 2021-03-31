@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.common.redis;
 
-import com.datorama.oss.timbermill.unit.*;
+import com.datorama.oss.timbermill.unit.LocalTask;
+import com.datorama.oss.timbermill.unit.TaskMetaData;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
@@ -21,7 +22,10 @@ import redis.clients.jedis.*;
 
 import java.io.ByteArrayOutputStream;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 public class RedisService {
@@ -36,8 +40,6 @@ public class RedisService {
     private int redisTtlInSeconds;
     private int redisGetSize;
     private int redisMaxTries;
-    private boolean connected;
-
 
     public RedisService(RedisServiceConfig redisServiceConfig) {
         redisTtlInSeconds = redisServiceConfig.getRedisTtlInSeconds();
@@ -99,7 +101,6 @@ public class RedisService {
                 .withExponentialBackoff()
                 .build();
         LOG.info("Connected to Redis");
-        connected = true;
     }
 
     // region public methods
@@ -251,21 +252,12 @@ public class RedisService {
         }
     }
 
-    public void flushAll() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.flushAll();
-        } catch (Exception e) {
-            LOG.error("Error while flushing Redis", e);
-        }
-    }
-
     public void close() {
         jedisPool.close();
-        connected = false;
     }
 
     public boolean isConnected() {
-        return connected;
+        return !jedisPool.isClosed();
     }
 
     // endregion
