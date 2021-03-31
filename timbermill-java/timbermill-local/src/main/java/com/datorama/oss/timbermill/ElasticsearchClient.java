@@ -378,7 +378,7 @@ public class ElasticsearchClient {
 	//Return number of failed tasks
 
 	public Map<String, String> index(Map<String, Task> tasksMap) {
-        Collection<Future<List<BulkResponse>>> futuresRequests = createFuturesIndexRequests(tasksMap);
+		Collection<Future<List<BulkResponse>>> futuresRequests = createFuturesIndexRequests(tasksMap);
 
 		int bulkNum = 1;
         Map<String, String> overallIdToIndex = Maps.newHashMap();
