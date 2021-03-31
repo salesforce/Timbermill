@@ -226,7 +226,7 @@ public class TaskIndexer {
                     if (parentTask != null) {
                         previouslyIndexedParentTasks.put(parentId, parentTask);
                     }
-                    if (parentTask.getPrimaryId() == null && parentTask.getParentsPath() != null && !parentTask.getParentsPath().isEmpty()){
+                    if (parentTask != null && parentTask.getPrimaryId() == null && parentTask.getParentsPath() != null && !parentTask.getParentsPath().isEmpty()){
                         LOG.debug("getMissingParents CACHE missing primary localtask: {}", GSON.toJson(parentTask));
                     }
                 });
