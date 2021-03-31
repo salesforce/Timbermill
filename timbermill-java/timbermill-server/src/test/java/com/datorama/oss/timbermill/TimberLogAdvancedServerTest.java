@@ -6,7 +6,6 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore
 public class TimberLogAdvancedServerTest extends TimberLogAdvancedTest {
 
     @BeforeClass

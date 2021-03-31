@@ -8,7 +8,6 @@ import org.junit.Test;
 
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 
-@Ignore
 public class TimberLogLocalTest extends TimberLogTest {
 
     @BeforeClass

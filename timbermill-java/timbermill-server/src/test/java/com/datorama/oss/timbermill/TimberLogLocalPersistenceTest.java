@@ -41,7 +41,6 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 		pipe = buildLocalOutputPipeForTest(elasticUrl);
 		origDiskHandler = pipe.getDiskHandler();
         retryManager = pipe.getEsClient().getRetryManager();
-        LOG.info("BULKER class {}", pipe.getEsClient().getBulker().getClass().getName());
 		TimberLogger.bootstrap(pipe, TEST);
 	}
 
@@ -131,7 +130,6 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 		Answer<BulkResponse> bulkResponseAnswer = invocation -> {
 			Object[] args = invocation.getArguments();
 			DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
-			LOG.info("MOCK !!!! {}", dbBulkRequest.getTimesFetched());
 			if (dbBulkRequest.getTimesFetched() < 1) {
 				throw new RuntimeException();
 			}

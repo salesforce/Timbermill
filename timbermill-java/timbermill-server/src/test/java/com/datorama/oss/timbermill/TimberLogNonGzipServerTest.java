@@ -10,7 +10,6 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
 
-@Ignore
 public class TimberLogNonGzipServerTest extends TimberLogTest{
 
 	static final String DEFAULT_TIMBERMILL_URL = "http://localhost:8484";

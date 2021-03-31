@@ -18,7 +18,6 @@ public class Bulker {
 
 	// wrap bulk method as a not-final method in order that Mockito will able to mock it
 	public BulkResponse bulk(DbBulkRequest request) throws IOException {
-		LOG.info("MOCK !!!! {}", request.getTimesFetched());
 		return client.bulk(request.getRequest(), RequestOptions.DEFAULT);
 	}
 }

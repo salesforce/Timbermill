@@ -26,7 +26,6 @@ import com.google.common.collect.Lists;
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.*;
 
-@Ignore
 public class TasksMergerJobsTest extends TimberLogTest {
 
 	private static final String CTX_1 = "ctx1";

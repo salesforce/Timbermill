@@ -368,7 +368,6 @@ public class ElasticsearchClient {
 
 	private List<BulkResponse> sendDbBulkRequest(DbBulkRequest dbBulkRequest, String flowId, int bulkNum) {
 		MDC.put("id", flowId);
-		LOG.info("MOCK2 !!!! {}", dbBulkRequest.getTimesFetched());
 		return retryManager.indexBulkRequest(dbBulkRequest, bulkNum);
 	}
 	// wrap bulk method as a not-final method in order that Mockito will able to mock it
@@ -379,7 +378,6 @@ public class ElasticsearchClient {
 	//Return number of failed tasks
 
 	public Map<String, String> index(Map<String, Task> tasksMap) {
-		LOG.info("MOCK3 !!!! {}", tasksMap);
 		Collection<Future<List<BulkResponse>>> futuresRequests = createFuturesIndexRequests(tasksMap);
 
 		int bulkNum = 1;
