@@ -11,7 +11,6 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-@Ignore
 public class TasksMergerWithCacheTest extends TimberLogTest {
 
 	private static final String CTX_1 = "ctx1";

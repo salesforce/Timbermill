@@ -24,7 +24,6 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 
 @RunWith(MockitoJUnitRunner.class)
-@Ignore
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
 	private static final Logger LOG = LoggerFactory.getLogger(TimberLogLocalPersistenceTest.class);
 	private static LocalOutputPipe pipe;
