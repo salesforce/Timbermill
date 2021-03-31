@@ -40,7 +40,7 @@ jobs:
     env:
       LOCATION_IN_DISK: ./
       CACHE_STRATEGY: redis
-      REDIS_HOST: redis
+      REDIS_HOST: localhost
     steps:    
     - name: Cache Maven packages
       uses: actions/cache@v2
