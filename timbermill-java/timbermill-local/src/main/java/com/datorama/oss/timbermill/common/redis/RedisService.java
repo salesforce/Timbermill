@@ -199,8 +199,8 @@ public class RedisService {
         }
     }
 
-    public  <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
-        List<T> ids = new ArrayList<>();
+    public <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
+        List<T> elements = new ArrayList<>();
         try (Jedis jedis = jedisPool.getResource()) {
             List<byte[]> serializedObjects = runWithRetries(() -> jedis.lrange(listName.getBytes(), start, end), "LRANGE");
             for (int i = 0; i < serializedObjects.size(); i++) {
@@ -212,7 +212,7 @@ public class RedisService {
                 Kryo kryo = kryoPool.obtain();
                 try {
                     T object = (T) kryo.readClassAndObject(new Input(serializedObject));
-                    ids.add(object);
+                    elements.add(object);
                 } catch (Exception e) {
                     LOG.error("Error getting elements from Redis " + listName + " list", e);
                 } finally {
@@ -222,9 +222,9 @@ public class RedisService {
             }
         } catch (Exception e) {
             LOG.error("Error getting elements from Redis " + listName + " list", e);
-            ids = new ArrayList<>();
+            elements = new ArrayList<>();
         }
-        return ids;
+        return elements;
     }
 
     public List<String> popElementsFromRedisList(String listName, int amount) {
