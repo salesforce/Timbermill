@@ -1,7 +1,9 @@
 package com.datorama.oss.timbermill;
 
-import java.io.IOException;
-
+import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
+import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.junit.*;
@@ -10,13 +12,7 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
-import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
-import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.IOException;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
@@ -25,7 +21,6 @@ import static org.mockito.Mockito.doAnswer;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
-	private static final Logger LOG = LoggerFactory.getLogger(TimberLogLocalPersistenceTest.class);
 	private static LocalOutputPipe pipe;
     private static DiskHandler origDiskHandler;
     private static IndexRetryManager retryManager;

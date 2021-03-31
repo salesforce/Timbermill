@@ -4,10 +4,8 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
-import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

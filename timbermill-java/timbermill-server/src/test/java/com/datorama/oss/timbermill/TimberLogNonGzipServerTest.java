@@ -1,14 +1,12 @@
 package com.datorama.oss.timbermill;
 
-import org.apache.commons.lang3.StringUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
-
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipe;
 import com.datorama.oss.timbermill.pipe.TimbermillServerOutputPipeBuilder;
+import org.apache.commons.lang3.StringUtils;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 public class TimberLogNonGzipServerTest extends TimberLogTest{
 

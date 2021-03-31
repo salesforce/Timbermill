@@ -4,14 +4,11 @@ import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 public class Bulker {
 	private RestHighLevelClient client;
-	private static final Logger LOG = LoggerFactory.getLogger(Bulker.class);
 	Bulker(RestHighLevelClient client) {
 		this.client = client;
 	}

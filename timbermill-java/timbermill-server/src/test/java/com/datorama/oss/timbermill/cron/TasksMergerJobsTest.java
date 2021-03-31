@@ -1,14 +1,11 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.io.IOException;
-import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.datorama.oss.timbermill.ElasticsearchClientForTests;
+import com.datorama.oss.timbermill.TimberLogTest;
+import com.datorama.oss.timbermill.unit.*;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
@@ -18,10 +15,11 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.TriggerFiredBundle;
 
-import com.datorama.oss.timbermill.ElasticsearchClientForTests;
-import com.datorama.oss.timbermill.TimberLogTest;
-import com.datorama.oss.timbermill.unit.*;
-import com.google.common.collect.Lists;
+import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 import static org.junit.Assert.*;

@@ -2,7 +2,6 @@ package com.datorama.oss.timbermill;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class TimberLogAdvancedLocalTest extends TimberLogAdvancedTest {
