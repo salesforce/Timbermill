@@ -15,6 +15,8 @@ import com.datorama.oss.timbermill.common.disk.DiskHandler;
 import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
@@ -23,7 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TimberLogLocalPersistenceTest extends TimberLogTest {
-
+	private static final Logger LOG = LoggerFactory.getLogger(TimberLogLocalPersistenceTest.class);
 	private static LocalOutputPipe pipe;
     private static DiskHandler origDiskHandler;
     private static IndexRetryManager retryManager;
@@ -128,6 +130,7 @@ public class TimberLogLocalPersistenceTest extends TimberLogTest {
 		Answer<BulkResponse> bulkResponseAnswer = invocation -> {
 			Object[] args = invocation.getArguments();
 			DbBulkRequest dbBulkRequest = (DbBulkRequest) args[0];
+			LOG.info("MOCK !!!! {}", dbBulkRequest.getTimesFetched());
 			if (dbBulkRequest.getTimesFetched() < 1) {
 				throw new RuntimeException();
 			}
