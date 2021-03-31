@@ -9,7 +9,6 @@ import java.io.IOException;
 
 public class Bulker {
 	private RestHighLevelClient client;
-
 	Bulker(RestHighLevelClient client) {
 		this.client = client;
 	}

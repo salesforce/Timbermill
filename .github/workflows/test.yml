@@ -39,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LOCATION_IN_DISK: ./
+      CACHE_STRATEGY: redis
+      REDIS_HOST: localhost
     steps:    
     - name: Cache Maven packages
       uses: actions/cache@v2
@@ -60,12 +62,14 @@ jobs:
     - name: Run Elasticsearch
       uses: getong/elasticsearch-action@v1.2
       with:
-        elasticsearch version: '7.6.1'
+        elasticsearch version: '7.8.1'
         host port: 9200
         container port: 9200
         host node port: 9300
         node port: 9300
         discovery type: 'single-node'
+    - name: Redis Server in GitHub Actions
+      uses: supercharge/redis-github-action@1.1.0
     - name: Download Timbermill Server
       uses: actions/download-artifact@v2
       with:

@@ -4,7 +4,7 @@ import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
-import org.apache.commons.lang3.StringUtils;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -29,6 +29,11 @@ public class TasksMergerWithCacheTest extends TimberLogTest {
 	@BeforeClass
 	public static void init() {
 		TimberLogLocalTest.init();
+	}
+
+	@AfterClass
+	public static void tearDown() {
+		TimberLogLocalTest.tearDown();
 	}
 
 	@Test
