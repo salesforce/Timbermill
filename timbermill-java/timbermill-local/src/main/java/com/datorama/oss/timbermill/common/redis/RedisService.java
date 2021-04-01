@@ -107,14 +107,14 @@ public class RedisService {
 
     public <T> Map<String, T> getFromRedis(Collection<String> keys) {
         Map<String, T> retMap = Maps.newHashMap();
-        for (List<String> idsPartition : Iterables.partition(keys, redisGetSize)) {
-            byte[][] ids = new byte[idsPartition.size()][];
-            for (int i = 0; i < idsPartition.size(); i++) {
-                ids[i] = idsPartition.get(i).getBytes();
+        for (List<String> keysPartition : Iterables.partition(keys, redisGetSize)) {
+            byte[][] keysPartitionArray = new byte[keysPartition.size()][];
+            for (int i = 0; i < keysPartition.size(); i++) {
+                keysPartitionArray[i] = keysPartition.get(i).getBytes();
             }
             try (Jedis jedis = jedisPool.getResource()) {
-                List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(ids), "MGET Keys");
-                for (int i = 0; i < ids.length; i++) {
+                List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(keysPartitionArray), "MGET Keys");
+                for (int i = 0; i < keysPartitionArray.length; i++) {
                     byte[] serializedObject = serializedObjects.get(i);
 
                     if (serializedObject == null || serializedObject.length == 0) {
@@ -123,55 +123,56 @@ public class RedisService {
                     Kryo kryo = kryoPool.obtain();
                     try {
                         T object = (T) kryo.readClassAndObject(new Input(serializedObject));
-                        String id = new String(ids[i]);
+                        String id = new String(keysPartitionArray[i]);
                         retMap.put(id, object);
                     } catch (Exception e) {
-                        LOG.error("Error getting ids from Redis. Ids: " + idsPartition, e);
+                        LOG.error("Error getting keys from Redis. Keys: " + keysPartition, e);
                     } finally {
                         kryoPool.free(kryo);
                     }
 
                 }
             } catch (Exception e) {
-                LOG.error("Error getting ids from Redis. Ids: " + idsPartition, e);
+                LOG.error("Error getting keys from Redis. Keys: " + keysPartition, e);
             }
         }
         return retMap;
     }
 
     public void deleteFromRedis(Collection<String> keys) {
-        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (String key : keys) {
-                try {
-                    runWithRetries(() -> pipelined.del(key), "DEL");
-                } catch (Exception e) {
-                    LOG.error("Error deleting key " + key + " from Redis.", e);
-                }
+        for (List<String> keysPartition : Iterables.partition(keys, redisGetSize)) {
+            try (Jedis jedis = jedisPool.getResource()) {
+                String[] keysPartitionArray = new String[keysPartition.size()];
+                keysPartition.toArray(keysPartitionArray);
+                runWithRetries(() -> jedis.del(keysPartitionArray), "DEL");
+            } catch (Exception e) {
+                LOG.error("Error deleting ids from Redis. Ids: " + keysPartition, e);
             }
         }
+
     }
 
-    public <T> boolean pushToRedisHash(Map<String, T> idsToValuesMap, int redisTtlInSeconds) {
+    public <T> boolean pushToRedisHash(Map<String, T> keysToValuesMap, int redisTtlInSeconds) {
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
-                String id = entry.getKey();
+            for (Map.Entry<String, T> entry : keysToValuesMap.entrySet()) {
+                String key = entry.getKey();
                 T object = entry.getValue();
 
                 try {
                     byte[] taskByteArr = getBytes(object);
-                    runWithRetries(() -> pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr), "SETEX");
+                    runWithRetries(() -> pipelined.setex(key.getBytes(), redisTtlInSeconds, taskByteArr), "SETEX");
                 } catch (Exception e) {
                     allPushed = false;
-                    LOG.error("Error pushing id " + id + " to Redis.", e);
+                    LOG.error("Error pushing key " + key + " to Redis.", e);
                 }
             }
         }
         return allPushed;
     }
 
-    public <T> boolean pushToRedisHash(Map<String, T> idsToValuesMap) {
-        return pushToRedisHash(idsToValuesMap, redisTtlInSeconds);
+    public <T> boolean pushToRedisHash(Map<String, T> keysToValuesMap) {
+        return pushToRedisHash(keysToValuesMap, redisTtlInSeconds);
     }
 
     public <T> boolean pushToRedisList(String listName, T value) {
@@ -191,7 +192,7 @@ public class RedisService {
     public long getListLength(String listName) {
         try (Jedis jedis = jedisPool.getResource()) {
             try {
-                return runWithRetries(() -> jedis.llen(listName.getBytes()), "LLEN").longValue();
+                return runWithRetries(() -> jedis.llen(listName.getBytes()), "LLEN");
             } catch (Exception e) {
                 LOG.error("Error returning Redis " + listName + " list length", e);
                 return -1;
