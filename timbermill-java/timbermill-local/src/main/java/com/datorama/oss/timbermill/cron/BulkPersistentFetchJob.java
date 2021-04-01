@@ -46,13 +46,15 @@ public class BulkPersistentFetchJob implements Job {
             List<DbBulkRequest> failedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
             int numOfFailedRequests = failedRequests.stream().mapToInt(DbBulkRequest::numOfActions).sum();
 
-            int successBulks = 0;
+            int successRequests = 0;
             int bulkNum = 0;
             for (DbBulkRequest failedDbBulkRequest : failedRequests) {
-                successBulks += es.sendDbFailedBulkRequest(failedDbBulkRequest, flowId, bulkNum);
-                bulkNum++;
+                successRequests += es.sendDbFailedBulkRequest(failedDbBulkRequest, flowId, bulkNum++);
             }
-            LOG.info("#### Retry Failed-Requests End ({}/{} fetched bulks re-processed successfully) ####", successBulks, numOfFailedRequests);
+            LOG.info("#### Retry Failed-Requests End ({}/{} fetched bulks re-processed successfully) ####", successRequests, numOfFailedRequests);
+            if (successRequests == 0) {
+                break;
+            }
         }
     }
 }

@@ -90,12 +90,12 @@ public class IndexRetryManager {
 			if (dbBulkRequest.getTimesFetched() < maxBulkIndexFetches) {
 				persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
 			} else {
-				LOG.error("Bulk #{} Tasks of failed bulk {} will not be indexed because it was fetched maximum times ({}).", bulkNum, dbBulkRequest.getId(), maxBulkIndexFetches);
+				LOG.error("Bulk #{} Requests will not be indexed because it was fetched maximum times ({}).", bulkNum, maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
 			}
 		}
 		else {
-			LOG.info("Bulk #{} Tasks of failed bulk will not be indexed (no persistence).", bulkNum);
+			LOG.info("Bulk #{} Requests will not be indexed (no persistence).", bulkNum);
 		}
 	}
 
