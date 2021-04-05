@@ -27,6 +27,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, RedisServiceConfig redisServiceConfig) {
         super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
         this.redisService = new RedisService(redisServiceConfig);
+        LOG.info("Redis persistence handler is up.");
     }
 
 
