@@ -17,16 +17,17 @@ import java.util.stream.LongStream;
 import static org.junit.Assert.assertEquals;
 
 public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
-    private static final int MAX_FETCHED_BULKS_IN_ONE_TIME = 10;
-    private static final int MAX_FETCHED_EVENTS_IN_ONE_TIME = 3;
-    private static final int MAX_INSERT_TRIES = 3;
+    private static final int maxFetchedInOneTime = 10;
+    private static final int maxInsertRetries = 3;
+    private static final long minLifeTime = 0;
 
     @BeforeClass
     public static void init()  {
         Map<String, Object> persistenceHandlerParams = new HashMap<>();
-        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, MAX_FETCHED_BULKS_IN_ONE_TIME);
-        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, MAX_FETCHED_EVENTS_IN_ONE_TIME);
-        persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, MAX_INSERT_TRIES);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedInOneTime);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, maxFetchedInOneTime);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, maxInsertRetries);
+        persistenceHandlerParams.put(RedisPersistenceHandler.MIN_LIFETIME, minLifeTime);
         persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, new RedisServiceConfig("localhost", 6379, "", "", "",
                 false, 86400, 100, 10, 10, 10, 3));
         PersistenceHandlerTest.init(persistenceHandlerParams, "redis");
@@ -113,7 +114,7 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
     @Test
     @Ignore
     public void testFailedBulksFetchedOrder() throws InterruptedException, ExecutionException {
-        for (int i = 0; i < 2 * MAX_FETCHED_BULKS_IN_ONE_TIME; i++) {
+        for (int i = 0; i < 2 * maxFetchedInOneTime; i++) {
             DbBulkRequest mockDbBulkRequest = Mock.createMockDbBulkRequest();
             mockDbBulkRequest.setId(i);
             persistenceHandler.persistBulkRequest(mockDbBulkRequest, bulkNum).get();
@@ -121,7 +122,7 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
 
         List<DbBulkRequest> dbBulkRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         List<Long> fetchedIds = dbBulkRequests.stream().map(DbBulkRequest::getId).sorted().collect(Collectors.toList());
-        List<Long> expectedIds = LongStream.rangeClosed(0, MAX_FETCHED_BULKS_IN_ONE_TIME - 1).boxed().collect(Collectors.toList());
+        List<Long> expectedIds = LongStream.rangeClosed(0, maxFetchedInOneTime - 1).boxed().collect(Collectors.toList());
         assertEquals(expectedIds, fetchedIds);
     }
 }

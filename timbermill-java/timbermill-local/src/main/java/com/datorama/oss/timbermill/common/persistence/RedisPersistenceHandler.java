@@ -21,14 +21,16 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private static final String OVERFLOWED_EVENTS_QUEUE_NAME = "overflowed_events_queue";
     private static final String FAILED_BULK_PREFIX = "failed_bulk#";
     private static final String OVERFLOW_EVENTS_PREFIX = "overflow_events#";
-    private static final double TIME_INTERVAL_IN_SECONDS = 600; // 10 minutes
 
+    static final String MIN_LIFETIME = "min_lifetime";
     static final String REDIS_CONFIG = "redis_config";
 
     private RedisService redisService;
+    private long minLifetime;
 
-    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, RedisServiceConfig redisServiceConfig) {
+    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, long minLifetime, RedisServiceConfig redisServiceConfig) {
         super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
+        this.minLifetime = minLifetime;
         this.redisService = new RedisService(redisServiceConfig);
         LOG.info("Redis persistence handler is up.");
     }
@@ -150,14 +152,13 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     }
 
     private boolean shouldFetch(String queueName) {
-        // check that elements in queue are in Redis at list TIME_INTERVAL_IN_SECONDS
-        // in order to increase persisted elements lifetime in Redis
+        // check that elements in queue are in Redis at least the minimum lifetime
         Double minScore = redisService.getMinSocre(queueName);
         if (minScore == null) {
             // queue is empty
             return false;
         } else {
-            return Instant.now().getEpochSecond() - minScore >= TIME_INTERVAL_IN_SECONDS;
+            return Instant.now().getEpochSecond() - minScore >= minLifetime;
         }
     }
 }

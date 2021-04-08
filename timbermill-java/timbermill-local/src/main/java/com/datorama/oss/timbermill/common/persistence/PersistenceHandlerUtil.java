@@ -32,6 +32,7 @@ public class PersistenceHandlerUtil {
 						(int) params.get(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME),
 						(int) params.get(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME),
 						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
+						(long) params.get(RedisPersistenceHandler.MIN_LIFETIME),
 						(RedisServiceConfig) params.get(RedisPersistenceHandler.REDIS_CONFIG));
 			default:
 				throw new RuntimeException("Unsupported persistence handler strategy " + persistenceHandlerStrategy);

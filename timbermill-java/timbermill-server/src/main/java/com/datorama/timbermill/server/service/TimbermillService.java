@@ -69,6 +69,7 @@ public class TimbermillService {
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
+							 @Value("${MIN_LIFETIME:600}") long minLifetime,
 							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
@@ -97,7 +98,7 @@ public class TimbermillService {
 		RedisServiceConfig redisConfigForPersistence = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
 				redisMaxMemoryPolicy, redisUseSsl, persistenceRedisTtlInSec, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
 				redisPoolMaxTotal, maxInsertTries);
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, redisConfigForPersistence);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, redisConfigForPersistence);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,

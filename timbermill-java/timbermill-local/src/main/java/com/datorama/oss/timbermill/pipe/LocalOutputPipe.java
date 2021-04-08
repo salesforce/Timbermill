@@ -39,7 +39,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         }
 
         RedisServiceConfig redisServiceConfig = new RedisServiceConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
-        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, redisServiceConfig);
+        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, builder.minLifetime, redisServiceConfig);
         persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
@@ -188,6 +188,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int maxFetchedEventsInOneTime = 10;
         private int maxInsertTries = 3;
         private String locationInDisk = "/tmp";
+        private long minLifetime = 0;
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
@@ -292,6 +293,10 @@ public class LocalOutputPipe implements EventOutputPipe {
         public Builder locationInDisk(String locationInDisk) {
             this.locationInDisk = locationInDisk;
             return this;
+        }
+
+        public long getMinLifetime() {
+            return minLifetime;
         }
 
         public Builder maxBulkIndexFetched(int maxBulkIndexFetched) {
