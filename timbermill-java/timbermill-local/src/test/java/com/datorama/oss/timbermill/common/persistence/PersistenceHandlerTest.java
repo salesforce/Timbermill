@@ -46,14 +46,35 @@ public abstract class PersistenceHandlerTest {
         List<DbBulkRequest> fetchedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         assertEquals(1, fetchedRequests.size());
 
-        DbBulkRequest dbBulkRequestFromDisk = fetchedRequests.get(0);
-        assertEquals(getRequestAsString(dbBulkRequest), getRequestAsString(dbBulkRequestFromDisk));
-
         DbBulkRequest dbBulkRequest2 = Mock.createMockDbBulkRequest();
         DbBulkRequest dbBulkRequest3 = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest2, bulkNum).get();
         persistenceHandler.persistBulkRequest(dbBulkRequest3, bulkNum).get();
         assertEquals(2, persistenceHandler.failedBulksAmount());
+    }
+
+    public void fetchedFailedBulksEqualToOriginalOne() throws ExecutionException, InterruptedException {
+        DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        DbBulkRequest dbBulkRequestFromDisk = persistenceHandler.fetchAndDeleteFailedBulks().get(0);
+        assertEquals(requestsToString(dbBulkRequest), requestsToString(dbBulkRequestFromDisk));
+    }
+
+    public void fetchedOverflowedEventsEqualToOriginalOne() throws ExecutionException, InterruptedException {
+        ArrayList<Event> events = Mock.createMockEventsList();
+        persistenceHandler.persistEvents(events);
+        List<Event> fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
+
+        assertEquals(events.size(), fetchedEvents.size());
+
+        StartEvent event = (StartEvent) events.get(0);
+        StartEvent fetchedEvent = (StartEvent) fetchedEvents.get(0);
+        assertEquals(event.getName(), fetchedEvent.getName());
+        assertEquals(event.getContext(), fetchedEvent.getContext());
+        assertEquals(event.getStrings(), fetchedEvent.getStrings());
+        assertEquals(event.getText(), fetchedEvent.getText());
+        assertEquals(event.getParentId(), fetchedEvent.getParentId());
+        assertEquals(event.getPrimaryId(), fetchedEvent.getPrimaryId());
     }
 
     public void fetchOverflowedEvents() throws ExecutionException, InterruptedException {
@@ -129,8 +150,8 @@ public abstract class PersistenceHandlerTest {
 
     // region Test Helpers
 
-    private String getRequestAsString(DbBulkRequest dbBulkRequest) {
-        return dbBulkRequest.getRequest().requests().get(0).toString();
+    private String requestsToString(DbBulkRequest dbBulkRequest) {
+        return dbBulkRequest.getRequest().requests().toString();
     }
 
     public static class Mock {
@@ -152,8 +173,11 @@ public abstract class PersistenceHandlerTest {
         }
 
         static ArrayList<Event> createMockEventsList() {
+            LogParams logParams = LogParams.create().context("CTX_1", "CTX_1").metric("METRIC_1", 1).text("TEXT_1", "TEXT_1").string("STRING_1", "STRING_1");
             return new ArrayList<>(
-                    Arrays.asList(new StartEvent(), new InfoEvent(), new SuccessEvent(), new ErrorEvent(), new SpotEvent()));
+                    Arrays.asList(new StartEvent("taskId", "name", logParams, "parentId"),
+                            new InfoEvent("id", logParams), new SuccessEvent("id", logParams),
+                            new ErrorEvent("id", logParams), new SpotEvent("id", "name", "parentId", null, logParams)));
         }
 
     }

@@ -7,19 +7,25 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.junit.Assert.assertEquals;
 
-public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
+public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
+    private static final int MAX_FETCHED_BULKS_IN_ONE_TIME = 10;
+    private static final int MAX_FETCHED_EVENTS_IN_ONE_TIME = 3;
+    private static final int MAX_INSERT_TRIES = 3;
 
     @BeforeClass
     public static void init()  {
         Map<String, Object> persistenceHandlerParams = new HashMap<>();
-        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, 10);
-        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, 3);
-        persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, 3);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, MAX_FETCHED_BULKS_IN_ONE_TIME);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, MAX_FETCHED_EVENTS_IN_ONE_TIME);
+        persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, MAX_INSERT_TRIES);
         persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, new RedisServiceConfig("localhost", 6379, "", "", "",
                 false, 86400, 100, 10, 10, 10, 3));
         PersistenceHandlerTest.init(persistenceHandlerParams, "redis");
@@ -38,6 +44,16 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
     @Test
     public void fetchOverflowedEvents() throws InterruptedException, ExecutionException {
         super.fetchOverflowedEvents();
+    }
+
+    @Test
+    public void fetchedFailedBulksEqualToOriginalOne() throws InterruptedException, ExecutionException {
+        super.fetchedFailedBulksEqualToOriginalOne();
+    }
+
+    @Test
+    public void fetchedOverflowedEventsEqualToOriginalOne() throws InterruptedException, ExecutionException {
+        super.fetchedOverflowedEventsEqualToOriginalOne();
     }
 
     @Test
@@ -72,28 +88,40 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest{
 
     @Test
     public void fetchExpiredFailedBulks() throws InterruptedException, ExecutionException {
-        int amount = 150;
-        for (int i = 0 ; i < amount ; i++){
-            ((RedisPersistenceHandler)persistenceHandler).persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum, 0).get();
+        int amount = 15;
+        for (int i = 0; i < amount; i++) {
+            ((RedisPersistenceHandler) persistenceHandler).persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum, 0).get();
         }
+
         // all previous keys should be expired
-
-        persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
-
-        assertEquals(1, persistenceHandler.fetchAndDeleteFailedBulks().size());
+        assertEquals(0, persistenceHandler.fetchAndDeleteFailedBulks().size());
     }
 
     @Test
     public void fetchExpiredOverFlowedEvents() {
-        int amount = 150;
+        int amount = 15;
         ArrayList<Event> mockEventsList = Mock.createMockEventsList();
-        for (int i = 0; i < amount ; i++){
-            ((RedisPersistenceHandler)persistenceHandler).persistEvents(mockEventsList, 0);
+        for (int i = 0; i < amount; i++) {
+            ((RedisPersistenceHandler) persistenceHandler).persistEvents(mockEventsList, 0);
         }
+
         // all previous keys should be expired
+        assertEquals(0, persistenceHandler.fetchAndDeleteOverflowedEvents().size());
+    }
 
-        persistenceHandler.persistEvents(mockEventsList);
+    @Test
+    public void testFailedBulksFetchedOrder() throws InterruptedException, ExecutionException {
+        int amount = 2 * MAX_FETCHED_BULKS_IN_ONE_TIME;
+        for (int i = 0; i < amount; i++) {
+            DbBulkRequest mockDbBulkRequest = Mock.createMockDbBulkRequest();
+            mockDbBulkRequest.setId(i);
+            persistenceHandler.persistBulkRequest(mockDbBulkRequest, bulkNum).get();
+        }
 
-        assertEquals(mockEventsList.size(), persistenceHandler.fetchAndDeleteOverflowedEvents().size());
+
+        List<DbBulkRequest> dbBulkRequests = persistenceHandler.fetchAndDeleteFailedBulks();
+        List<Long> fetchedIds = dbBulkRequests.stream().map(DbBulkRequest::getId).sorted().collect(Collectors.toList());
+        List<Long> expectedIds = LongStream.rangeClosed(0, MAX_FETCHED_BULKS_IN_ONE_TIME - 1).boxed().collect(Collectors.toList());
+        assertEquals(expectedIds, fetchedIds);
     }
 }

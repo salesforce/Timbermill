@@ -42,6 +42,16 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	}
 
 	@Test
+	public void fetchedFailedBulksEqualToOriginalOne() throws InterruptedException, ExecutionException {
+		super.fetchedFailedBulksEqualToOriginalOne();
+	}
+
+	@Test
+	public void fetchedOverflowedEventsEqualToOriginalOne() throws InterruptedException, ExecutionException {
+		super.fetchedOverflowedEventsEqualToOriginalOne();
+	}
+
+	@Test
 	public void fetchOverflowedEvents() throws InterruptedException, ExecutionException {
 		super.fetchOverflowedEvents();
 	}

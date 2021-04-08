@@ -22,10 +22,7 @@ import redis.clients.jedis.*;
 
 import java.io.ByteArrayOutputStream;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 public class RedisService {
@@ -103,7 +100,7 @@ public class RedisService {
         LOG.info("Connected to Redis");
     }
 
-    // region public methods
+    // region HASH
 
     public <T> Map<String, T> getFromRedis(Collection<String> keys) {
         Map<String, T> retMap = Maps.newHashMap();
@@ -118,7 +115,7 @@ public class RedisService {
                     byte[] serializedObject = serializedObjects.get(i);
 
                     if (serializedObject == null || serializedObject.length == 0) {
-                        LOG.warn("Key {} doesn't exist (could have been expired)", keysPartition.get(i));
+                        LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
                         continue;
                     }
                     Kryo kryo = kryoPool.obtain();
@@ -150,10 +147,14 @@ public class RedisService {
                 LOG.error("Error deleting ids from Redis. Ids: " + keysPartition, e);
             }
         }
-
     }
 
-    public <T> boolean pushToRedisHash(Map<String, T> keysToValuesMap, int redisTtlInSeconds) {
+    public <T> boolean pushToRedis(Map<String, T> keysToValuesMap) {
+        return pushToRedis(keysToValuesMap, redisTtlInSeconds);
+    }
+
+    public <T> boolean pushToRedis(Map<String, T> keysToValuesMap, Integer redisTtlInSeconds) {
+        int ttl = redisTtlInSeconds != null ? redisTtlInSeconds : this.redisTtlInSeconds;
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (Map.Entry<String, T> entry : keysToValuesMap.entrySet()) {
@@ -162,7 +163,7 @@ public class RedisService {
 
                 try {
                     byte[] taskByteArr = getBytes(object);
-                    runWithRetries(() -> pipelined.setex(key.getBytes(), redisTtlInSeconds, taskByteArr), "SETEX");
+                    runWithRetries(() -> pipelined.setex(key.getBytes(), ttl, taskByteArr), "SETEX");
                 } catch (Exception e) {
                     allPushed = false;
                     LOG.error("Error pushing key " + key + " to Redis.", e);
@@ -172,28 +173,77 @@ public class RedisService {
         return allPushed;
     }
 
-    public <T> boolean pushToRedisHash(Map<String, T> keysToValuesMap) {
-        return pushToRedisHash(keysToValuesMap, redisTtlInSeconds);
-    }
+    // endregion
 
-    public <T> boolean pushToRedisList(String listName, T value) {
-        boolean allPushed = true;
+    // region SORTED SET
+
+    public boolean pushToRedisSortedSet(String setName, String value, long score) {
+        boolean pushed = false;
         try (Jedis jedis = jedisPool.getResource()) {
             try {
-                byte[] valueByteArr = getBytes(value);
-                runWithRetries(() -> jedis.rpush(listName.getBytes(), valueByteArr), "RPUSH");
+                runWithRetries(() -> jedis.zadd(setName, score, value), "ZADD");
+                pushed = true;
             } catch (Exception e) {
-                allPushed = false;
+                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
+            }
+        }
+        return pushed;
+    }
+
+
+    public List<String> popRedisSortedSet(String setName, int amount) {
+        List<String> ret = new ArrayList<>();
+        try (Jedis jedis = jedisPool.getResource()) {
+            try {
+                Set<Tuple> tuples = runWithRetries(() -> jedis.zpopmin(setName, amount), "ZPOPMIN");
+
+                for (Tuple tuple : tuples) {
+                    String element = tuple.getElement();
+                    ret.add(element);
+                }
+            } catch (Exception e) {
+                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
+            }
+        }
+        return ret;
+    }
+
+    public long getSortedSetSize(String setName) {
+        return getSortedSetSize(setName, "-inf", "inf");
+    }
+
+    public long getSortedSetSize(String setName, String min, String max) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            try {
+                return runWithRetries(() -> jedis.zcount(setName, min, max), "ZCOUNT");
+            } catch (Exception e) {
+                LOG.error("Error returning Redis " + setName + " list length", e);
+                return -1;
+            }
+        }
+    }
+
+    // endregion
+
+    // region LIST
+
+    public boolean pushToRedisList(String listName, String value) {
+        boolean pushed = false;
+        try (Jedis jedis = jedisPool.getResource()) {
+            try {
+                runWithRetries(() -> jedis.rpush(listName, value), "RPUSH");
+                pushed = true;
+            } catch (Exception e) {
                 LOG.error("Error pushing item to Redis " + listName + " list", e);
             }
         }
-        return allPushed;
+        return pushed;
     }
 
     public long getListLength(String listName) {
         try (Jedis jedis = jedisPool.getResource()) {
             try {
-                return runWithRetries(() -> jedis.llen(listName.getBytes()), "LLEN");
+                return runWithRetries(() -> jedis.llen(listName), "LLEN");
             } catch (Exception e) {
                 LOG.error("Error returning Redis " + listName + " list length", e);
                 return -1;
@@ -201,26 +251,15 @@ public class RedisService {
         }
     }
 
-    public <T> List<T> getRangeFromRedisList(String listName, int start, int end) {
-        List<T> elements = new ArrayList<>();
+    public List<String> getRangeFromRedisList(String listName, int start, int end) {
+        List<String> elements = new ArrayList<>();
         try (Jedis jedis = jedisPool.getResource()) {
-            List<byte[]> serializedObjects = runWithRetries(() -> jedis.lrange(listName.getBytes(), start, end), "LRANGE");
-            for (int i = 0; i < serializedObjects.size(); i++) {
-                byte[] serializedObject = serializedObjects.get(i);
-
-                if (serializedObject == null || serializedObject.length == 0) {
+            List<String> values = runWithRetries(() -> jedis.lrange(listName, start, end), "LRANGE");
+            for (String value : values) {
+                if (value == null || value.length() == 0) {
                     continue;
                 }
-                Kryo kryo = kryoPool.obtain();
-                try {
-                    T object = (T) kryo.readClassAndObject(new Input(serializedObject));
-                    elements.add(object);
-                } catch (Exception e) {
-                    LOG.error("Error getting elements from Redis " + listName + " list", e);
-                } finally {
-                    kryoPool.free(kryo);
-                }
-
+                elements.add(value);
             }
         } catch (Exception e) {
             LOG.error("Error getting elements from Redis " + listName + " list", e);
@@ -229,13 +268,15 @@ public class RedisService {
         return elements;
     }
 
-    public List<String> popElementsFromRedisList(String listName, int amount) {
-        lock();
-        List<String> elements = getRangeFromRedisList(listName, 0, amount - 1);
-        trimRedisList(listName, elements.size(), -1);
-        release();
-        return elements;
+    private void trimRedisList(String listName, int start, int end) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
+        } catch (Exception e) {
+            LOG.error("Error trimming Redis " + listName + " list", e);
+        }
     }
+
+    // endregion
 
     public void lock() {
         lock = new JedisLock(LOCK_NAME, 20000, 20000);
@@ -266,14 +307,6 @@ public class RedisService {
 
 
     // region private methods
-
-    private void trimRedisList(String listName, int start, int end) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
-        } catch (Exception e) {
-            LOG.error("Error trimming Redis " + listName + " list", e);
-        }
-    }
 
     private byte[] getBytes(Object object) {
         ByteArrayOutputStream objStream = new ByteArrayOutputStream();

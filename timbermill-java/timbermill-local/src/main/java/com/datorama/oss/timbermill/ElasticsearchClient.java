@@ -121,10 +121,6 @@ public class ElasticsearchClient {
 							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, PersistenceHandler persistenceHandler, int numberOfShards, int numberOfReplicas,
 							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
 
-		if (persistenceHandler !=null && !persistenceHandler.isCreatedSuccessfully()){
-			persistenceHandler = null;
-		}
-
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation,
 				scrollTimeoutSeconds, fetchByIdsPartitions, numberOfShards, expiredMaxIndicesTodeleteInParallel);
 		this.indexBulkSize = indexBulkSize;

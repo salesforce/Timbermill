@@ -1,9 +1,10 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.common.redis.RedisService;
+import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,8 +36,8 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String newKey = entry.getKey().substring(ORPHAN_PREFIX.length());
             retMap.put(newKey, entry.getValue());
         }
-        if (retMap.size() < parentsIds.size()){
-            LOG.error("Failed to pull some ids from Redis orphans cache.");
+        if (retMap.size() < orphanParentsIds.size()){
+            LOG.warn("Failed to pull some ids from Redis orphans cache. Ids: {}", Sets.difference(orphanParentsIds, retMap.keySet()));
         }
         return retMap;
     }
@@ -48,7 +49,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-        if (!redisService.pushToRedisHash(newOrphansMap)){
+        if (!redisService.pushToRedis(newOrphansMap)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
         }
     }
@@ -57,14 +58,14 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
         Map<String, LocalTask> retMap = redisService.getFromRedis(idsList);
         if (retMap.size() < idsList.size()){
-            LOG.error("Failed to pull some ids from Redis tasks cache");
+            LOG.warn("Failed to pull some ids from Redis tasks cache. Ids: {}", Sets.difference(Sets.newHashSet(idsList), retMap.keySet()));
         }
         return retMap;
     }
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        boolean allPushed = redisService.pushToRedisHash(idsToMap);
+        boolean allPushed = redisService.pushToRedis(idsToMap);
         if (!allPushed){
             LOG.error("Failed to push some ids to Redis tasks cache.");
         }
