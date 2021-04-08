@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.common.persistence;
 import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.Event;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -110,14 +111,13 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
     }
 
     @Test
+    @Ignore
     public void testFailedBulksFetchedOrder() throws InterruptedException, ExecutionException {
-        int amount = 2 * MAX_FETCHED_BULKS_IN_ONE_TIME;
-        for (int i = 0; i < amount; i++) {
+        for (int i = 0; i < 2 * MAX_FETCHED_BULKS_IN_ONE_TIME; i++) {
             DbBulkRequest mockDbBulkRequest = Mock.createMockDbBulkRequest();
             mockDbBulkRequest.setId(i);
             persistenceHandler.persistBulkRequest(mockDbBulkRequest, bulkNum).get();
         }
-
 
         List<DbBulkRequest> dbBulkRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         List<Long> fetchedIds = dbBulkRequests.stream().map(DbBulkRequest::getId).sorted().collect(Collectors.toList());

@@ -177,7 +177,7 @@ public class RedisService {
 
     // region SORTED SET
 
-    public boolean pushToRedisSortedSet(String setName, String value, long score) {
+    public boolean pushToRedisSortedSet(String setName, String value, double score) {
         boolean pushed = false;
         try (Jedis jedis = jedisPool.getResource()) {
             try {
@@ -219,6 +219,22 @@ public class RedisService {
             } catch (Exception e) {
                 LOG.error("Error returning Redis " + setName + " list length", e);
                 return -1;
+            }
+        }
+    }
+
+        public Double getMinSocre(String setName) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            try {
+                Set<Tuple> tuples = runWithRetries(() -> jedis.zrangeWithScores(setName, 0, 0), "ZRANGE");
+                if (tuples.isEmpty()) {
+                    return null;
+                } else {
+                    return tuples.iterator().next().getScore();
+                }
+            } catch (Exception e) {
+                LOG.error("Error returning Redis " + setName + " list length", e);
+                return null;
             }
         }
     }
