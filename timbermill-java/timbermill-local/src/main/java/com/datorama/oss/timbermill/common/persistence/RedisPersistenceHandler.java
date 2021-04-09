@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.common.persistence;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.Event;
+import com.github.jedis.lock.JedisLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +22,8 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private static final String OVERFLOWED_EVENTS_QUEUE_NAME = "overflowed_events_queue";
     private static final String FAILED_BULK_PREFIX = "failed_bulk#";
     private static final String OVERFLOW_EVENTS_PREFIX = "overflow_events#";
+    private static final String FAILED_BULKS_LOCK = "failed_bulks_lock";
+    private static final String OVERFLOWED_EVENTS_LOCK = "overflowed_events_lock";
 
     static final String MIN_LIFETIME = "min_lifetime";
     static final String REDIS_CONFIG = "redis_config";
@@ -38,38 +41,22 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     @Override
     public List<DbBulkRequest> fetchAndDeleteFailedBulks() {
-        if (!shouldFetch(FAILED_BULKS_QUEUE_NAME)) {
-            return new ArrayList<>();
+        JedisLock lock = redisService.lock(FAILED_BULKS_LOCK);
+        try {
+            return fetchAndDeleteFailedBulksLogic();
+        } finally {
+            redisService.release(lock);
         }
-
-        LOG.info("Fetching failed bulks from Redis.");
-        List<String> ids = redisService.popRedisSortedSet(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
-        // get matching failed bulks from redis
-        Map<String, DbBulkRequest> failedBulkRequests = redisService.getFromRedis(ids);
-        // increase times fetched for each fetched one
-        failedBulkRequests.values().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
-        redisService.deleteFromRedis(ids);
-
-        LOG.info("Number of fetched bulks: {}.", failedBulkRequests.size());
-        return new ArrayList<>(failedBulkRequests.values());
     }
 
     @Override
     public List<Event> fetchAndDeleteOverflowedEvents() {
-        if (!shouldFetch(OVERFLOWED_EVENTS_QUEUE_NAME)) {
-            return new ArrayList<>();
+        JedisLock lock = redisService.lock(OVERFLOWED_EVENTS_LOCK);
+        try {
+            return fetchAndDeleteOverflowedEventsLogic();
+        } finally {
+            redisService.release(lock);
         }
-        LOG.info("Fetching overflowed events from Redis.");
-        List<String> ids = redisService.popRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
-        // get matching overflowed events from redis
-        Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids);
-        redisService.deleteFromRedis(overflowedEventsLists.keySet());
-
-        List<Event> overflowedEvents = overflowedEventsLists.values().stream()
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
-        LOG.info("Overflowed events fetch from Redis succeeded. Number of overflowed events: {}.", overflowedEvents.size());
-        return overflowedEvents;
     }
 
     @Override
@@ -124,6 +111,43 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             while (ids.size() > 0);
         }
         LOG.info("Finished to reset Redis persistence data");
+    }
+
+    private List<DbBulkRequest> fetchAndDeleteFailedBulksLogic() {
+        if (!shouldFetch(FAILED_BULKS_QUEUE_NAME)) {
+            LOG.info("Bulks aren't enough time in Redis - won't fetch");
+            return new ArrayList<>();
+        }
+
+        LOG.info("Fetching failed bulks from Redis.");
+        List<String> ids = redisService.popRedisSortedSet(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
+        // get matching failed bulks from redis
+        Map<String, DbBulkRequest> failedBulkRequests = redisService.getFromRedis(ids);
+        // increase times fetched for each fetched one
+        failedBulkRequests.values().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
+        redisService.deleteFromRedis(ids);
+
+        LOG.info("Number of fetched bulks: {}.", failedBulkRequests.size());
+        return new ArrayList<>(failedBulkRequests.values());
+    }
+
+    private List<Event> fetchAndDeleteOverflowedEventsLogic() {
+        if (!shouldFetch(OVERFLOWED_EVENTS_QUEUE_NAME)) {
+            LOG.info("Overflowed events aren't enough time in Redis - won't fetch");
+            return new ArrayList<>();
+        }
+
+        LOG.info("Fetching overflowed events from Redis.");
+        List<String> ids = redisService.popRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
+        // get matching overflowed events from redis
+        Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids);
+        redisService.deleteFromRedis(overflowedEventsLists.keySet());
+
+        List<Event> overflowedEvents = overflowedEventsLists.values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
+        LOG.info("Overflowed events fetch from Redis succeeded. Number of overflowed events: {}.", overflowedEvents.size());
+        return overflowedEvents;
     }
 
     Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, Integer bulkNum, Integer ttl) {

@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill.common.cache;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.LocalTask;
+import com.github.jedis.lock.JedisLock;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -16,9 +17,11 @@ import java.util.stream.Collectors;
 
 public class RedisCacheHandler extends AbstractCacheHandler {
 
+    private static final String LOCK_NAME = "cache_lock";
     private static final String ORPHAN_PREFIX = "orphan###";
     private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
 
+    private JedisLock lock;
     private final RedisService redisService;
 
 
@@ -73,12 +76,12 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void lock() {
-        redisService.lock();
+        lock = redisService.lock(LOCK_NAME);
     }
 
     @Override
     public void release() {
-        redisService.release();
+        redisService.release(lock);
     }
 
     @Override

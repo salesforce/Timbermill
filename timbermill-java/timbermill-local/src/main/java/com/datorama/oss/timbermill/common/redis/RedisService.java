@@ -27,12 +27,10 @@ import java.util.concurrent.Callable;
 
 public class RedisService {
 
-    private static final String LOCK_NAME = "timbermill__lock";
     private static final Logger LOG = LoggerFactory.getLogger(RedisService.class);
 
     private final JedisPool jedisPool;
     private final Pool<Kryo> kryoPool;
-    private JedisLock lock;
     private final RetryConfig retryConfig;
     private int redisTtlInSeconds;
     private int redisGetSize;
@@ -294,20 +292,21 @@ public class RedisService {
 
     // endregion
 
-    public void lock() {
-        lock = new JedisLock(LOCK_NAME, 20000, 20000);
+    public JedisLock lock(String lockName) {
+        JedisLock lock = new JedisLock(lockName, 20000, 20000);
         try (Jedis jedis = jedisPool.getResource()) {
             lock.acquire(jedis);
         } catch (Exception e) {
-            LOG.error("Error while locking lock in Redis", e);
+            LOG.error("Error while locking lock {} in Redis", lockName, e);
         }
+        return lock;
     }
 
-    public void release() {
+    public void release(JedisLock lock) {
         try (Jedis jedis = jedisPool.getResource()) {
             lock.release(jedis);
         } catch (Exception e) {
-            LOG.error("Error while releasing lock in Redis", e);
+            LOG.error("Error while releasing lock {} in Redis", lock.getLockKey(), e);
         }
     }
 
