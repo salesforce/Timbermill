@@ -229,7 +229,7 @@ public class RedisService {
         }
     }
 
-        public Double getMinSocre(String setName) {
+        public Double getMinScore(String setName) {
         try (Jedis jedis = jedisPool.getResource()) {
             try {
                 Set<Tuple> tuples = runWithRetries(() -> jedis.zrangeWithScores(setName, 0, 0), "ZRANGE");

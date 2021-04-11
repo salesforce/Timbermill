@@ -177,7 +177,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     private boolean shouldFetch(String queueName) {
         // check that elements in queue are in Redis at least the minimum lifetime
-        Double minScore = redisService.getMinSocre(queueName);
+        Double minScore = redisService.getMinScore(queueName);
         if (minScore == null) {
             // queue is empty
             return false;
