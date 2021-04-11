@@ -122,7 +122,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         LOG.info("Fetching failed bulks from Redis.");
         List<String> ids = redisService.popRedisSortedSet(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
         // get matching failed bulks from redis
-        Map<String, DbBulkRequest> failedBulkRequests = redisService.getFromRedis(ids);
+        Map<String, DbBulkRequest> failedBulkRequests = redisService.getFromRedis(ids, true);
         // increase times fetched for each fetched one
         failedBulkRequests.values().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
         redisService.deleteFromRedis(ids);
@@ -140,7 +140,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         LOG.info("Fetching overflowed events from Redis.");
         List<String> ids = redisService.popRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
         // get matching overflowed events from redis
-        Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids);
+        Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids, true);
         redisService.deleteFromRedis(overflowedEventsLists.keySet());
 
         List<Event> overflowedEvents = overflowedEventsLists.values().stream()

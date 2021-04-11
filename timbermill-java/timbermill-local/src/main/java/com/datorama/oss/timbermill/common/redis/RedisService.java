@@ -102,7 +102,7 @@ public class RedisService {
 
     // region HASH
 
-    public <T> Map<String, T> getFromRedis(Collection<String> keys) {
+    public <T> Map<String, T> getFromRedis(Collection<String> keys, boolean warnMissingKeys) {
         Map<String, T> retMap = Maps.newHashMap();
         for (List<String> keysPartition : Iterables.partition(keys, redisGetSize)) {
             byte[][] keysPartitionArray = new byte[keysPartition.size()][];
@@ -115,7 +115,9 @@ public class RedisService {
                     byte[] serializedObject = serializedObjects.get(i);
 
                     if (serializedObject == null || serializedObject.length == 0) {
-                        // LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
+                        if (warnMissingKeys) {
+                            LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
+                        }
                         continue;
                     }
                     Kryo kryo = kryoPool.obtain();
@@ -135,6 +137,10 @@ public class RedisService {
             }
         }
         return retMap;
+    }
+
+    public <T> Map<String, T> getFromRedis(Collection<String> keys) {
+        return getFromRedis(keys, false);
     }
 
     public void deleteFromRedis(Collection<String> keys) {
