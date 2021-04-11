@@ -3,6 +3,7 @@ package com.datorama.timbermill.server.service;
 import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,12 +53,15 @@ public class AdminController {
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/persistence/persist")
-	public void persistencePersist() {
+	public void persistencePersistMocks() {
 		LOG.info("Test - start persist mock requests");
 		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
 		if (persistenceHandler != null) {
 			for (int i = 0; i < 15; i++) {
-				persistenceHandler.persistBulkRequest(new DbBulkRequest(new BulkRequest()), i);
+				BulkRequest request = new BulkRequest();
+				request.add(new UpdateRequest());
+				request.add(new UpdateRequest());
+				persistenceHandler.persistBulkRequest(new DbBulkRequest(request), i);
 			}
 			LOG.info("Test - finished persist mock requests");
 		} else {

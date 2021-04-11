@@ -164,6 +164,7 @@ public abstract class PersistenceHandlerTest {
             updateRequest.script(script);
             return updateRequest;
         }
+
         static DbBulkRequest createMockDbBulkRequest() {
             BulkRequest bulkRequest = new BulkRequest();
             for (int i = 0 ; i < 3 ; i++){
