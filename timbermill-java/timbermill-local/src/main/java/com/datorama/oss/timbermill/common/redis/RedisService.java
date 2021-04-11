@@ -115,7 +115,7 @@ public class RedisService {
                     byte[] serializedObject = serializedObjects.get(i);
 
                     if (serializedObject == null || serializedObject.length == 0) {
-                        LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
+                        // LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
                         continue;
                     }
                     Kryo kryo = kryoPool.obtain();
