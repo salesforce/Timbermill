@@ -72,10 +72,10 @@ public class RedisService {
             protected Kryo create() {
                 Kryo kryo = new Kryo();
                 kryo.setDefaultSerializer(CompatibleFieldSerializer.class);
-                kryo.register(LocalTask.class);
+                kryo.register(com.datorama.oss.timbermill.unit.LocalTask.class);
                 kryo.register(java.util.HashMap.class);
                 kryo.register(java.util.ArrayList.class);
-                kryo.register(TaskMetaData.class);
+                kryo.register(com.datorama.oss.timbermill.unit.TaskMetaData.class);
                 kryo.register(java.time.ZonedDateTime.class);
                 kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
                 kryo.register(com.datorama.oss.timbermill.unit.SpotEvent.class);
@@ -95,6 +95,8 @@ public class RedisService {
                 .withDelayBetweenTries(1, ChronoUnit.SECONDS)
                 .withExponentialBackoff()
                 .build();
+
+        flushAll(); // TODO remove after deployment
         LOG.info("Connected to Redis");
     }
 
@@ -122,7 +124,7 @@ public class RedisService {
                         String id = new String(keysPartitionArray[i]);
                         retMap.put(id, object);
                     } catch (Exception e) {
-                        LOG.error("Error getting keys from Redis. Keys: " + keysPartition, e);
+                        LOG.error("Error getting key {} from Redis.", keysPartition.get(i), e);
                     } finally {
                         kryoPool.free(kryo);
                     }
@@ -291,6 +293,14 @@ public class RedisService {
     }
 
     // endregion
+
+    private void flushAll() {
+        try (Jedis jedis = jedisPool.getResource()) {
+            runWithRetries(jedis::flushAll, "FLUSHALL");
+        } catch (Exception e) {
+            LOG.error("Error flushing all", e);
+        }
+    }
 
     public JedisLock lock(String lockName) {
         JedisLock lock = new JedisLock(lockName, 20000, 20000);
