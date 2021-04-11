@@ -1,5 +1,6 @@
 package com.datorama.timbermill.server.service;
 
+import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -59,8 +60,8 @@ public class AdminController {
 		if (persistenceHandler != null) {
 			for (int i = 0; i < 15; i++) {
 				BulkRequest request = new BulkRequest();
-				request.add(new UpdateRequest());
-				request.add(new UpdateRequest());
+				request.add(new UpdateRequest("index", ElasticsearchClient.TYPE, "taskId"));
+				request.add(new UpdateRequest("index", ElasticsearchClient.TYPE, "taskId"));
 				persistenceHandler.persistBulkRequest(new DbBulkRequest(request), i);
 			}
 			LOG.info("Test - finished persist mock requests");
