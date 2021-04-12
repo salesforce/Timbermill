@@ -348,14 +348,13 @@ public class ElasticsearchClient {
 		List<BulkResponse> bulkResponses = sendDbBulkRequest(request, flowId, bulkNum);
 		int successfulRequests = 0;
 		for (BulkResponse bulkResponse : bulkResponses) {
-			if(bulkResponse.hasFailures()){
+			if (bulkResponse.hasFailures()) {
 				for (BulkItemResponse bulkItemResponse : bulkResponse) {
-					if (!bulkItemResponse.isFailed()){
+					if (!bulkItemResponse.isFailed()) {
 						successfulRequests++;
 					}
 				}
-			}
-			else{
+			} else {
 				successfulRequests += bulkResponse.getItems().length;
 			}
 		}

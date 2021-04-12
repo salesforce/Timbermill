@@ -31,10 +31,10 @@ public class IndexRetryManager {
 
 
 	//Return failed amount of requests
-	public List<BulkResponse> indexBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum){
+	public List<BulkResponse> indexBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
 
 		List<BulkResponse> resList = Lists.newArrayList();
-		for (int tryNum = 1; tryNum <= numOfElasticSearchActionsTries ; tryNum++) {
+		for (int tryNum = 1; tryNum <= numOfElasticSearchActionsTries; tryNum++) {
 			// continuous retries of sending the failed bulk request
 			try {
 				if (tryNum > 1) {
@@ -42,24 +42,24 @@ public class IndexRetryManager {
 				}
 				LOG.debug("Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", bulkNum, dbBulkRequest.numOfActions(), dbBulkRequest.estimatedSize());
 				BulkResponse response = bulker.bulk(dbBulkRequest);
-					resList.add(response);
-					if (!response.hasFailures()) {
-						return successfulResponseHandling(dbBulkRequest, bulkNum, resList, tryNum, response);
-					} else {
-						dbBulkRequest = failureResponseHandling(dbBulkRequest, bulkNum, tryNum, response);
-						if (dbBulkRequest.numOfActions() < 1) {
-							LOG.info("Bulk #{} Started bulk try # {}/{} all failed response were blacklisted, no further actions will be sent.", bulkNum, tryNum, numOfElasticSearchActionsTries);
-							return resList;
-						}
+				resList.add(response);
+				if (!response.hasFailures()) {
+					return successfulResponseHandling(dbBulkRequest, bulkNum, resList, tryNum, response);
+				} else {
+					dbBulkRequest = failureResponseHandling(dbBulkRequest, bulkNum, tryNum, response);
+					if (dbBulkRequest.numOfActions() < 1) {
+						LOG.info("Bulk #{} Started bulk try # {}/{} all failed response were blacklisted, no further actions will be sent.", bulkNum, tryNum, numOfElasticSearchActionsTries);
+						return resList;
 					}
-				} catch (Throwable t) {
-					LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
 				}
+			} catch (Throwable t) {
+				LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
 			}
-			// finishing to retry - if persistence is defined then try to persist the failed requests
-			LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.", bulkNum, numOfElasticSearchActionsTries);
-			tryPersistBulkRequest(dbBulkRequest, bulkNum);
-			return resList;
+		}
+		// finishing to retry - if persistence is defined then try to persist the failed requests
+		LOG.error("Bulk #{} Reached maximum tries ({}) attempt to index.", bulkNum, numOfElasticSearchActionsTries);
+		tryPersistBulkRequest(dbBulkRequest, bulkNum);
+		return resList;
 	}
 
 	private DbBulkRequest failureResponseHandling(DbBulkRequest dbBulkRequest, int bulkNum, int tryNum, BulkResponse response) {

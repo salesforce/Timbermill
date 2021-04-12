@@ -1,10 +1,8 @@
 package com.datorama.timbermill.server.service;
 
-import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,10 +57,8 @@ public class AdminController {
 		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
 		if (persistenceHandler != null) {
 			for (int i = 0; i < 15; i++) {
-				BulkRequest request = new BulkRequest();
-				request.add(new UpdateRequest("index", ElasticsearchClient.TYPE, "taskId"));
-				request.add(new UpdateRequest("index", ElasticsearchClient.TYPE, "taskId"));
-				persistenceHandler.persistBulkRequest(new DbBulkRequest(request), i);
+				DbBulkRequest dbBulkRequest = new DbBulkRequest(new BulkRequest());
+				persistenceHandler.persistBulkRequest(dbBulkRequest, i);
 			}
 			LOG.info("Test - finished persist mock requests");
 		} else {
