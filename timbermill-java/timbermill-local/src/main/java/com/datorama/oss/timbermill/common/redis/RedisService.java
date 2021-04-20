@@ -50,9 +50,9 @@ public class RedisService {
         boolean redisUseSsl = redisServiceConfig.isRedisUseSsl();
         String redisPass = redisServiceConfig.getRedisPass();
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
