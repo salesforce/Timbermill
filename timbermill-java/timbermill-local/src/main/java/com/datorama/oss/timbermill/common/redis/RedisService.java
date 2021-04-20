@@ -1,7 +1,5 @@
 package com.datorama.oss.timbermill.common.redis;
 
-import com.datorama.oss.timbermill.unit.LocalTask;
-import com.datorama.oss.timbermill.unit.TaskMetaData;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
@@ -52,9 +50,9 @@ public class RedisService {
         boolean redisUseSsl = redisServiceConfig.isRedisUseSsl();
         String redisPass = redisServiceConfig.getRedisPass();
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 2 * Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 2 * Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
