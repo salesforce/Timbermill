@@ -20,7 +20,7 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
     private static final int maxFetchedInOneTime = 10;
     private static final int maxInsertRetries = 3;
     private static final long minLifeTime = 0;
-    private static final long TTL = 86400;
+    private static final int TTL = 86400;
 
     @BeforeClass
     public static void init()  {
