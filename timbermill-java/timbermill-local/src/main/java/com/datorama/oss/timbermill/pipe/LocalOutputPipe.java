@@ -1,14 +1,11 @@
 package com.datorama.oss.timbermill.pipe;
 
-import com.datorama.oss.timbermill.Bulker;
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.LocalCacheConfig;
-import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.*;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.unit.Event;
 import org.elasticsearch.ElasticsearchException;
@@ -38,8 +35,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        RedisServiceConfig redisServiceConfig = new RedisServiceConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
-        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, builder.minLifetime, redisServiceConfig);
+        RedisService redisService = new RedisService(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
+        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, builder.minLifetime, builder.redisTtlInSeconds, redisService);
         persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
@@ -47,9 +44,10 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.expiredMaxIndicesToDeleteInParallel);
 
         LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
+        RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisService, builder.redisTtlInSeconds);
         taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
                 localCacheConfig, builder.cacheStrategy,
-                redisServiceConfig);
+                redisCacheConfig);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,

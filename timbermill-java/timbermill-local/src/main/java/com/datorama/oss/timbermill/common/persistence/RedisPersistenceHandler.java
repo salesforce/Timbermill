@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.common.redis.RedisService;
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.Event;
 import com.github.jedis.lock.JedisLock;
 import org.slf4j.Logger;
@@ -25,16 +24,19 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private static final String FAILED_BULKS_LOCK = "failed_bulks_lock";
     private static final String OVERFLOWED_EVENTS_LOCK = "overflowed_events_lock";
 
+    static final String REDIS_SERVICE = "redis_service";
+    static final String TTL = "ttl";
     static final String MIN_LIFETIME = "min_lifetime";
-    static final String REDIS_CONFIG = "redis_config";
 
     private RedisService redisService;
+    private int ttl;
     private long minLifetime;
 
-    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, long minLifetime, RedisServiceConfig redisServiceConfig) {
+    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, long minLifetime, int ttl, RedisService redisService) {
         super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
         this.minLifetime = minLifetime;
-        this.redisService = new RedisService(redisServiceConfig);
+        this.ttl = ttl;
+        this.redisService = redisService;
         LOG.info("Redis persistence handler is up.");
     }
 
@@ -61,12 +63,12 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     @Override
     public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
-        return persistBulkRequest(dbBulkRequest, bulkNum, null);
+        return persistBulkRequest(dbBulkRequest, bulkNum, ttl);
     }
 
     @Override
     public void persistEvents(ArrayList<Event> events) {
-        persistEvents(events, null);
+        persistEvents(events, ttl);
     }
 
     @Override
@@ -150,7 +152,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         return overflowedEvents;
     }
 
-    Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, Integer bulkNum, Integer ttl) {
+    Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum, int ttl) {
         return executorService.submit(() -> {
             LOG.info("Bulk #{} Pushing bulk request to Redis for the {}th time.", bulkNum, dbBulkRequest.getTimesFetched() + 1);
             Map<String, DbBulkRequest> map = new HashMap<>();
@@ -164,7 +166,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         });
     }
 
-    void persistEvents(ArrayList<Event> events, Integer ttl) {
+    void persistEvents(ArrayList<Event> events, int ttl) {
         Map<String, ArrayList<Event>> map = new HashMap<>();
         String key = OVERFLOW_EVENTS_PREFIX + UUID.randomUUID().toString();
         map.put(key, events);

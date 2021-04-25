@@ -1,6 +1,6 @@
 package com.datorama.oss.timbermill.common.persistence;
 
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 
 import java.util.Map;
 
@@ -33,7 +33,8 @@ public class PersistenceHandlerUtil {
 						(int) params.get(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME),
 						(int) params.get(PersistenceHandler.MAX_INSERT_TRIES),
 						(long) params.get(RedisPersistenceHandler.MIN_LIFETIME),
-						(RedisServiceConfig) params.get(RedisPersistenceHandler.REDIS_CONFIG));
+						(int) params.get(RedisPersistenceHandler.TTL),
+						(RedisService) params.get(RedisPersistenceHandler.REDIS_SERVICE));
 			default:
 				throw new RuntimeException("Unsupported persistence handler strategy " + persistenceHandlerStrategy);
 		}

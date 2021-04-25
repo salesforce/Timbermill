@@ -1,7 +1,7 @@
 package com.datorama.oss.timbermill.common.persistence;
 
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Lists;
 
@@ -56,14 +56,15 @@ public abstract class PersistenceHandler {
 		return maxFetchedEventsListsInOneTime;
 	}
 
-	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, long minLifetime, RedisServiceConfig redisServiceConfig) {
+	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, long minLifetime, int ttlInSeconds, RedisService redisService) {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, maxFetchedEventsInOneTime);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, maxInsertTries);
 		persistenceHandlerParams.put(SQLJetPersistenceHandler.LOCATION_IN_DISK, locationInDisk);
 		persistenceHandlerParams.put(RedisPersistenceHandler.MIN_LIFETIME, minLifetime);
-		persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, redisServiceConfig);
+		persistenceHandlerParams.put(RedisPersistenceHandler.TTL, ttlInSeconds);
+		persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_SERVICE, redisService);
 		return persistenceHandlerParams;
 	}
 

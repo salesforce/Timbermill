@@ -2,11 +2,12 @@ package com.datorama.timbermill.server.service;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.LocalCacheConfig;
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
@@ -95,19 +96,17 @@ public class TimbermillService {
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
 
-		RedisServiceConfig redisConfigForPersistence = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
-				redisMaxMemoryPolicy, redisUseSsl, persistenceRedisTtlInSec, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
-				redisPoolMaxTotal, maxInsertTries);
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, redisConfigForPersistence);
+		RedisService redisService = new RedisService(redisHost, redisPort, redisPass, redisMaxMemory,
+				redisMaxMemoryPolicy, redisUseSsl, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+				redisPoolMaxTotal, redisMaxTries);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
-		RedisServiceConfig redisCacheConfig = new RedisServiceConfig(redisHost, redisPort, redisPass, redisMaxMemory,
-				redisMaxMemoryPolicy, redisUseSsl, cacheRedisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
-				redisPoolMaxTotal, redisMaxTries);
 		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
+		RedisCacheConfig redisCacheConfig= new RedisCacheConfig(redisService, cacheRedisTtlInSeconds);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
 				localCacheConfig, cacheStrategy,
 				redisCacheConfig);

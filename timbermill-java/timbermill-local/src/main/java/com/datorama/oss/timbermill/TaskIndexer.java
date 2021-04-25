@@ -5,7 +5,6 @@ import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.cache.AbstractCacheHandler;
 import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.plugins.PluginsConfig;
 import com.datorama.oss.timbermill.plugins.TaskLogPlugin;
 import com.datorama.oss.timbermill.unit.*;
@@ -37,13 +36,13 @@ public class TaskIndexer {
     private String timbermillVersion;
 
     public TaskIndexer(String pluginsJson, Integer daysRotation, ElasticsearchClient es, String timbermillVersion,
-                       LocalCacheConfig localCacheConfig, String cacheStrategy, RedisServiceConfig redisServiceConfig) {
+                       LocalCacheConfig localCacheConfig, String cacheStrategy, RedisCacheConfig redisCacheConfig) {
 
         this.daysRotation = calculateDaysRotation(daysRotation);
         this.logPlugins = PluginsConfig.initPluginsFromJson(pluginsJson);
         this.es = es;
         this.timbermillVersion = timbermillVersion;
-        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, localCacheConfig, redisServiceConfig);
+        cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, localCacheConfig, redisCacheConfig);
     }
 
     private static int calculateDaysRotation(int daysRotationParam) {

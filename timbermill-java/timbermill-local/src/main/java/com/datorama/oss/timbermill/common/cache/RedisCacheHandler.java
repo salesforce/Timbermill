@@ -1,7 +1,7 @@
 package com.datorama.oss.timbermill.common.cache;
 
+import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.common.redis.RedisService;
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.github.jedis.lock.JedisLock;
 import com.google.common.collect.Maps;
@@ -22,10 +22,12 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     private JedisLock lock;
     private final RedisService redisService;
+    private final int redisTtlInSeconds;
 
 
-    RedisCacheHandler(RedisServiceConfig redisServiceConfig) {
-        this.redisService = new RedisService(redisServiceConfig);
+    RedisCacheHandler(RedisCacheConfig redisCacheConfig) {
+        this.redisService = redisCacheConfig.getRedisService();
+        this.redisTtlInSeconds = redisCacheConfig.getRedisTtlInSeconds();
     }
 
     @Override
@@ -51,7 +53,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-        if (!redisService.pushToRedis(newOrphansMap)){
+        if (!redisService.pushToRedis(newOrphansMap, redisTtlInSeconds)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
         }
     }
@@ -67,7 +69,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        boolean allPushed = redisService.pushToRedis(idsToMap);
+        boolean allPushed = redisService.pushToRedis(idsToMap, redisTtlInSeconds);
         if (!allPushed){
             LOG.error("Failed to push some ids to Redis tasks cache.");
         }

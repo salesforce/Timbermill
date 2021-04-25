@@ -1,6 +1,6 @@
 package com.datorama.oss.timbermill.common.persistence;
 
-import com.datorama.oss.timbermill.common.redis.RedisServiceConfig;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.Event;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -20,6 +20,7 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
     private static final int maxFetchedInOneTime = 10;
     private static final int maxInsertRetries = 3;
     private static final long minLifeTime = 0;
+    private static final long TTL = 86400;
 
     @BeforeClass
     public static void init()  {
@@ -28,8 +29,9 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
         persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, maxFetchedInOneTime);
         persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, maxInsertRetries);
         persistenceHandlerParams.put(RedisPersistenceHandler.MIN_LIFETIME, minLifeTime);
-        persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_CONFIG, new RedisServiceConfig("localhost", 6379, "", "", "",
-                false, 86400, 100, 10, 10, 10, 3));
+        persistenceHandlerParams.put(RedisPersistenceHandler.TTL, TTL);
+        persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_SERVICE, new RedisService("localhost", 6379, "", "", "",
+                false, 100, 10, 10, 10, 3));
         PersistenceHandlerTest.init(persistenceHandlerParams, "redis");
     }
 

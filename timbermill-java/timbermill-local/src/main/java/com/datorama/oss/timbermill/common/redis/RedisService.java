@@ -30,25 +30,20 @@ public class RedisService {
     private final JedisPool jedisPool;
     private final Pool<Kryo> kryoPool;
     private final RetryConfig retryConfig;
-    private int redisTtlInSeconds;
     private int redisGetSize;
     private int redisMaxTries;
 
-    public RedisService(RedisServiceConfig redisServiceConfig) {
-        redisTtlInSeconds = redisServiceConfig.getRedisTtlInSeconds();
-        redisGetSize = redisServiceConfig.getRedisGetSize();
-        redisMaxTries = redisServiceConfig.getRedisMaxTries();
+    public RedisService(String redisHost, int redisPort, String redisPass, String redisMaxMemory, String redisMaxMemoryPolicy,
+                        Boolean redisUseSsl, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal, int redisMaxTries) {
+        this.redisGetSize = redisGetSize;
+        this.redisMaxTries = redisMaxTries;
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(redisServiceConfig.getRedisPoolMaxTotal());
-        poolConfig.setMinIdle(redisServiceConfig.getRedisPoolMinIdle());
-        poolConfig.setMaxIdle(redisServiceConfig.getRedisPoolMaxIdle());
+        poolConfig.setMaxTotal(redisPoolMaxTotal);
+        poolConfig.setMinIdle(redisPoolMinIdle);
+        poolConfig.setMaxIdle(redisPoolMaxIdle);
         poolConfig.setTestOnBorrow(true);
 
-        String redisHost = redisServiceConfig.getRedisHost();
-        int redisPort = redisServiceConfig.getRedisPort();
-        boolean redisUseSsl = redisServiceConfig.isRedisUseSsl();
-        String redisPass = redisServiceConfig.getRedisPass();
         if (StringUtils.isEmpty(redisPass)) {
             jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
@@ -56,11 +51,9 @@ public class RedisService {
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisMaxMemory = redisServiceConfig.getRedisMaxMemory();
             if (!StringUtils.isEmpty(redisMaxMemory)) {
                 jedis.configSet("maxmemory", redisMaxMemory);
             }
-            String redisMaxMemoryPolicy = redisServiceConfig.getRedisMaxMemoryPolicy();
             if (!StringUtils.isEmpty(redisMaxMemoryPolicy)) {
                 jedis.configSet("maxmemory-policy", "allkeys-lru");
             }
@@ -153,12 +146,7 @@ public class RedisService {
         }
     }
 
-    public <T> boolean pushToRedis(Map<String, T> keysToValuesMap) {
-        return pushToRedis(keysToValuesMap, redisTtlInSeconds);
-    }
-
-    public <T> boolean pushToRedis(Map<String, T> keysToValuesMap, Integer redisTtlInSeconds) {
-        int ttl = redisTtlInSeconds != null ? redisTtlInSeconds : this.redisTtlInSeconds;
+    public <T> boolean pushToRedis(Map<String, T> keysToValuesMap, int ttl) {
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
             for (Map.Entry<String, T> entry : keysToValuesMap.entrySet()) {
