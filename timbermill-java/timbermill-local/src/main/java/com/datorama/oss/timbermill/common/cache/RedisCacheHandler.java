@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.github.jedis.lock.JedisLock;
@@ -25,9 +24,12 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private final int redisTtlInSeconds;
 
 
-    RedisCacheHandler(RedisCacheConfig redisCacheConfig) {
-        this.redisService = redisCacheConfig.getRedisService();
-        this.redisTtlInSeconds = redisCacheConfig.getRedisTtlInSeconds();
+    RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds) {
+        if (redisService == null){
+            throw new RuntimeException("Redis cache used but no redis host defined");
+        }
+        this.redisService = redisService;
+        this.redisTtlInSeconds = cacheRedisTtlInSeconds;
     }
 
     @Override

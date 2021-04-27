@@ -1,6 +1,5 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.LocalCacheConfig;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.google.common.cache.Cache;
@@ -18,9 +17,9 @@ public class LocalCacheHandler extends AbstractCacheHandler {
     private Cache<String, String> tasksCache;
     private Cache<String, List<String>> orphansCache;
 
-    LocalCacheHandler(LocalCacheConfig localCacheConfig) {
+    LocalCacheHandler(long maximumTasksCacheWeight, long maximumOrphansCacheWeight) {
         tasksCache = CacheBuilder.newBuilder()
-                .maximumWeight(localCacheConfig.getMaximumTasksCacheWeight())
+                .maximumWeight(maximumTasksCacheWeight)
                 .weigher((Weigher<String, String>) (key, value) -> 2 * (key.length() + value.length()))
                 .removalListener(notification -> {
                     String key = notification.getKey();
@@ -31,7 +30,7 @@ public class LocalCacheHandler extends AbstractCacheHandler {
                 .build();
 
         orphansCache = CacheBuilder.newBuilder()
-                .maximumWeight(localCacheConfig.getMaximumOrphansCacheWeight())
+                .maximumWeight(maximumOrphansCacheWeight)
                 .weigher(this::getEntryLength)
                 .removalListener(notification -> {
                     int entryLength = getEntryLength(notification.getKey(), notification.getValue());
