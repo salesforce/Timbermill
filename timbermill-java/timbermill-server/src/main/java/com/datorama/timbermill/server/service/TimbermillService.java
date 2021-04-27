@@ -87,9 +87,9 @@ public class TimbermillService {
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
 							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
-							 @Value("${REDIS_POOL_MIN_IDLE:40}") int redisPoolMinIdle,
-							 @Value("${REDIS_POOL_MAX_IDLE:40}") int redisPoolMaxIdle,
-							 @Value("${REDIS_POOL_MAX_TOTAL:40}") int redisPoolMaxTotal,
+							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
+							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
+							 @Value("${REDIS_POOL_MAX_TOTAL:10}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 

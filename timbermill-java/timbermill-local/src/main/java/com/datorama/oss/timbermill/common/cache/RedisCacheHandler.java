@@ -42,9 +42,6 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String newKey = entry.getKey().substring(ORPHAN_PREFIX.length());
             retMap.put(newKey, entry.getValue());
         }
-        if (retMap.size() < orphanParentsIds.size()){
-//            LOG.warn("Failed to pull some ids from Redis orphans cache. Ids: {}", Sets.difference(orphanParentsIds, retMap.keySet()));
-        }
         return retMap;
     }
 
@@ -62,11 +59,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
-        Map<String, LocalTask> retMap = redisService.getFromRedis(idsList);
-        if (retMap.size() < idsList.size()){
-//            LOG.warn("Failed to pull some ids from Redis tasks cache. Ids: {}", Sets.difference(Sets.newHashSet(idsList), retMap.keySet()));
-        }
-        return retMap;
+        return redisService.getFromRedis(idsList);
     }
 
     @Override
