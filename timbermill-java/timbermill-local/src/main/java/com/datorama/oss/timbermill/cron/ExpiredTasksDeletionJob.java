@@ -1,30 +1,37 @@
 package com.datorama.oss.timbermill.cron;
 
-import java.util.Random;
-import java.util.UUID;
-
+import com.datorama.oss.timbermill.ElasticsearchClient;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
+import com.datorama.oss.timbermill.common.redis.RedisService;
+import com.github.jedis.lock.JedisLock;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-
-import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import org.slf4j.MDC;
+
+import java.util.UUID;
 
 @DisallowConcurrentExecution
 public class ExpiredTasksDeletionJob implements Job {
 
-	@Override public void execute(JobExecutionContext context) {
-		long timeToSleep = new Random().nextInt(43200000);
+    private static final String LOCK_NAME = ExpiredTasksDeletionJob.class.getSimpleName();
 
-		try {
-			Thread.sleep(timeToSleep);
-		} catch (InterruptedException ignored) {
-		}
+    @Override
+    public void execute(JobExecutionContext context) {
+        ElasticsearchClient client = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
+        RedisService redisService = (RedisService) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.REDIS_SERVICE);
+        JedisLock lock;
+        String flowId = "Expired Tasks Deletion Job - " + UUID.randomUUID().toString();
+        MDC.put("id", flowId);
 
-		ElasticsearchClient client = (ElasticsearchClient) context.getJobDetail().getJobDataMap().get(ElasticsearchUtil.CLIENT);
-		String flowId = "Expired Tasks Deletion Job - " + UUID.randomUUID().toString();
-		MDC.put("id", flowId);
-		client.deleteExpiredTasks();
-	}
+        if (redisService == null) {
+            client.deleteExpiredTasks();
+        } else if ((lock = redisService.lockIfUnlocked(LOCK_NAME)) != null) {
+            try {
+                client.deleteExpiredTasks();
+            } finally {
+                redisService.release(lock);
+            }
+        }
+    }
 }

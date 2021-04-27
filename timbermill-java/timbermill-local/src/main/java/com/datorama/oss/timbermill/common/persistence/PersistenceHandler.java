@@ -56,13 +56,12 @@ public abstract class PersistenceHandler {
 		return maxFetchedEventsListsInOneTime;
 	}
 
-	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, long minLifetime, int ttlInSeconds, RedisService redisService) {
+	public static Map<String, Object> buildPersistenceHandlerParams(int maxFetchedBulksInOneTime, int maxFetchedEventsInOneTime, int maxInsertTries, String locationInDisk, int ttlInSeconds, RedisService redisService) {
 		Map<String, Object> persistenceHandlerParams = new HashMap<>();
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_BULKS_IN_ONE_TIME, maxFetchedBulksInOneTime);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_FETCHED_EVENTS_IN_ONE_TIME, maxFetchedEventsInOneTime);
 		persistenceHandlerParams.put(PersistenceHandler.MAX_INSERT_TRIES, maxInsertTries);
 		persistenceHandlerParams.put(SQLJetPersistenceHandler.LOCATION_IN_DISK, locationInDisk);
-		persistenceHandlerParams.put(RedisPersistenceHandler.MIN_LIFETIME, minLifetime);
 		persistenceHandlerParams.put(RedisPersistenceHandler.TTL, ttlInSeconds);
 		persistenceHandlerParams.put(RedisPersistenceHandler.REDIS_SERVICE, redisService);
 		return persistenceHandlerParams;

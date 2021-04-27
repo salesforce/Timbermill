@@ -215,22 +215,6 @@ public class RedisService {
         }
     }
 
-        public Double getMinScore(String setName) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                Set<Tuple> tuples = runWithRetries(() -> jedis.zrangeWithScores(setName, 0, 0), "ZRANGE");
-                if (tuples.isEmpty()) {
-                    return null;
-                } else {
-                    return tuples.iterator().next().getScore();
-                }
-            } catch (Exception e) {
-                LOG.error("Error returning Redis " + setName + " list length", e);
-                return null;
-            }
-        }
-    }
-
     // endregion
 
     // region LIST
@@ -292,6 +276,19 @@ public class RedisService {
         } catch (Exception e) {
             LOG.error("Error flushing all", e);
         }
+    }
+
+    public JedisLock lockIfUnlocked(String lockName) {
+        JedisLock lock = new JedisLock(lockName, 0, 20000);
+        try (Jedis jedis = jedisPool.getResource()) {
+            boolean acquired = lock.acquire(jedis);
+            if (!acquired) {
+                lock = null;
+            }
+        } catch (Exception e) {
+            LOG.error("Error while locking lock {} in Redis", lockName, e);
+        }
+        return lock;
     }
 
     public JedisLock lock(String lockName) {

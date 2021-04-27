@@ -70,7 +70,6 @@ public class TimbermillService {
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
-							 @Value("${MIN_LIFETIME:600}") long minLifetime,
 							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
@@ -78,6 +77,7 @@ public class TimbermillService {
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") long maximumOrphansCacheWeight,
 							 @Value("${CACHE_STRATEGY:}") String cacheStrategy,
 							 @Value("${CACHE_TTL_IN_SECONDS:604800}") int cacheRedisTtlInSeconds,
+							 @Value("${HAS_REDIS:true}") boolean hasRedis,
 							 @Value("${REDIS_MAX_MEMORY:}") String redisMaxMemory,
 							 @Value("${REDIS_MAX_MEMORY_POLICY:}") String redisMaxMemoryPolicy,
 							 @Value("${REDIS_HOST:localhost}") String redisHost,
@@ -96,23 +96,22 @@ public class TimbermillService {
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
 
-		RedisService redisService = new RedisService(redisHost, redisPort, redisPass, redisMaxMemory,
+		RedisService redisService = hasRedis ? new RedisService(redisHost, redisPort, redisPass, redisMaxMemory,
 				redisMaxMemoryPolicy, redisUseSsl, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
-				redisPoolMaxTotal, redisMaxTries);
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, persistenceRedisTtlInSec, redisService);
+				redisPoolMaxTotal, redisMaxTries) : null;
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceHandlerStrategy, params);
-
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
-		RedisCacheConfig redisCacheConfig= new RedisCacheConfig(redisService, cacheRedisTtlInSeconds);
+		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisService, cacheRedisTtlInSeconds);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
 				localCacheConfig, cacheStrategy,
 				redisCacheConfig);
 		cronsRunner = new CronsRunner();
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, mergingCronExp);
+				eventsQueue, overflowedQueue, mergingCronExp, redisService);
 		startQueueSpillerThread();
 		startWorkingThread();
 	}

@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill.cron;
 
 import java.util.concurrent.BlockingQueue;
 
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import org.elasticsearch.common.Strings;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
@@ -23,7 +24,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp) {
+						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp, RedisService redisService) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
@@ -37,10 +38,10 @@ public class CronsRunner {
 				}
 			}
 			if (!Strings.isEmpty(deletionCronExp)) {
-				runDeletionTaskCron(deletionCronExp, es);
+				runDeletionTaskCron(deletionCronExp, es, redisService);
 			}
 			if (!Strings.isEmpty(mergingCronExp)) {
-				runPartialMergingTasksCron(es, mergingCronExp);
+				runPartialMergingTasksCron(es, mergingCronExp, redisService);
 			}
 			scheduler.start();
 		} catch (SchedulerException e) {
@@ -76,22 +77,23 @@ public class CronsRunner {
 	}
 
 	private void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, PersistenceHandler persistenceHandler) throws SchedulerException {
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
-			JobDetail job = newJob(BulkPersistentFetchJob.class)
-					.withIdentity("job2", "group2").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger2", "group2")
-					.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
-					.build();
-			scheduler.scheduleJob(job, trigger);
-	}
-
-	private void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
+		JobDetail job = newJob(BulkPersistentFetchJob.class)
+				.withIdentity("job2", "group2").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger2", "group2")
+				.withSchedule(cronSchedule(bulkPersistentFetchCronExp))
+				.build();
+		scheduler.scheduleJob(job, trigger);
+	}
+
+	private void runDeletionTaskCron(String deletionCronExp, ElasticsearchClient es, RedisService redisService) throws SchedulerException {
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(REDIS_SERVICE, redisService);
 		JobDetail job = newJob(ExpiredTasksDeletionJob.class)
 				.withIdentity("job1", "group1").usingJobData(jobDataMap)
 				.build();
@@ -103,17 +105,18 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp) throws SchedulerException{
-			JobDataMap jobDataMap = new JobDataMap();
-			jobDataMap.put(CLIENT, es);
-			JobDetail job = newJob(TasksMergerJobs.class)
-					.withIdentity("job5", "group5").usingJobData(jobDataMap)
-					.build();
-			CronTrigger trigger = newTrigger()
-					.withIdentity("trigger5", "group5")
-					.withSchedule(cronSchedule(mergingCronExp))
-					.build();
-			scheduler.scheduleJob(job, trigger);
+	private void runPartialMergingTasksCron(ElasticsearchClient es, String mergingCronExp, RedisService redisService) throws SchedulerException{
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(REDIS_SERVICE, redisService);
+		JobDetail job = newJob(TasksMergerJobs.class)
+				.withIdentity("job5", "group5").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger5", "group5")
+				.withSchedule(cronSchedule(mergingCronExp))
+				.build();
+		scheduler.scheduleJob(job, trigger);
 	}
 
 }
