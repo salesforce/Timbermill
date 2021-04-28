@@ -6,11 +6,11 @@ import java.util.Map;
 
 public class PersistenceHandlerUtil {
 
-	public static PersistenceHandler getPersistenceHandler(String persistenceHandlerStrategy,
+	public static PersistenceHandler getPersistenceHandler(String persistenceStrategy,
 														   Map<String, Object> params) {
 		PersistenceHandler persistenceHandler = null;
-		if (persistenceHandlerStrategy != null && !persistenceHandlerStrategy.toLowerCase().equals("none")){
-			persistenceHandler = getPersistenceHandlerByStrategy(persistenceHandlerStrategy, params);
+		if (persistenceStrategy != null && !persistenceStrategy.toLowerCase().equals("none")){
+			persistenceHandler = getPersistenceHandlerByStrategy(persistenceStrategy, params);
 			if (!persistenceHandler.isCreatedSuccessfully()){
 				persistenceHandler = null;
 			}

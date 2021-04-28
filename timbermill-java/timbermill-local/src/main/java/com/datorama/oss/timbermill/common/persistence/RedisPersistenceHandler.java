@@ -33,6 +33,9 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, int ttl, RedisService redisService) {
         super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
         this.ttl = ttl;
+        if (redisService == null){
+            throw new RuntimeException("Redis persistence used but no redis host defined");
+        }
         this.redisService = redisService;
         LOG.info("Redis persistence handler is up.");
     }

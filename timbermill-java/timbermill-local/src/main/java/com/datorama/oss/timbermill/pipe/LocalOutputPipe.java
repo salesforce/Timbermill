@@ -43,11 +43,9 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
-        RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisService, builder.redisTtlInSeconds);
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
-                localCacheConfig, builder.cacheStrategy,
-                redisCacheConfig);
+        CacheConfig cacheParams = new CacheConfig(redisService, builder.redisTtlInSeconds, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
+        AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(builder.cacheStrategy, cacheParams);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,cacheHandler);
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,

@@ -1,6 +1,6 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.RedisCacheConfig;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.github.jedis.lock.JedisLock;
@@ -25,9 +25,12 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private final int redisTtlInSeconds;
 
 
-    RedisCacheHandler(RedisCacheConfig redisCacheConfig) {
-        this.redisService = redisCacheConfig.getRedisService();
-        this.redisTtlInSeconds = redisCacheConfig.getRedisTtlInSeconds();
+    RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds) {
+        if (redisService == null){
+            throw new RuntimeException("Redis cache used but no redis host defined");
+        }
+        this.redisService = redisService;
+        this.redisTtlInSeconds = cacheRedisTtlInSeconds;
     }
 
     @Override
@@ -39,9 +42,6 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         for (Map.Entry<String, List<String>> entry : orphans.entrySet()) {
             String newKey = entry.getKey().substring(ORPHAN_PREFIX.length());
             retMap.put(newKey, entry.getValue());
-        }
-        if (retMap.size() < orphanParentsIds.size()){
-//            LOG.warn("Failed to pull some ids from Redis orphans cache. Ids: {}", Sets.difference(orphanParentsIds, retMap.keySet()));
         }
         return retMap;
     }
@@ -60,11 +60,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
-        Map<String, LocalTask> retMap = redisService.getFromRedis(idsList);
-        if (retMap.size() < idsList.size()){
-//            LOG.warn("Failed to pull some ids from Redis tasks cache. Ids: {}", Sets.difference(Sets.newHashSet(idsList), retMap.keySet()));
-        }
-        return retMap;
+        return redisService.getFromRedis(idsList);
     }
 
     @Override
