@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common.cache;
 
 import com.datorama.oss.timbermill.common.redis.RedisService;
-import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.github.jedis.lock.JedisLock;
 import com.google.common.collect.Maps;
