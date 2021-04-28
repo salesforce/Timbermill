@@ -103,7 +103,7 @@ public class TimbermillService {
 					redisMaxMemoryPolicy, redisUseSsl, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
 					redisPoolMaxTotal, redisMaxTries);
 		}
-		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, persistenceRedisTtlInSec, redisService);
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceStrategy, params);
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
@@ -114,7 +114,7 @@ public class TimbermillService {
 		AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, cacheParams);
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, mergingCronExp);
+				eventsQueue, overflowedQueue, mergingCronExp, redisService);
 		startQueueSpillerThread();
 		startWorkingThread();
 	}
