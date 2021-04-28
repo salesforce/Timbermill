@@ -85,7 +85,6 @@ public class TimbermillService {
 							 @Value("${REDIS_PORT:6379}") int redisPort,
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
-							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
 							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
 							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
