@@ -1,15 +1,17 @@
-package com.datorama.oss.timbermill.common.disk;
-
-import java.io.Serializable;
+package com.datorama.oss.timbermill.common.persistence;
 
 import org.elasticsearch.action.bulk.BulkRequest;
 
+import java.io.Serializable;
+
 public class DbBulkRequest implements Serializable {
-	private int id = -1;
+	private long id;
 	private int timesFetched = 0;
 	private String insertTime;
 	private BulkRequest request;
 
+	public DbBulkRequest() {
+	}
 
 	public DbBulkRequest(BulkRequest request) {
 		this.request = request;
@@ -19,11 +21,11 @@ public class DbBulkRequest implements Serializable {
 		return request.numberOfActions();
 	}
 
-	public int getId() {
+	public long getId() {
 		return id;
 	}
 
-	public DbBulkRequest setId(int id) {
+	public DbBulkRequest setId(long id) {
 		this.id = id;
 		return this;
 	}

@@ -1,113 +1,47 @@
 package com.datorama.oss.timbermill.common.cache;
 
-import com.datorama.oss.timbermill.RedisCacheConfig;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.LocalTask;
-import com.datorama.oss.timbermill.unit.TaskMetaData;
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-import com.esotericsoftware.kryo.util.Pool;
-import com.evanlennick.retry4j.CallExecutorBuilder;
-import com.evanlennick.retry4j.Status;
-import com.evanlennick.retry4j.config.RetryConfig;
-import com.evanlennick.retry4j.config.RetryConfigBuilder;
-import com.evanlennick.retry4j.exception.RetriesExhaustedException;
 import com.github.jedis.lock.JedisLock;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.*;
 
-import java.io.ByteArrayOutputStream;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
 public class RedisCacheHandler extends AbstractCacheHandler {
 
+    private static final String LOCK_NAME = "cache_lock";
     private static final String ORPHAN_PREFIX = "orphan###";
-    private static final String LOCK_NAME = "timbermill__lock";
     private static final Logger LOG = LoggerFactory.getLogger(RedisCacheHandler.class);
 
-    private final JedisPool jedisPool;
-    private final Pool<Kryo> kryoPool;
-    private final RetryConfig retryConfig;
-    private int redisTtlInSeconds;
-    private int redisGetSize;
     private JedisLock lock;
-    private int redisMaxTries;
+    private final RedisService redisService;
+    private final int redisTtlInSeconds;
 
 
-    RedisCacheHandler(RedisCacheConfig redisCacheConfig) {
-        redisTtlInSeconds = redisCacheConfig.getRedisTtlInSeconds();
-        redisGetSize = redisCacheConfig.getRedisGetSize();
-        redisMaxTries = redisCacheConfig.getRedisMaxTries();
-
-        JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(redisCacheConfig.getRedisPoolMaxTotal());
-        poolConfig.setMinIdle(redisCacheConfig.getRedisPoolMinIdle());
-        poolConfig.setMaxIdle(redisCacheConfig.getRedisPoolMaxIdle());
-        poolConfig.setTestOnBorrow(true);
-
-        String redisHost = redisCacheConfig.getRedisHost();
-        int redisPort = redisCacheConfig.getRedisPort();
-        boolean redisUseSsl = redisCacheConfig.isRedisUseSsl();
-        String redisPass = redisCacheConfig.getRedisPass();
-        if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
-        } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+    RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds) {
+        if (redisService == null){
+            throw new RuntimeException("Redis cache used but no redis host defined");
         }
-
-        try (Jedis jedis = jedisPool.getResource()) {
-            String redisMaxMemory = redisCacheConfig.getRedisMaxMemory();
-            if (!StringUtils.isEmpty(redisMaxMemory)) {
-                jedis.configSet("maxmemory", redisMaxMemory);
-            }
-            String redisMaxMemoryPolicy = redisCacheConfig.getRedisMaxMemoryPolicy();
-            if (!StringUtils.isEmpty(redisMaxMemoryPolicy)) {
-                jedis.configSet("maxmemory-policy", "allkeys-lru");
-            }
-        }
-
-        kryoPool = new Pool<Kryo>(true, false, 10) {
-            protected Kryo create () {
-                Kryo kryo = new Kryo();
-                kryo.register(LocalTask.class);
-                kryo.register(java.util.HashMap.class);
-                kryo.register(java.util.ArrayList.class);
-                kryo.register(TaskMetaData.class);
-                kryo.register(java.time.ZonedDateTime.class);
-                kryo.register(com.datorama.oss.timbermill.unit.TaskStatus.class);
-                return kryo;
-            }
-        };
-        retryConfig = new RetryConfigBuilder()
-                .withMaxNumberOfTries(redisMaxTries)
-                .retryOnAnyException()
-                .withDelayBetweenTries(1, ChronoUnit.SECONDS)
-                .withExponentialBackoff()
-                .build();
-        LOG.info("Connected to Redis");
+        this.redisService = redisService;
+        this.redisTtlInSeconds = cacheRedisTtlInSeconds;
     }
 
     @Override
     public Map<String, List<String>> pullFromOrphansCache(Collection<String> parentsIds) {
         Set<String> orphanParentsIds = parentsIds.stream().map(s -> ORPHAN_PREFIX + s).collect(Collectors.toSet());
-        Map<String, List<String>> orphans = getFromRedis(orphanParentsIds, "orphans");
+        Map<String, List<String>> orphans = redisService.getFromRedis(orphanParentsIds);
 
         Map<String, List<String>> retMap = Maps.newHashMap();
         for (Map.Entry<String, List<String>> entry : orphans.entrySet()) {
             String newKey = entry.getKey().substring(ORPHAN_PREFIX.length());
             retMap.put(newKey, entry.getValue());
         }
-
         return retMap;
     }
 
@@ -118,115 +52,36 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-        pushToRedis(newOrphansMap, "orphans");
+        if (!redisService.pushToRedis(newOrphansMap, redisTtlInSeconds)){
+            LOG.error("Failed to push some ids to Redis orphans cache.");
+        }
     }
 
     @Override
     public Map<String, LocalTask> getFromTasksCache(Collection<String> idsList) {
-        return getFromRedis(idsList, "tasks");
-    }
-
-    private <T> Map<String, T> getFromRedis(Collection<String> keys, String cacheName) {
-        Map<String, T> retMap = Maps.newHashMap();
-        for (List<String> idsPartition : Iterables.partition(keys, redisGetSize)) {
-            byte[][] ids = new byte[idsPartition.size()][];
-            for (int i = 0; i < idsPartition.size(); i++) {
-                ids[i] = idsPartition.get(i).getBytes();
-            }
-            try (Jedis jedis = jedisPool.getResource()) {
-                List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(ids), "MGET Keys");
-                for (int i = 0; i < ids.length; i++) {
-                    byte[] serializedObject = serializedObjects.get(i);
-
-                    if (serializedObject == null || serializedObject.length == 0) {
-                        continue;
-                    }
-                    Kryo kryo  = kryoPool.obtain();
-                    try {
-                        T object = (T) kryo.readClassAndObject(new Input(serializedObject));
-                        String id = new String(ids[i]);
-                        retMap.put(id, object);
-                    } finally {
-                        kryoPool.free(kryo);
-                    }
-
-                }
-            } catch (Exception e) {
-                LOG.error("Error getting ids from Redis " + cacheName + " cache. Ids: " + idsPartition , e);
-            }
-        }
-        return retMap;
+        return redisService.getFromRedis(idsList);
     }
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        pushToRedis(idsToMap, "tasks");
-    }
-
-    private <T> void pushToRedis(Map<String, T> idsToValuesMap, String cacheName) {
-        try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (Map.Entry<String, T> entry : idsToValuesMap.entrySet()) {
-                String id = entry.getKey();
-                T object = entry.getValue();
-                byte[] taskByteArr = getBytes(object);
-
-                try {
-                    pipelined.setex(id.getBytes(), redisTtlInSeconds, taskByteArr);
-                } catch (Exception e) {
-                    LOG.error("Error pushing id " + id + " to Redis " + cacheName + " cache", e);
-                }
-            }
+        boolean allPushed = redisService.pushToRedis(idsToMap, redisTtlInSeconds);
+        if (!allPushed){
+            LOG.error("Failed to push some ids to Redis tasks cache.");
         }
     }
 
     @Override
     public void lock() {
-        lock = new JedisLock(LOCK_NAME, 20000, 20000);
-        try (Jedis jedis = jedisPool.getResource()) {
-                lock.acquire(jedis);
-        } catch (Exception e) {
-            LOG.error("Error while locking lock in Redis", e);
-        }
+        lock = redisService.lock(LOCK_NAME);
     }
 
     @Override
     public void release() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            lock.release(jedis);
-        } catch (Exception e) {
-            LOG.error("Error while releasing lock in Redis", e);
-        }
+        redisService.release(lock);
     }
 
     @Override
     public void close() {
-        jedisPool.close();
-    }
-
-    private byte[] getBytes(Object orphansIds) {
-        ByteArrayOutputStream objStream = new ByteArrayOutputStream();
-        Output objOutput = new Output(objStream);
-
-        Kryo kryo = kryoPool.obtain();
-        try {
-            kryo.writeClassAndObject(objOutput, orphansIds);
-            objOutput.close();
-            return objStream.toByteArray();
-        } finally {
-            kryoPool.free(kryo);
-        }
-    }
-
-    private <T> T runWithRetries(Callable<T> callable, String functionDescription) throws RetriesExhaustedException {
-        Status<T> status = new CallExecutorBuilder<T>()
-                .config(retryConfig)
-                .onFailureListener(this::printFailWarning)
-                .build()
-                .execute(callable, functionDescription);
-        return status.getResult();
-    }
-
-    private void printFailWarning(Status status) {
-        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
+        redisService.close();
     }
 }

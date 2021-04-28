@@ -1,15 +1,18 @@
 package com.datorama.timbermill.server.service;
 
 import com.datorama.oss.timbermill.ElasticsearchClient;
-import com.datorama.oss.timbermill.LocalCacheConfig;
-import com.datorama.oss.timbermill.RedisCacheConfig;
 import com.datorama.oss.timbermill.TaskIndexer;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
+import com.datorama.oss.timbermill.common.cache.AbstractCacheHandler;
+import com.datorama.oss.timbermill.common.cache.CacheConfig;
+import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +37,8 @@ public class TimbermillService {
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
 	private long terminationTimeout;
-	private DiskHandler diskHandler;
-	private CronsRunner cronsRunner;
+	private PersistenceHandler persistenceHandler;
+	private CronsRunner cronsRunner = new CronsRunner();
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -62,24 +65,27 @@ public class TimbermillService {
 							 @Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
 							 @Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 							 @Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
-							 @Value("${DISK_HANDLER_STRATEGY:sqlite}") String diskHandlerStrategy,
+							 @Value("${PERSISTENCE_STRATEGY:sqlite}") String persistenceStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
+							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
+							 @Value("${MIN_LIFETIME:600}") long minLifetime,
+							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
 							 @Value("${MAXIMUM_TASKS_CACHE_WEIGHT:100000000}") long maximumTasksCacheWeight,
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") long maximumOrphansCacheWeight,
 							 @Value("${CACHE_STRATEGY:}") String cacheStrategy,
+							 @Value("${CACHE_TTL_IN_SECONDS:604800}") int cacheRedisTtlInSeconds,
 							 @Value("${REDIS_MAX_MEMORY:}") String redisMaxMemory,
 							 @Value("${REDIS_MAX_MEMORY_POLICY:}") String redisMaxMemoryPolicy,
-							 @Value("${REDIS_HOST:localhost}") String redisHost,
+							 @Value("${REDIS_HOST:}") String redisHost,
 							 @Value("${REDIS_PORT:6379}") int redisPort,
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
-							 @Value("${REDIS_TTL_IN_SECONDS:604800}") int redisTtlInSeconds,
 							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
 							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
 							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
@@ -91,21 +97,23 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		Map<String, Object> params = DiskHandler.buildDiskHandlerParams(maxFetchedBulksInOneTime, maxInsertTries, locationInDisk);
-		diskHandler = DiskHandlerUtil.getDiskHandler(diskHandlerStrategy, params);
+		RedisService redisService = null;
+		if (!StringUtils.isEmpty(redisHost)) {
+			redisService = new RedisService(redisHost, redisPort, redisPass, redisMaxMemory,
+					redisMaxMemoryPolicy, redisUseSsl, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
+					redisPoolMaxTotal, redisMaxTries);
+		}
+		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, minLifetime, persistenceRedisTtlInSec, redisService);
+		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceStrategy, params);
+
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
-				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, diskHandler, numberOfShards, numberOfReplicas,
+				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
 				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
 
-		RedisCacheConfig redisCacheConfig = new RedisCacheConfig(redisHost, redisPort, redisPass, redisMaxMemory,
-				redisMaxMemoryPolicy, redisUseSsl, redisTtlInSeconds, redisGetSize, redisPoolMinIdle, redisPoolMaxIdle,
-				redisPoolMaxTotal, redisMaxTries);
-		LocalCacheConfig localCacheConfig = new LocalCacheConfig(maximumTasksCacheWeight, maximumOrphansCacheWeight);
-		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion,
-				localCacheConfig, cacheStrategy,
-				redisCacheConfig);
-		cronsRunner = new CronsRunner();
-		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, diskHandler, es, deletionCronExp,
+		CacheConfig cacheParams = new CacheConfig(redisService, cacheRedisTtlInSeconds, maximumTasksCacheWeight, maximumOrphansCacheWeight);
+		AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, cacheParams);
+		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
+		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp);
 		startQueueSpillerThread();
 		startWorkingThread();
@@ -115,7 +123,7 @@ public class TimbermillService {
 		Thread spillerThread = new Thread(() -> {
 			LOG.info("Starting Queue Spiller Thread");
 			while (keepRunning) {
-				diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+				persistenceHandler.spillOverflownEvents(overflowedQueue);
 				try {
 					Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 				} catch (InterruptedException e) {
@@ -147,8 +155,8 @@ public class TimbermillService {
 				Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
 			} catch (InterruptedException ignored) {}
 		}
-		if (diskHandler != null){
-			diskHandler.close();
+		if (persistenceHandler != null){
+			persistenceHandler.close();
 		}
 		taskIndexer.close();
 		cronsRunner.close();
@@ -165,7 +173,11 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
+			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
 		}
+	}
+
+	PersistenceHandler getPersistenceHandler() {
+		return persistenceHandler;
 	}
 }

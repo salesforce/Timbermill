@@ -31,7 +31,7 @@ public class EventsPersistentFetchJobTest {
 		if (StringUtils.isEmpty(elasticUrl)){
 			elasticUrl = "http://localhost:9200";
 		}
-		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().diskHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").
+		LocalOutputPipe.Builder builder = new LocalOutputPipe.Builder().persistenceHandlerStrategy("sqlite").url(elasticUrl).deletionCronExp("").
 				bulkPersistentFetchCronExp("").eventsPersistentFetchCronExp("").mergingCronExp("");
 		pipe = builder.build();
 
@@ -110,7 +110,7 @@ public class EventsPersistentFetchJobTest {
 		@Override public JobDetail getJobDetail() {
 			JobDetailImpl jobDetail = new JobDetailImpl();
 			Map<String, Object> map = Maps.newHashMap();
-			map.put(DISK_HANDLER, pipe.getDiskHandler());
+			map.put(PERSISTENCE_HANDLER, pipe.getPersistenceHandler());
 			map.put(EVENTS_QUEUE, pipe.getBuffer());
 			map.put(OVERFLOWED_EVENTS_QUEUE, pipe.getOverflowedQueue());
 			JobDataMap jobMap = new JobDataMap(map);

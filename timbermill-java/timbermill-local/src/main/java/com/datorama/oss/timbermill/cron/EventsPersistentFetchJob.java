@@ -1,7 +1,7 @@
 package com.datorama.oss.timbermill.cron;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import kamon.metric.Timer;
@@ -24,22 +24,23 @@ public class EventsPersistentFetchJob implements Job {
 	private static final Logger LOG = LoggerFactory.getLogger(EventsPersistentFetchJob.class);
 
 	@Override public void execute(JobExecutionContext context) {
-		DiskHandler diskHandler = (DiskHandler) context.getJobDetail().getJobDataMap().get(DISK_HANDLER);
+		PersistenceHandler persistenceHandler = (PersistenceHandler) context.getJobDetail().getJobDataMap().get(PERSISTENCE_HANDLER);
 		BlockingQueue<Event> eventsQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(EVENTS_QUEUE);
 		BlockingQueue<Event> overflowedQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(OVERFLOWED_EVENTS_QUEUE);
-		if (diskHandler != null && hasEnoughRoomLeft(eventsQueue)) {
+		if (persistenceHandler != null && hasEnoughRoomLeft(eventsQueue)) {
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", "overflowed_events_lists_amount").update(persistenceHandler.overFlowedEventsListsAmount());
 			String flowId = "Overflowed Event Persistent Fetch Job - " + UUID.randomUUID().toString();
 			MDC.put("id", flowId);
 			LOG.info("Overflowed Events Fetch Job started.");
 			Timer.Started start = KamonConstants.EVENTS_FETCH_JOB_LATENCY.withoutTags().start();
 			while (hasEnoughRoomLeft(eventsQueue)){
-				List<Event> events = diskHandler.fetchAndDeleteOverflowedEvents();
+				List<Event> events = persistenceHandler.fetchAndDeleteOverflowedEvents();
 				if (events.isEmpty()){
 					break;
 				}
 				else {
 					for (Event event : events) {
-						LocalOutputPipe.pushEventToQueues(diskHandler, eventsQueue, overflowedQueue, event);
+						LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
 					}
 				}
 			}

@@ -6,9 +6,9 @@ import com.amazonaws.util.IOUtils;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.ZonedDateTimeConverter;
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.IndexRetryManager;
+import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.IndexRetryManager;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.evanlennick.retry4j.CallExecutorBuilder;
@@ -118,12 +118,8 @@ public class ElasticsearchClient {
 	private final int expiredMaxIndicesTodeleteInParallel;
 
 	public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
-							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, DiskHandler diskHandler, int numberOfShards, int numberOfReplicas,
+							   long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, PersistenceHandler persistenceHandler, int numberOfShards, int numberOfReplicas,
 							   int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
-
-		if (diskHandler!=null && !diskHandler.isCreatedSuccessfully()){
-			diskHandler = null;
-		}
 
 		validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation,
 				scrollTimeoutSeconds, fetchByIdsPartitions, numberOfShards, expiredMaxIndicesTodeleteInParallel);
@@ -166,7 +162,7 @@ public class ElasticsearchClient {
         	bulker = new Bulker(client);
 		}
         this.bulker = bulker;
-		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, diskHandler, bulker);
+		this.retryManager = new IndexRetryManager(numOfElasticSearchActionsTries, maxBulkIndexFetches, persistenceHandler, bulker);
 		retryConfig = new RetryConfigBuilder()
 				.withMaxNumberOfTries(numOfElasticSearchActionsTries)
 				.retryOnAnyException()
@@ -352,14 +348,13 @@ public class ElasticsearchClient {
 		List<BulkResponse> bulkResponses = sendDbBulkRequest(request, flowId, bulkNum);
 		int successfulRequests = 0;
 		for (BulkResponse bulkResponse : bulkResponses) {
-			if(bulkResponse.hasFailures()){
+			if (bulkResponse.hasFailures()) {
 				for (BulkItemResponse bulkItemResponse : bulkResponse) {
-					if (!bulkItemResponse.isFailed()){
+					if (!bulkItemResponse.isFailed()) {
 						successfulRequests++;
 					}
 				}
-			}
-			else{
+			} else {
 				successfulRequests += bulkResponse.getItems().length;
 			}
 		}
@@ -390,7 +385,7 @@ public class ElasticsearchClient {
 			} catch (InterruptedException e) {
 				LOG.error("Bulk #{} An error was thrown while indexing a batch, going to retry", bulkNum, e);
 			} catch (ExecutionException e) {
-				LOG.error("Bulk #{} An error was thrown while indexing a batch, which won't be persisted to disk", bulkNum, e);
+				LOG.error("Bulk #{} An error was thrown while indexing a batch, which won't be persisted", bulkNum, e);
 			}
 			bulkNum++;
         }

@@ -1,20 +1,23 @@
 package com.datorama.oss.timbermill.pipe;
 
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-
 import com.datorama.oss.timbermill.*;
+import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import com.datorama.oss.timbermill.common.KamonConstants;
+import com.datorama.oss.timbermill.common.cache.AbstractCacheHandler;
+import com.datorama.oss.timbermill.common.cache.CacheConfig;
+import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
+import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.redis.RedisService;
+import com.datorama.oss.timbermill.cron.CronsRunner;
+import com.datorama.oss.timbermill.unit.Event;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datorama.oss.timbermill.common.ElasticsearchUtil;
-import com.datorama.oss.timbermill.common.disk.DiskHandler;
-import com.datorama.oss.timbermill.common.disk.DiskHandlerUtil;
-import com.datorama.oss.timbermill.cron.CronsRunner;
-import com.datorama.oss.timbermill.unit.Event;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -22,7 +25,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     private final BlockingQueue<Event> buffer = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
     private BlockingQueue<Event> overflowedQueue = new ArrayBlockingQueue<>(EVENT_QUEUE_CAPACITY);
-    private DiskHandler diskHandler;
+    private PersistenceHandler persistenceHandler;
     private ElasticsearchClient esClient;
     private TaskIndexer taskIndexer;
     private final CronsRunner cronsRunner;
@@ -35,20 +38,19 @@ public class LocalOutputPipe implements EventOutputPipe {
             throw new ElasticsearchException("Must enclose an Elasticsearch URL");
         }
 
-        Map<String, Object> params = DiskHandler.buildDiskHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxInsertTries, builder.locationInDisk);
-        diskHandler = DiskHandlerUtil.getDiskHandler(builder.diskHandlerStrategy, params);
+        RedisService redisService = new RedisService(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
+        Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, builder.minLifetime, builder.redisTtlInSeconds, redisService);
+        persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
-                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, diskHandler,
+                builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
 
-        LocalCacheConfig localCacheConfig = new LocalCacheConfig(builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
-        RedisCacheConfig redisCacheConfig = new RedisCacheConfig(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisTtlInSeconds, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
-        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,
-                localCacheConfig, builder.cacheStrategy,
-                redisCacheConfig);
+        CacheConfig cacheParams = new CacheConfig(redisService, builder.redisTtlInSeconds, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
+        AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(builder.cacheStrategy, cacheParams);
+        taskIndexer = new TaskIndexer(builder.pluginsJson, builder.daysRotation, esClient, builder.timbermillVersion,cacheHandler);
         cronsRunner = new CronsRunner();
-        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, diskHandler, esClient,
+        cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
                 builder.mergingCronExp);
         startQueueSpillerThread();
@@ -59,7 +61,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Thread spillerThread = new Thread(() -> {
             LOG.info("Starting Queue Spiller Thread");
             while (keepRunning) {
-                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+                persistenceHandler.spillOverflownEvents(overflowedQueue);
                 try {
                     Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
                 } catch (InterruptedException e) {
@@ -83,13 +85,13 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event event){
-        pushEventToQueues(diskHandler, buffer, overflowedQueue, event);
+        pushEventToQueues(persistenceHandler, buffer, overflowedQueue, event);
     }
 
-    public static void pushEventToQueues(DiskHandler diskHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
+    public static void pushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
         if(!eventsQueue.offer(event)){
             if (!overflowedQueue.offer(event)){
-                diskHandler.spillOverflownEventsToDisk(overflowedQueue);
+                persistenceHandler.spillOverflownEvents(overflowedQueue);
                 if (!overflowedQueue.offer(event)) {
                     LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
                 }
@@ -112,8 +114,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             } catch (InterruptedException ignored) {
             }
         }
-        if (diskHandler != null){
-            diskHandler.close();
+        if (persistenceHandler != null){
+            persistenceHandler.close();
         }
         taskIndexer.close();
         cronsRunner.close();
@@ -136,8 +138,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         return overflowedQueue;
     }
 
-    public DiskHandler getDiskHandler() {
-        return diskHandler;
+    public PersistenceHandler getPersistenceHandler() {
+        return persistenceHandler;
     }
 
     public static class Builder {
@@ -180,10 +182,12 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String mergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
-        private String diskHandlerStrategy = "sqlite";
+        private String persistenceHandlerStrategy = "redis";
         private int maxFetchedBulksInOneTime = 10;
+        private int maxFetchedEventsInOneTime = 10;
         private int maxInsertTries = 3;
         private String locationInDisk = "/tmp";
+        private long minLifetime = 0;
         private int scrollLimitation = 1000;
         private int scrollTimeoutSeconds = 60;
         private int fetchByIdsPartitions = 10000;
@@ -270,8 +274,8 @@ public class LocalOutputPipe implements EventOutputPipe {
             return this;
         }
 
-        public Builder diskHandlerStrategy(String diskHandlerStrategy) {
-            this.diskHandlerStrategy = diskHandlerStrategy;
+        public Builder persistenceHandlerStrategy(String persistenceHandlerStrategy) {
+            this.persistenceHandlerStrategy = persistenceHandlerStrategy;
             return this;
         }
 
@@ -288,6 +292,10 @@ public class LocalOutputPipe implements EventOutputPipe {
         public Builder locationInDisk(String locationInDisk) {
             this.locationInDisk = locationInDisk;
             return this;
+        }
+
+        public long getMinLifetime() {
+            return minLifetime;
         }
 
         public Builder maxBulkIndexFetched(int maxBulkIndexFetched) {

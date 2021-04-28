@@ -1,6 +1,6 @@
 package com.datorama.oss.timbermill;
 
-import com.datorama.oss.timbermill.common.disk.DbBulkRequest;
+import com.datorama.oss.timbermill.common.persistence.DbBulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;

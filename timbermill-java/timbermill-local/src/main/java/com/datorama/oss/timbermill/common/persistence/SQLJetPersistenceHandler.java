@@ -1,4 +1,4 @@
-package com.datorama.oss.timbermill.common.disk;
+package com.datorama.oss.timbermill.common.persistence;
 
 import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.exceptions.MaximumInsertTriesException;
@@ -25,10 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-public class SQLJetDiskHandler extends DiskHandler {
-	static final String MAX_FETCHED_BULKS_IN_ONE_TIME = "MAX_FETCHED_BULKS_IN_ONE_TIME";
-	static final String MAX_INSERT_TRIES = "MAX_INSERT_TRIES";
+public class SQLJetPersistenceHandler extends PersistenceHandler {
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
 
 	private static final String DB_NAME = "timbermillJetDB26012021.db";
@@ -44,21 +43,17 @@ public class SQLJetDiskHandler extends DiskHandler {
 					+ TIMES_FETCHED + " INTEGER)";
 	private static final String CREATE_EVENT_TABLE =
 			"CREATE TABLE IF NOT EXISTS " + OVERFLOWED_EVENTS_TABLE_NAME + " (" + ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + OVERFLOWED_EVENT + " BLOB NOT NULL, " + INSERT_TIME + " TEXT)";
-	private static final Logger LOG = LoggerFactory.getLogger(SQLJetDiskHandler.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SQLJetPersistenceHandler.class);
 
-	private int maxFetchedBulksInOneTime;
-	private int maxInsertTries;
 	private String locationInDisk;
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
-	private static ExecutorService executorService;
+	private static ExecutorService executorService = Executors.newFixedThreadPool(1);
 
-	SQLJetDiskHandler(int maxFetchedBulks, int maxInsertTries, String locationInDisk) {
-		this.maxFetchedBulksInOneTime = maxFetchedBulks;
-		this.maxInsertTries = maxInsertTries;
+	SQLJetPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, String locationInDisk) {
+		super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
 		this.locationInDisk = locationInDisk;
-		executorService = Executors.newFixedThreadPool(1);
 		init();
 	}
 
@@ -84,7 +79,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 
 			// update kamon gauge (counter)
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", FAILED_BULKS_TABLE_NAME).update(failedBulksAmount());
-			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsAmount());
+			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", OVERFLOWED_EVENTS_TABLE_NAME).update(overFlowedEventsListsAmount());
 
 			silentDbCommit();
 			LOG.info("SQLite was created successfully");
@@ -111,7 +106,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			resultCursor = overFlowedEventsTable.lookup(overFlowedEventsTable.getPrimaryKeyIndexName());
 
-			for (int i = 0; i < maxFetchedBulksInOneTime && !resultCursor.eof() ; i++) {
+			for (int i = 0; i < maxFetchedEventsListsInOneTime && !resultCursor.eof() ; i++) {
 				events = deserializeEvents(resultCursor.getBlobAsArray(OVERFLOWED_EVENT));
 				int eventsSize = events.size();
 				LOG.info("Fetched bulk of {} overflowed events from SQLite.", eventsSize);
@@ -135,10 +130,10 @@ public class SQLJetDiskHandler extends DiskHandler {
 	}
 
 	@Override
-	public void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, int bulkNum) {
-		executorService.submit(() -> {
+	public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
+		return executorService.submit(() -> {
 			try {
-				persistBulkRequestToDisk(dbBulkRequest,1000, bulkNum);
+				persistBulkRequest(dbBulkRequest, 1000, bulkNum);
 			} catch (MaximumInsertTriesException e) {
 				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
@@ -147,7 +142,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 	}
 
 	@Override
-	public synchronized void persistEventsToDisk(ArrayList<Event> events) {
+	public synchronized void persistEvents(ArrayList<Event> events) {
 		try {
 			db.beginTransaction(SqlJetTransactionMode.WRITE);
 			overFlowedEventsTable.insert(serializeEvents(events), DateTime.now().toString());
@@ -187,15 +182,15 @@ public class SQLJetDiskHandler extends DiskHandler {
 
 	@Override
 	public synchronized long failedBulksAmount() {
-		return getTableRows(failedBulkTable);
+		return getTableRowCount(failedBulkTable);
 	}
 
 	@Override
-	public synchronized long overFlowedEventsAmount() {
-		return getTableRows(overFlowedEventsTable);
+	public synchronized long overFlowedEventsListsAmount() {
+		return getTableRowCount(overFlowedEventsTable);
 	}
 
-	private long getTableRows(ISqlJetTable table) {
+	private long getTableRowCount(ISqlJetTable table) {
 		ISqlJetCursor resultCursor = null;
 		try {
 			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
@@ -213,9 +208,11 @@ public class SQLJetDiskHandler extends DiskHandler {
 	public void close() {
 	}
 
-	void reset() {
+	@Override
+	public void reset() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
+			db.dropTable(OVERFLOWED_EVENTS_TABLE_NAME);
 			db.createTable(CREATE_BULK_TABLE);
 			db.createTable(CREATE_EVENT_TABLE);
 			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
@@ -231,7 +228,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 
 	//region package methods
 
-	synchronized  void persistBulkRequestToDisk(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
+	synchronized void persistBulkRequest(DbBulkRequest dbBulkRequest, long sleepTimeIfFails, int bulkNum) throws MaximumInsertTriesException {
 		int timesFetched = dbBulkRequest.getTimesFetched();
 		if (timesFetched > 0) {
 			LOG.info("Bulk #{} Inserting bulk request with id: {} to disk, that was fetched {} {}.", bulkNum, dbBulkRequest.getId(), timesFetched, timesFetched > 1 ? "times" : "time");
@@ -330,17 +327,6 @@ public class SQLJetDiskHandler extends DiskHandler {
 		}
 	}
 
-	synchronized void healthCheck() throws SqlJetException{
-		ISqlJetCursor resultCursor = null;
-		try {
-			db.beginTransaction(SqlJetTransactionMode.READ_ONLY);
-			resultCursor = failedBulkTable.lookup(failedBulkTable.getPrimaryKeyIndexName());
-		}
-		finally {
-			closeCursor(resultCursor);
-		}
-	}
-
 	// endregion
 
 
@@ -349,7 +335,7 @@ public class SQLJetDiskHandler extends DiskHandler {
 	private DbBulkRequest createDbBulkRequestFromCursor(ISqlJetCursor resultCursor) throws IOException, SqlJetException {
 		BulkRequest request = deserializeBulkRequest(resultCursor.getBlobAsArray(FAILED_TASK));
 		DbBulkRequest dbBulkRequest = new DbBulkRequest(request);
-		dbBulkRequest.setId((int) resultCursor.getInteger(ID));
+		dbBulkRequest.setId(resultCursor.getInteger(ID));
 		dbBulkRequest.setInsertTime(resultCursor.getString(INSERT_TIME));
 		dbBulkRequest.setTimesFetched((int) resultCursor.getInteger(TIMES_FETCHED)+1); // increment by 1 because we call this method while fetching
 		return dbBulkRequest;
