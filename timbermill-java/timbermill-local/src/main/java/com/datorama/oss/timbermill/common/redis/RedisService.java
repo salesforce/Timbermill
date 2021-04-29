@@ -45,9 +45,9 @@ public class RedisService {
         poolConfig.setTestOnBorrow(true);
 
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
@@ -87,7 +87,6 @@ public class RedisService {
                 .withExponentialBackoff()
                 .build();
 
-        flushAll(); // TODO remove after deployment
         LOG.info("Connected to Redis");
     }
 
@@ -102,6 +101,12 @@ public class RedisService {
             }
             try (Jedis jedis = jedisPool.getResource()) {
                 List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(keysPartitionArray), "MGET Keys");
+
+                if  (serializedObjects == null) {
+                    // skip in case failed to getting keys from redis
+                    continue;
+                }
+
                 for (int i = 0; i < keysPartitionArray.length; i++) {
                     byte[] serializedObject = serializedObjects.get(i);
 
