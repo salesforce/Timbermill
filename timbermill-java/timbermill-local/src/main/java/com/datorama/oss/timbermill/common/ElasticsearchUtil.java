@@ -17,6 +17,7 @@ import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
 	public static final String PERSISTENCE_HANDLER = "persistence_handler";
+	public static final String REDIS_SERVICE = "redis_service";
 	public static final String EVENTS_QUEUE = "events_queue";
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
 	public static final int THREAD_SLEEP = 2000;

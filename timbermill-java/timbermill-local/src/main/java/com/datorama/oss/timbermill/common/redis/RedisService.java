@@ -45,9 +45,9 @@ public class RedisService {
         poolConfig.setTestOnBorrow(true);
 
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, 10 * Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
@@ -87,7 +87,6 @@ public class RedisService {
                 .withExponentialBackoff()
                 .build();
 
-        flushAll(); // TODO remove after deployment
         LOG.info("Connected to Redis");
     }
 
@@ -102,6 +101,12 @@ public class RedisService {
             }
             try (Jedis jedis = jedisPool.getResource()) {
                 List<byte[]> serializedObjects = runWithRetries(() -> jedis.mget(keysPartitionArray), "MGET Keys");
+
+                if  (serializedObjects == null) {
+                    // skip in case failed to getting keys from redis
+                    continue;
+                }
+
                 for (int i = 0; i < keysPartitionArray.length; i++) {
                     byte[] serializedObject = serializedObjects.get(i);
 
@@ -215,22 +220,6 @@ public class RedisService {
         }
     }
 
-        public Double getMinScore(String setName) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                Set<Tuple> tuples = runWithRetries(() -> jedis.zrangeWithScores(setName, 0, 0), "ZRANGE");
-                if (tuples.isEmpty()) {
-                    return null;
-                } else {
-                    return tuples.iterator().next().getScore();
-                }
-            } catch (Exception e) {
-                LOG.error("Error returning Redis " + setName + " list length", e);
-                return null;
-            }
-        }
-    }
-
     // endregion
 
     // region LIST
@@ -292,6 +281,19 @@ public class RedisService {
         } catch (Exception e) {
             LOG.error("Error flushing all", e);
         }
+    }
+
+    public JedisLock lockIfUnlocked(String lockName) {
+        JedisLock lock = new JedisLock(lockName, 0, 20000);
+        try (Jedis jedis = jedisPool.getResource()) {
+            boolean acquired = lock.acquire(jedis);
+            if (!acquired) {
+                lock = null;
+            }
+        } catch (Exception e) {
+            LOG.error("Error while locking lock {} in Redis", lockName, e);
+        }
+        return lock;
     }
 
     public JedisLock lock(String lockName) {

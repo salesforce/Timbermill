@@ -26,15 +26,12 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     static final String REDIS_SERVICE = "redis_service";
     static final String TTL = "ttl";
-    static final String MIN_LIFETIME = "min_lifetime";
 
     private RedisService redisService;
     private int ttl;
-    private long minLifetime;
 
-    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, long minLifetime, int ttl, RedisService redisService) {
+    RedisPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, int ttl, RedisService redisService) {
         super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
-        this.minLifetime = minLifetime;
         this.ttl = ttl;
         if (redisService == null){
             throw new RuntimeException("Redis persistence used but no redis host defined");
@@ -46,21 +43,29 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     @Override
     public List<DbBulkRequest> fetchAndDeleteFailedBulks() {
-        JedisLock lock = redisService.lock(FAILED_BULKS_LOCK);
-        try {
-            return fetchAndDeleteFailedBulksLogic();
-        } finally {
-            redisService.release(lock);
+        JedisLock lock;
+        if ((lock = redisService.lockIfUnlocked(FAILED_BULKS_LOCK)) != null) {
+            try {
+                return fetchAndDeleteFailedBulksLogic();
+            } finally {
+                redisService.release(lock);
+            }
+        } else {
+            return new ArrayList<>();
         }
     }
 
     @Override
     public List<Event> fetchAndDeleteOverflowedEvents() {
-        JedisLock lock = redisService.lock(OVERFLOWED_EVENTS_LOCK);
-        try {
-            return fetchAndDeleteOverflowedEventsLogic();
-        } finally {
-            redisService.release(lock);
+        JedisLock lock;
+        if ((lock = redisService.lockIfUnlocked(OVERFLOWED_EVENTS_LOCK)) != null) {
+            try {
+                return fetchAndDeleteOverflowedEventsLogic();
+            } finally {
+                redisService.release(lock);
+            }
+        } else {
+            return new ArrayList<>();
         }
     }
 
@@ -119,11 +124,6 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     }
 
     private List<DbBulkRequest> fetchAndDeleteFailedBulksLogic() {
-        if (!shouldFetch(FAILED_BULKS_QUEUE_NAME)) {
-            LOG.info("Bulks aren't enough time in Redis - won't fetch");
-            return new ArrayList<>();
-        }
-
         LOG.info("Fetching failed bulks from Redis.");
         List<String> ids = redisService.popRedisSortedSet(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
         // get matching failed bulks from redis
@@ -137,11 +137,6 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     }
 
     private List<Event> fetchAndDeleteOverflowedEventsLogic() {
-        if (!shouldFetch(OVERFLOWED_EVENTS_QUEUE_NAME)) {
-            LOG.info("Overflowed events aren't enough time in Redis - won't fetch");
-            return new ArrayList<>();
-        }
-
         LOG.info("Fetching overflowed events from Redis.");
         List<String> ids = redisService.popRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
         // get matching overflowed events from redis
@@ -180,14 +175,4 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         }
     }
 
-    private boolean shouldFetch(String queueName) {
-        // check that elements in queue are in Redis at least the minimum lifetime
-        Double minScore = redisService.getMinScore(queueName);
-        if (minScore == null) {
-            // queue is empty
-            return false;
-        } else {
-            return Instant.now().getEpochSecond() - minScore >= minLifetime;
-        }
-    }
 }
