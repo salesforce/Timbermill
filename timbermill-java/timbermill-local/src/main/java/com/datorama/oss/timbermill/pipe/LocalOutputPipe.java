@@ -41,7 +41,7 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         RedisService redisService = null;
         if (!StringUtils.isEmpty(builder.redisHost)) {
-            new RedisService(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
+            redisService = new RedisService(builder.redisHost, builder.redisPort, builder.redisPass, builder.redisMaxMemory, builder.redisMaxMemoryPolicy, builder.redisUseSsl, builder.redisGetSize, builder.redisPoolMinIdle, builder.redisPoolMaxIdle, builder.redisPoolMaxTotal, builder.redisMaxTries);
         }
         Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(builder.maxFetchedBulksInOneTime, builder.maxFetchedEventsInOneTime, builder.maxInsertTries, builder.locationInDisk, builder.redisTtlInSeconds, redisService);
         persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(builder.persistenceHandlerStrategy, params);
