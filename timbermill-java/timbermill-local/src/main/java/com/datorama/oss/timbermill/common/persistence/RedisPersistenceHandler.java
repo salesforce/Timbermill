@@ -159,7 +159,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             if (!(redisService.pushToRedisSortedSet(FAILED_BULKS_QUEUE_NAME, key, Instant.now().getEpochSecond()) && redisService.pushToRedis(map, ttl))) {
                 LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
             } else {
-                LOG.info("Bulk #{} Bulk request was pushed successfully to Redis.", bulkNum);
+                LOG.info("Bulk #{} Key {} Bulk request was pushed successfully to Redis.", bulkNum, key);
             }
         });
     }
@@ -171,7 +171,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         if (!(redisService.pushToRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, key, Instant.now().getEpochSecond()) && redisService.pushToRedis(map, ttl))) {
             LOG.error("Failed to persist overflowed events list to Redis");
         }  else {
-            LOG.info("List of {} overflowed events was pushed successfully to Redis.", events.size());
+            LOG.info("Key {}: List of {} overflowed events was pushed successfully to Redis.", key, events.size());
         }
     }
 
