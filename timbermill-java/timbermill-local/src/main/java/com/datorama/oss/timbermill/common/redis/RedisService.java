@@ -110,9 +110,15 @@ public class RedisService {
                 for (int i = 0; i < keysPartitionArray.length; i++) {
                     byte[] serializedObject = serializedObjects.get(i);
 
-                    if (serializedObject == null || serializedObject.length == 0) {
+                    if (serializedObject == null) {
                         if (warnMissingKeys) {
                             LOG.warn("Key {} doesn't exist (could have been expired).", keysPartition.get(i));
+                        }
+                        continue;
+                    }
+                    if (serializedObject.length == 0) {
+                        if (warnMissingKeys) {
+                            LOG.warn("Key {} has an empty value.", keysPartition.get(i));
                         }
                         continue;
                     }
