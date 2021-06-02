@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build Timbermill Server
-        run: mvn -B package -DskipTests --file timbermill-java/pom.xml
+        run: mvn -B package -DskipTests --file timbermill-java/timbermill-server/pom.xml
       - name: Build Docker
         uses: ./timbermill-java/timbermill-server/ # Uses an action in a specific path
       - name: Log in to Docker Hub
