@@ -20,10 +20,11 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - run: cd timbermill-java/timbermill-server/
       - name: Build Timbermill Server
         run: mvn -B package -DskipTests --file timbermill-java/pom.xml
       - name: Build Docker
-        uses: ./timbermill-java/timbermill-server/ # Uses an action in a specific path
+        uses: /. # Uses an action in a specific path
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
 #        with:
