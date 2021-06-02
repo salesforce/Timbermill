@@ -110,16 +110,23 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     }
 
     @Override
-    public void reset() {
-        List<String> queues = Arrays.asList(OVERFLOWED_EVENTS_QUEUE_NAME, FAILED_BULKS_QUEUE_NAME);
-        for (String queue : queues) {
-            List<String> ids;
-            do {
-                ids = redisService.popRedisSortedSet(queue, 100);
-                redisService.deleteFromRedis(ids);
-            }
-            while (ids.size() > 0);
+    public void resetFailedBulks() {
+        resetQueue(FAILED_BULKS_QUEUE_NAME);
+    }
+
+    @Override
+    public void resetOverflowedEvents() {
+        resetQueue(OVERFLOWED_EVENTS_QUEUE_NAME);
+    }
+
+    private void resetQueue(String queueName) {
+        String queue = queueName;
+        List<String> ids;
+        do {
+            ids = redisService.popRedisSortedSet(queue, 1000);
+            redisService.deleteFromRedis(ids);
         }
+        while (ids.size() > 0);
         LOG.info("Finished to reset Redis persistence data");
     }
 

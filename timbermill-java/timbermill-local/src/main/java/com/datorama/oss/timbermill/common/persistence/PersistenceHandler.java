@@ -46,7 +46,9 @@ public abstract class PersistenceHandler {
 
 	public abstract void close();
 
-	public abstract void reset();
+	public abstract void resetFailedBulks();
+
+	public abstract void resetOverflowedEvents();
 
 	public int getMaxFetchedBulksInOneTime() {
 		return maxFetchedBulksInOneTime;

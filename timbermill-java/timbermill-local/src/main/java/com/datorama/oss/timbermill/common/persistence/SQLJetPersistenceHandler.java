@@ -209,15 +209,25 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	}
 
 	@Override
-	public void reset() {
+	public void resetFailedBulks() {
 		try {
 			db.dropTable(FAILED_BULKS_TABLE_NAME);
-			db.dropTable(OVERFLOWED_EVENTS_TABLE_NAME);
 			db.createTable(CREATE_BULK_TABLE);
-			db.createTable(CREATE_EVENT_TABLE);
 			failedBulkTable = db.getTable(FAILED_BULKS_TABLE_NAME);
+			LOG.info("Recreated {} table successfully.", FAILED_BULKS_TABLE_NAME);
+			db.commit();
+		} catch (Exception e) {
+			LOG.warn("Drop table has failed", e);
+		}
+	}
+
+	@Override
+	public void resetOverflowedEvents() {
+		try {
+			db.dropTable(OVERFLOWED_EVENTS_TABLE_NAME);
+			db.createTable(CREATE_EVENT_TABLE);
 			overFlowedEventsTable = db.getTable(OVERFLOWED_EVENTS_TABLE_NAME);
-			LOG.info("Recreated table successfully.");
+			LOG.info("Recreated {} table successfully.", OVERFLOWED_EVENTS_TABLE_NAME);
 			db.commit();
 		} catch (Exception e) {
 			LOG.warn("Drop table has failed", e);
