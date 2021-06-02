@@ -10,7 +10,7 @@ jobs:
     name: Build Dockerfile and push to Dockerhub
     steps:
       - name: Build Timbermill Server
-        run: mvn -B -DskipTests --file ./timbermill-java/timbermill-server/pom.xml
+        run: mvn -B -DskipTests --file timbermill-java/timbermill-server/pom.xml
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build Docker
