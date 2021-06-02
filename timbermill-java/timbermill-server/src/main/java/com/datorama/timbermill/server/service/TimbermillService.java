@@ -42,7 +42,7 @@ public class TimbermillService {
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-							 @Value("${ELASTICSEARCH_URL:host.docker.internal:9200}") String elasticUrl,
+							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
 							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 							 @Value("${ELASTICSEARCH_USER:}") String elasticUser,
 							 @Value("${ELASTICSEARCH_PASSWORD:}") String elasticPassword,
