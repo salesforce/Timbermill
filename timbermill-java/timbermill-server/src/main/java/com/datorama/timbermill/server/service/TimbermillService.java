@@ -42,7 +42,7 @@ public class TimbermillService {
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
-							 @Value("${ELASTICSEARCH_URL:http://localhost:9200}") String elasticUrl,
+							 @Value("${ELASTICSEARCH_URL:host.docker.internal:9200}") String elasticUrl,
 							 @Value("${ELASTICSEARCH_AWS_REGION:}") String awsRegion,
 							 @Value("${ELASTICSEARCH_USER:}") String elasticUser,
 							 @Value("${ELASTICSEARCH_PASSWORD:}") String elasticPassword,
@@ -71,7 +71,7 @@ public class TimbermillService {
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
-							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
+							 @Value("${LOCATION_IN_DISK:/tmp}") String locationInDisk,
 							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,
