@@ -8,8 +8,8 @@ ENV XMS=3g
 RUN mkdir -p /opt/microservice
 
 # Get the app
-COPY target/timbermill-server-*.jar /opt/microservice/microservice.jar
-COPY target/test-classes/log4j2.xml /opt/microservice/resources/log4j.xml
+COPY ./timbermill-java/timbermill-server/target/timbermill-server-*.jar /opt/microservice/microservice.jar
+COPY ./timbermill-java/timbermill-server/target/test-classes/log4j2.xml /opt/microservice/resources/log4j.xml
 
 # Expose the app port
 EXPOSE 8484
