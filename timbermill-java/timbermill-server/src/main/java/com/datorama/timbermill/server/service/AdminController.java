@@ -44,7 +44,7 @@ public class AdminController {
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/persistence/requests/reset")
-	public void persistenceReset() {
+	public void persistenceRequestsReset() {
 		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
 		if (persistenceHandler != null) {
 			persistenceHandler.resetFailedBulks();
@@ -52,7 +52,7 @@ public class AdminController {
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/persistence/events/reset")
-	public void persistenceReset() {
+	public void persistenceEventsReset() {
 		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
 		if (persistenceHandler != null) {
 			persistenceHandler.resetOverflowedEvents();

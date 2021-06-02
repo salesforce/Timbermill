@@ -24,12 +24,14 @@ public abstract class PersistenceHandlerTest {
 
     @Before
     public void emptyBeforeTest() {
-        persistenceHandler.reset();
+        persistenceHandler.resetFailedBulks();
+        persistenceHandler.resetOverflowedEvents();
     }
 
     @AfterClass
     public static void tearDown(){
-        persistenceHandler.reset();
+        persistenceHandler.resetFailedBulks();
+        persistenceHandler.resetOverflowedEvents();
         persistenceHandler.close();
     }
 
@@ -144,7 +146,8 @@ public abstract class PersistenceHandlerTest {
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
         persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
 
-        persistenceHandler.reset();
+        persistenceHandler.resetFailedBulks();
+        persistenceHandler.resetOverflowedEvents();
         assertFalse(persistenceHandler.hasFailedBulks());
     }
 
