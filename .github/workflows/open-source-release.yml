@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Build Dockerfile and push to Dockerhub
     steps:
-#      - name: Checkout
-#        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Build Timbermill Server
         run: mvn -B package -DskipTests --file timbermill-java/pom.xml
       - name: Build Docker
