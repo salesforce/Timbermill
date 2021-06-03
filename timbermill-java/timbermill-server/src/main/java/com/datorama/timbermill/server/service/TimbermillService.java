@@ -71,7 +71,7 @@ public class TimbermillService {
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
-							 @Value("${LOCATION_IN_DISK:/tmp}") String locationInDisk,
+							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
 							 @Value("${PERSISTENCE_TTL_IN_SECONDS:86400}") int persistenceRedisTtlInSec,
 							 @Value("${SCROLL_LIMITATION:1000}") int scrollLimitation,
 							 @Value("${SCROLL_TIMEOUT_SECONDS:60}") int scrollTimeoutSeconds,

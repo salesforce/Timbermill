@@ -1,6 +1,0 @@
-# action.yml
-name: 'Build Timbermill Docker'
-description: 'Build a Timbermill docker'
-runs:
-  using: 'docker'
-  image: 'Dockerfile'
