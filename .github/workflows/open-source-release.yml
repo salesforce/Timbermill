@@ -26,10 +26,10 @@ jobs:
         uses: ./timbermill-java/timbermill-server/action.yml # Uses an action in a specific path
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
-          with:
-            username: ozafar2021
-            password: CleanComicChampion6
-      #        with:
+        with:
+          username: ozafar2021
+          password: CleanComicChampion6
+#        with:
 #          username: ${{ secrets.DOCKER_USERNAME }}
 #          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Push to Docker Hub
