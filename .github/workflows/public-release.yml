@@ -37,5 +37,5 @@ jobs:
           context: ./timbermill-java/timbermill-server/
           push: true
           tags: ozafar2021/test:latest
-#          tags: edengaldocker/timbermill-open-source:latest
+#          tags: salesforce/timbermill-open-source:latest
 
