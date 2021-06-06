@@ -83,27 +83,4 @@ public class RedisPersistenceHandlerTest extends PersistenceHandlerTest {
     public void dropAndRecreateTable() throws InterruptedException, ExecutionException {
         super.dropAndRecreateTable();
     }
-
-    @Test
-    public void fetchExpiredFailedBulks() throws InterruptedException, ExecutionException {
-        int amount = 15;
-        for (int i = 0; i < amount; i++) {
-            ((RedisPersistenceHandler) persistenceHandler).persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum, 0).get();
-        }
-
-        // all previous keys should be expired
-        assertEquals(0, persistenceHandler.fetchAndDeleteFailedBulks().size());
-    }
-
-    @Test
-    public void fetchExpiredOverFlowedEvents() {
-        int amount = 15;
-        ArrayList<Event> mockEventsList = Mock.createMockEventsList();
-        for (int i = 0; i < amount; i++) {
-            ((RedisPersistenceHandler) persistenceHandler).persistEvents(mockEventsList, 0);
-        }
-
-        // all previous keys should be expired
-        assertEquals(0, persistenceHandler.fetchAndDeleteOverflowedEvents().size());
-    }
 }
