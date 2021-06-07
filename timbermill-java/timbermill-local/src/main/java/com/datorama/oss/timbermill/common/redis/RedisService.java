@@ -172,6 +172,23 @@ public class RedisService {
                     LOG.error("Error pushing key " + key + " to Redis.", e);
                 }
             }
+
+            // ------------------ DEBUG Start ------------------
+            try {
+                List<Object> replies = pipelined.syncAndReturnAll();
+                for (Object reply : replies) {
+                    String replyMsg = reply.toString();
+                    if (replyMsg.compareTo("OK") != 0) {
+                        // reply isn't OK
+                        LOG.warn("Pushing to Redis failed due to: {}", replyMsg);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                LOG.warn("Pushing to Redis debug part failed", e);
+            }
+            // ------------------ DEBUG End ------------------
+
         }
         return allPushed;
     }
@@ -357,7 +374,7 @@ public class RedisService {
     }
 
     private void printFailWarning(Status status) {
-        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
+        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "]. Number of active connections {}", jedisPool.getNumActive(), status.getLastExceptionThatCausedRetry());
     }
 
     // endregion
