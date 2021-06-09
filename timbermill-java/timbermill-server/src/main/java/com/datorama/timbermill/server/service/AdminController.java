@@ -43,11 +43,19 @@ public class AdminController {
 		return amount;
 	}
 
-	@RequestMapping(method = RequestMethod.POST, value = "/persistence/reset")
-	public void persistenceReset() {
+	@RequestMapping(method = RequestMethod.POST, value = "/persistence/requests/reset")
+	public void persistenceRequestsReset() {
 		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
 		if (persistenceHandler != null) {
-			persistenceHandler.reset();
+			persistenceHandler.resetFailedBulks();
+		}
+	}
+
+	@RequestMapping(method = RequestMethod.POST, value = "/persistence/events/reset")
+	public void persistenceEventsReset() {
+		PersistenceHandler persistenceHandler = timbermillService.getPersistenceHandler();
+		if (persistenceHandler != null) {
+			persistenceHandler.resetOverflowedEvents();
 		}
 	}
 
