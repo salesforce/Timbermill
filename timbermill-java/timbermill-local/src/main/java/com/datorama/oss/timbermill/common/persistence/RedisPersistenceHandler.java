@@ -6,7 +6,6 @@ import com.github.jedis.lock.JedisLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -81,7 +80,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     @Override
     public boolean hasFailedBulks() {
-        return redisService.getSortedSetSize(FAILED_BULKS_QUEUE_NAME) > 0;
+        return redisService.getListLength(FAILED_BULKS_QUEUE_NAME) > 0;
     }
 
     @Override
@@ -96,13 +95,13 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     @Override
     public long failedBulksAmount() {
         // including expired failed bulks
-        return redisService.getSortedSetSize(FAILED_BULKS_QUEUE_NAME);
+        return redisService.getListLength(FAILED_BULKS_QUEUE_NAME);
     }
 
     @Override
     public long overFlowedEventsListsAmount() {
         // including expired overflowed events
-        return redisService.getSortedSetSize(OVERFLOWED_EVENTS_QUEUE_NAME);
+        return redisService.getListLength(OVERFLOWED_EVENTS_QUEUE_NAME);
     }
 
     @Override
@@ -115,7 +114,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         for (String queue : queues) {
             List<String> ids;
             do {
-                ids = redisService.popRedisSortedSet(queue, 100);
+                ids = redisService.popFromRedisList(queue, 100);
                 redisService.deleteFromRedis(ids);
             }
             while (ids.size() > 0);
@@ -125,7 +124,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     private List<DbBulkRequest> fetchAndDeleteFailedBulksLogic() {
         LOG.info("Fetching failed bulks from Redis.");
-        List<String> ids = redisService.popRedisSortedSet(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
+        List<String> ids = redisService.popFromRedisList(FAILED_BULKS_QUEUE_NAME, maxFetchedBulksInOneTime);
         // get matching failed bulks from redis
         Map<String, DbBulkRequest> failedBulkRequests = redisService.getFromRedis(ids, true);
         // increase times fetched for each fetched one
@@ -138,7 +137,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
 
     private List<Event> fetchAndDeleteOverflowedEventsLogic() {
         LOG.info("Fetching overflowed events from Redis.");
-        List<String> ids = redisService.popRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
+        List<String> ids = redisService.popFromRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
         // get matching overflowed events from redis
         Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids, true);
         redisService.deleteFromRedis(overflowedEventsLists.keySet());
@@ -156,7 +155,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
             Map<String, DbBulkRequest> map = new HashMap<>();
             String key = FAILED_BULK_PREFIX + UUID.randomUUID().toString();
             map.put(key, dbBulkRequest);
-            if (!(redisService.pushToRedisSortedSet(FAILED_BULKS_QUEUE_NAME, key, Instant.now().getEpochSecond()) && redisService.pushToRedis(map, ttl))) {
+            if (!(redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key) && redisService.pushToRedis(map, ttl))) {
                 LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
             } else {
                 LOG.info("Bulk #{} Key {} Bulk request was pushed successfully to Redis.", bulkNum, key);
@@ -168,9 +167,9 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         Map<String, ArrayList<Event>> map = new HashMap<>();
         String key = OVERFLOW_EVENTS_PREFIX + UUID.randomUUID().toString();
         map.put(key, events);
-        if (!(redisService.pushToRedisSortedSet(OVERFLOWED_EVENTS_QUEUE_NAME, key, Instant.now().getEpochSecond()) && redisService.pushToRedis(map, ttl))) {
+        if (!(redisService.pushToRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, key) && redisService.pushToRedis(map, ttl))) {
             LOG.error("Failed to persist overflowed events list to Redis");
-        }  else {
+        } else {
             LOG.info("Key {}: List of {} overflowed events was pushed successfully to Redis.", key, events.size());
         }
     }
