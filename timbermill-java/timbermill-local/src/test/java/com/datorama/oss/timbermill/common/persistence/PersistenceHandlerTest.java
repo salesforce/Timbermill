@@ -35,27 +35,27 @@ public abstract class PersistenceHandlerTest {
 
     public void hasFailedBulks() throws ExecutionException, InterruptedException {
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
         assertTrue(persistenceHandler.hasFailedBulks());
     }
 
     public void fetchFailedBulks() throws ExecutionException, InterruptedException {
 
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
         List<DbBulkRequest> fetchedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         assertEquals(1, fetchedRequests.size());
 
         DbBulkRequest dbBulkRequest2 = Mock.createMockDbBulkRequest();
         DbBulkRequest dbBulkRequest3 = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest2, bulkNum).get();
-        persistenceHandler.persistBulkRequest(dbBulkRequest3, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest2, bulkNum);
+        persistenceHandler.persistBulkRequest(dbBulkRequest3, bulkNum);
         assertEquals(2, persistenceHandler.failedBulksAmount());
     }
 
     public void fetchedFailedBulksEqualToOriginalOne() throws ExecutionException, InterruptedException {
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
         DbBulkRequest dbBulkRequestFromDisk = persistenceHandler.fetchAndDeleteFailedBulks().get(0);
         assertEquals(requestsToString(dbBulkRequest), requestsToString(dbBulkRequestFromDisk));
     }
@@ -89,9 +89,9 @@ public abstract class PersistenceHandlerTest {
 
     public void fetchesCounter() throws InterruptedException, ExecutionException {
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
         DbBulkRequest fetchedRequest = persistenceHandler.fetchAndDeleteFailedBulks().get(0);
-        persistenceHandler.persistBulkRequest(fetchedRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(fetchedRequest, bulkNum);
         fetchedRequest = persistenceHandler.fetchAndDeleteFailedBulks().get(0);
         assertEquals(2, fetchedRequest.getTimesFetched());
     }
@@ -99,7 +99,7 @@ public abstract class PersistenceHandlerTest {
     public void failedBulksAmount() throws InterruptedException, ExecutionException {
         int amount = 250;
         for (int i = 0 ; i < amount ; i++){
-            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
+            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum);
         }
 
         assertEquals(amount, persistenceHandler.failedBulksAmount());
@@ -120,7 +120,7 @@ public abstract class PersistenceHandlerTest {
         int extraBulks = 30;
         int maxFetchedBulks = persistenceHandler.getMaxFetchedBulksInOneTime();
         for (int i = 0; i < maxFetchedBulks + extraBulks ; i++){
-            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum).get();
+            persistenceHandler.persistBulkRequest(Mock.createMockDbBulkRequest(), bulkNum);
         }
         List<DbBulkRequest> fetchedRequests = persistenceHandler.fetchAndDeleteFailedBulks();
         assertEquals(maxFetchedBulks,fetchedRequests.size());
@@ -142,7 +142,7 @@ public abstract class PersistenceHandlerTest {
 
     public void dropAndRecreateTable() throws InterruptedException, ExecutionException {
         DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+        persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
 
         persistenceHandler.reset();
         assertFalse(persistenceHandler.hasFailedBulks());
