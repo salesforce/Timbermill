@@ -37,6 +37,7 @@ public class RedisService {
                         Boolean redisUseSsl, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal, int redisMaxTries) {
         this.redisGetSize = redisGetSize;
         this.redisMaxTries = redisMaxTries;
+        int timeoutInMilliseconds = 180000;
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(redisPoolMaxTotal);
@@ -45,9 +46,9 @@ public class RedisService {
         poolConfig.setTestOnBorrow(true);
 
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, timeoutInMilliseconds, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, timeoutInMilliseconds, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {

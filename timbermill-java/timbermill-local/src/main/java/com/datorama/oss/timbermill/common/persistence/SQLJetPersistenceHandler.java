@@ -49,7 +49,6 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	private SqlJetDb db;
 	private ISqlJetTable failedBulkTable;
 	private ISqlJetTable overFlowedEventsTable;
-	private static ExecutorService executorService = Executors.newFixedThreadPool(1);
 
 	SQLJetPersistenceHandler(int maxFetchedBulks, int maxFetchedEvents, int maxInsertTries, String locationInDisk) {
 		super(maxFetchedBulks, maxFetchedEvents, maxInsertTries);
@@ -130,15 +129,14 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 	}
 
 	@Override
-	public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
-		return executorService.submit(() -> {
-			try {
-				persistBulkRequest(dbBulkRequest, 1000, bulkNum);
-			} catch (MaximumInsertTriesException e) {
-				LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
-				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
-			}
-		});
+	public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
+
+		try {
+			persistBulkRequest(dbBulkRequest, 1000, bulkNum);
+		} catch (MaximumInsertTriesException e) {
+			LOG.error("Bulk #{} Tasks of failed bulk will not be indexed because couldn't be persisted to disk for the maximum times ({}).", bulkNum, e.getMaximumTriesNumber());
+			KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "error").record(1);
+		}
 	}
 
 	@Override
