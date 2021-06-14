@@ -7,10 +7,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class RedisPersistenceHandler extends PersistenceHandler {
 
+    private static ExecutorService executorService = Executors.newFixedThreadPool(1);
     private static final Logger LOG = LoggerFactory.getLogger(RedisPersistenceHandler.class);
     private static final String FAILED_BULKS_QUEUE_NAME = "failed_bulks_queue";
     private static final String OVERFLOWED_EVENTS_QUEUE_NAME = "overflowed_events_queue";
