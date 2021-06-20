@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class RedisPersistenceHandler extends PersistenceHandler {
@@ -69,8 +68,8 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     }
 
     @Override
-    public Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
-        return persistBulkRequest(dbBulkRequest, bulkNum, ttl);
+    public void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum) {
+         persistBulkRequest(dbBulkRequest, bulkNum, ttl);
     }
 
     @Override
@@ -149,18 +148,16 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         return overflowedEvents;
     }
 
-    Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum, int ttl) {
-        return executorService.submit(() -> {
-            LOG.info("Bulk #{} Pushing bulk request to Redis for the {}th time.", bulkNum, dbBulkRequest.getTimesFetched() + 1);
-            Map<String, DbBulkRequest> map = new HashMap<>();
-            String key = FAILED_BULK_PREFIX + UUID.randomUUID().toString();
-            map.put(key, dbBulkRequest);
-            if (!(redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key) && redisService.pushToRedis(map, ttl))) {
-                LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
-            } else {
-                LOG.info("Bulk #{} Key {} Bulk request was pushed successfully to Redis.", bulkNum, key);
-            }
-        });
+    void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum, int ttl) {
+        LOG.info("Bulk #{} Pushing bulk request to Redis for the {}th time.", bulkNum, dbBulkRequest.getTimesFetched() + 1);
+        Map<String, DbBulkRequest> map = new HashMap<>();
+        String key = FAILED_BULK_PREFIX + UUID.randomUUID().toString();
+        map.put(key, dbBulkRequest);
+        if (!(redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key) && redisService.pushToRedis(map, ttl))) {
+            LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
+        } else {
+            LOG.info("Bulk #{} Key {} Bulk request was pushed successfully to Redis.", bulkNum, key);
+        }
     }
 
     void persistEvents(ArrayList<Event> events, int ttl) {
