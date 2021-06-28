@@ -220,88 +220,11 @@ public class RedisService {
         }
     }
 
-    public List<String> getRangeFromRedisList(String listName, int start, int end) {
-        List<String> elements = new ArrayList<>();
-        try (Jedis jedis = jedisPool.getResource()) {
-            List<String> values = runWithRetries(() -> jedis.lrange(listName, start, end), "LRANGE");
-            for (String value : values) {
-                if (value == null || value.length() == 0) {
-                    continue;
-                }
-                elements.add(value);
-            }
-        } catch (Exception e) {
-            LOG.error("Error getting elements from Redis " + listName + " list", e);
-            elements = new ArrayList<>();
-        }
-        return elements;
-    }
-
-    private void trimRedisList(String listName, int start, int end) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
-        } catch (Exception e) {
-            LOG.error("Error trimming Redis " + listName + " list", e);
-        }
-    }
     // endregion
 
     // region SORTED SET
 
-    public boolean pushToRedisSortedSet(String setName, String value, double score) {
-        boolean pushed = false;
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                runWithRetries(() -> jedis.zadd(setName, score, value), "ZADD");
-                pushed = true;
-            } catch (Exception e) {
-                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
-            }
-        }
-        return pushed;
-    }
-
-    public List<String> popRedisSortedSet(String setName, int amount) {
-        List<String> ret = new ArrayList<>();
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                Set<Tuple> tuples = runWithRetries(() -> jedis.zpopmin(setName, amount), "ZPOPMIN");
-
-                for (Tuple tuple : tuples) {
-                    String element = tuple.getElement();
-                    ret.add(element);
-                }
-            } catch (Exception e) {
-                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
-            }
-        }
-        return ret;
-    }
-
-    public long getSortedSetSize(String setName) {
-        return getSortedSetSize(setName, "-inf", "inf");
-    }
-
-    public long getSortedSetSize(String setName, String min, String max) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                return runWithRetries(() -> jedis.zcount(setName, min, max), "ZCOUNT");
-            } catch (Exception e) {
-                LOG.error("Error returning Redis " + setName + " list length", e);
-                return -1;
-            }
-        }
-    }
-
     // endregion
-
-    private void flushAll() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(jedis::flushAll, "FLUSHALL");
-        } catch (Exception e) {
-            LOG.error("Error flushing all", e);
-        }
-    }
 
     public JedisLock lockIfUnlocked(String lockName) {
         JedisLock lock = new JedisLock(lockName, 0, 20000);
@@ -364,10 +287,15 @@ public class RedisService {
     private <T> T runWithRetries(Callable<T> callable, String functionDescription) throws RetriesExhaustedException {
         Status<T> status = new CallExecutorBuilder<T>()
                 .config(retryConfig)
-                .onFailureListener(this::printFailWarning)
+                .afterFailedTryListener(this::printFailWarning)
+                .onFailureListener(this::printFailError)
                 .build()
                 .execute(callable, functionDescription);
         return status.getResult();
+    }
+
+    private void printFailError(Status status) {
+        LOG.error("All tries failed for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
     }
 
     private void printFailWarning(Status status) {

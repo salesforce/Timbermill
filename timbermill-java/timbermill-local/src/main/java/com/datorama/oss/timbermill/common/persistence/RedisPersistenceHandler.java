@@ -7,13 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class RedisPersistenceHandler extends PersistenceHandler {
 
-    private static ExecutorService executorService = Executors.newFixedThreadPool(1);
     private static final Logger LOG = LoggerFactory.getLogger(RedisPersistenceHandler.class);
     private static final String FAILED_BULKS_QUEUE_NAME = "failed_bulks_queue";
     private static final String OVERFLOWED_EVENTS_QUEUE_NAME = "overflowed_events_queue";
@@ -130,6 +127,9 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         failedBulkRequests.values().forEach(dbBulkRequest -> dbBulkRequest.setTimesFetched(dbBulkRequest.getTimesFetched() + 1));
         redisService.deleteFromRedis(ids);
 
+        if (failedBulkRequests.isEmpty() && !ids.isEmpty()){
+            LOG.warn("Couldn't find any ID from redis. IDS: {}", ids);
+        }
         LOG.info("Number of fetched bulks: {}.", failedBulkRequests.size());
         return new ArrayList<>(failedBulkRequests.values());
     }
@@ -148,7 +148,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         return overflowedEvents;
     }
 
-    void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum, int ttl) {
+    private void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum, int ttl) {
         LOG.info("Bulk #{} Pushing bulk request to Redis for the {}th time.", bulkNum, dbBulkRequest.getTimesFetched() + 1);
         Map<String, DbBulkRequest> map = new HashMap<>();
         String key = FAILED_BULK_PREFIX + UUID.randomUUID().toString();
@@ -160,7 +160,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         }
     }
 
-    void persistEvents(ArrayList<Event> events, int ttl) {
+    private void persistEvents(ArrayList<Event> events, int ttl) {
         Map<String, ArrayList<Event>> map = new HashMap<>();
         String key = OVERFLOW_EVENTS_PREFIX + UUID.randomUUID().toString();
         map.put(key, events);
