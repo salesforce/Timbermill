@@ -68,7 +68,7 @@ public class TimbermillService {
 							 @Value("${PERSISTENCE_STRATEGY:sqlite}") String persistenceStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
-							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:10}") int maxFetchedBulksInOneTime,
+							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:50}") int maxFetchedBulksInOneTime,
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:10}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
 							 @Value("${LOCATION_IN_DISK:/db}") String locationInDisk,
@@ -86,9 +86,9 @@ public class TimbermillService {
 							 @Value("${REDIS_PASS:}") String redisPass,
 							 @Value("${REDIS_USE_SSL:false}") Boolean redisUseSsl,
 							 @Value("${REDIS_GET_SIZE:100}") int redisGetSize,
-							 @Value("${REDIS_POOL_MIN_IDLE:10}") int redisPoolMinIdle,
-							 @Value("${REDIS_POOL_MAX_IDLE:10}") int redisPoolMaxIdle,
-							 @Value("${REDIS_POOL_MAX_TOTAL:10}") int redisPoolMaxTotal,
+							 @Value("${REDIS_POOL_MIN_IDLE:50}") int redisPoolMinIdle,
+							 @Value("${REDIS_POOL_MAX_IDLE:50}") int redisPoolMaxIdle,
+							 @Value("${REDIS_POOL_MAX_TOTAL:50}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
 

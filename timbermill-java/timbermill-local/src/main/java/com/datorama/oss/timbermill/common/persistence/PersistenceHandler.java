@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
 
 public abstract class PersistenceHandler {
 
@@ -32,7 +31,7 @@ public abstract class PersistenceHandler {
 
 	public abstract List<Event> fetchAndDeleteOverflowedEvents();
 
-	public abstract Future<?> persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum);
+	public abstract void persistBulkRequest(DbBulkRequest dbBulkRequest, int bulkNum);
 
 	public abstract void persistEvents(ArrayList<Event> events);
 

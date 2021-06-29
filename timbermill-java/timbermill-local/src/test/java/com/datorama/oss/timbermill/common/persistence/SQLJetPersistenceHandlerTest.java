@@ -106,11 +106,11 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	}
 
 	@Test
-	public void failToInsert() throws ExecutionException, InterruptedException {
+	public void failToInsert() {
 		DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
 		dbBulkRequest.setRequest(null); // will cause insert to fail
 
-		persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+		persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
 		assertFalse(persistenceHandler.hasFailedBulks());
 	}
 
@@ -136,7 +136,7 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 	}
 
 	@Test
-	public void testMultiThreadSafety() throws InterruptedException, ExecutionException {
+	public void testMultiThreadSafety() throws InterruptedException {
 		int numOfThreads = 15;
 		AtomicBoolean isHealthCheckFailed = new AtomicBoolean(false);
 		AtomicBoolean keepExecuting = new AtomicBoolean(true);
@@ -146,7 +146,7 @@ public class SQLJetPersistenceHandlerTest extends PersistenceHandlerTest {
 		// insert some bulks to disk
 		for (int i = 0 ; i < 10 ; i++){
 			DbBulkRequest dbBulkRequest = Mock.createMockDbBulkRequest();
-			persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum).get();
+			persistenceHandler.persistBulkRequest(dbBulkRequest, bulkNum);
 		}
 
 		Runnable fetchAndPersistTask = () -> {

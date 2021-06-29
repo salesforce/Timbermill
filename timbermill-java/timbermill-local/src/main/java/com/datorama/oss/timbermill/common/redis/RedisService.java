@@ -37,6 +37,7 @@ public class RedisService {
                         Boolean redisUseSsl, int redisGetSize, int redisPoolMinIdle, int redisPoolMaxIdle, int redisPoolMaxTotal, int redisMaxTries) {
         this.redisGetSize = redisGetSize;
         this.redisMaxTries = redisMaxTries;
+        int timeoutInMilliseconds = 180000;
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(redisPoolMaxTotal);
@@ -45,9 +46,9 @@ public class RedisService {
         poolConfig.setTestOnBorrow(true);
 
         if (StringUtils.isEmpty(redisPass)) {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, timeoutInMilliseconds, redisUseSsl);
         } else {
-            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, Protocol.DEFAULT_TIMEOUT, redisPass, redisUseSsl);
+            jedisPool = new JedisPool(poolConfig, redisHost, redisPort, timeoutInMilliseconds, redisPass, redisUseSsl);
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
@@ -116,6 +117,7 @@ public class RedisService {
                         }
                         continue;
                     }
+
                     Kryo kryo = kryoPool.obtain();
                     try {
                         T object = (T) kryo.readClassAndObject(new Input(serializedObject));
@@ -166,63 +168,33 @@ public class RedisService {
                     LOG.error("Error pushing key " + key + " to Redis.", e);
                 }
             }
+
         }
         return allPushed;
     }
 
     // endregion
 
-    // region SORTED SET
-
-    public boolean pushToRedisSortedSet(String setName, String value, double score) {
-        boolean pushed = false;
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                runWithRetries(() -> jedis.zadd(setName, score, value), "ZADD");
-                pushed = true;
-            } catch (Exception e) {
-                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
-            }
-        }
-        return pushed;
-    }
-
-
-    public List<String> popRedisSortedSet(String setName, int amount) {
-        List<String> ret = new ArrayList<>();
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                Set<Tuple> tuples = runWithRetries(() -> jedis.zpopmin(setName, amount), "ZPOPMIN");
-
-                for (Tuple tuple : tuples) {
-                    String element = tuple.getElement();
-                    ret.add(element);
-                }
-            } catch (Exception e) {
-                LOG.error("Error pushing item to Redis " + setName + " sorted set.", e);
-            }
-        }
-        return ret;
-    }
-
-    public long getSortedSetSize(String setName) {
-        return getSortedSetSize(setName, "-inf", "inf");
-    }
-
-    public long getSortedSetSize(String setName, String min, String max) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            try {
-                return runWithRetries(() -> jedis.zcount(setName, min, max), "ZCOUNT");
-            } catch (Exception e) {
-                LOG.error("Error returning Redis " + setName + " list length", e);
-                return -1;
-            }
-        }
-    }
-
-    // endregion
-
     // region LIST
+
+    public List<String> popFromRedisList(String listName, int amount) {
+        List<String> values = new ArrayList<>();
+        try (Jedis jedis = jedisPool.getResource()) {
+            // values.addAll(runWithRetries(() -> jedis.lpop(listName, amount), "LPOP")); TODO upgrade Redis version to 6.2 in order to use this API
+            while (amount > 0) {
+                String element = runWithRetries(() -> jedis.lpop(listName), "LPOP");
+                if (element != null) {
+                    values.add(element);
+                    amount -= 1;
+                } else {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            LOG.error("Error popping item from Redis " + listName + " list", e);
+        }
+        return values;
+    }
 
     public boolean pushToRedisList(String listName, String value) {
         boolean pushed = false;
@@ -248,40 +220,11 @@ public class RedisService {
         }
     }
 
-    public List<String> getRangeFromRedisList(String listName, int start, int end) {
-        List<String> elements = new ArrayList<>();
-        try (Jedis jedis = jedisPool.getResource()) {
-            List<String> values = runWithRetries(() -> jedis.lrange(listName, start, end), "LRANGE");
-            for (String value : values) {
-                if (value == null || value.length() == 0) {
-                    continue;
-                }
-                elements.add(value);
-            }
-        } catch (Exception e) {
-            LOG.error("Error getting elements from Redis " + listName + " list", e);
-            elements = new ArrayList<>();
-        }
-        return elements;
-    }
-
-    private void trimRedisList(String listName, int start, int end) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(() -> jedis.ltrim(listName, start, end), "TRIM");
-        } catch (Exception e) {
-            LOG.error("Error trimming Redis " + listName + " list", e);
-        }
-    }
-
     // endregion
 
-    private void flushAll() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            runWithRetries(jedis::flushAll, "FLUSHALL");
-        } catch (Exception e) {
-            LOG.error("Error flushing all", e);
-        }
-    }
+    // region SORTED SET
+
+    // endregion
 
     public JedisLock lockIfUnlocked(String lockName) {
         JedisLock lock = new JedisLock(lockName, 0, 20000);
@@ -344,14 +287,19 @@ public class RedisService {
     private <T> T runWithRetries(Callable<T> callable, String functionDescription) throws RetriesExhaustedException {
         Status<T> status = new CallExecutorBuilder<T>()
                 .config(retryConfig)
-                .onFailureListener(this::printFailWarning)
+                .afterFailedTryListener(this::printFailWarning)
+                .onFailureListener(this::printFailError)
                 .build()
                 .execute(callable, functionDescription);
         return status.getResult();
     }
 
+    private void printFailError(Status status) {
+        LOG.error("All tries failed for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
+    }
+
     private void printFailWarning(Status status) {
-        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "] ", status.getLastExceptionThatCausedRetry());
+        LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "].", status.getLastExceptionThatCausedRetry());
     }
 
     // endregion
