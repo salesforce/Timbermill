@@ -7,12 +7,6 @@ jobs:
     name: Deploy JARs To Maven Central
     runs-on: ubuntu-latest
     steps:
-    - name: Cache Maven packages
-      uses: actions/cache@v2
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
     - name: Set up Maven Central Repository
       uses: actions/setup-java@v1
       with:
