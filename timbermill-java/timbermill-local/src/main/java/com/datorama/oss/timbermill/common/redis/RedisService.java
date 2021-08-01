@@ -66,6 +66,7 @@ public class RedisService {
                 kryo.setDefaultSerializer(CompatibleFieldSerializer.class);
                 kryo.register(com.datorama.oss.timbermill.unit.LocalTask.class);
                 kryo.register(java.util.HashMap.class);
+                kryo.register(java.util.LinkedHashMap.class);
                 kryo.register(java.util.ArrayList.class);
                 kryo.register(com.datorama.oss.timbermill.unit.TaskMetaData.class);
                 kryo.register(java.time.ZonedDateTime.class);
