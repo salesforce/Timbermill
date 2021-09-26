@@ -331,7 +331,7 @@ final class EventLogger {
 	static String getStackTraceString() {
 		StringBuilder sb = new StringBuilder();
 		StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-		stackTrace = Arrays.copyOfRange(stackTrace, 5, 10);
+		stackTrace = Arrays.copyOfRange(stackTrace, 05, 10);
 		for (StackTraceElement stackTraceElement : stackTrace) {
 			sb.append(stackTraceElement).append('\n');
 		}
