@@ -13,6 +13,14 @@ import (
 )
 
 const (
+	StartEvent   = "StartEvent"
+	SpotEvent    = "SpotEvent"
+	InfoEvent    = "InfoEvent"
+	SuccessEvent = "SuccessEvent"
+	ErrorEvent   = "ErrorEvent"
+)
+
+const (
 	SpotSuccess   = "SUCCESS"
 	SpotCorrupted = "CORRUPTED"
 )
@@ -176,7 +184,7 @@ func newTimberId(eventName string) string {
 
 func newStartEvent(id string, name *string, parentId *string, params *TimberParams, dateToDelete time.Time) *dto.TimbermillEvent {
 	event := newEvent(id, name, parentId, params)
-	event.FieldType = "StartEvent"
+	event.FieldType = StartEvent
 	if !dateToDelete.IsZero() {
 		event.DateToDelete = &dateToDelete
 	}
@@ -186,7 +194,7 @@ func newStartEvent(id string, name *string, parentId *string, params *TimberPara
 
 func newSpotSuccessEvent(id string, name *string, parentId *string, params *TimberParams, dateToDelete time.Time) *dto.TimbermillEvent {
 	event := newEvent(id, name, parentId, params)
-	event.FieldType = "SpotEvent"
+	event.FieldType = SpotEvent
 	success := SpotSuccess
 	event.SpotStatus = &success
 	if !dateToDelete.IsZero() {
@@ -198,7 +206,7 @@ func newSpotSuccessEvent(id string, name *string, parentId *string, params *Timb
 
 func newSpotCorruptedEvent(id string, name string, params *TimberParams) *dto.TimbermillEvent {
 	event := newEvent(id, &name, nil, params)
-	event.FieldType = "SpotEvent"
+	event.FieldType = SpotEvent
 	corrupted := SpotCorrupted
 	event.SpotStatus = &corrupted
 
@@ -207,21 +215,21 @@ func newSpotCorruptedEvent(id string, name string, params *TimberParams) *dto.Ti
 
 func newSuccessEvent(id string, params *TimberParams) *dto.TimbermillEvent {
 	event := newEvent(id, nil, nil, params)
-	event.FieldType = "SuccessEvent"
+	event.FieldType = SuccessEvent
 
 	return event
 }
 
 func newErrorEvent(id string, params *TimberParams) *dto.TimbermillEvent {
 	event := newEvent(id, nil, nil, params)
-	event.FieldType = "ErrorEvent"
+	event.FieldType = ErrorEvent
 
 	return event
 }
 
 func newInfoEvent(id string, params *TimberParams) *dto.TimbermillEvent {
 	event := newEvent(id, nil, nil, params)
-	event.FieldType = "InfoEvent"
+	event.FieldType = InfoEvent
 
 	return event
 }

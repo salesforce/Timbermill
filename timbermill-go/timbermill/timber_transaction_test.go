@@ -6,5 +6,5 @@ import (
 )
 
 func TestNew_invalid(t *testing.T) {
-	assert.Equal(t)
+	assert.Equal(t, true, true)
 }
