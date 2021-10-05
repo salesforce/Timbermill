@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"log"
+	"sync"
 )
 
 var TimberLoggerInstance timberLogger
@@ -32,6 +33,7 @@ func Init(configs ...timber_configuration.Configuration) {
 		TimberLoggerInstance.logger.Panic("failed to add cron job! exiting!")
 	} else {
 		TimberLoggerInstance.cronEntryId = entryId
+		c.Start()
 	}
 }
 
@@ -42,6 +44,7 @@ type timberLogger struct {
 	env          string
 	cronEntryId  cron.EntryID
 	cron         *cron.Cron
+	sync.Mutex
 }
 
 func (s *timberLogger) NewTransaction() *TimberTransaction {
@@ -57,6 +60,8 @@ func (s *timberLogger) OnGoingTransaction(taskId string) *TimberTransaction {
 }
 
 func (s *timberLogger) SendEvents() {
+	s.Lock()
+	defer s.Unlock()
 	events := (*EventQueue).Events()
 	s.client.SendEvents(&dto.TimbermillEvents{
 		FieldType: "EventsWrapper",

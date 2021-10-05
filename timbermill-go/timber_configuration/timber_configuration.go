@@ -44,7 +44,7 @@ func NewConfiguration(opts ...ConfigurationOption) Configuration {
 		Env:            "default",
 		StaticParams:   nil,
 		Logger:         defaultLogger,
-		CronStringSpec: "*/5 * * * *", //every 5 minutes
+		CronStringSpec: "@every 10s", //every 10 seconds
 		ClientConfiguration: HttpClientConfiguration{
 			BaseUrl:             "http://localhost:8484",
 			NetDialTimeout:      5 * time.Second,

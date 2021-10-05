@@ -4,7 +4,6 @@ import (
 	"datorama.com/timbermill/dto"
 	"datorama.com/timbermill/timber_configuration"
 	"datorama.com/timbermill/utils"
-	"encoding/binary"
 	"errors"
 	"github.com/gammazero/deque"
 	"strings"
@@ -58,7 +57,10 @@ func (eq *inMemoryTimberEventQueue) EnqueueEvent(event *dto.TimbermillEvent) err
 	eq.Lock()
 	defer eq.Unlock()
 
-	currentEventSize := eq.eventSize(event)
+	currentEventSize, err := utils.GetRealSizeOf(event)
+	if err != nil {
+		return err
+	}
 	if currentEventSize+eq.currentSize > eq.maxBufferSize {
 		TimberLoggerInstance.logger.Print("max buffer size was reached!")
 		return errors.New("max buffer size was accessed")
@@ -98,7 +100,7 @@ func (eq *inMemoryTimberEventQueue) dequeEvent() (*dto.TimbermillEvent, int) {
 		return nil, 0
 	}
 	event := eq.deque.PopFront().(*dto.TimbermillEvent)
-	eventSize := eq.eventSize(event)
+	eventSize, _ := utils.GetRealSizeOf(event)
 	eq.currentSize -= eventSize
 	event = eq.processEvent(event)
 
@@ -107,10 +109,6 @@ func (eq *inMemoryTimberEventQueue) dequeEvent() (*dto.TimbermillEvent, int) {
 
 func (eq *inMemoryTimberEventQueue) noEvents() bool {
 	return eq.deque.Len() == 0
-}
-
-func (eq *inMemoryTimberEventQueue) eventSize(event *dto.TimbermillEvent) int {
-	return binary.Size(event) //TODO: test this
 }
 
 func (eq *inMemoryTimberEventQueue) processEvent(event *dto.TimbermillEvent) *dto.TimbermillEvent {
