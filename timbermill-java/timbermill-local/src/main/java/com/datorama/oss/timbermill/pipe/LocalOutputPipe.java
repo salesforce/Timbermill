@@ -80,7 +80,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         Thread workingThread = new Thread(() -> {
             LOG.info("Timbermill has started");
             while (keepRunning) {
-                ElasticsearchUtil.drainAndIndex(buffer, taskIndexer);
+                ElasticsearchUtil.drainAndIndex(buffer, taskIndexer, 10000);
             }
             stoppedRunning = true;
         });

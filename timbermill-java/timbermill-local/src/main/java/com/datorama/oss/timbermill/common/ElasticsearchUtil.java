@@ -294,7 +294,6 @@ public class ElasticsearchUtil {
 			+ "    ]\n"
 			+ "  }\n"
 			+ "}";
-	private static final int MAX_ELEMENTS = 100000;
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUtil.class);
 
@@ -309,11 +308,11 @@ public class ElasticsearchUtil {
 		return envsSet;
 	}
 
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer) {
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement) {
 		while (!eventsQueue.isEmpty()) {
 			try {
 				Collection<Event> events = new ArrayList<>();
-				eventsQueue.drainTo(events, MAX_ELEMENTS);
+				eventsQueue.drainTo(events, maxElement);
 				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 

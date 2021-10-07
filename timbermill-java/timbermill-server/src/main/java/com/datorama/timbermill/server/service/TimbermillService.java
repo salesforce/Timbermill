@@ -39,6 +39,7 @@ public class TimbermillService {
 	private long terminationTimeout;
 	private PersistenceHandler persistenceHandler;
 	private CronsRunner cronsRunner = new CronsRunner();
+	private int eventsMaxElement;
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -59,6 +60,7 @@ public class TimbermillService {
 							 @Value("${TIMBERMILL_VERSION:}") String timbermillVersion,
 							 @Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 							 @Value("${PLUGINS_JSON:[]}") String pluginsJson,
+							 @Value("${EVENT_MAX_ELEMTS:10000}") int eventsMaxElement,
 							 @Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 							 @Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 							 @Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
@@ -111,6 +113,7 @@ public class TimbermillService {
 
 		CacheConfig cacheParams = new CacheConfig(redisService, cacheRedisTtlInSeconds, maximumTasksCacheWeight, maximumOrphansCacheWeight);
 		AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, cacheParams);
+		this.eventsMaxElement = eventsMaxElement;
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp, redisService);
@@ -137,7 +140,7 @@ public class TimbermillService {
 		Thread workingThread = new Thread(() -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, eventsMaxElement);
 			}
 			stoppedRunning = true;
 		});

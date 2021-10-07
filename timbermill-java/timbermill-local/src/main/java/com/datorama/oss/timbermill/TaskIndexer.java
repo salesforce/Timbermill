@@ -129,8 +129,9 @@ public class TaskIndexer {
         }
 
 
+        LOG.info("{} tasks to be indexed to elasticsearch", tasksMap.size());
         es.index(tasksMap);
-        LOG.info("{} tasks were indexed to elasticsearch", tasksMap.size());
+        LOG.info("Tasks were indexed to elasticsearch");
         return previouslyIndexedParentTasks.size();
     }
 
