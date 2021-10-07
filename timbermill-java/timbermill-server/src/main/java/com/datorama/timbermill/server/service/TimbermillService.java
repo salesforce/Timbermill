@@ -60,7 +60,7 @@ public class TimbermillService {
 							 @Value("${TIMBERMILL_VERSION:}") String timbermillVersion,
 							 @Value("${TERMINATION_TIMEOUT_SECONDS:60}") int terminationTimeoutSeconds,
 							 @Value("${PLUGINS_JSON:[]}") String pluginsJson,
-							 @Value("${EVENT_MAX_ELEMTS:10000}") int eventsMaxElement,
+							 @Value("${EVENT_MAX_ELEMTS:100000}") int eventsMaxElement,
 							 @Value("${EVENT_QUEUE_CAPACITY:10000000}") int eventsQueueCapacity,
 							 @Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 							 @Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
