@@ -26,6 +26,7 @@ import java.util.concurrent.Callable;
 public class RedisService {
 
     private static final Logger LOG = LoggerFactory.getLogger(RedisService.class);
+    public static final int REDIS_SERIALIZATIONPART_SIZE = 100;
 
     private final JedisPool jedisPool;
     private final Pool<Kryo> kryoPool;
@@ -157,19 +158,20 @@ public class RedisService {
     public <T> boolean pushToRedis(Map<String, T> keysToValuesMap, int ttl) {
         boolean allPushed = true;
         try (Jedis jedis = jedisPool.getResource(); Pipeline pipelined = jedis.pipelined()) {
-            for (Map.Entry<String, T> entry : keysToValuesMap.entrySet()) {
-                String key = entry.getKey();
-                T object = entry.getValue();
+            for (List<Map.Entry<String, T>> batch : Iterables.partition(keysToValuesMap.entrySet(), REDIS_SERIALIZATIONPART_SIZE)) {
+                for (Map.Entry<String, T> entry : batch) {
+                    String key = entry.getKey();
+                    T object = entry.getValue();
 
-                try {
-                    byte[] taskByteArr = getBytes(object);
-                    runWithRetries(() -> pipelined.setex(key.getBytes(), ttl, taskByteArr), "SETEX");
-                } catch (Exception e) {
-                    allPushed = false;
-                    LOG.error("Error pushing key " + key + " to Redis.", e);
+                    try {
+                        byte[] taskByteArr = getBytes(object);
+                        runWithRetries(() -> pipelined.setex(key.getBytes(), ttl, taskByteArr), "SETEX");
+                    } catch (Exception e) {
+                        allPushed = false;
+                        LOG.error("Error pushing key " + key + " to Redis.", e);
+                    }
                 }
             }
-
         }
         return allPushed;
     }
