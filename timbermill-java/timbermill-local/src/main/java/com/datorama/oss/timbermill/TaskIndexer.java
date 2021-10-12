@@ -119,16 +119,19 @@ public class TaskIndexer {
 
         cacheHandler.lock();
         try {
+            LOG.info("Fetching {} missing parents", missingParentsIds.size());
             previouslyIndexedParentTasks = getMissingParents(missingParentsIds, env);
+            LOG.info("Fetched {} missing parents", previouslyIndexedParentTasks.size());
             tasksMap = createEnrichedTasks(nodesMap, eventsMap, previouslyIndexedParentTasks, index);
             resolveOrphansFromCache(tasksMap);
+
+            LOG.info("Caching {} tasks", tasksMap.size());
             cacheTasks(tasksMap);
+            LOG.info("Caching {} orphans", tasksMap.size());
             cacheOrphans(tasksMap);
         } finally {
             cacheHandler.release();
         }
-
-
         LOG.info("{} tasks to be indexed to elasticsearch", tasksMap.size());
         es.index(tasksMap);
         LOG.info("Tasks were indexed to elasticsearch");
@@ -214,7 +217,6 @@ public class TaskIndexer {
         
         int missingParentAmount = parentIds.size();
         KamonConstants.MISSING_PARENTS_HISTOGRAM.withoutTags().record(missingParentAmount);
-        LOG.info("Fetching {} missing parents", missingParentAmount);
 
         Map<String, Task> previouslyIndexedParentTasks = Maps.newHashMap();
         try {

@@ -38,7 +38,7 @@ public class IndexRetryManager {
 			// continuous retries of sending the failed bulk request
 			try {
 				if (tryNum > 1) {
-					LOG.info("Bulk #{} Started bulk try # {}/{}", bulkNum, tryNum, numOfElasticSearchActionsTries);
+					LOG.debug("Bulk #{} Started bulk try # {}/{}", bulkNum, tryNum, numOfElasticSearchActionsTries);
 				}
 				LOG.info("Bulk #{} Batch of {} index requests sent to Elasticsearch. Batch size: {} bytes", bulkNum, dbBulkRequest.numOfActions(), dbBulkRequest.estimatedSize());
 				BulkResponse response = bulker.bulk(dbBulkRequest);
