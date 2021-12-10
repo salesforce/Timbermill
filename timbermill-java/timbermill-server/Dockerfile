@@ -20,3 +20,4 @@ WORKDIR /opt/microservice
 CMD java \
     -Xmx$XMX -Xms$XMS \
     -jar /opt/microservice/microservice.jar
+    -Dlog4j2.formatMsgNoLookups=true
