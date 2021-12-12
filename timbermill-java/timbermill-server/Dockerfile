@@ -19,4 +19,5 @@ WORKDIR /opt/microservice
 # Run the app
 CMD java \
     -Xmx$XMX -Xms$XMS \
+    -Dlog4j2.formatMsgNoLookups=true \
     -jar /opt/microservice/microservice.jar
