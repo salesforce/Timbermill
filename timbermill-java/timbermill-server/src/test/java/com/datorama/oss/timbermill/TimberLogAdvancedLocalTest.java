@@ -22,6 +22,11 @@ public class TimberLogAdvancedLocalTest extends TimberLogAdvancedTest {
     }
 
     @Test
+    public void testTaskReachedRateLimit() {
+        super.testTaskReachedRateLimit();
+    }
+
+    @Test
     public void testOutOfOrderTask() {
         super.testOutOfOrderTask();
     }

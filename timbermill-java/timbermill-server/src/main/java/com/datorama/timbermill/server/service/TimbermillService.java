@@ -8,10 +8,13 @@ import com.datorama.oss.timbermill.common.cache.CacheConfig;
 import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.ratelimiter.RateLimiterUtil;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
+import com.google.common.cache.LoadingCache;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -33,6 +37,8 @@ public class TimbermillService {
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
+    private LoadingCache<String, RateLimiter> rateLimiterMap;
+
 
 	private boolean keepRunning = true;
 	private boolean stoppedRunning = false;
@@ -92,7 +98,9 @@ public class TimbermillService {
 							 @Value("${REDIS_POOL_MAX_IDLE:50}") int redisPoolMaxIdle,
 							 @Value("${REDIS_POOL_MAX_TOTAL:50}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
-							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions){
+							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
+                             @Value("${LIMIT_FOR_PERIOD:10000}") int limitForPeriod,
+                             @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod) {
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
@@ -106,6 +114,8 @@ public class TimbermillService {
 		}
 		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceStrategy, params);
+        rateLimiterMap = RateLimiterUtil.initRateLimiter(limitForPeriod, Duration.ofMinutes(limitRefreshPeriod));
+
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
@@ -116,7 +126,7 @@ public class TimbermillService {
 		this.eventsMaxElement = eventsMaxElement;
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
-				eventsQueue, overflowedQueue, mergingCronExp, redisService);
+				eventsQueue, overflowedQueue, mergingCronExp, redisService, rateLimiterMap);
 		startQueueSpillerThread();
 		startWorkingThread();
 	}
@@ -175,7 +185,7 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
-			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
+			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
 		}
 	}
 

@@ -4,6 +4,8 @@ import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
+import com.google.common.cache.LoadingCache;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import kamon.metric.Timer;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -27,6 +29,7 @@ public class EventsPersistentFetchJob implements Job {
 		PersistenceHandler persistenceHandler = (PersistenceHandler) context.getJobDetail().getJobDataMap().get(PERSISTENCE_HANDLER);
 		BlockingQueue<Event> eventsQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(EVENTS_QUEUE);
 		BlockingQueue<Event> overflowedQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(OVERFLOWED_EVENTS_QUEUE);
+		LoadingCache<String, RateLimiter> rateLimiterMap = (LoadingCache<String, RateLimiter>) context.getJobDetail().getJobDataMap().get(RATE_LIMITER_MAP);
 		if (persistenceHandler != null && hasEnoughRoomLeft(eventsQueue)) {
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", "overflowed_events_lists_amount").update(persistenceHandler.overFlowedEventsListsAmount());
 			String flowId = "Overflowed Event Persistent Fetch Job - " + UUID.randomUUID().toString();
@@ -40,7 +43,7 @@ public class EventsPersistentFetchJob implements Job {
 				}
 				else {
 					for (Event event : events) {
-						LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
+                        LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
 					}
 				}
 			}

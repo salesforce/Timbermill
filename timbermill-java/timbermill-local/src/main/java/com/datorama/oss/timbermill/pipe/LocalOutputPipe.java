@@ -8,14 +8,21 @@ import com.datorama.oss.timbermill.common.cache.CacheConfig;
 import com.datorama.oss.timbermill.common.cache.CacheHandlerUtil;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandler;
 import com.datorama.oss.timbermill.common.persistence.PersistenceHandlerUtil;
+import com.datorama.oss.timbermill.common.ratelimiter.RateLimiterUtil;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.unit.Event;
+import com.datorama.oss.timbermill.unit.Task;
+import com.google.common.cache.LoadingCache;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.vavr.CheckedRunnable;
+import io.vavr.control.Try;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.ElasticsearchException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -33,6 +40,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private boolean keepRunning = true;
     private boolean stoppedRunning = false;
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
+    private LoadingCache<String, RateLimiter> rateLimiterMap;
 
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
@@ -49,6 +57,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
+        rateLimiterMap = RateLimiterUtil.initRateLimiter(builder.limitForPeriod, builder.limitRefreshPeriodMinutes);
 
         CacheConfig cacheParams = new CacheConfig(redisService, builder.redisTtlInSeconds, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
         AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(builder.cacheStrategy, cacheParams);
@@ -56,7 +65,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
-                builder.mergingCronExp, redisService);
+                builder.mergingCronExp, redisService, rateLimiterMap);
         startQueueSpillerThread();
         startWorkingThread();
     }
@@ -89,22 +98,30 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     @Override
     public void send(Event event){
-        pushEventToQueues(persistenceHandler, buffer, overflowedQueue, event);
+        pushEventToQueues(persistenceHandler, buffer, overflowedQueue, rateLimiterMap, event);
     }
 
-    public static void pushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
-        if(!eventsQueue.offer(event)){
-            if (!overflowedQueue.offer(event)){
+    public static void pushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, LoadingCache<String, RateLimiter> rateLimiterMap, Event event) {
+        RateLimiter rateLimiter = rateLimiterMap.getUnchecked(Task.getNameFromId(event.getName(), event.getTaskId()));
+        CheckedRunnable restrictedCall = RateLimiter
+                .decorateCheckedRunnable(rateLimiter, () -> doPushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event));
+
+        Try.run(restrictedCall)
+                .onFailure(e -> LOG.error("event {} was discarded because of rate limit", event.getTaskId()));
+    }
+
+
+    private static void doPushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
+        if (!eventsQueue.offer(event)) {
+            if (!overflowedQueue.offer(event)) {
                 persistenceHandler.spillOverflownEvents(overflowedQueue);
                 if (!overflowedQueue.offer(event)) {
                     LOG.error("OverflowedQueue is full, event {} was discarded", event.getTaskId());
                 }
-            }
-            else {
+            } else {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
-        }
-        else{
+        } else {
             KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
         }
     }
@@ -144,6 +161,14 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public PersistenceHandler getPersistenceHandler() {
         return persistenceHandler;
+    }
+
+    public LoadingCache<String, RateLimiter> getRateLimiterMap() {
+        return rateLimiterMap;
+    }
+
+    public void setRateLimiterMap(LoadingCache<String, RateLimiter> rateLimiterMap) {
+        this.rateLimiterMap = rateLimiterMap;
     }
 
     public static class Builder {
@@ -196,6 +221,8 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int fetchByIdsPartitions = 10000;
         private int expiredMaxIndicesToDeleteInParallel = 2;
         private String timbermillVersion = "";
+        private int limitForPeriod = 10000;
+        private Duration limitRefreshPeriodMinutes = Duration.ofMinutes(1);
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -415,6 +442,16 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder expiredMaxIndicesToDeleteInParallel(int expiredMaxIndicesToDeleteInParallel) {
             this.expiredMaxIndicesToDeleteInParallel = expiredMaxIndicesToDeleteInParallel;
+            return this;
+        }
+
+        public Builder limitForPeriod(int limitForPeriod) {
+            this.limitForPeriod = limitForPeriod;
+            return this;
+        }
+
+        public Builder limitRefreshPeriodMinutes(int limitRefreshPeriodMinutes) {
+            this.limitRefreshPeriodMinutes = Duration.ofMinutes(limitRefreshPeriodMinutes);
             return this;
         }
 
