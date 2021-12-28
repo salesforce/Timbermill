@@ -99,8 +99,9 @@ public class TimbermillService {
 							 @Value("${REDIS_POOL_MAX_TOTAL:50}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
-                             @Value("${LIMIT_FOR_PERIOD:10000}") int limitForPeriod,
-                             @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod) {
+                             @Value("${LIMIT_FOR_PERIOD:10000000}") int limitForPeriod,
+                             @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
+							 @Value("RATE_LIMITER_CAPACITY:10000000}") int rateLimiterCapacity) {
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
@@ -114,7 +115,7 @@ public class TimbermillService {
 		}
 		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceStrategy, params);
-        rateLimiterMap = RateLimiterUtil.initRateLimiter(limitForPeriod, Duration.ofMinutes(limitRefreshPeriod));
+        rateLimiterMap = RateLimiterUtil.initRateLimiter(limitForPeriod, Duration.ofMinutes(limitRefreshPeriod), rateLimiterCapacity);
 
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,

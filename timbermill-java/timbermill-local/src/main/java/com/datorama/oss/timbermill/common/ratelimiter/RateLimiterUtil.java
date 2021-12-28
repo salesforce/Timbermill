@@ -11,10 +11,9 @@ import java.time.Duration;
 
 public class RateLimiterUtil {
 
-    private static final int CACHE_MAX_SIZE = 10000;
     private static final Duration CACHE_EXPIRE_MINUTES = Duration.ofMinutes(1);
 
-    public static LoadingCache<String, RateLimiter> initRateLimiter(int limitForPeriod, Duration limitRefreshPeriodMinutes) {
+    public static LoadingCache<String, RateLimiter> initRateLimiter(int limitForPeriod, Duration limitRefreshPeriodMinutes, int rateLimiterCapacity) {
         CacheLoader<String, RateLimiter> loader = new CacheLoader<String, RateLimiter>() {
             @Override
             public RateLimiter load(String key) {
@@ -22,7 +21,7 @@ public class RateLimiterUtil {
             }
         };
         return CacheBuilder.newBuilder()
-                .maximumSize(CACHE_MAX_SIZE)
+                .maximumSize(rateLimiterCapacity)
                 .expireAfterAccess(CACHE_EXPIRE_MINUTES)
                 .build(loader);
     }

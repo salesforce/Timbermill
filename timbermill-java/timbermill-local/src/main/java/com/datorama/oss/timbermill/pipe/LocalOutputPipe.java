@@ -57,7 +57,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
                 builder.expiredMaxIndicesToDeleteInParallel);
-        rateLimiterMap = RateLimiterUtil.initRateLimiter(builder.limitForPeriod, builder.limitRefreshPeriodMinutes);
+        rateLimiterMap = RateLimiterUtil.initRateLimiter(builder.limitForPeriod, builder.limitRefreshPeriodMinutes, builder.rateLimiterCapacity);
 
         CacheConfig cacheParams = new CacheConfig(redisService, builder.redisTtlInSeconds, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
         AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(builder.cacheStrategy, cacheParams);
@@ -223,6 +223,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String timbermillVersion = "";
         private int limitForPeriod = 10000;
         private Duration limitRefreshPeriodMinutes = Duration.ofMinutes(1);
+        private int rateLimiterCapacity = 10000000;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -452,6 +453,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder limitRefreshPeriodMinutes(int limitRefreshPeriodMinutes) {
             this.limitRefreshPeriodMinutes = Duration.ofMinutes(limitRefreshPeriodMinutes);
+            return this;
+        }
+
+        public Builder rateLimiterCapacity(int rateLimiterCapacity) {
+            this.rateLimiterCapacity = rateLimiterCapacity;
             return this;
         }
 
