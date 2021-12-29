@@ -99,9 +99,9 @@ public class TimbermillService {
 							 @Value("${REDIS_POOL_MAX_TOTAL:50}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
-                             @Value("${LIMIT_FOR_PERIOD:10000000}") int limitForPeriod,
+                             @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
                              @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
-							 @Value("${RATE_LIMITER_CAPACITY:30000}") int rateLimiterCapacity) {
+							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity) {
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
