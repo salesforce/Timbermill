@@ -618,5 +618,17 @@ public abstract class TimberLogTest {
 		}
 
 		assertNull(client.getTaskById(taskIds[numOfEvents - 1]));
+
+		try {
+			Thread.sleep(60000);
+		} catch (InterruptedException ignored) {
+		}
+
+		String taskId = TimberLogger.spot(ongoingTaskName);
+
+		TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+
+		Task ongoingTask = client.getTaskById(taskId);
+		assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskId, true, true);
 	}
 }

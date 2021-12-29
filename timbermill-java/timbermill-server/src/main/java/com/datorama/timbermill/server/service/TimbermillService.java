@@ -101,7 +101,7 @@ public class TimbermillService {
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
                              @Value("${LIMIT_FOR_PERIOD:10000000}") int limitForPeriod,
                              @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
-							 @Value("${RATE_LIMITER_CAPACITY:10000000}") int rateLimiterCapacity) {
+							 @Value("${RATE_LIMITER_CAPACITY:30000}") int rateLimiterCapacity) {
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);

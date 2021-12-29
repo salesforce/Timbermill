@@ -223,7 +223,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private String timbermillVersion = "";
         private int limitForPeriod = 10000;
         private Duration limitRefreshPeriodMinutes = Duration.ofMinutes(1);
-        private int rateLimiterCapacity = 10000000;
+        private int rateLimiterCapacity = 30000;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
