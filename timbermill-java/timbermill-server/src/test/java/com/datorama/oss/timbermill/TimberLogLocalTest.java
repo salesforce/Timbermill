@@ -112,4 +112,9 @@ public class TimberLogLocalTest extends TimberLogTest {
     public void testMissingParentTaskOutOffOrderFromDifferentThreadsRollover(){
         super.testMissingParentTaskOutOffOrderFromDifferentThreads(true);
     }
+
+    @Test
+    public void testTaskReachedRateLimit() {
+        super.testTaskReachedRateLimit();
+    }
 }

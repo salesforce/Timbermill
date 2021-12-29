@@ -36,7 +36,7 @@ public class CronsRunner {
 				}
 
 				if (!Strings.isEmpty(eventsPersistentFetchCronExp)) {
-					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, persistenceHandler, buffer, overFlowedEvents, rateLimiterMap);
+					runEventsPersistentFetchCron(eventsPersistentFetchCronExp, persistenceHandler, buffer, overFlowedEvents);
 				}
 			}
 			if (!Strings.isEmpty(deletionCronExp)) {
@@ -61,12 +61,11 @@ public class CronsRunner {
 	}
 
 	private void runEventsPersistentFetchCron(String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, BlockingQueue<Event> buffer,
-											  BlockingQueue<Event> overFlowedEvents, LoadingCache<String, RateLimiter> rateLimiterMap) throws SchedulerException {
+											  BlockingQueue<Event> overFlowedEvents) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
 		jobDataMap.put(EVENTS_QUEUE, buffer);
 		jobDataMap.put(OVERFLOWED_EVENTS_QUEUE, overFlowedEvents);
-		jobDataMap.put(RATE_LIMITER_MAP, rateLimiterMap);
 
 		JobDetail job = newJob(EventsPersistentFetchJob.class)
 				.withIdentity("job3", "group3").usingJobData(jobDataMap)

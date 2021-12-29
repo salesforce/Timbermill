@@ -599,4 +599,24 @@ public abstract class TimberLogTest {
 		TimberLogger.success();
 		return taskId;
 	}
+
+	public void testTaskReachedRateLimit() {
+		String ongoingTaskName = EVENT + "_rate_limit";
+		String limitStr = System.getenv("LIMIT_FOR_PERIOD");
+		int numOfEvents = limitStr != null ? Integer.valueOf(limitStr) + 1 : 51;
+		String[] taskIds = new String[numOfEvents];
+
+		for (int i = 0; i < numOfEvents; i++) {
+			taskIds[i] = TimberLogger.spot(ongoingTaskName);
+		}
+
+		TimberLogTest.waitForTask(taskIds[numOfEvents - 2], TaskStatus.SUCCESS);
+
+		for (int i = 0; i < numOfEvents - 1; i++) {
+			Task ongoingTask = client.getTaskById(taskIds[i]);
+			assertTaskPrimary(ongoingTask, ongoingTaskName, TaskStatus.SUCCESS, taskIds[i], true, true);
+		}
+
+		assertNull(client.getTaskById(taskIds[numOfEvents - 1]));
+	}
 }
