@@ -25,7 +25,7 @@ public class ElasticsearchUtil {
 					  "if (params.orphan != null && !params.orphan) {"
 					+ "    ctx._source.orphan = false;"
 					+ "}        "
-					+ "if (params.dateToDelete != null) {"
+					+ "if (params.dateToDelete != null && !ctx._source.status.equals( \\\"SUCCESS\\\") && !ctx._source.status.equals( \\\"UNTERMINATED\\\")) {"
 					+ "    ctx._source.meta.dateToDelete = params.dateToDelete;"
 					+ "}"
 					+ "if (params.status != null){"

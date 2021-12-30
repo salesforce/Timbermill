@@ -69,7 +69,7 @@ public class TimberLoggerAdvanced {
         return startWithDateToDelete(null, name, parentTaskId, logParams, dateToDelete);
     }
 
-    private static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
+    static String startWithDateToDelete(String taskId, String name, String parentTaskId, LogParams logParams, ZonedDateTime dateToDelete) {
         return EventLogger.get().startEvent(taskId, name, parentTaskId, logParams, true, dateToDelete);
     }
 

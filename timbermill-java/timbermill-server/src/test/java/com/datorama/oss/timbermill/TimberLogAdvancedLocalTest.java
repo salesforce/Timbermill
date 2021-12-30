@@ -62,6 +62,16 @@ public class TimberLogAdvancedLocalTest extends TimberLogAdvancedTest {
     }
 
     @Test
+    public void testOutOfOrderWithCustomDateToDeleteOnStart() {
+        super.testOutOfOrderWithCustomDateToDeleteOnStart();
+    }
+
+    @Test
+    public void testInOrderWithCustomDateToDeleteOnStart() {
+        super.testInOrderWithCustomDateToDeleteOnStart();
+    }
+
+    @Test
     public void testOutOfOrderTaskErrorLogNoStart() {
         super.testOutOfOrderTaskErrorLogNoStart();
     }

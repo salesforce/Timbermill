@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.unit;
 
 import com.datorama.oss.timbermill.common.Constants;
+import com.datorama.oss.timbermill.common.TimbermillDatesUtils;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonDeserializer;
 import com.datorama.oss.timbermill.common.ZonedDateTimeJacksonSerializer;
 import com.fasterxml.jackson.annotation.*;
@@ -233,8 +234,9 @@ public abstract class Event implements Serializable {
 		this.dateToDelete = dateToDelete;
 	}
 
+	@JsonIgnore
 	ZonedDateTime getDateToDelete(long daysRotation) {
-		return null;
+		return TimbermillDatesUtils.getDateToDeleteWithDefault(daysRotation, this.dateToDelete);
 	}
 
 	@JsonIgnore
