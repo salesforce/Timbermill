@@ -489,6 +489,34 @@ public class TimberLogAdvancedTest {
         assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
     }
 
+    public void testInOrderWithCustomDateToDeleteOnStartWithError() {
+        String ctx = "ctx";
+        String metric = "metric";
+        String text = "text";
+        String string = "string";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = generateTaskId(ongoingTaskName);
+        ZonedDateTime dateToDelete = ZonedDateTime.now().plusDays(3).withHour(0).withMinute(0).withSecond(0);
+
+        TimberLoggerAdvanced.startWithDateToDelete(taskId, ongoingTaskName, null, LogParams.create().context(ctx, ctx).metric(metric, 1).text(text, text).string(string, string), dateToDelete);
+        TimberLoggerAdvanced.error(taskId, new Throwable());
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
+        ongoingTask = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+
+    }
+
     public void testOutOfOrderTaskErrorLogNoStart() {
         String ctx2 = "ctx2";
         String ctx3 = "ctx3";
