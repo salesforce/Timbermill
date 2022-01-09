@@ -126,6 +126,12 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-ratelimiter</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+
 
     </dependencies>
 

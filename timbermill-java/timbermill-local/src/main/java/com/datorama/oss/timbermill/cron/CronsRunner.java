@@ -3,6 +3,8 @@ package com.datorama.oss.timbermill.cron;
 import java.util.concurrent.BlockingQueue;
 
 import com.datorama.oss.timbermill.common.redis.RedisService;
+import com.google.common.cache.LoadingCache;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import org.elasticsearch.common.Strings;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
@@ -24,13 +26,13 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp, RedisService redisService) {
+						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp, RedisService redisService, LoadingCache<String, RateLimiter> rateLimiterMap) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
 			if (persistenceHandler != null) {
 				if (!Strings.isEmpty(bulkPersistentFetchCronExp)) {
-					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, persistenceHandler);
+					runBulkPersistentFetchCron(bulkPersistentFetchCronExp, es, persistenceHandler, rateLimiterMap);
 				}
 
 				if (!Strings.isEmpty(eventsPersistentFetchCronExp)) {
@@ -76,10 +78,11 @@ public class CronsRunner {
 		scheduler.scheduleJob(job, trigger);
 	}
 
-	private void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, PersistenceHandler persistenceHandler) throws SchedulerException {
+	private void runBulkPersistentFetchCron(String bulkPersistentFetchCronExp, ElasticsearchClient es, PersistenceHandler persistenceHandler, LoadingCache<String, RateLimiter> rateLimiterMap) throws SchedulerException {
 		JobDataMap jobDataMap = new JobDataMap();
 		jobDataMap.put(CLIENT, es);
 		jobDataMap.put(PERSISTENCE_HANDLER, persistenceHandler);
+		jobDataMap.put(RATE_LIMITER_MAP, rateLimiterMap);
 		JobDetail job = newJob(BulkPersistentFetchJob.class)
 				.withIdentity("job2", "group2").usingJobData(jobDataMap)
 				.build();
