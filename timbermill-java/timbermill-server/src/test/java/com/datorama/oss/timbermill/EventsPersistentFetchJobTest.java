@@ -113,6 +113,7 @@ public class EventsPersistentFetchJobTest {
 			map.put(PERSISTENCE_HANDLER, pipe.getPersistenceHandler());
 			map.put(EVENTS_QUEUE, pipe.getBuffer());
 			map.put(OVERFLOWED_EVENTS_QUEUE, pipe.getOverflowedQueue());
+			map.put(RATE_LIMITER_MAP, pipe.getRateLimiterMap());
 			JobDataMap jobMap = new JobDataMap(map);
 			jobDetail.setJobDataMap(jobMap);
 			return jobDetail;

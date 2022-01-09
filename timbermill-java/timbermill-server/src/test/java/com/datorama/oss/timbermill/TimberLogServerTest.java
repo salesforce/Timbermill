@@ -114,4 +114,8 @@ public class TimberLogServerTest extends TimberLogTest{
         super.testMissingParentTaskOutOffOrderFromDifferentThreads(true);
     }
 
+    @Test
+    public void testTaskReachedRateLimit() {
+        super.testTaskReachedRateLimit();
+    }
 }
