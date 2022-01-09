@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.Callable;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
@@ -425,6 +426,95 @@ public class TimberLogAdvancedTest {
         assertEquals(text3, ongoingTask.getText().get(text3));
         assertEquals(string2, ongoingTask.getString().get(string2));
         assertEquals(string3, ongoingTask.getString().get(string3));
+    }
+
+    public void testOutOfOrderWithCustomDateToDeleteOnStart() {
+        String ctx = "ctx";
+        String metric = "metric";
+        String text = "text";
+        String string = "string";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx, ctx).metric(metric, 3).text(text, text).string(string, string));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.PARTIAL_SUCCESS);
+        waitForValueInContext(ctx, taskId);
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertTaskCorrupted(ongoingTask, ongoingTaskName, TaskStatus.PARTIAL_SUCCESS, true);
+
+        assertNotNull(ongoingTask.getDateToDelete());
+
+        ZonedDateTime dateToDelete = ZonedDateTime.now().plusDays(3).withHour(0).withMinute(0).withSecond(0);
+
+        TimberLoggerAdvanced.startWithDateToDelete(taskId, ongoingTaskName, null, LogParams.create().context(ctx, ctx).metric(metric, 1).text(text, text).string(string, string), dateToDelete);
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+
+        Task ongoingTask2 = client.getTaskById(taskId);
+
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask2.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+        assertNotEquals(ongoingTask2.getDateToDelete(), ongoingTask.getDateToDelete());
+
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 4).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+
+        ongoingTask2 = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask2.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+    }
+
+    public void testInOrderWithCustomDateToDeleteOnStart() {
+        String ctx = "ctx";
+        String metric = "metric";
+        String text = "text";
+        String string = "string";
+
+        String ongoingTaskName = EVENT + '1';
+
+        ZonedDateTime dateToDelete = ZonedDateTime.now().plusDays(3).withHour(0).withMinute(0).withSecond(0);
+
+        String taskId = generateTaskId(ongoingTaskName);
+        TimberLoggerAdvanced.startWithDateToDelete(taskId, ongoingTaskName, null, LogParams.create().context(ctx, ctx).metric(metric, 1).text(text, text).string(string, string), dateToDelete);
+        TimberLoggerAdvanced.success(taskId, LogParams.create().context(ctx, ctx).metric(metric, 3).text(text, text).string(string, string));
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.SUCCESS);
+        waitForValueInContext(ctx, taskId);
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+    }
+
+    public void testInOrderWithCustomDateToDeleteOnStartWithError() {
+        String ctx = "ctx";
+        String metric = "metric";
+        String text = "text";
+        String string = "string";
+
+        String ongoingTaskName = EVENT + '1';
+
+        String taskId = generateTaskId(ongoingTaskName);
+        ZonedDateTime dateToDelete = ZonedDateTime.now().plusDays(3).withHour(0).withMinute(0).withSecond(0);
+
+        TimberLoggerAdvanced.startWithDateToDelete(taskId, ongoingTaskName, null, LogParams.create().context(ctx, ctx).metric(metric, 1).text(text, text).string(string, string), dateToDelete);
+        TimberLoggerAdvanced.error(taskId, new Throwable());
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
+
+        Task ongoingTask = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+
+        TimberLoggerAdvanced.logParams(taskId, LogParams.create().context(ctx, ctx).metric(metric, 2).text(text, text).string(string, string));
+
+        TimberLogTest.waitForTask(taskId, TaskStatus.ERROR);
+        ongoingTask = client.getTaskById(taskId);
+        assertEquals(dateToDelete.format(DateTimeFormatter.ISO_DATE), ongoingTask.getDateToDelete().format(DateTimeFormatter.ISO_DATE));
+
     }
 
     public void testOutOfOrderTaskErrorLogNoStart() {

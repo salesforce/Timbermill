@@ -53,6 +53,8 @@ public class Task {
 			string.put("timbermillVersion", timbermillVersion);
 		}
 
+		boolean hasStart = false;
+
 		for (Event e : events) {
 			String env = e.getEnv();
 			if (this.env == null || this.env.equals(env)) {
@@ -95,9 +97,12 @@ public class Task {
 				setEndTime(endTime);
 			}
 
-			ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
-			if (dateToDelete != null) {
-				this.setDateToDelete(dateToDelete);
+			if (!hasStart) {
+				ZonedDateTime dateToDelete = e.getDateToDelete(daysRotation);
+				if (dateToDelete != null) {
+					this.setDateToDelete(dateToDelete);
+				}
+				if (e.isStartEvent()) hasStart = true;
 			}
 
 
