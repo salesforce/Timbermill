@@ -240,7 +240,7 @@ public class TaskIndexer {
             Map<String, Task> fromEs = es.getMissingParents(parentIds, env);
             for (Task value : fromEs.values()) {
                 if (value.getPrimaryId() == null && value.getParentsPath() != null && !value.getParentsPath().isEmpty()){
-                    LOG.debug("getMissingParents ES missing primary task: {}", GSON.toJson(value));
+                    LOG.info("getMissingParents ES missing primary task: {}", GSON.toJson(value));
                 }
             }
             previouslyIndexedParentTasks.putAll(fromEs);
