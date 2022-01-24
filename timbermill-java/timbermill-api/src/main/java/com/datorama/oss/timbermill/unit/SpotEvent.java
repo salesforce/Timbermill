@@ -50,10 +50,4 @@ public class SpotEvent extends Event {
     public boolean isStartEvent(){
         return true;
     }
-
-    @JsonIgnore
-    @Override
-    ZonedDateTime getDateToDelete(long defaultDaysRotation) {
-        return TimbermillDatesUtils.getDateToDeleteWithDefault(defaultDaysRotation, this.dateToDelete);
-    }
 }

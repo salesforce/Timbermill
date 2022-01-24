@@ -20,12 +20,13 @@ public class ElasticsearchUtil {
 	public static final String REDIS_SERVICE = "redis_service";
 	public static final String EVENTS_QUEUE = "events_queue";
 	public static final String OVERFLOWED_EVENTS_QUEUE = "overflowed_events_queue";
+	public static final String RATE_LIMITER_MAP = "rate_limiter_map";
 	public static final int THREAD_SLEEP = 2000;
 	public static final String SCRIPT =
 					  "if (params.orphan != null && !params.orphan) {"
 					+ "    ctx._source.orphan = false;"
 					+ "}        "
-					+ "if (params.dateToDelete != null) {"
+					+ "if (params.dateToDelete != null && !ctx._source.status.equals( \\\"SUCCESS\\\") && !ctx._source.status.equals( \\\"UNTERMINATED\\\") && !ctx._source.status.equals( \\\"ERROR\\\")) {"
 					+ "    ctx._source.meta.dateToDelete = params.dateToDelete;"
 					+ "}"
 					+ "if (params.status != null){"
