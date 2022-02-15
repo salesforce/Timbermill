@@ -131,9 +131,6 @@ public class Task {
 			}
 			List<String> parentsPath = e.getParentsPath();
 			if (this.parentsPath == null) {
-				if (parentsPath != null) {
-					LOG.info("Setting parent path of task [{}] to be [{}]", e.getTaskId(), parentsPath);
-				}
 				this.parentsPath = parentsPath;
 			} else {
 				if (parentsPath != null && !parentsPath.equals(this.parentsPath)) {
