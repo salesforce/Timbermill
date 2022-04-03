@@ -14,7 +14,7 @@ Timbermill logs are not just lines of text, they are `Tasks`.
 [Task](https://github.com/datorama/Timbermill/wiki/Task) characteristics:
   * Represented by a specific `name`.
   * Has a unique ID.
-  * Represents multiple `Events` that where called for it.
+  * Represents multiple `Events` that were called for it.
     * Start event that open the Task.
     * Zero or more info events (`Strings`/`Texts`/`Context`/`Metrics`) that add properties values to the task. 
     * Closing event that closes the Task either successfully or with an error (`Success`/`Error`), note that as long as an event is in the works its status is `Unterminated`
