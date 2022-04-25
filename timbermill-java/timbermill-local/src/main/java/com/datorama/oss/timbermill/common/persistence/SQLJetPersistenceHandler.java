@@ -30,7 +30,7 @@ import java.util.concurrent.Future;
 public class SQLJetPersistenceHandler extends PersistenceHandler {
 	static final String LOCATION_IN_DISK = "LOCATION_IN_DISK";
 
-	private static final String DB_NAME = "timbermillJetDB26012021.db";
+	private static final String DB_NAME = "timbermillJetDB24042022.db";
 	private static final String FAILED_BULKS_TABLE_NAME = "failed_bulks";
 	private static final String OVERFLOWED_EVENTS_TABLE_NAME = "overflowed_events";
 	private static final String ID = "id";
