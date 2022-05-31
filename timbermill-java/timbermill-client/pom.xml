@@ -124,7 +124,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>aspectj-maven-plugin</artifactId>
-                    <version>1.7</version>
+                    <version>1.14.0</version>
                     <configuration>
                         <showWeaveInfo>true</showWeaveInfo>
                         <source>${java.source-target.version}</source>
