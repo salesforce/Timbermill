@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.awaitility.Awaitility;
@@ -58,6 +59,20 @@ public class EventLoggerTest {
 		assertNull(startEvent.getTaskId(), startEvent.getPrimaryId());
 		assertNull(startEvent.getParentId());
 		assertEquals(TEST, startEvent.getStrings().get(BOOTSTRAP));
+	}
+
+	@Test
+	public void testWrapCallable() throws Exception {
+		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+		Callable<String> wrappedCallable = el.wrapCallable(() -> {
+			return el.getCurrentTaskId();
+		});
+
+		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+
+		String callableVisibleTaskId = wrappedCallable.call();
+
+		assertEquals(callableVisibleTaskId, parentTaskId);
 	}
 
 	@Test
