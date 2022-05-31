@@ -1,10 +1,13 @@
 package com.datorama.oss.timbermill;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.awaitility.Awaitility;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -39,6 +42,7 @@ public class EventLoggerTest {
 
 	@After
 	public void tearDown() {
+		el.clearStack();
 		EventLogger.exit();
 		mockPipe.close();
 	}
@@ -58,6 +62,48 @@ public class EventLoggerTest {
 		assertNull(startEvent.getTaskId(), startEvent.getPrimaryId());
 		assertNull(startEvent.getParentId());
 		assertEquals(TEST, startEvent.getStrings().get(BOOTSTRAP));
+	}
+
+	@Test
+	public void testWrapCallable() throws Exception {
+		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+		Callable<String> wrappedCallable = el.wrapCallable(() -> {
+			return el.getCurrentTaskId();
+		});
+
+		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+
+		String callableVisibleTaskId = wrappedCallable.call();
+
+		assertEquals(callableVisibleTaskId, parentTaskId);
+	}
+
+	@Test
+	public void testWrapCallableOnEmptyStack() throws Exception {
+		Callable<String> wrappedCallable = el.wrapCallable(() -> {
+			String parentTaskId = TimberLogger.getCurrentTaskId();
+			String selfTaskId = TimberLogger.start("some_nifty_task");
+			TimberLogger.success();
+			return parentTaskId;
+		});
+
+		String callableVisibleTaskId = wrappedCallable.call();
+
+		assertNull(callableVisibleTaskId);
+	}
+
+	@Test
+	public void testWrapFunction() throws Exception {
+		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+		Function<Integer, String> wrappedFunction = el.<Integer, String>wrapFunction(ignored -> {
+			return el.getCurrentTaskId();
+		});
+
+		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+
+		String callableVisibleTaskId = wrappedFunction.apply(42);
+
+		assertEquals(callableVisibleTaskId, parentTaskId);
 	}
 
 	@Test

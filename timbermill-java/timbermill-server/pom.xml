@@ -6,6 +6,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.3.3.RELEASE</version>
+        <relativePath/>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -16,7 +17,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
-        <timbermill.version>2.4.3</timbermill.version>
+        <timbermill.version>2.4.4</timbermill.version>
         <slf4jVersion>1.7.28</slf4jVersion>
     </properties>
 

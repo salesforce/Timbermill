@@ -15,7 +15,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
-        <timbermill.version>2.4.3</timbermill.version>
+        <timbermill.version>2.4.4</timbermill.version>
         <aspectj.version>1.9.6</aspectj.version>
         <org.springframework.version>5.3.4</org.springframework.version>
     </properties>
@@ -124,7 +124,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>aspectj-maven-plugin</artifactId>
-                    <version>1.7</version>
+                    <version>1.14.0</version>
                     <configuration>
                         <showWeaveInfo>true</showWeaveInfo>
                         <source>${java.source-target.version}</source>
