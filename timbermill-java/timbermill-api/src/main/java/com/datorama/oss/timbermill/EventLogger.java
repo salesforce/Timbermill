@@ -180,23 +180,42 @@ final class EventLogger {
 		return taskIdStack.empty() ? null : taskIdStack.peek();
 	}
 
+	private class Scope implements AutoCloseable {
+		final Stack<String> origStack = taskIdStack;
+
+		Scope(String taskId) {
+			taskIdStack = new Stack<String>();
+			taskIdStack.push(taskId);
+		}
+
+		<T> T apply(Callable<T> c) throws Exception {
+			return c.call();
+		}
+		<I, O> O apply(Function<I, O> f, I in) {
+			return f.apply(in);
+		}
+
+		@Override
+		public void close() {
+			taskIdStack = origStack;
+		}
+	}
+
 	<T> Callable<T> wrapCallable(Callable<T> callable) {
-		final Stack<String> origTaskIdStack = taskIdStack;
+		final String currentTaskId = getCurrentTaskId();
 		return () -> {
-			get().taskIdStack = (Stack<String>) origTaskIdStack.clone();
-			T call = callable.call();
-			get().taskIdStack.clear();
-			return call;
+			try(Scope scope = new Scope(currentTaskId)) {
+				return scope.apply(callable);
+			}
 		};
 	}
 
 	<T, R> Function<T, R> wrapFunction(Function<T, R> function) {
-		final Stack<String> origTaskIdStack = taskIdStack;
-		return t -> {
-			get().taskIdStack = (Stack<String>) origTaskIdStack.clone();
-			R call = function.apply(t);
-			get().taskIdStack.clear();
-			return call;
+		final String currentTaskId = getCurrentTaskId();
+		return (in) -> {
+			try(Scope scope = new Scope(currentTaskId)) {
+				return scope.apply(function, in);
+			}
 		};
 	}
 

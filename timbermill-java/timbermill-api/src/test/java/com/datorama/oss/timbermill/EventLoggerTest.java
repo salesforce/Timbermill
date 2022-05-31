@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import org.awaitility.Awaitility;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -41,6 +42,7 @@ public class EventLoggerTest {
 
 	@After
 	public void tearDown() {
+		el.clearStack();
 		EventLogger.exit();
 		mockPipe.close();
 	}
