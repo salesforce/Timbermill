@@ -3,6 +3,7 @@ package com.datorama.oss.timbermill;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.awaitility.Awaitility;
 import org.junit.After;
@@ -71,6 +72,20 @@ public class EventLoggerTest {
 		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 
 		String callableVisibleTaskId = wrappedCallable.call();
+
+		assertEquals(callableVisibleTaskId, parentTaskId);
+	}
+
+	@Test
+	public void testWrapFunction() throws Exception {
+		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+		Function<Integer, String> wrappedFunction = el.<Integer, String>wrapFunction(ignored -> {
+			return el.getCurrentTaskId();
+		});
+
+		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+
+		String callableVisibleTaskId = wrappedFunction.apply(42);
 
 		assertEquals(callableVisibleTaskId, parentTaskId);
 	}
