@@ -79,6 +79,20 @@ public class EventLoggerTest {
 	}
 
 	@Test
+	public void testWrapCallableOnEmptyStack() throws Exception {
+		Callable<String> wrappedCallable = el.wrapCallable(() -> {
+			String parentTaskId = TimberLogger.getCurrentTaskId();
+			String selfTaskId = TimberLogger.start("some_nifty_task");
+			TimberLogger.success();
+			return parentTaskId;
+		});
+
+		String callableVisibleTaskId = wrappedCallable.call();
+
+		assertNull(callableVisibleTaskId);
+	}
+
+	@Test
 	public void testWrapFunction() throws Exception {
 		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 		Function<Integer, String> wrappedFunction = el.<Integer, String>wrapFunction(ignored -> {
