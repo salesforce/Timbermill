@@ -185,7 +185,8 @@ final class EventLogger {
 
 		Scope(String taskId) {
 			taskIdStack = new Stack<String>();
-			taskIdStack.push(taskId);
+			if(null != taskId)
+				taskIdStack.push(taskId);
 		}
 
 		<T> T apply(Callable<T> c) throws Exception {
