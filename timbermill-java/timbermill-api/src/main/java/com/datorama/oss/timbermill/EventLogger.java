@@ -205,7 +205,7 @@ final class EventLogger {
 	<T> Callable<T> wrapCallable(Callable<T> callable) {
 		final String currentTaskId = getCurrentTaskId();
 		return () -> {
-			try(Scope scope = new Scope(currentTaskId)) {
+			try(Scope scope = threadInstance.get().new Scope(currentTaskId)) {
 				return scope.apply(callable);
 			}
 		};
@@ -214,7 +214,7 @@ final class EventLogger {
 	<T, R> Function<T, R> wrapFunction(Function<T, R> function) {
 		final String currentTaskId = getCurrentTaskId();
 		return (in) -> {
-			try(Scope scope = new Scope(currentTaskId)) {
+			try(Scope scope = threadInstance.get().new Scope(currentTaskId)) {
 				return scope.apply(function, in);
 			}
 		};
