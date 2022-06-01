@@ -2,6 +2,7 @@ package com.datorama.oss.timbermill;
 
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -68,14 +69,14 @@ public class EventLoggerTest {
 	public void testWrapCallable() throws Exception {
 		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 		Callable<String> wrappedCallable = el.wrapCallable(() -> {
-			return el.getCurrentTaskId();
+			return EventLogger.get().getCurrentTaskId();
 		});
 
 		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 
 		String callableVisibleTaskId = wrappedCallable.call();
 
-		assertEquals(callableVisibleTaskId, parentTaskId);
+		assertEquals(parentTaskId, callableVisibleTaskId);
 	}
 
 	@Test
@@ -93,17 +94,44 @@ public class EventLoggerTest {
 	}
 
 	@Test
+	public void testWrapCallableThreaded() throws Exception {
+		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+		Callable<String> wrappedCallable = el.wrapCallable(() -> {
+			return EventLogger.get().getCurrentTaskId();
+		});
+
+		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
+
+		CompletableFuture<String> future = new CompletableFuture<String>();
+
+		new Thread() {
+			@Override
+			public void run() {
+				try {
+					future.complete(wrappedCallable.call());
+				} catch (Exception ex) {
+					future.completeExceptionally(ex);
+				}
+			}
+		}.start();
+
+		String futureVisibleTaskId = future.get();
+
+		assertEquals(parentTaskId, futureVisibleTaskId);
+	}
+
+	@Test
 	public void testWrapFunction() throws Exception {
 		String parentTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 		Function<Integer, String> wrappedFunction = el.<Integer, String>wrapFunction(ignored -> {
-			return el.getCurrentTaskId();
+			return EventLogger.get().getCurrentTaskId();
 		});
 
 		String childTaskId = el.startEvent(QUERY, EMPTY_LOG_PARAMS);
 
 		String callableVisibleTaskId = wrappedFunction.apply(42);
 
-		assertEquals(callableVisibleTaskId, parentTaskId);
+		assertEquals(parentTaskId, callableVisibleTaskId);
 	}
 
 	@Test
