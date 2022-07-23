@@ -15,7 +15,7 @@
     <properties>
         <java.source-target.version>1.8</java.source-target.version>
         <timbermill.version>2.4.8</timbermill.version>
-        <kamon.bundle.version>2.0.4</kamon.bundle.version>
+        <kamon.bundle.version>2.5.5</kamon.bundle.version>
     </properties>
 
     <licenses>
