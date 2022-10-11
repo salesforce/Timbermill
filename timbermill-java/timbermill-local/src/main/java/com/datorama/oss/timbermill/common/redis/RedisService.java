@@ -59,6 +59,7 @@ public class RedisService {
             if (!StringUtils.isEmpty(redisMaxMemoryPolicy)) {
                 jedis.configSet("maxmemory-policy", "allkeys-lru");
             }
+            jedis.flushAll();
         }
 
         kryoPool = new Pool<Kryo>(true, false, 10) {
