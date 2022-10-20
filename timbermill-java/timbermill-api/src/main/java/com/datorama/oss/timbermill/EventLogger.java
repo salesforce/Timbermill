@@ -276,7 +276,8 @@ final class EventLogger {
 				logParams.text(Constants.EXCEPTION, t.getMessage());
 			}
 
-			logParams.string(Constants.EXCEPTION_NAME, t.toString());
+			logParams.string(Constants.EXCEPTION_TYPE, t.getClass().getSimpleName());
+			logParams.string(Constants.EXCEPTION_MESSAGE, t.getMessage());
 		}
 		Event e;
 		if (ongoingTaskId == null) {
