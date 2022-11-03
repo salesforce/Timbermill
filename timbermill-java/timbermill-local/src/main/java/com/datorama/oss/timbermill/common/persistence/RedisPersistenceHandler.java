@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.common.persistence;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.Event;
 import com.github.jedis.lock.JedisLock;
@@ -155,6 +156,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
         map.put(key, dbBulkRequest);
         if (!(redisService.pushToRedisList(FAILED_BULKS_QUEUE_NAME, key) && redisService.pushToRedis(map, ttl))) {
             LOG.error("Failed to persist bulk request number {} to Redis", bulkNum);
+            KamonConstants.TASKS_FETCHED_FROM_DISK_FAILED_COUNTER.withoutTags().increment();
         } else {
             LOG.info("Bulk #{} Key {} Bulk request was pushed successfully to Redis.", bulkNum, key);
         }

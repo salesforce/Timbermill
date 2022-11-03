@@ -305,6 +305,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 			return SerializationUtils.deserialize(blobAsArray);
 		} catch (SerializationException e){
 			LOG.error("Error deserializing list of events from DB", e);
+			KamonConstants.PERSISTENCE_DESERIALIZATION_FAILED_COUNTER.withoutTags().increment();
 			return Collections.emptyList();
 		}
 	}
@@ -321,6 +322,7 @@ public class SQLJetPersistenceHandler extends PersistenceHandler {
 			return new BulkRequest(stream);
 		} catch (SerializationException e){
 			LOG.error("Error deserializing Bulk request from DB", e);
+			KamonConstants.PERSISTENCE_DESERIALIZATION_FAILED_COUNTER.withoutTags().increment();
 			return new BulkRequest();
 		}
 	}

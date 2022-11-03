@@ -34,6 +34,14 @@ public class KamonConstants {
 	public static final Metric.Histogram TASKS_FETCHED_FROM_DISK_HISTOGRAM = Kamon.histogram("timbermill2.failed.tasks.fetched.from.disk.histogram");
 	public static final Metric.Timer EVENTS_FETCH_JOB_LATENCY = Kamon.timer("timbermill2.overflowed.events.fetch.job.latency.timer");
 	public static final Metric.Gauge CURRENT_DATA_IN_DB_GAUGE = Kamon.gauge("timbermill2.data.in.db.gauge");
+	public static final Metric.Counter BATCH_INDEXING_FAILED_COUNTER = Kamon.counter("timbermill2.elasticsearch.batch.indexing.failed.counter");
+	public static final Metric.Counter ORPHAN_CACHE_FAILED_COUNTER = Kamon.counter("timbermill2.orphan.cache.failed.counter");
+	public static final Metric.Counter PERSISTENCE_DESERIALIZATION_FAILED_COUNTER = Kamon.counter("timbermill2.deserialization.failed.counter");
+	public static final Metric.Counter CLEAR_SCROLL_IDS_FAILED_COUNTER = Kamon.counter("timbermill2.elasticsearch.clear.scroll.ids.failed.counter");
+	public static final Metric.Counter TASKS_FETCHED_FROM_DISK_FAILED_COUNTER = Kamon.counter("timbermill2.tasks.fetched.from.disk.failed.counter");
+	public static final Metric.Counter GET_FROM_REDIS_FAILED_COUNTER = Kamon.counter("timbermill2.redis.fetch.failed.counter");
+
+
 
 
 }
