@@ -39,7 +39,7 @@ public class EventsPersistentFetchJob implements Job {
 			int amountOfEvents = 0;
 			while (hasEnoughRoomLeft(eventsQueue)){
 				List<Event> events = persistenceHandler.fetchAndDeleteOverflowedEvents();
-				if (events.isEmpty()){
+				if (events == null){
 					break;
 				}
 				else {
