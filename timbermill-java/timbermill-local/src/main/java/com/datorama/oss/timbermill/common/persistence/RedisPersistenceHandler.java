@@ -137,6 +137,7 @@ public class RedisPersistenceHandler extends PersistenceHandler {
     private List<Event> fetchAndDeleteOverflowedEventsLogic() {
         LOG.info("Fetching overflowed events from Redis.");
         List<String> ids = redisService.popFromRedisList(OVERFLOWED_EVENTS_QUEUE_NAME, maxFetchedEventsListsInOneTime);
+        LOG.info("Fetched {} ids from list", ids.size());
         // get matching overflowed events from redis
         Map<String, List<Event>> overflowedEventsLists = redisService.getFromRedis(ids, true);
         redisService.deleteFromRedis(overflowedEventsLists.keySet());
