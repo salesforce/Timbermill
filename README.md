@@ -80,3 +80,4 @@ TimberLog.bootstrap(config);
  
  Get familiar with our [wiki](https://github.com/datorama/Timbermill/wiki) so you get a better sense on how to properly use Timbermill.
  
+
