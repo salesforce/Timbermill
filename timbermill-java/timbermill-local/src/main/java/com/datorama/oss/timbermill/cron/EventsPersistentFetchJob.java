@@ -36,18 +36,28 @@ public class EventsPersistentFetchJob implements Job {
 			MDC.put("id", flowId);
 			LOG.info("Overflowed Events Fetch Job started.");
 			Timer.Started start = KamonConstants.EVENTS_FETCH_JOB_LATENCY.withoutTags().start();
+			int amountOfEventsFetched = 0;
+			int amountOfEventIngested = 0;
 			while (hasEnoughRoomLeft(eventsQueue)){
 				List<Event> events = persistenceHandler.fetchAndDeleteOverflowedEvents();
-				if (events.isEmpty()){
+				if (events == null){
 					break;
 				}
 				else {
+					amountOfEventsFetched += events.size();
 					for (Event event : events) {
-                        LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
+						try {
+							LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
+							amountOfEventIngested++;
+						} catch (Exception e){
+							LOG.error("An error occured when trying to write event to queue", e);
+						}
 					}
+
 				}
 			}
 			start.stop();
+			LOG.info("Fetched {} overflowed events, ingested {}", amountOfEventsFetched, amountOfEventIngested);
 			LOG.info("Overflowed Events Fetch Job ended.");
 		}
 	}

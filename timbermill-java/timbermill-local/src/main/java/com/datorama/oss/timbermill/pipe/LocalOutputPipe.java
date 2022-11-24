@@ -102,12 +102,29 @@ public class LocalOutputPipe implements EventOutputPipe {
     }
 
     public static void pushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, LoadingCache<String, RateLimiter> rateLimiterMap, Event event) {
-        RateLimiter rateLimiter = rateLimiterMap.getUnchecked(Task.getNameFromId(event.getName(), event.getTaskId()));
-        CheckedRunnable restrictedCall = RateLimiter
-                .decorateCheckedRunnable(rateLimiter, () -> doPushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event));
+        RateLimiter rateLimiter = null;
+        try {
+            rateLimiter = rateLimiterMap.getUnchecked(Task.getNameFromId(event.getName(), event.getTaskId()));
+        } catch (Exception e) {
+            LOG.error("Null in rateLimiterMap");
+            throw e;
+        }
+        CheckedRunnable restrictedCall = null;
+        try {
+            restrictedCall = RateLimiter
+                    .decorateCheckedRunnable(rateLimiter, () -> doPushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event));
+        } catch (Exception e) {
+            LOG.error("Null in decorateCheckedRunnable");
+            throw e;
+        }
 
-        Try.run(restrictedCall)
-                .onFailure(e -> LOG.error("event {} was discarded because of rate limit", event.getTaskId()));
+        try {
+            Try.run(restrictedCall)
+                    .onFailure(e -> LOG.error("event {} was discarded because of rate limit", event.getTaskId()));
+        } catch (Exception e) {
+            LOG.error("Null in restrictedCall");
+            throw e;
+        }
     }
 
 
