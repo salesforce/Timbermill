@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.common.cache;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.datorama.oss.timbermill.common.redis.RedisService;
 import com.datorama.oss.timbermill.unit.LocalTask;
 import com.github.jedis.lock.JedisLock;
@@ -54,6 +55,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         }
         if (!redisService.pushToRedis(newOrphansMap, redisTtlInSeconds)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
+            KamonConstants.ORPHAN_CACHE_FAILED_COUNTER.withoutTags().increment();
         }
     }
 

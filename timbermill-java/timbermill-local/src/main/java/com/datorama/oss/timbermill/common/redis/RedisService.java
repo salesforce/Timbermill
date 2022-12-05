@@ -1,5 +1,6 @@
 package com.datorama.oss.timbermill.common.redis;
 
+import com.datorama.oss.timbermill.common.KamonConstants;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
@@ -134,6 +135,7 @@ public class RedisService {
                 }
             } catch (Exception e) {
                 LOG.error("Error getting keys from Redis. Keys: " + keysPartition, e);
+                KamonConstants.GET_FROM_REDIS_FAILED_COUNTER.withoutTags().increment();
             }
         }
         return retMap;
@@ -303,6 +305,7 @@ public class RedisService {
 
     private void printFailWarning(Status status) {
         LOG.warn("Failed try # " + status.getTotalTries() + "/" + redisMaxTries + " for [Redis - " + status.getCallName() + "].", status.getLastExceptionThatCausedRetry());
+        KamonConstants.GET_FROM_REDIS_FAILED_COUNTER.withTag("totalTries", status.getTotalTries()).withTag("maxTries", redisMaxTries).withTag("name", status.getCallName()).increment();
     }
 
     // endregion

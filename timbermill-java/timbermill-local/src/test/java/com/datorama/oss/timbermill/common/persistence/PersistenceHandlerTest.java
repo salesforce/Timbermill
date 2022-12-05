@@ -84,7 +84,13 @@ public abstract class PersistenceHandlerTest {
         List<Event> fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
         assertEquals(5, fetchedEvents.size());
         fetchedEvents = persistenceHandler.fetchAndDeleteOverflowedEvents();
-        assertEquals(0, fetchedEvents.size());
+        int size;
+        if (fetchedEvents == null) {
+            size=0;
+        } else {
+            size = fetchedEvents.size();
+        }
+        assertEquals(0, size);
     }
 
     public void fetchesCounter() throws InterruptedException, ExecutionException {
