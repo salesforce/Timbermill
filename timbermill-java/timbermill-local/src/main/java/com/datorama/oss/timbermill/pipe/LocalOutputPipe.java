@@ -110,7 +110,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     }
 
 
-    private static void doPushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
+    public static void doPushEventToQueues(PersistenceHandler persistenceHandler, BlockingQueue<Event> eventsQueue, BlockingQueue<Event> overflowedQueue, Event event) {
         if (!eventsQueue.offer(event)) {
             if (!overflowedQueue.offer(event)) {
                 persistenceHandler.spillOverflownEvents(overflowedQueue);
