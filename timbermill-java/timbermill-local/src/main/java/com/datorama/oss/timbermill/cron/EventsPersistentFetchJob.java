@@ -49,7 +49,7 @@ public class EventsPersistentFetchJob implements Job {
 					for (Event event : events) {
 						try {
 							if (event != null) {
-								LocalOutputPipe.doPushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event)
+								LocalOutputPipe.doPushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, event);
 								amountOfEventIngested++;
 							}
 						} catch (Exception e){
