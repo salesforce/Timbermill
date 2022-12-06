@@ -24,6 +24,7 @@ import static com.datorama.oss.timbermill.common.ElasticsearchUtil.*;
 public class EventsPersistentFetchJob implements Job {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EventsPersistentFetchJob.class);
+	private boolean first = true;
 
 	@Override public void execute(JobExecutionContext context) {
 		PersistenceHandler persistenceHandler = (PersistenceHandler) context.getJobDetail().getJobDataMap().get(PERSISTENCE_HANDLER);
@@ -47,10 +48,15 @@ public class EventsPersistentFetchJob implements Job {
 					amountOfEventsFetched += events.size();
 					for (Event event : events) {
 						try {
-							LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
-							amountOfEventIngested++;
+							if (event != null) {
+								LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
+								amountOfEventIngested++;
+							}
 						} catch (Exception e){
-							LOG.error("An error occured when trying to write event to queue", e);
+							if (first) {
+								LOG.error("First ERROR, An error occured when trying to write event to queue", e);
+								first = false;
+							}
 						}
 					}
 
