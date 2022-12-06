@@ -92,6 +92,7 @@ public class IndexRetryManager {
 			} else {
 				LOG.error("Bulk #{} Requests will not be indexed because it was fetched maximum times ({}).", bulkNum, maxBulkIndexFetches);
 				KamonConstants.TASKS_FETCHED_FROM_DISK_HISTOGRAM.withTag("outcome", "failure").record(1);
+				KamonConstants.TASKS_FETCHED_FROM_DISK_FAILED_COUNTER.withoutTags().increment();
 			}
 		}
 		else {

@@ -386,6 +386,7 @@ public class ElasticsearchClient {
 				LOG.error("Bulk #{} An error was thrown while indexing a batch, going to retry", bulkNum, e);
 			} catch (ExecutionException e) {
 				LOG.error("Bulk #{} An error was thrown while indexing a batch, which won't be persisted", bulkNum, e);
+				KamonConstants.BATCH_INDEXING_FAILED_COUNTER.withTag("Bulk number", bulkNum).increment();
 			}
 			bulkNum++;
         }
@@ -767,6 +768,7 @@ public class ElasticsearchClient {
 				boolean succeeded = clearScrollResponse.isSucceeded();
 				if (!succeeded) {
 					LOG.error("Couldn't clear one of scroll ids {} for [{}]", scrollIds, functionDescription);
+					KamonConstants.CLEAR_SCROLL_IDS_FAILED_COUNTER.withTag("functionDescription", functionDescription).increment();
 				}
 				else{
 					final StringBuilder s = new StringBuilder();
@@ -775,6 +777,7 @@ public class ElasticsearchClient {
 				}
 			} catch (Throwable e) {
 				LOG.error("Couldn't clear one of scroll ids " + scrollIds + " for [" + functionDescription + "]", e);
+				KamonConstants.CLEAR_SCROLL_IDS_FAILED_COUNTER.withTag("functionDescription", functionDescription).increment();
 			}
 		}
 	}
