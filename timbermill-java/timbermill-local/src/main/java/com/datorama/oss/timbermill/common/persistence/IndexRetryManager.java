@@ -65,7 +65,7 @@ public class IndexRetryManager {
 	private DbBulkRequest failureResponseHandling(DbBulkRequest dbBulkRequest, int bulkNum, int tryNum, BulkResponse response) {
 		dbBulkRequest = extractFailedRequestsFromBulk(dbBulkRequest, response);
 		String failureMessage = response.buildFailureMessage();
-		LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
+		LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: (failureResponseHandling) {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, failureMessage);
 		return dbBulkRequest;
 	}
 
