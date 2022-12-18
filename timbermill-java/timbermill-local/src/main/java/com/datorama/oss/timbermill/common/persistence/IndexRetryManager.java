@@ -53,7 +53,7 @@ public class IndexRetryManager {
 					}
 				}
 			} catch (Throwable t) {
-				LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage());
+				LOG.warn("Bulk #{} Try number #{}/{} has failed, failure message: (Exception) {}.", bulkNum, tryNum, numOfElasticSearchActionsTries, t.getMessage(), t);
 			}
 		}
 		// finishing to retry - if persistence is defined then try to persist the failed requests
