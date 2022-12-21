@@ -54,7 +54,7 @@ public abstract class TimberLogTest {
 	}
 
 	static void waitForCallable(Callable<Boolean> callable) {
-		Awaitility.await().atMost(60, TimeUnit.SECONDS).pollInterval(2, TimeUnit.SECONDS).until(callable);
+		Awaitility.await().atMost(5, TimeUnit.MINUTES).pollInterval(2, TimeUnit.SECONDS).until(callable);
 	}
 
 	static void assertNotOrphan(Task task){
