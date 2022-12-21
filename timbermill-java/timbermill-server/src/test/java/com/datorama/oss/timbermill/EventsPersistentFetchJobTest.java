@@ -6,6 +6,7 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.quartz.*;
 import org.quartz.impl.JobDetailImpl;
@@ -46,6 +47,7 @@ public class EventsPersistentFetchJobTest {
 	}
 
 	@Test
+	@Ignore
 	public void testFullQueue() {
 		String name = "full_queue_tests";
 		String id = Event.generateTaskId(name);
