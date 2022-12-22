@@ -66,7 +66,7 @@ public class EventsPersistentFetchJobTest {
 		JobExecutionContext context = new JobExecutionContextTest();
 		try {
 			Thread.sleep(5000);
-			job.execute(context);
+			new Thread(() -> job.execute(context)).start();
 		} catch (InterruptedException ex) {
 			ex.printStackTrace();
 		}
