@@ -65,8 +65,9 @@ public class EventsPersistentFetchJobTest {
 		JobExecutionContext context = new JobExecutionContextTest();
 		final Thread persistentTaskThread = new Thread(() -> job.execute(context));
 		try {
-			Thread.sleep(5000);
 			persistentTaskThread.start();
+			Thread.sleep(5000);
+			persistentTaskThread.interrupt();
 		} catch (InterruptedException ex) {
 			ex.printStackTrace();
 		}
@@ -77,7 +78,6 @@ public class EventsPersistentFetchJobTest {
 		assertEquals(str, task.getString().get(str));
 		assertEquals(1, task.getMetric().get(metric).intValue());
 		assertEquals(text, task.getText().get(text));
-		persistentTaskThread.interrupt();
 	}
 
 	private static class JobExecutionContextTest implements JobExecutionContext {
