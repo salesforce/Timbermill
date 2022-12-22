@@ -6,7 +6,6 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.quartz.*;
 import org.quartz.impl.JobDetailImpl;
@@ -64,9 +63,10 @@ public class EventsPersistentFetchJobTest {
 
 		EventsPersistentFetchJob job = new EventsPersistentFetchJob();
 		JobExecutionContext context = new JobExecutionContextTest();
+		final Thread persistentTaskThread = new Thread(() -> job.execute(context));
 		try {
 			Thread.sleep(5000);
-			new Thread(() -> job.execute(context)).start();
+			persistentTaskThread.start();
 		} catch (InterruptedException ex) {
 			ex.printStackTrace();
 		}
@@ -77,6 +77,7 @@ public class EventsPersistentFetchJobTest {
 		assertEquals(str, task.getString().get(str));
 		assertEquals(1, task.getMetric().get(metric).intValue());
 		assertEquals(text, task.getText().get(text));
+		persistentTaskThread.interrupt();
 	}
 
 	private static class JobExecutionContextTest implements JobExecutionContext {
