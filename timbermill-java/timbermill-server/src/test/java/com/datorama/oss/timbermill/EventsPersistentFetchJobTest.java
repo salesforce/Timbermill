@@ -47,7 +47,6 @@ public class EventsPersistentFetchJobTest {
 	}
 
 	@Test
-	@Ignore
 	public void testFullQueue() {
 		String name = "full_queue_tests";
 		String id = Event.generateTaskId(name);
