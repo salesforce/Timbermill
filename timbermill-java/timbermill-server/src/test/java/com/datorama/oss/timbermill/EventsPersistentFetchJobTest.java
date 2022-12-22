@@ -1,7 +1,10 @@
 package com.datorama.oss.timbermill;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
@@ -63,11 +66,17 @@ public class EventsPersistentFetchJobTest {
 
 		EventsPersistentFetchJob job = new EventsPersistentFetchJob();
 		JobExecutionContext context = new JobExecutionContextTest();
+		BlockingQueue<Event> eventsQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(EVENTS_QUEUE);
+		eventsQueue.drainTo(new ArrayList<>());
 		final Thread persistentTaskThread = new Thread(() -> job.execute(context));
 		try {
 			persistentTaskThread.start();
 			Thread.sleep(5000);
-			persistentTaskThread.interrupt();
+			for (int i = 0; i < 1000000; i++) {
+				eventsQueue.add(new StartEvent(Event.generateTaskId(name), name, LogParams.create().context(ctx, ctx).string(str, str).metric(metric, 1).text(text, text), null));
+			}
+			Thread.sleep(500);
+			eventsQueue.drainTo(new ArrayList<>());
 		} catch (InterruptedException ex) {
 			ex.printStackTrace();
 		}
