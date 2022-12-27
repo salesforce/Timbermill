@@ -97,7 +97,7 @@ public abstract class Event implements Serializable {
         return taskId;
     }
 
-	void setTaskId(String taskId) {
+	public void setTaskId(String taskId) {
 		this.taskId = taskId;
 	}
 
