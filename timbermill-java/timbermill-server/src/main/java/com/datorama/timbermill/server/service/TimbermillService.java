@@ -205,6 +205,7 @@ public class TimbermillService {
 	}
 
 	private ImmutablePair<String, Object> getTaskIdContextPair(String pairStr) {
+		LOG.info("trying to parse taskId {}", pairStr);
 		try {
 			return gson.fromJson(pairStr, pairType);
 		} catch (Exception e) {
