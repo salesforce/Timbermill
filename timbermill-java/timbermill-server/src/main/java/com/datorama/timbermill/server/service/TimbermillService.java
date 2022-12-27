@@ -14,8 +14,11 @@ import com.datorama.oss.timbermill.cron.CronsRunner;
 import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.cache.LoadingCache;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
+import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
@@ -46,6 +50,11 @@ public class TimbermillService {
 	private PersistenceHandler persistenceHandler;
 	private CronsRunner cronsRunner = new CronsRunner();
 	private int eventsMaxElement;
+
+	private Gson gson = new Gson();
+
+	private static final Type pairType = new TypeToken<ImmutablePair<String, Object>>() {
+	}.getType();
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -186,11 +195,21 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
+			event.setTaskId(getTaskIdContextPair(event.getTaskId()).getLeft());
 			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
 		}
 	}
 
 	PersistenceHandler getPersistenceHandler() {
 		return persistenceHandler;
+	}
+
+	private ImmutablePair<String, Object> getTaskIdContextPair(String pairStr) {
+		LOG.info("trying to parse taskId {}", pairStr);
+		try {
+			return gson.fromJson(pairStr, pairType);
+		} catch (Exception e) {
+			return ImmutablePair.of(pairStr, null);
+		}
 	}
 }
