@@ -15,7 +15,7 @@
     <properties>
         <java.source-target.version>1.8</java.source-target.version>
         <timbermill.version>2.5.1</timbermill.version>
-        <kamon.bundle.version>2.0.4</kamon.bundle.version>
+        <kamon.bundle.version>2.5.12</kamon.bundle.version>
     </properties>
 
     <licenses>
@@ -102,6 +102,13 @@
             <artifactId>kamon-bundle_2.11</artifactId>
             <version>${kamon.bundle.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.kamon</groupId>
+            <artifactId>kamon-prometheus_2.11</artifactId>
+            <version>${kamon.bundle.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.kamon</groupId>
             <artifactId>kamon-datadog_2.11</artifactId>
