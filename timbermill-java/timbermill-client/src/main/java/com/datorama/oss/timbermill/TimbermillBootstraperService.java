@@ -20,13 +20,13 @@ public class TimbermillBootstraperService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimbermillBootstraperService.class);
 
-	@Value("${timbermill.log.enabled:false}")
+	@Value("${timbermill.log.enabled:true}")
 	private boolean timberLogEnabled;
 
 	@Value("${env:undefined}")
 	private String hostType;
 
-	@Value("${timbermill.url:}")
+	@Value("${timbermill.url:http://localhost:8484}")
 	private String timbermillServer;
 
 	@Value("${timbermill.batch.max-size:2097152}")

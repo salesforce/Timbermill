@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import javax.validation.constraints.NotNull;
 
@@ -38,6 +39,10 @@ final class EventLogger {
 	 */
 	private Stack<String> taskIdStack = new Stack<>();
 	private final EventOutputPipe eventOutputPipe;
+
+	private static Boolean skipEvents = null;
+
+	private static Pattern pattern = null;
 
 	private EventLogger(EventOutputPipe eventOutputPipe) {
 		this.eventOutputPipe = eventOutputPipe;
@@ -361,9 +366,26 @@ final class EventLogger {
 		return sb.toString();
 	}
 
+	private Boolean shouldSkip(Event event) {
+		if (skipEvents == null) {
+			skipEvents = Boolean.valueOf(System.getProperty("skip.events", "false"));
+//			EventLogger.skipEvents = Boolean.valueOf(staticParams.get("skip.events"));
+		}
+		if (Boolean.valueOf(skipEvents)) {
+			//notToSkipRegex = System.getProperty("not.to.skip.events.regex", "*");
+			if (pattern == null) {
+				pattern = Pattern.compile(".*");
+			}
+			//return !pattern.matcher.(notToSkipRegex, event.getName());
+		}
+		return false;
+	}
+
 	private String submitEvent(Event event) {
 		event.setEnv(env);
-		eventOutputPipe.send(event);
+		if (!shouldSkip(event)) {
+			eventOutputPipe.send(event);
+		}
 		return event.getTaskId();
 	}
 
