@@ -2,10 +2,13 @@
 <configuration>
     <appender name="Console"
               class="ch.qos.logback.core.ConsoleAppender">
-        <layout class="ch.qos.logback.classic.PatternLayout">
-            <Pattern>
-                %-5r [%d{dd MMM yyyy HH:mm:ss.SSS}] [%-5p] [%t] [%c] - %replace(Flow ID: [%X{id}]){'Flow ID: \[\]', ''} %m%n
-            </Pattern>
+        <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                <prettyPrint>false</prettyPrint>
+            </jsonFormatter>
+            <timestampFormat>yyyy-MM-dd' 'HH:mm:ss.SSS</timestampFormat>
+            <appendLineSeparator>true</appendLineSeparator>
+            <includeContextName>true</includeContextName>
         </layout>
     </appender>
 

@@ -19,6 +19,7 @@
         <java.source-target.version>1.8</java.source-target.version>
         <timbermill.version>2.5.2</timbermill.version>
         <slf4jVersion>1.7.28</slf4jVersion>
+        <logbackVersion>0.1.5</logbackVersion>
     </properties>
 
     <dependencies>
@@ -74,6 +75,17 @@
             <artifactId>mockito-all</artifactId>
             <version>1.10.19</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback.contrib</groupId>
+            <artifactId>logback-json-classic</artifactId>
+            <version>${logbackVersion}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback.contrib</groupId>
+            <artifactId>logback-jackson</artifactId>
+            <version>${logbackVersion}</version>
         </dependency>
 
     </dependencies>
