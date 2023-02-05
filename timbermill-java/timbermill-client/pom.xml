@@ -6,7 +6,7 @@
 
     <groupId>com.datorama.oss</groupId>
     <artifactId>timbermill-client</artifactId>
-    <version>${timbermill.version}</version>
+    <version>valeria-version</version>
     <packaging>jar</packaging>
     <name>timbermill-client</name>
     <description>A better logging service</description>

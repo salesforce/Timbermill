@@ -41,6 +41,10 @@ public class TimbermillBootstraperService {
 	@Value("${timbermill.env:default}")
 	private String timbermillEnv;
 
+	@Value("skip.events") String skipEvents;
+
+	@Value("not.to.skip.events.regex") String regex;
+
 	private static final String JVM_UUID = UUID.randomUUID().toString();
 
 	@PostConstruct
@@ -52,6 +56,8 @@ public class TimbermillBootstraperService {
 				bootstrapParams.put("host", getHostName());
 				bootstrapParams.put("jvm", getJvmUuid());
 				bootstrapParams.put("hostType", hostType);
+				bootstrapParams.put("skipEvents", skipEvents);
+				bootstrapParams.put("skipEventsRegex", regex);
 
 				TimbermillServerOutputPipeBuilder builder = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillServer);
 				builder.maxEventsBatchSize(maxEventsBatchSize);
