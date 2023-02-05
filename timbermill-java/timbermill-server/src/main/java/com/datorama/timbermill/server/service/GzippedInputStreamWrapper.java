@@ -27,6 +27,7 @@ import com.google.common.net.HttpHeaders;
  */
 final class GzippedInputStreamWrapper extends HttpServletRequestWrapper {
 
+	//private static final Logger LOG = LoggerFactory.getLogger(GzippedInputStreamWrapper.class);
 	private static final Logger LOG = LoggerFactory.getLogger(GzippedInputStreamWrapper.class);
 
 
