@@ -57,7 +57,7 @@ public class TimbermillBootstraperService {
 				bootstrapParams.put("jvm", getJvmUuid());
 				bootstrapParams.put("hostType", hostType);
 				bootstrapParams.put("skipEvents", skipEvents);
-				bootstrapParams.put("skipEventsRegex", regex);
+				bootstrapParams.put("notToSkipEventsRegex", regex);
 
 				TimbermillServerOutputPipeBuilder builder = new TimbermillServerOutputPipeBuilder().timbermillServerUrl(timbermillServer);
 				builder.maxEventsBatchSize(maxEventsBatchSize);

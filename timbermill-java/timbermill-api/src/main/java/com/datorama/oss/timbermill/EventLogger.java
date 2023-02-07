@@ -40,7 +40,8 @@ final class EventLogger {
 	private Stack<String> taskIdStack = new Stack<>();
 	private final EventOutputPipe eventOutputPipe;
 
-	private static Boolean skipEvents = null;
+	private Boolean skipEvents = null;
+	private String notToSkipRegex = null;
 
 	private static Pattern pattern = null;
 
@@ -368,15 +369,14 @@ final class EventLogger {
 
 	private Boolean shouldSkip(Event event) {
 		if (skipEvents == null) {
-			skipEvents = Boolean.valueOf(System.getProperty("skip.events", "false"));
-//			EventLogger.skipEvents = Boolean.valueOf(staticParams.get("skip.events"));
+			skipEvents = Boolean.valueOf(staticParams.get("skipEvents"));
 		}
 		if (Boolean.valueOf(skipEvents)) {
-			//notToSkipRegex = System.getProperty("not.to.skip.events.regex", "*");
+			notToSkipRegex = staticParams.get("notToSkipEventsRegex");
 			if (pattern == null) {
-				pattern = Pattern.compile(".*");
+				pattern = Pattern.compile(notToSkipRegex);
 			}
-			//return !pattern.matcher.(notToSkipRegex, event.getName());
+			return !pattern.matcher(event.getName()).matches();
 		}
 		return false;
 	}
