@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Pattern;
 
 @Service
 public class TimbermillService {
@@ -46,6 +47,8 @@ public class TimbermillService {
 	private PersistenceHandler persistenceHandler;
 	private CronsRunner cronsRunner = new CronsRunner();
 	private int eventsMaxElement;
+
+
 
 	@Autowired
 	public TimbermillService(@Value("${INDEX_BULK_SIZE:200000}") Integer indexBulkSize,
@@ -186,9 +189,12 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events){
 		for (Event event : events) {
+			//here ?
 			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
 		}
 	}
+
+
 
 	PersistenceHandler getPersistenceHandler() {
 		return persistenceHandler;
