@@ -38,7 +38,7 @@ public class TimbermillService {
 	private TaskIndexer taskIndexer;
 	private BlockingQueue<Event> eventsQueue;
 	private BlockingQueue<Event> overflowedQueue;
-    private LoadingCache<String, RateLimiter> rateLimiterMap;
+	private LoadingCache<String, RateLimiter> rateLimiterMap;
 
 
 	private boolean keepRunning = true;
@@ -47,6 +47,13 @@ public class TimbermillService {
 	private PersistenceHandler persistenceHandler;
 	private CronsRunner cronsRunner = new CronsRunner();
 	private int eventsMaxElement;
+
+	@Value("${skip.events}")
+	String skipEvents;
+	@Value("${not.to.skip.events.regex}")
+	String notToSkipRegex;
+
+	private static Pattern pattern = null;
 
 
 
@@ -102,9 +109,10 @@ public class TimbermillService {
 							 @Value("${REDIS_POOL_MAX_TOTAL:50}") int redisPoolMaxTotal,
 							 @Value("${REDIS_MAX_TRIED:3}") int redisMaxTries,
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
-                             @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
-                             @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
-							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity) {
+							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
+							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
+							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity){
+
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
@@ -118,7 +126,7 @@ public class TimbermillService {
 		}
 		Map<String, Object> params = PersistenceHandler.buildPersistenceHandlerParams(maxFetchedBulksInOneTime, maxOverflowedEventsInOneTime, maxInsertTries, locationInDisk, persistenceRedisTtlInSec, redisService);
 		persistenceHandler = PersistenceHandlerUtil.getPersistenceHandler(persistenceStrategy, params);
-        rateLimiterMap = RateLimiterUtil.initRateLimiter(limitForPeriod, Duration.ofMinutes(limitRefreshPeriod), rateLimiterCapacity);
+		rateLimiterMap = RateLimiterUtil.initRateLimiter(limitForPeriod, Duration.ofMinutes(limitRefreshPeriod), rateLimiterCapacity);
 
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
@@ -162,16 +170,17 @@ public class TimbermillService {
 	}
 
 	@PreDestroy
-	public void tearDown(){
+	public void tearDown() {
 		LOG.info("Gracefully shutting down Timbermill Server.");
 		keepRunning = false;
 		long currentTimeMillis = System.currentTimeMillis();
-		while(!stoppedRunning && !reachTerminationTimeout(currentTimeMillis)){
+		while (!stoppedRunning && !reachTerminationTimeout(currentTimeMillis)) {
 			try {
 				Thread.sleep(ElasticsearchUtil.THREAD_SLEEP);
-			} catch (InterruptedException ignored) {}
+			} catch (InterruptedException ignored) {
+			}
 		}
-		if (persistenceHandler != null){
+		if (persistenceHandler != null) {
 			persistenceHandler.close();
 		}
 		taskIndexer.close();
@@ -181,19 +190,30 @@ public class TimbermillService {
 
 	private boolean reachTerminationTimeout(long starTime) {
 		boolean reachTerminationTimeout = System.currentTimeMillis() - starTime > terminationTimeout;
-		if (reachTerminationTimeout){
+		if (reachTerminationTimeout) {
 			LOG.warn("Timbermill couldn't gracefully shutdown in {} seconds, was killed with {} events in internal buffer", terminationTimeout / 1000, eventsQueue.size());
 		}
 		return reachTerminationTimeout;
 	}
 
-	void handleEvents(Collection<Event> events){
+	void handleEvents(Collection<Event> events) {
 		for (Event event : events) {
-			//here ?
-			LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
+			if (!shouldSkip(event)) {
+				LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
+			}
 		}
 	}
 
+	private Boolean shouldSkip(Event event) {
+		if (Boolean.parseBoolean(skipEvents)) {
+			if (pattern == null) {
+				pattern = Pattern.compile(notToSkipRegex);
+			}
+			Boolean match = pattern.matcher(event.getName()).matches();
+			return !match;
+		}
+		return false;
+	}
 
 
 	PersistenceHandler getPersistenceHandler() {

@@ -5,8 +5,6 @@ import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
@@ -36,15 +34,6 @@ public class TimbermillController {
 	private static ExecutorService executorService;
 	private final Cache<String, String> idsCache;
 
-	@Value("${skip.events}")
-	String skipEvents;
-
-	@Value("${not.to.skip.events.regex}")
-	String notToSkipRegex;
-
-	private static Pattern pattern = null;
-
-
 	@Autowired
 	private TimbermillService timbermillService;
 
@@ -61,17 +50,12 @@ public class TimbermillController {
 	public String ingestEvents(@RequestBody @Valid EventsWrapper eventsWrapper) {
 		executorService.submit(() -> {
 			String eventsId = eventsWrapper.getId();
-			if (eventsId != null) {
-				if (idsCache.getIfPresent(eventsId) != null) {
+			if (eventsId != null){
+				if (idsCache.getIfPresent(eventsId) != null){
 					LOG.warn("Got duplicated EventsWrapper {}", eventsWrapper.getEvents());
 					return;
-				} else {
-					if (Boolean.parseBoolean(skipEvents)) {
-						eventsWrapper.setEvents(
-								eventsWrapper.getEvents().stream()
-										.filter(event -> !shouldSkip(event))
-										.collect(Collectors.toList()));
-					}
+				}
+				else{
 					idsCache.put(eventsId, eventsId);
 				}
 			}
@@ -79,17 +63,6 @@ public class TimbermillController {
 			timbermillService.handleEvents(events);
 		});
 		return "Event received";
-	}
-
-	private Boolean shouldSkip(Event event) {
-		if (Boolean.parseBoolean(skipEvents)) {
-			if (pattern == null) {
-				pattern = Pattern.compile(notToSkipRegex);
-			}
-			Boolean match = pattern.matcher(event.getName()).matches();
-			return !match;
-		}
-		return false;
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/events/v2")
