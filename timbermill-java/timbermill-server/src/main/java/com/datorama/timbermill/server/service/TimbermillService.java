@@ -48,12 +48,10 @@ public class TimbermillService {
 	private CronsRunner cronsRunner = new CronsRunner();
 	private int eventsMaxElement;
 
-	@Value("${skip.events}")
-	String skipEvents;
-	@Value("${not.to.skip.events.regex}")
-	String notToSkipRegex;
-
 	private static Pattern pattern = null;
+
+	private String skipEvents;
+	private String notToSkipRegex;
 
 
 
@@ -111,12 +109,17 @@ public class TimbermillService {
 							 @Value("${FETCH_BY_IDS_PARTITIONS:10000}") int fetchByIdsPartitions,
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
-							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity){
+							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
+							 @Value("${skip.events:false}") String skipEvents,
+							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
+
+		this.skipEvents = skipEvents;
+		this.notToSkipRegex = notToSkipRegex;
 
 		RedisService redisService = null;
 		if (!StringUtils.isEmpty(redisHost)) {
