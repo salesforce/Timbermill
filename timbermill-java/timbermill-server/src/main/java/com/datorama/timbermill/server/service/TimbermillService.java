@@ -48,7 +48,8 @@ public class TimbermillService {
 	private CronsRunner cronsRunner = new CronsRunner();
 	private int eventsMaxElement;
 
-	private static Pattern pattern = null;
+	private static Pattern notToSkipRegexPattern = null;
+	private static Pattern metadataPatten = Pattern.compile("metadata.*");
 
 	private String skipEvents;
 	private String notToSkipRegex;
@@ -209,10 +210,13 @@ public class TimbermillService {
 
 	private Boolean shouldSkip(Event event) {
 		if (Boolean.parseBoolean(skipEvents)) {
-			if (pattern == null) {
-				pattern = Pattern.compile(notToSkipRegex);
+			if (metadataPatten.matcher(event.getName()).matches()) {
+				return false;
 			}
-			Boolean match = pattern.matcher(event.getName()).matches();
+			if (notToSkipRegexPattern == null) {
+				notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
+			}
+			Boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
 			return !match;
 		}
 		return false;
