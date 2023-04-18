@@ -211,12 +211,16 @@ public class TimbermillService {
 	private Boolean shouldSkip(Event event) {
 		if (Boolean.parseBoolean(skipEvents)) {
 			if (metadataPatten.matcher(event.getName()).matches()) {
+				LOG.info("skipEvents 1 | keeping task {} task id: {}", event.getName(), event.getTaskId());
 				return false;
 			}
 			if (notToSkipRegexPattern == null) {
 				notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
 			}
-			Boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
+			boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
+			if (match) {
+				LOG.info("skipEvents 2 | keeping task {} task id: {}", event.getName(), event.getTaskId());
+			}
 			return !match;
 		}
 		return false;
