@@ -51,7 +51,7 @@ public class TimbermillService {
 	private static Pattern notToSkipRegexPattern = null;
 	private static Pattern metadataPatten = Pattern.compile("metadata.*");
 
-	private String skipEvents;
+	private String skipEventsFlag;
 	private String notToSkipRegex;
 
 
@@ -111,7 +111,7 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
-							 @Value("${skip.events:false}") String skipEvents,
+							 @Value("${skip.events.flag:false}") String skipEventsFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
@@ -119,7 +119,7 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		this.skipEvents = skipEvents;
+		this.skipEventsFlag = skipEventsFlag;
 		this.notToSkipRegex = notToSkipRegex;
 
 		RedisService redisService = null;
@@ -202,17 +202,17 @@ public class TimbermillService {
 
 	void handleEvents(Collection<Event> events) {
 		for (Event event : events) {
-			if (!shouldSkip(event)) {
+			if (shouldKeep(event)) {
 				LocalOutputPipe.pushEventToQueues(persistenceHandler, eventsQueue, overflowedQueue, rateLimiterMap, event);
 			}
 		}
 	}
 
-	private Boolean shouldSkip(Event event) {
-		if (Boolean.parseBoolean(skipEvents)) {
+	private Boolean shouldKeep(Event event) {
+		if (Boolean.parseBoolean(skipEventsFlag)) {
 			if (metadataPatten.matcher(event.getName()).matches()) {
 				LOG.info("skipEvents 1 | keeping task {} task id: {}", event.getName(), event.getTaskId());
-				return false;
+				return true;
 			}
 			if (notToSkipRegexPattern == null) {
 				notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
@@ -221,12 +221,9 @@ public class TimbermillService {
 			if (match) {
 				LOG.info("skipEvents 2 | keeping task {} task id: {}", event.getName(), event.getTaskId());
 			}
-			else {
-				LOG.info("skipEvents 2 | skipping task {} task id: {}", event.getName(), event.getTaskId());
-			}
-			return !match;
+			return match;
 		}
-		return false;
+		return true;
 	}
 
 
