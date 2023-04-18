@@ -221,6 +221,9 @@ public class TimbermillService {
 			if (match) {
 				LOG.info("skipEvents 2 | keeping task {} task id: {}", event.getName(), event.getTaskId());
 			}
+			else {
+				LOG.info("skipEvents 2 | skipping task {} task id: {}", event.getName(), event.getTaskId());
+			}
 			return !match;
 		}
 		return false;
