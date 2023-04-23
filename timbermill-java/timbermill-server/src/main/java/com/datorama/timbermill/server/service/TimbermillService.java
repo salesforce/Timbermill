@@ -211,7 +211,6 @@ public class TimbermillService {
 	private Boolean shouldKeep(Event event) {
 		if (Boolean.parseBoolean(skipEventsFlag)) {
 			if (metadataPatten.matcher(event.getName()).matches()) {
-				LOG.info("skipEvents 1 | keeping task {} task id: {}", event.getName(), event.getTaskId());
 				return true;
 			}
 			if (notToSkipRegexPattern == null) {
@@ -219,7 +218,7 @@ public class TimbermillService {
 			}
 			boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
 			if (match) {
-				LOG.info("skipEvents 2 | keeping task {} task id: {}", event.getName(), event.getTaskId());
+				LOG.info("skipEvents | keeping task {} task id: {}", event.getName(), event.getTaskId());
 			}
 			return match;
 		}
