@@ -53,7 +53,8 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-        if (!redisService.pushToRedis(newOrphansMap, redisTtlInSeconds)){
+        final int ttlToUse = System.getenv("ORPHANS_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("ORPHANS_REDIS_TTL_SECONDS")) : redisTtlInSeconds;
+        if (!redisService.pushToRedis(newOrphansMap, ttlToUse)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
             KamonConstants.ORPHAN_CACHE_FAILED_COUNTER.withoutTags().increment();
         }
@@ -66,7 +67,8 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        boolean allPushed = redisService.pushToRedis(idsToMap, redisTtlInSeconds);
+        final int ttlToUse = System.getenv("CACHE_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("CACHE_REDIS_TTL_SECONDS")) : redisTtlInSeconds;
+        boolean allPushed = redisService.pushToRedis(idsToMap, ttlToUse);
         if (!allPushed){
             LOG.error("Failed to push some ids to Redis tasks cache.");
         }
