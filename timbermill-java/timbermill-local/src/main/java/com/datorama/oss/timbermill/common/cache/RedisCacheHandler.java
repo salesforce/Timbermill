@@ -23,6 +23,9 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private JedisLock lock;
     private final RedisService redisService;
     private final int redisTtlInSeconds;
+    
+    private int orphanRedisTTLRedisTTLInSeconds;
+    private int cacheRedisTTLRedisTTLInSeconds;
 
 
     RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds) {
@@ -31,6 +34,9 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         }
         this.redisService = redisService;
         this.redisTtlInSeconds = cacheRedisTtlInSeconds;
+        orphanRedisTTLRedisTTLInSeconds = System.getenv("ORPHANS_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("ORPHANS_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
+        cacheRedisTTLRedisTTLInSeconds = System.getenv("CACHE_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("CACHE_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
+        LOG.info("Initializing Timbermill Redis Cache with orphanRedisTTLRedisTTLInSeconds {} seconds and cacheRedisTTLRedisTTLInSeconds {}", orphanRedisTTLRedisTTLInSeconds, cacheRedisTTLRedisTTLInSeconds);
     }
 
     @Override
@@ -53,8 +59,8 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-        final int ttlToUse = System.getenv("ORPHANS_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("ORPHANS_REDIS_TTL_SECONDS")) : redisTtlInSeconds;
-        if (!redisService.pushToRedis(newOrphansMap, ttlToUse)){
+
+        if (!redisService.pushToRedis(newOrphansMap, orphanRedisTTLRedisTTLInSeconds)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
             KamonConstants.ORPHAN_CACHE_FAILED_COUNTER.withoutTags().increment();
         }
@@ -67,8 +73,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        final int ttlToUse = System.getenv("CACHE_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("CACHE_REDIS_TTL_SECONDS")) : redisTtlInSeconds;
-        boolean allPushed = redisService.pushToRedis(idsToMap, ttlToUse);
+        boolean allPushed = redisService.pushToRedis(idsToMap, cacheRedisTTLRedisTTLInSeconds);
         if (!allPushed){
             LOG.error("Failed to push some ids to Redis tasks cache.");
         }
