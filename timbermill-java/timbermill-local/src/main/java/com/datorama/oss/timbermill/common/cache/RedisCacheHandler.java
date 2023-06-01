@@ -24,8 +24,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private final RedisService redisService;
     private final int redisTtlInSeconds;
     
-    private int 
-        ;
+    private int orphanRedisTTLRedisTTLInSeconds;
     private int cacheRedisTTLRedisTTLInSeconds;
 
 
@@ -37,8 +36,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
         this.redisTtlInSeconds = cacheRedisTtlInSeconds;
         orphanRedisTTLRedisTTLInSeconds = System.getenv("ORPHANS_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("ORPHANS_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
         cacheRedisTTLRedisTTLInSeconds = System.getenv("CACHE_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("CACHE_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
-        LOG.info("Initializing Timbermill Redis Cache with ttl 
-                 {} seconds and cacheRedisTTLRedisTTLInSeconds {}", orphanRedisTTLRedisTTLInSeconds, cacheRedisTTLRedisTTLInSeconds);
+        LOG.info("Initializing Timbermill Redis Cache with orphanRedisTTLRedisTTLInSeconds {} seconds and cacheRedisTTLRedisTTLInSeconds {}", orphanRedisTTLRedisTTLInSeconds, cacheRedisTTLRedisTTLInSeconds);
     }
 
     @Override
