@@ -23,20 +23,24 @@ public class RedisCacheHandler extends AbstractCacheHandler {
     private JedisLock lock;
     private final RedisService redisService;
     private final int redisTtlInSeconds;
-    
-    private int orphanRedisTTLRedisTTLInSeconds;
-    private int cacheRedisTTLRedisTTLInSeconds;
 
+    private int cacheOrphansRedisTtlInSeconds;
+    private int cacheEventsRedisTtlInSeconds;
 
     RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds) {
+        this(redisService, cacheRedisTtlInSeconds, cacheRedisTtlInSeconds, cacheRedisTtlInSeconds);
+    }
+
+    RedisCacheHandler(RedisService redisService, int cacheRedisTtlInSeconds, int cacheOrphansRedisTtlInSeconds, int cacheEventsRedisTtlInSeconds) {
         if (redisService == null){
             throw new RuntimeException("Redis cache used but no redis host defined");
         }
         this.redisService = redisService;
         this.redisTtlInSeconds = cacheRedisTtlInSeconds;
-        orphanRedisTTLRedisTTLInSeconds = System.getenv("ORPHANS_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("ORPHANS_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
-        cacheRedisTTLRedisTTLInSeconds = System.getenv("CACHE_REDIS_TTL_SECONDS") != null ? Integer.parseInt(System.getenv("CACHE_REDIS_TTL_SECONDS")) : cacheRedisTtlInSeconds;
-        LOG.info("Initializing Timbermill Redis Cache with orphanRedisTTLRedisTTLInSeconds {} seconds and cacheRedisTTLRedisTTLInSeconds {}", orphanRedisTTLRedisTTLInSeconds, cacheRedisTTLRedisTTLInSeconds);
+        this.cacheEventsRedisTtlInSeconds = cacheEventsRedisTtlInSeconds;
+        this.cacheOrphansRedisTtlInSeconds = cacheOrphansRedisTtlInSeconds;
+        LOG.info("Initializing Timbermill Redis Cache with cacheEventsRedisTtlInSeconds: {}, cacheOrphansRedisTtlInSeconds: {}, cacheRedisTtlInSeconds:{} ", cacheEventsRedisTtlInSeconds,
+                cacheOrphansRedisTtlInSeconds, cacheRedisTtlInSeconds);
     }
 
     @Override
@@ -59,8 +63,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
             String orphanCacheKey = ORPHAN_PREFIX + entry.getKey();
             newOrphansMap.put(orphanCacheKey, entry.getValue());
         }
-
-        if (!redisService.pushToRedis(newOrphansMap, orphanRedisTTLRedisTTLInSeconds)){
+        if (!redisService.pushToRedis(newOrphansMap, cacheOrphansRedisTtlInSeconds)){
             LOG.error("Failed to push some ids to Redis orphans cache.");
             KamonConstants.ORPHAN_CACHE_FAILED_COUNTER.withoutTags().increment();
         }
@@ -73,7 +76,7 @@ public class RedisCacheHandler extends AbstractCacheHandler {
 
     @Override
     public void pushToTasksCache(Map<String, LocalTask> idsToMap) {
-        boolean allPushed = redisService.pushToRedis(idsToMap, cacheRedisTTLRedisTTLInSeconds);
+        boolean allPushed = redisService.pushToRedis(idsToMap, cacheEventsRedisTtlInSeconds);
         if (!allPushed){
             LOG.error("Failed to push some ids to Redis tasks cache.");
         }
