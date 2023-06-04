@@ -96,6 +96,8 @@ public class TimbermillService {
 							 @Value("${MAXIMUM_ORPHANS_CACHE_WEIGHT:1000000000}") long maximumOrphansCacheWeight,
 							 @Value("${CACHE_STRATEGY:}") String cacheStrategy,
 							 @Value("${CACHE_TTL_IN_SECONDS:604800}") int cacheRedisTtlInSeconds,
+							 @Value("${ORPHAN_CACHE_TTL_IN_SECONDS:86400}") int orphansCacheRedisTtlInSeconds, //One day
+							 @Value("${EVENTS_CACHE_TTL_IN_SECONDS:86400}") int eventsCacheRedisTtlInSeconds, //One day
 							 @Value("${REDIS_MAX_MEMORY:}") String redisMaxMemory,
 							 @Value("${REDIS_MAX_MEMORY_POLICY:}") String redisMaxMemoryPolicy,
 							 @Value("${REDIS_HOST:}") String redisHost,
