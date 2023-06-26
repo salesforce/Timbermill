@@ -288,7 +288,7 @@ public abstract class Event implements Serializable {
 					size += entry.getKey().length();
 				}
 				if (entry.getValue() != null) {
-					size += (Math.log10(entry.getValue().doubleValue()) + 1) + 4; // "":,
+					size += (entry.getValue().toString().length() + 1) + 4; // "":,
 				}
 			}
 		}
