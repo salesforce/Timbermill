@@ -9,7 +9,8 @@ import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.StartEvent;
 import com.google.common.cache.LoadingCache;
 import io.github.resilience4j.ratelimiter.RateLimiter;
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -19,11 +20,13 @@ import java.util.Collections;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
-public class TimbermillServiceTest extends TestCase {
+public class TimbermillServiceTest {
 
-    private static TimbermillService service = Mockito.mock(TimbermillService.class, Mockito.CALLS_REAL_METHODS);
+    private static final TimbermillService service = Mockito.mock(TimbermillService.class, Mockito.CALLS_REAL_METHODS);
 
     static final String EVENT = "event";
     static final String KEEP = "keep_event";
@@ -40,23 +43,18 @@ public class TimbermillServiceTest extends TestCase {
     LoadingCache<String, RateLimiter> rateLimiterMap = RateLimiterUtil.initRateLimiter(LIMIT_FOR_PERIOD, Duration.ofMinutes(LIMIT_REFRESH_PERIOD_MINUTES), RATE_LIMITER_CAPACITY);
 
 
-    public static void init() {
-
-        // Initialize the fields you need for your test
-//        ReflectionTestUtils.setField(service, "skipEventsFlag", "true");
-//        ReflectionTestUtils.setField(service, "notToSkipRegex", ".*TestEvent.*");
-//        final TimbermillService service = Mockito.mock(TimbermillService.class, Mockito.CALLS_REAL_METHODS);
-        System.out.print("Init()");
-
-    }
-
-    @TimberLogTask(name = EVENT)
-    public void testHandleEventsOneMatchingTask() {
+    @Before
+    public void init() {
 
         ReflectionTestUtils.setField(service, "persistenceHandler", persistenceHandler);
         ReflectionTestUtils.setField(service, "eventsQueue", eventsQueue);
         ReflectionTestUtils.setField(service, "overflowedQueue", overflowedQueue);
         ReflectionTestUtils.setField(service, "rateLimiterMap", rateLimiterMap);
+
+    }
+    @Test
+    @TimberLogTask(name = EVENT)
+    public void testHandleEventsOneMatchingTask() {
 
         ReflectionTestUtils.setField(service, "skipEventsFlag", "true");
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".*keep.*");
@@ -64,17 +62,11 @@ public class TimbermillServiceTest extends TestCase {
         Event event = new StartEvent(TimberLogger.getCurrentTaskId(), KEEP, new LogParams(), null);
 
         service.handleEvents(Collections.singletonList(event));
-
         assertTrue(eventsQueue.contains(event));
     }
-
+    @Test
     @TimberLogTask(name = EVENT)
     public void testHandleEventsOneNotMatchingTask() {
-
-        ReflectionTestUtils.setField(service, "persistenceHandler", persistenceHandler);
-        ReflectionTestUtils.setField(service, "eventsQueue", eventsQueue);
-        ReflectionTestUtils.setField(service, "overflowedQueue", overflowedQueue);
-        ReflectionTestUtils.setField(service, "rateLimiterMap", rateLimiterMap);
 
         ReflectionTestUtils.setField(service, "skipEventsFlag", "true");
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".*keep.*");
@@ -85,14 +77,10 @@ public class TimbermillServiceTest extends TestCase {
 
         assertFalse(eventsQueue.contains(event));
     }
-
+    @Test
     @TimberLogTask(name = EVENT)
     public void testHandleEventsMultipleTasks() {
 
-        ReflectionTestUtils.setField(service, "persistenceHandler", persistenceHandler);
-        ReflectionTestUtils.setField(service, "eventsQueue", eventsQueue);
-        ReflectionTestUtils.setField(service, "overflowedQueue", overflowedQueue);
-        ReflectionTestUtils.setField(service, "rateLimiterMap", rateLimiterMap);
 
         ReflectionTestUtils.setField(service, "skipEventsFlag", "true");
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".keep.*");
@@ -111,13 +99,9 @@ public class TimbermillServiceTest extends TestCase {
         assertFalse(eventsQueue.contains(eventToSkip2));
     }
 
+    @Test
     @TimberLogTask(name = EVENT)
     public void testHandleEventsMultipleTasksFlagClosed() {
-
-        ReflectionTestUtils.setField(service, "persistenceHandler", persistenceHandler);
-        ReflectionTestUtils.setField(service, "eventsQueue", eventsQueue);
-        ReflectionTestUtils.setField(service, "overflowedQueue", overflowedQueue);
-        ReflectionTestUtils.setField(service, "rateLimiterMap", rateLimiterMap);
 
         ReflectionTestUtils.setField(service, "skipEventsFlag", "false");
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".keep.*");
