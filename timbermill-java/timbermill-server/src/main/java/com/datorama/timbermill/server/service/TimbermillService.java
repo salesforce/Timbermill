@@ -53,6 +53,8 @@ public class TimbermillService {
 
 	private String skipEventsFlag;
 	private String notToSkipRegex;
+	private String notToSkipAccountAnalyticsRegex = ""
+
 
 
 
