@@ -73,6 +73,10 @@ class SizedBoundEventsQueue extends LinkedBlockingQueue<Event> {
 	}
 
 
+	public int getMaxSize() {
+		return maxSize;
+	}
+
 	@Override
 	public int size() {
 		return size.get();

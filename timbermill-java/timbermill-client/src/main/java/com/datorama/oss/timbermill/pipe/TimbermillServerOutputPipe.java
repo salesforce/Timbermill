@@ -159,7 +159,7 @@ public class TimbermillServerOutputPipe implements EventOutputPipe {
     @Override
     public void send(Event e) {
         if(!this.buffer.offer(e)){
-            LOG.warn("Event {} was removed from the queue due to insufficient space", e.getTaskId());
+            LOG.warn("Event {} with estimated size of {} was removed from the queue due to insufficient space. Current queue size {} max queue size {}", e.getTaskId(), e.estimatedSize(), this.buffer.size(), this.buffer.getMaxSize());
         }
     }
 
