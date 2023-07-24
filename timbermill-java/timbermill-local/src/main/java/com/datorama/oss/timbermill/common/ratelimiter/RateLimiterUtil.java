@@ -41,4 +41,8 @@ public class RateLimiterUtil {
         RateLimiterRegistry registry = RateLimiterRegistry.of(config);
         return registry.rateLimiter(name);
     }
+
+    public static RateLimiterConfig getRateLimiterConfig() {
+        return config;
+    }
 }
