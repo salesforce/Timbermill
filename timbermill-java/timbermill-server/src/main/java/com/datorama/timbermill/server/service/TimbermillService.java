@@ -50,13 +50,10 @@ public class TimbermillService {
 
 	private static Pattern notToSkipRegexPattern = null;
 	private static Pattern metadataPatten = Pattern.compile("metadata.*");
-	private static Pattern customerFacingPattern = Pattern.compile("(account_analytics.*)" +
-			"|(page_view.*)|(validate_login)|(last_workspace_update)|(interactive_dingo_query)|(widget_init)" +
-			"|(widget_rendered)|(page_load)|(iframe_route_states_log)|(workspace_analytics_average_query_load_time)" +
-			"|(top_workspace_analytics_orphan_count)|(workspace_analytics_orphan_count)");
+
 	private String skipEventsFlag;
 	private String notToSkipRegex;
-	private String keepCustomerFacingEvents;
+
 
 
 	@Autowired
@@ -117,8 +114,7 @@ public class TimbermillService {
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
 							 @Value("${skip.events.flag:false}") String skipEventsFlag,
-							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex,
-							 @Value("${KEEP_CUSTOMER_FACING_EVENTS:true}") String keepCustomerFacingEvents){
+							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
 		eventsQueue = new LinkedBlockingQueue<>(eventsQueueCapacity);
@@ -127,7 +123,6 @@ public class TimbermillService {
 
 		this.skipEventsFlag = skipEventsFlag;
 		this.notToSkipRegex = notToSkipRegex;
-		this.keepCustomerFacingEvents = keepCustomerFacingEvents;
 
 		RedisService redisService = null;
 		if (!StringUtils.isEmpty(redisHost)) {
@@ -220,11 +215,6 @@ public class TimbermillService {
 			if (metadataPatten.matcher(event.getName()).matches()) {
 				return true;
 			}
-			if ((Boolean.parseBoolean(keepCustomerFacingEvents))) {
-				if (customerFacingPattern.matcher(event.getName()).matches()) {
-					return true;
-				}
-			}
 			if (notToSkipRegexPattern == null) {
 				notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
 			}
@@ -236,6 +226,7 @@ public class TimbermillService {
 		}
 		return true;
 	}
+
 
 	PersistenceHandler getPersistenceHandler() {
 		return persistenceHandler;
