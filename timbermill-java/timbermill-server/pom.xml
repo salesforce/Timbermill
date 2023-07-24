@@ -87,6 +87,11 @@
             <artifactId>logback-jackson</artifactId>
             <version>${logbackVersion}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 
