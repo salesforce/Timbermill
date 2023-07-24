@@ -1,12 +1,14 @@
 package com.datorama.oss.timbermill;
 
 import com.datorama.oss.timbermill.annotation.TimberLogTask;
+import com.datorama.oss.timbermill.common.ratelimiter.RateLimiterUtil;
 import com.datorama.oss.timbermill.pipe.EventOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.datorama.oss.timbermill.unit.LogParams;
 import com.datorama.oss.timbermill.unit.Task;
 import com.datorama.oss.timbermill.unit.TaskStatus;
 import com.google.common.collect.Lists;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
@@ -602,8 +604,8 @@ public abstract class TimberLogTest {
 
 	public void testTaskReachedRateLimit() {
 		String ongoingTaskName = EVENT + "_rate_limit";
-		String limitStr = System.getenv("LIMIT_FOR_PERIOD");
-		int numOfEvents = limitStr != null ? Integer.valueOf(limitStr) + 1 : 51;
+		RateLimiterConfig config = RateLimiterUtil.getRateLimiterConfig();
+		int numOfEvents = config != null ? config.getLimitForPeriod() + 1 : 51;
 		String[] taskIds = new String[numOfEvents];
 
 		for (int i = 0; i < numOfEvents; i++) {
