@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
@@ -304,16 +305,23 @@ public class ElasticsearchUtil {
 	private static final String OLD_SUFFIX = "old";
 
 	private static final Set<String> envsSet = Sets.newConcurrentHashSet();
+	private static final Pattern metadataPatten = Pattern.compile("metadata.*");
+	private static Pattern notToSkipRegexPattern;
 
 	public static Set<String> getEnvSet() {
 		return envsSet;
 	}
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement) {
+		drainAndIndex(eventsQueue, taskIndexer, maxElement, "false", ".*");
+	}
+
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement, String skipEventsFlag, String notToSkipRegex) {
 		while (!eventsQueue.isEmpty()) {
 			try {
-				Collection<Event> events = new ArrayList<>();
-				eventsQueue.drainTo(events, maxElement);
+				Collection<Event> unfilteredEvents = new ArrayList<>();
+				eventsQueue.drainTo(unfilteredEvents, maxElement);
+				Collection<Event> events = unfilteredEvents.stream().filter(event-> shouldKeep(event, skipEventsFlag, notToSkipRegex)).collect(Collectors.toList());
 				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
@@ -344,6 +352,23 @@ public class ElasticsearchUtil {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}
 		}
+	}
+
+	private static Boolean shouldKeep(Event event, String skipEventsFlag, String notToSkipRegex) {
+		if (Boolean.parseBoolean(skipEventsFlag)) {
+			if (metadataPatten.matcher(event.getName()).matches()) {
+				return true;
+			}
+			if (notToSkipRegexPattern == null) {
+				notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
+			}
+			boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
+			if (match) {
+				LOG.info("skipEvents | keeping task {} task id: {}", event.getName(), event.getTaskId());
+			}
+			return match;
+		}
+		return true;
 	}
 
 	public static long getTimesDuration(ZonedDateTime taskIndexerStartTime, ZonedDateTime taskIndexerEndTime) {

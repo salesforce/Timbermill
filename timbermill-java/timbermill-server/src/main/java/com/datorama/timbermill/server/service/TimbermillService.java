@@ -168,7 +168,7 @@ public class TimbermillService {
 		Thread workingThread = new Thread(() -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, eventsMaxElement);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, eventsMaxElement, skipEventsFlag, notToSkipRegex);
 			}
 			stoppedRunning = true;
 		});
