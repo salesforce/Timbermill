@@ -51,7 +51,8 @@ public class TimbermillService {
 	private static Pattern notToSkipRegexPattern = null;
 	private static Pattern metadataPatten = Pattern.compile("metadata.*");
 
-	private String skipEventsFlag;
+	private String skipEventsAtInsertFlag;
+	private String skipEventsAtDrainFlag;
 	private String notToSkipRegex;
 
 
@@ -113,7 +114,8 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
-							 @Value("${skip.events.flag:false}") String skipEventsFlag,
+							 @Value("${skip.events.at.insert.flag:false}") String skipEventsAtInsertFlagFlag,
+							 @Value("${skip.events.at.drain.flag:false}") String skipEventsAtDrainFlagFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
@@ -121,7 +123,8 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		this.skipEventsFlag = skipEventsFlag;
+		this.skipEventsAtInsertFlag = skipEventsAtInsertFlagFlag;
+		this.skipEventsAtDrainFlag = skipEventsAtDrainFlagFlag;
 		this.notToSkipRegex = notToSkipRegex;
 
 		RedisService redisService = null;
@@ -168,7 +171,7 @@ public class TimbermillService {
 		Thread workingThread = new Thread(() -> {
 			LOG.info("Timbermill has started");
 			while (keepRunning) {
-				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, eventsMaxElement, skipEventsFlag, notToSkipRegex);
+				ElasticsearchUtil.drainAndIndex(eventsQueue, taskIndexer, eventsMaxElement, skipEventsAtDrainFlag, notToSkipRegex);
 			}
 			stoppedRunning = true;
 		});
@@ -211,7 +214,7 @@ public class TimbermillService {
 	}
 
 	private Boolean shouldKeep(Event event) {
-		if (Boolean.parseBoolean(skipEventsFlag)) {
+		if (Boolean.parseBoolean(skipEventsAtInsertFlag)) {
 			if (metadataPatten.matcher(event.getName()).matches()) {
 				return true;
 			}
@@ -220,7 +223,7 @@ public class TimbermillService {
 			}
 			boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
 			if (match) {
-				LOG.info("skipEvents | keeping task {} task id: {}", event.getName(), event.getTaskId());
+				LOG.info("skipEvents | keeping task {} task id: {} at insert", event.getName(), event.getTaskId());
 			}
 			return match;
 		}
