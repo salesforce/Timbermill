@@ -114,8 +114,8 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
-							 @Value("${skip.events.at.insert.flag:false}") String skipEventsAtInsertFlagFlag,
-							 @Value("${skip.events.at.drain.flag:false}") String skipEventsAtDrainFlagFlag,
+							 @Value("${skip.events.at.insert.flag:false}") String skipEventsAtInsertFlag,
+							 @Value("${skip.events.at.drain.flag:false}") String skipEventsAtDrainFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
@@ -123,8 +123,8 @@ public class TimbermillService {
 		overflowedQueue = new LinkedBlockingQueue<>(overFlowedQueueCapacity);
 		terminationTimeout = terminationTimeoutSeconds * 1000;
 
-		this.skipEventsAtInsertFlag = skipEventsAtInsertFlagFlag;
-		this.skipEventsAtDrainFlag = skipEventsAtDrainFlagFlag;
+		this.skipEventsAtInsertFlag = skipEventsAtInsertFlag;
+		this.skipEventsAtDrainFlag = skipEventsAtDrainFlag;
 		this.notToSkipRegex = notToSkipRegex;
 
 		RedisService redisService = null;
