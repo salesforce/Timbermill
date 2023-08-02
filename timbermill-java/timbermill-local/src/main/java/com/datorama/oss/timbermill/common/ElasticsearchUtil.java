@@ -313,10 +313,10 @@ public class ElasticsearchUtil {
 	}
 
 	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement) {
-		drainAndIndex(eventsQueue, taskIndexer, maxElement, "false", ".*");
+		drainAndIndex(eventsQueue, taskIndexer, maxElement, false, ".*");
 	}
 
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement, String skipEventsAtDrainFlag, String notToSkipRegex) {
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement, Boolean skipEventsAtDrainFlag, String notToSkipRegex) {
 		while (!eventsQueue.isEmpty()) {
 			try {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
@@ -354,8 +354,8 @@ public class ElasticsearchUtil {
 		}
 	}
 
-	private static Collection<Event> filterEvents(Collection<Event> unfilteredEvents, String skipEventsAtDrainFlag, String notToSkipRegex) {
-		if (Boolean.parseBoolean(skipEventsAtDrainFlag)) {
+	private static Collection<Event> filterEvents(Collection<Event> unfilteredEvents, Boolean skipEventsAtDrainFlag, String notToSkipRegex) {
+		if (skipEventsAtDrainFlag) {
 			return unfilteredEvents.stream()
 					.filter(event-> shouldKeep(event, notToSkipRegex))
 					.collect(Collectors.toList());
@@ -373,8 +373,10 @@ public class ElasticsearchUtil {
 		boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
 		if (match) {
 			LOG.info("skipEvents | keeping task {} task id: {} at drain", event.getName(), event.getTaskId());
+			return true;
 		}
-		return match;
+		LOG.debug("skipEvents | skipping task {} task id: {} at drain", event.getName(), event.getTaskId());
+		return false;
 	}
 
 	public static long getTimesDuration(ZonedDateTime taskIndexerStartTime, ZonedDateTime taskIndexerEndTime) {

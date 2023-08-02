@@ -51,8 +51,8 @@ public class TimbermillService {
 	private static Pattern notToSkipRegexPattern = null;
 	private static Pattern metadataPatten = Pattern.compile("metadata.*");
 
-	private String skipEventsAtInsertFlag;
-	private String skipEventsAtDrainFlag;
+	private Boolean skipEventsAtInsertFlag;
+	private Boolean skipEventsAtDrainFlag;
 	private String notToSkipRegex;
 
 
@@ -114,8 +114,8 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
-							 @Value("${skip.events.at.insert.flag:false}") String skipEventsAtInsertFlag,
-							 @Value("${skip.events.at.drain.flag:false}") String skipEventsAtDrainFlag,
+							 @Value("${skip.events.at.insert.flag:false}") Boolean skipEventsAtInsertFlag,
+							 @Value("${skip.events.at.drain.flag:false}") Boolean skipEventsAtDrainFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
 
 
@@ -214,7 +214,7 @@ public class TimbermillService {
 	}
 
 	private Boolean shouldKeep(Event event) {
-		if (Boolean.parseBoolean(skipEventsAtInsertFlag)) {
+		if (skipEventsAtInsertFlag) {
 			if (metadataPatten.matcher(event.getName()).matches()) {
 				return true;
 			}
@@ -224,8 +224,10 @@ public class TimbermillService {
 			boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
 			if (match) {
 				LOG.info("skipEvents | keeping task {} task id: {} at insert", event.getName(), event.getTaskId());
+				return true;
 			}
-			return match;
+			LOG.debug("skipEvents | skipping task {} task id: {} at insert", event.getName(), event.getTaskId());
+			return false;
 		}
 		return true;
 	}

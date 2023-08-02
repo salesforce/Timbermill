@@ -56,7 +56,7 @@ public class TimbermillServiceTest {
     @TimberLogTask(name = EVENT)
     public void testHandleEventsOneMatchingTask() {
 
-        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", "true");
+        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", true);
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".*keep.*");
 
         Event event = new StartEvent(TimberLogger.getCurrentTaskId(), KEEP, new LogParams(), null);
@@ -68,7 +68,7 @@ public class TimbermillServiceTest {
     @TimberLogTask(name = EVENT)
     public void testHandleEventsOneNotMatchingTask() {
 
-        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", "true");
+        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", true);
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".*keep.*");
 
         Event event = new StartEvent(TimberLogger.getCurrentTaskId(), SKIP, new LogParams(), null);
@@ -82,7 +82,7 @@ public class TimbermillServiceTest {
     public void testHandleEventsMultipleTasks() {
 
 
-        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", "true");
+        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", true);
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".keep.*");
 
         Event eventToKeep1 = new StartEvent(TimberLogger.getCurrentTaskId(), KEEP + "1", new LogParams(), null);
@@ -103,7 +103,7 @@ public class TimbermillServiceTest {
     @TimberLogTask(name = EVENT)
     public void testHandleEventsMultipleTasksFlagClosed() {
 
-        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", "false");
+        ReflectionTestUtils.setField(service, "skipEventsAtInsertFlag", false);
         ReflectionTestUtils.setField(service, "notToSkipRegex", ".keep.*");
 
         Event eventToKeep1 = new StartEvent(TimberLogger.getCurrentTaskId(), KEEP + "1", new LogParams(), null);
