@@ -357,25 +357,25 @@ public class ElasticsearchUtil {
 	private static Collection<Event> filterEvents(Collection<Event> unfilteredEvents, Boolean skipEventsAtDrainFlag, String notToSkipRegex) {
 		if (skipEventsAtDrainFlag) {
 			return unfilteredEvents.stream()
-					.filter(event-> shouldKeep(event, notToSkipRegex))
+					.filter(event-> shouldKeep(event.getName(), event.getTaskId(), notToSkipRegex))
 					.collect(Collectors.toList());
 		}
 		return unfilteredEvents;
 	}
 
-	private static Boolean shouldKeep(Event event, String notToSkipRegex) {
-		if (metadataPatten.matcher(event.getName()).matches()) {
+	private static Boolean shouldKeep(String eventName, String eventId, String notToSkipRegex) {
+		if (metadataPatten.matcher(eventName).matches()) {
 			return true;
 		}
 		if (notToSkipRegexPattern == null) {
 			notToSkipRegexPattern = Pattern.compile(notToSkipRegex);
 		}
-		boolean match = notToSkipRegexPattern.matcher(event.getName()).matches();
+		boolean match = notToSkipRegexPattern.matcher(eventName).matches();
 		if (match) {
-			LOG.info("skipEvents | keeping task {} task id: {} at drain", event.getName(), event.getTaskId());
+			LOG.info("skipEvents | keeping task {} task id: {} at drain", eventName, eventId);
 			return true;
 		}
-		LOG.debug("skipEvents | skipping task {} task id: {} at drain", event.getName(), event.getTaskId());
+		LOG.debug("skipEvents | skipping task {} task id: {} at drain", eventName, eventId);
 		return false;
 	}
 
