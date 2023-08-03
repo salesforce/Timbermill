@@ -69,7 +69,7 @@ public class EventsPersistentFetchJob implements Job {
 	}
 
 	private boolean hasEnoughRoomLeft(BlockingQueue<Event> eventsQueue) {
-		double threshold = (eventsQueue.remainingCapacity() + eventsQueue.size()) * 0.2; // Only when queue had at least 20% free we will start adding persistent events
+		double threshold = (eventsQueue.remainingCapacity() + eventsQueue.size()) * 0.5; // Only when queue had at least 50% free we will start adding persistent events
 		return eventsQueue.remainingCapacity() > threshold;
 	}
 
