@@ -316,7 +316,7 @@ public class ElasticsearchUtil {
 		drainAndIndex(eventsQueue, taskIndexer, maxElement, false, ".*");
 	}
 
-	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement, Boolean skipEventsAtDrainFlag, String notToSkipRegex) {
+	public static void drainAndIndex(BlockingQueue<Event> eventsQueue, TaskIndexer taskIndexer, int maxElement, boolean skipEventsAtDrainFlag, String notToSkipRegex) {
 		while (!eventsQueue.isEmpty()) {
 			try {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
@@ -354,7 +354,7 @@ public class ElasticsearchUtil {
 		}
 	}
 
-	private static Collection<Event> filterEvents(Collection<Event> unfilteredEvents, Boolean skipEventsAtDrainFlag, String notToSkipRegex) {
+	private static Collection<Event> filterEvents(Collection<Event> unfilteredEvents, boolean skipEventsAtDrainFlag, String notToSkipRegex) {
 		if (skipEventsAtDrainFlag) {
 			return unfilteredEvents.stream()
 					.filter(event-> shouldKeep(event.getName(), event.getTaskId(), notToSkipRegex))
@@ -363,7 +363,7 @@ public class ElasticsearchUtil {
 		return unfilteredEvents;
 	}
 
-	private static Boolean shouldKeep(String eventName, String eventId, String notToSkipRegex) {
+	private static boolean shouldKeep(String eventName, String eventId, String notToSkipRegex) {
 		if (metadataPatten.matcher(eventName).matches()) {
 			return true;
 		}
