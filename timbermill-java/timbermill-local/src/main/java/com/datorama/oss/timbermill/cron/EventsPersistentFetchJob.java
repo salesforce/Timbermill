@@ -31,7 +31,7 @@ public class EventsPersistentFetchJob implements Job {
 		BlockingQueue<Event> eventsQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(EVENTS_QUEUE);
 		BlockingQueue<Event> overflowedQueue = (BlockingQueue<Event>) context.getJobDetail().getJobDataMap().get(OVERFLOWED_EVENTS_QUEUE);
 		LoadingCache<String, RateLimiter> rateLimiterMap = (LoadingCache<String, RateLimiter>) context.getJobDetail().getJobDataMap().get(RATE_LIMITER_MAP);
-		if (persistenceHandler != null && hasEnoughRoomLeft(eventsQueue)) {
+		if (persistenceHandler != null && hasEnoughRoomLeft(eventsQueue) && isOverflowEmpty(overflowedQueue)) {
 			KamonConstants.CURRENT_DATA_IN_DB_GAUGE.withTag("type", "overflowed_events_lists_amount").update(persistenceHandler.overFlowedEventsListsAmount());
 			String flowId = "Overflowed Event Persistent Fetch Job - " + UUID.randomUUID().toString();
 			MDC.put("id", flowId);
@@ -71,6 +71,10 @@ public class EventsPersistentFetchJob implements Job {
 	private boolean hasEnoughRoomLeft(BlockingQueue<Event> eventsQueue) {
 		double threshold = (eventsQueue.remainingCapacity() + eventsQueue.size()) * 0.2; // Only when queue had at least 20% free we will start adding persistent events
 		return eventsQueue.remainingCapacity() > threshold;
+	}
+
+	private boolean isOverflowEmpty(BlockingQueue<Event> overflowedQueue) {
+		return overflowedQueue.isEmpty();
 	}
 
 }
