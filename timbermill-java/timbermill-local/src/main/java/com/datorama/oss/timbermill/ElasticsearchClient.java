@@ -975,7 +975,7 @@ public class ElasticsearchClient {
     private List<String> getIndicesToBeMoved(String alais) {
         try {
 			Set<String> indexNotToMerge = getAliases(alais + "*").keySet();
-            Request request = new Request("GET", "_cat/indices/" + alais + "*?format=json");
+            Request request = new Request("GET", "/_cat/indices/" + alais + "*?format=json");
             Response response = client.getLowLevelClient().performRequest(request);
             InputStream content = response.getEntity().getContent();
             String json = IOUtils.toString(content);
