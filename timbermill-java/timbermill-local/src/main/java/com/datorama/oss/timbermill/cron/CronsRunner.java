@@ -26,7 +26,7 @@ public class CronsRunner {
 	private Scheduler scheduler;
 
 	public void runCrons(String bulkPersistentFetchCronExp, String eventsPersistentFetchCronExp, PersistenceHandler persistenceHandler, ElasticsearchClient es, String deletionCronExp, BlockingQueue<Event> buffer,
-						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp, RedisService redisService, LoadingCache<String, RateLimiter> rateLimiterMap) {
+						 BlockingQueue<Event> overFlowedEvents, String mergingCronExp, RedisService redisService, LoadingCache<String, RateLimiter> rateLimiterMap, String indexMergingCronExp) {
 		final StdSchedulerFactory sf = new StdSchedulerFactory();
 		try {
 			 scheduler = sf.getScheduler();
@@ -45,6 +45,9 @@ public class CronsRunner {
 			if (!Strings.isEmpty(mergingCronExp)) {
 				runPartialMergingTasksCron(es, mergingCronExp, redisService);
 			}
+            if (!Strings.isEmpty(indexMergingCronExp)) {
+                runIndexMergingTasksCron(es, redisService, indexMergingCronExp);
+            }
 			scheduler.start();
 		} catch (SchedulerException e) {
 			LOG.error("Could not start crons", e);
@@ -118,6 +121,20 @@ public class CronsRunner {
 		CronTrigger trigger = newTrigger()
 				.withIdentity("trigger5", "group5")
 				.withSchedule(cronSchedule(mergingCronExp))
+				.build();
+		scheduler.scheduleJob(job, trigger);
+	}
+
+	private void runIndexMergingTasksCron(ElasticsearchClient es, RedisService redisService, String indexMergingCronExp) throws SchedulerException {
+		JobDataMap jobDataMap = new JobDataMap();
+		jobDataMap.put(CLIENT, es);
+		jobDataMap.put(REDIS_SERVICE, redisService);
+		JobDetail job = newJob(IndexMergerJob.class)
+				.withIdentity("job7", "group7").usingJobData(jobDataMap)
+				.build();
+		CronTrigger trigger = newTrigger()
+				.withIdentity("trigger7", "group7")
+				.withSchedule(cronSchedule(indexMergingCronExp))
 				.build();
 		scheduler.scheduleJob(job, trigger);
 	}

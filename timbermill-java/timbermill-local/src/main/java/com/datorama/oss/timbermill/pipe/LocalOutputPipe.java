@@ -65,7 +65,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
-                builder.mergingCronExp, redisService, rateLimiterMap);
+                builder.mergingCronExp, redisService, rateLimiterMap, builder.indexMergingCronExp);
         startQueueSpillerThread();
         startWorkingThread();
     }
@@ -208,6 +208,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0/1 * 1/1 * ? *";
+        private String indexMergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String persistenceHandlerStrategy = "redis";
@@ -296,6 +297,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder mergingCronExp(String mergingCronExp) {
             this.mergingCronExp = mergingCronExp;
+            return this;
+        }
+
+        public Builder indexMergingCronExp(String indexMergingCronExp) {
+            this.indexMergingCronExp = indexMergingCronExp;
             return this;
         }
 

@@ -35,6 +35,7 @@ import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptReque
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -57,6 +58,8 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -948,5 +951,113 @@ public class ElasticsearchClient {
 	public IndexRetryManager getRetryManager() {
 		return retryManager;
 	}
+
+    public void mergeIndexes() {
+		Set<String> currentAliases = getCurrentAliases();
+		currentAliases.forEach(alias -> {
+			List<String> indicesToBeMoved = getIndicesToBeMoved(alias);
+			List<List<String>> partition = Lists.partition(indicesToBeMoved, 2);
+			partition.forEach(indexes -> {
+				if (indexes.size() <= 1) {
+					return;
+				}
+				String sourceIndex = indexes.get(0);
+				String destIndex = indexes.get(1);
+				moveIndexAnotherIndex(sourceIndex, destIndex);
+			});
+		});
+    }
+
+	private Set<String> getCurrentAliases() {
+		return getAliases(TIMBERMILL_INDEX_WILDCARD).keySet().stream().map(index -> index.replaceAll(INDEX_DELIMITER + "\\d+$", "")).collect(Collectors.toSet());
+	}
+
+    private List<String> getIndicesToBeMoved(String alais) {
+        try {
+			Set<String> indexNotToMerge = getAliases(alais + "*").keySet();
+            Request request = new Request("GET", "_cat/indices/" + alais + "*?format=json");
+            Response response = client.getLowLevelClient().performRequest(request);
+            InputStream content = response.getEntity().getContent();
+            String json = IOUtils.toString(content);
+            JsonArray asJsonObject = new JsonParser().parse(json).getAsJsonArray();
+            List<String> indicesToMove = new ArrayList<>();
+            asJsonObject.forEach(jsonElement -> {
+                JsonObject jsonObject = jsonElement.getAsJsonObject();
+                String storeSize = jsonObject.get("store.size").getAsString();
+                String index = jsonObject.get("index").getAsString();
+                if (indexNotToMerge.contains(index)) {
+                    return;
+                }
+                if (isSizeLowerThen(storeSize, (long) (maxIndexSizeInGB * 0.1))) { // 10% of max index size
+                    indicesToMove.add(index);
+                }
+            });
+
+            LOG.info("Number of indices to be moved: {}", indicesToMove.size());
+            return indicesToMove;
+        } catch (Exception e) {
+            LOG.error("Failed to get indices to be moved", e);
+            return Collections.emptyList();
+        }
+    }
+
+    private boolean isSizeLowerThen(String storeSize, long maxIndexSizeInGB) {
+        String sizeUnit = storeSize.substring(storeSize.length() - 2);
+
+        if (sizeUnit.equals("kb") || sizeUnit.equals("mb")) {
+            return true;
+        }
+
+        String sizeStr = storeSize.substring(0, storeSize.length() - 2);
+        int size = Integer.parseInt(sizeStr);
+        return size < maxIndexSizeInGB;
+    }
+
+    private void moveIndexAnotherIndex(String sourceIndex, String destIndex) {
+        ReindexRequest reindexRequest = new ReindexRequest();
+        reindexRequest.setConflicts("proceed");
+        reindexRequest.setSourceIndices(sourceIndex);
+        reindexRequest.setDestIndex(destIndex);
+        reindexRequest.setDestOpType("create");
+
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery(TTL_FIELD).gte("now");
+        boolQuery.must(rangeQuery);
+
+        reindexRequest.setSourceQuery(boolQuery);
+        reindexRequest.setTimeout(TimeValue.timeValueMinutes(10));
+
+        try {
+            BulkByScrollResponse reindex = client.reindex(reindexRequest, RequestOptions.DEFAULT);
+            LOG.info("Moved {} documents from index {} to index {}", reindex.getCreated(), sourceIndex, destIndex);
+            if (isReindexSuccess(reindex)) {
+                deleteIndex(sourceIndex);
+            }
+
+        } catch (IOException e) {
+            LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
+        }
+    }
+
+    private boolean isReindexSuccess(BulkByScrollResponse reindex) {
+        boolean isSuccess = reindex.getBulkFailures().isEmpty() && reindex.getSearchFailures().isEmpty();
+        if (!isSuccess) {
+            LOG.error("Failed to reindex.Number of bulk failures: {},Number of search failures: {}", reindex.getBulkFailures().size(), reindex.getSearchFailures().size());
+        }
+        return isSuccess;
+    }
+
+    private void deleteIndex(String index) {
+        try {
+			LOG.info("Deleting index {}", index);
+            DeleteIndexRequest request = new DeleteIndexRequest(index);
+            AcknowledgedResponse res = client.indices().delete(request, RequestOptions.DEFAULT);
+            if (!res.isAcknowledged()) {
+                LOG.error("Failed to delete index {}", index);
+            }
+        } catch (IOException e) {
+            LOG.error("Failed to delete index {}", index, e);
+        }
+    }
 }
 
