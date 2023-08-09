@@ -955,16 +955,20 @@ public class ElasticsearchClient {
     public void mergeIndexes() {
 		Set<String> currentAliases = getCurrentAliases();
 		currentAliases.forEach(alias -> {
-			List<String> indicesToBeMoved = getIndicesToBeMoved(alias);
-			List<List<String>> partition = Lists.partition(indicesToBeMoved, 2);
-			partition.forEach(indexes -> {
-				if (indexes.size() <= 1) {
-					return;
-				}
-				String sourceIndex = indexes.get(0);
-				String destIndex = indexes.get(1);
-				moveIndexAnotherIndex(sourceIndex, destIndex);
-			});
+			try {
+				List<String> indicesToBeMoved = getIndicesToBeMoved(alias);
+				List<List<String>> partition = Lists.partition(indicesToBeMoved, 2);
+				partition.forEach(indexes -> {
+					if (indexes.size() <= 1) {
+						return;
+					}
+					String sourceIndex = indexes.get(0);
+					String destIndex = indexes.get(1);
+					moveIndexAnotherIndex(sourceIndex, destIndex);
+				});
+			} catch (Exception e) {
+				LOG.error("Failed to merge indexes for alias {}", alias, e);
+			}
 		});
     }
 
@@ -972,12 +976,13 @@ public class ElasticsearchClient {
 		return getAliases(TIMBERMILL_INDEX_WILDCARD).keySet().stream().map(index -> index.replaceAll(INDEX_DELIMITER + "\\d+$", "")).collect(Collectors.toSet());
 	}
 
-    private List<String> getIndicesToBeMoved(String alais) {
+    private List<String> getIndicesToBeMoved(String alais) throws IOException {
+		InputStream content = null;
         try {
 			Set<String> indexNotToMerge = getAliases(alais + "*").keySet();
             Request request = new Request("GET", "/_cat/indices/" + alais + "*?format=json");
             Response response = client.getLowLevelClient().performRequest(request);
-            InputStream content = response.getEntity().getContent();
+            content = response.getEntity().getContent();
             String json = IOUtils.toString(content);
             JsonArray asJsonObject = new JsonParser().parse(json).getAsJsonArray();
             List<String> indicesToMove = new ArrayList<>();
@@ -990,22 +995,31 @@ public class ElasticsearchClient {
                 }
                 if (isSizeLowerThen(storeSize, (long) (maxIndexSizeInGB * 0.1))) { // 10% of max index size
                     indicesToMove.add(index);
-                }
+					LOG.info("Index {} has a size of {}. Will be moved to another index", index, storeSize);
+				}
             });
-
             LOG.info("Number of indices to be moved: {}", indicesToMove.size());
             return indicesToMove;
         } catch (Exception e) {
             LOG.error("Failed to get indices to be moved", e);
             return Collections.emptyList();
-        }
+        } finally {
+			if (content != null) {
+				content.close();
+			}
+		}
     }
 
     private boolean isSizeLowerThen(String storeSize, long maxIndexSizeInGB) {
         String sizeUnit = storeSize.substring(storeSize.length() - 2);
 
-        if (sizeUnit.equals("kb") || sizeUnit.equals("mb")) {
+        if (sizeUnit.equalsIgnoreCase("kb") || sizeUnit.equalsIgnoreCase("mb")) {
             return true;
+        }
+
+        if (storeSize.length() < 2) {
+            LOG.info("Store size {} is not in the right format", storeSize);
+            return false;
         }
 
         String sizeStr = storeSize.substring(0, storeSize.length() - 2);
@@ -1033,8 +1047,7 @@ public class ElasticsearchClient {
             if (isReindexSuccess(reindex)) {
                 deleteIndex(sourceIndex);
             }
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
         }
     }
