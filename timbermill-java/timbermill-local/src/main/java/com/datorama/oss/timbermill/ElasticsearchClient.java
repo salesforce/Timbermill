@@ -1009,7 +1009,7 @@ public class ElasticsearchClient {
         }
 
         String sizeStr = storeSize.substring(0, storeSize.length() - 2);
-        int size = Integer.parseInt(sizeStr);
+        double size = Double.parseDouble(sizeStr);
         return size < maxIndexSizeInGB;
     }
 
