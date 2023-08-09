@@ -976,11 +976,11 @@ public class ElasticsearchClient {
 		return getAliases(TIMBERMILL_INDEX_WILDCARD).keySet().stream().map(index -> index.replaceAll(INDEX_DELIMITER + "\\d+$", "")).collect(Collectors.toSet());
 	}
 
-    private List<String> getIndicesToBeMoved(String alais) throws IOException {
+    private List<String> getIndicesToBeMoved(String alias) throws IOException {
 		InputStream content = null;
         try {
-			Set<String> indexNotToMerge = getAliases(alais + "*").keySet();
-            Request request = new Request("GET", "/_cat/indices/" + alais + "*?format=json");
+			Set<String> indexNotToMerge = getAliases(alias + "*").keySet();
+            Request request = new Request("GET", "/_cat/indices/" + alias + "*?format=json");
             Response response = client.getLowLevelClient().performRequest(request);
             content = response.getEntity().getContent();
             String json = IOUtils.toString(content);
