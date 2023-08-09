@@ -972,7 +972,7 @@ public class ElasticsearchClient {
 		return getAliases(TIMBERMILL_INDEX_WILDCARD).keySet().stream().map(index -> index.replaceAll(INDEX_DELIMITER + "\\d+$", "")).collect(Collectors.toSet());
 	}
 
-    private List<String> getIndicesToBeMoved(String alais) {
+    private List<String> getIndicesToBeMoved(String alias) {
         try {
 			Set<String> indexNotToMerge = getAliases(alais + "*").keySet();
             Request request = new Request("GET", "/_cat/indices/" + alais + "*?format=json");
