@@ -31,7 +31,6 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -51,6 +50,7 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.PutIndexTemplateRequest;
 import org.elasticsearch.client.indices.rollover.RolloverRequest;
 import org.elasticsearch.client.indices.rollover.RolloverResponse;
+import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.cluster.metadata.AliasMetadata;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
@@ -59,10 +59,7 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.ReindexAction;
 import org.elasticsearch.index.reindex.ReindexRequest;
-import org.elasticsearch.index.reindex.ReindexRequestBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -74,6 +71,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.slice.SliceBuilder;
+import org.elasticsearch.tasks.TaskId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -162,10 +160,6 @@ public class ElasticsearchClient {
             builder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
                     .setDefaultCredentialsProvider(credentialsProvider));
         }
-
-		builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-				.setSocketTimeout(600000)
-				.setConnectTimeout(RestClientBuilder.DEFAULT_CONNECT_TIMEOUT_MILLIS));
 
         client = new RestHighLevelClient(builder);
         if (bulker == null){
@@ -1042,51 +1036,60 @@ public class ElasticsearchClient {
         reindexRequest.setDestIndex(destIndex);
         reindexRequest.setDestOpType("create");
 		reindexRequest.setSlices(10);
+		reindexRequest.setTimeout(TimeValue.timeValueMinutes(10));
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery(TTL_FIELD).gte("now");
         boolQuery.must(rangeQuery);
 
         reindexRequest.setSourceQuery(boolQuery);
-        reindexRequest.setTimeout(TimeValue.timeValueMinutes(10));
 
-        try {
-			CountDownLatch latch = new CountDownLatch(1);
-			final boolean[] isSuccessful = {false};
-			client.reindexAsync(reindexRequest, RequestOptions.DEFAULT, new ActionListener<BulkByScrollResponse>() {
-				@Override
-				public void onResponse(BulkByScrollResponse response) {
-					try {
-						LOG.info("Moved {} documents from index {} to index {}", response.getCreated(), sourceIndex, destIndex);
-						isSuccessful[0] = isReindexSuccess(response);
-					} finally {
-						latch.countDown();
-					}
-				}
+		TaskId taskId;
 
-				@Override
-				public void onFailure(Exception e) {
-					LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
-					latch.countDown();
-				}
-			});
+		try {
+			TaskSubmissionResponse taskSubmissionResponse = client.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
+			taskId = new TaskId(taskSubmissionResponse.getTask());
+		} catch (Exception e) {
+			LOG.error("Failed to submit reindex task from index {} to index {}", sourceIndex, destIndex, e);
+			return;
+		}
 
-			latch.await(10, TimeUnit.MINUTES);
-			if (isSuccessful[0]) {
+		try {
+			if (isReindexSuccess(taskId)) {
 				deleteIndex(sourceIndex);
 			}
-
 		} catch (Exception e) {
-            LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
-        }
+			LOG.error("Failed to wait for reindex task from index {} to index {}", sourceIndex, destIndex, e);
+		}
     }
 
-    private boolean isReindexSuccess(BulkByScrollResponse reindex) {
-        boolean isSuccess = reindex.getBulkFailures().isEmpty() && reindex.getSearchFailures().isEmpty();
-        if (!isSuccess) {
-            LOG.error("Failed to reindex.Number of bulk failures: {},Number of search failures: {}", reindex.getBulkFailures().size(), reindex.getSearchFailures().size());
-        }
-        return isSuccess;
+    private boolean isReindexSuccess(TaskId taskId) {
+		InputStream content = null;
+		try {
+			while (true){
+				Request request = new Request("GET", "/_tasks/" + taskId.toString());
+				Response response = client.getLowLevelClient().performRequest(request);
+				content = response.getEntity().getContent();
+				String json = IOUtils.toString(content);
+				JsonObject jsonObject = new JsonParser().parse(json).getAsJsonObject();
+				boolean isCompleted = jsonObject.get("completed").getAsBoolean();
+				if (isCompleted) {
+					int numOfFailures = jsonObject.get("response").getAsJsonObject().get("failures").getAsJsonArray().size();
+					return numOfFailures == 0;
+				}
+			}
+		} catch (Exception e) {
+			LOG.error("Failed to get reindex task status", e);
+		}finally {
+			if (content != null) {
+				try {
+					content.close();
+				} catch (IOException e) {
+					LOG.error("Failed to close content", e);
+				}
+			}
+		}
+		return false;
     }
 
     private void deleteIndex(String index) {
