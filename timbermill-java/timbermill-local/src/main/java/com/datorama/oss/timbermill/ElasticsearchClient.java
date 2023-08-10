@@ -31,6 +31,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.storedscripts.PutStoredScriptRequest;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -1042,12 +1043,22 @@ public class ElasticsearchClient {
         reindexRequest.setTimeout(TimeValue.timeValueMinutes(10));
 
         try {
-            BulkByScrollResponse reindex = client.reindex(reindexRequest, RequestOptions.DEFAULT);
-            LOG.info("Moved {} documents from index {} to index {}", reindex.getCreated(), sourceIndex, destIndex);
-            if (isReindexSuccess(reindex)) {
-                deleteIndex(sourceIndex);
-            }
-        } catch (Exception e) {
+			client.reindexAsync(reindexRequest, RequestOptions.DEFAULT, new ActionListener<BulkByScrollResponse>() {
+				@Override
+				public void onResponse(BulkByScrollResponse response) {
+					LOG.info("Moved {} documents from index {} to index {}", response.getCreated(), sourceIndex, destIndex);
+					if (isReindexSuccess(response)) {
+						deleteIndex(sourceIndex);
+					}
+				}
+
+				@Override
+				public void onFailure(Exception e) {
+					LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
+				}
+			});
+
+		} catch (Exception e) {
             LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
         }
     }
