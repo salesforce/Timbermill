@@ -60,7 +60,9 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.ReindexAction;
 import org.elasticsearch.index.reindex.ReindexRequest;
+import org.elasticsearch.index.reindex.ReindexRequestBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -160,6 +162,10 @@ public class ElasticsearchClient {
             builder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
                     .setDefaultCredentialsProvider(credentialsProvider));
         }
+
+		builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+				.setSocketTimeout(600000)
+				.setConnectTimeout(RestClientBuilder.DEFAULT_CONNECT_TIMEOUT_MILLIS));
 
         client = new RestHighLevelClient(builder);
         if (bulker == null){
@@ -1029,6 +1035,7 @@ public class ElasticsearchClient {
     }
 
     private void moveIndexAnotherIndex(String sourceIndex, String destIndex) {
+		LOG.info("Moving index {} to {}", sourceIndex, destIndex);
         ReindexRequest reindexRequest = new ReindexRequest();
         reindexRequest.setConflicts("proceed");
         reindexRequest.setSourceIndices(sourceIndex);
@@ -1064,7 +1071,7 @@ public class ElasticsearchClient {
 				}
 			});
 
-			latch.await();
+			latch.await(10, TimeUnit.MINUTES);
 			if (isSuccessful[0]) {
 				deleteIndex(sourceIndex);
 			}

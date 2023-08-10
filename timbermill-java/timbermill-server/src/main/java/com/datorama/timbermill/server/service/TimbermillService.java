@@ -86,7 +86,7 @@ public class TimbermillService {
 							 @Value("${PERSISTENCE_STRATEGY:sqlite}") String persistenceStrategy,
 							 @Value("${BULK_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/1 * 1/1 * ? *}") String bulkPersistentFetchCronExp,
 							 @Value("${EVENTS_PERSISTENT_FETCH_CRON_EXPRESSION:0 0/5 * 1/1 * ? *}") String eventsPersistentFetchCronExp,
-                             @Value("${INDEX_MERGER_CRON_EXPRESSION:}") String indexMergerCronExp,
+                             @Value("${INDEX_MERGER_CRON_EXPRESSION:0 0/1 * * * ?}") String indexMergerCronExp,
 							 @Value("${MAX_FETCHED_BULKS_IN_ONE_TIME:100}") int maxFetchedBulksInOneTime,
 							 @Value("${MAX_FETCHED_EVENTS_IN_ONE_TIME:2}") int maxOverflowedEventsInOneTime,
 							 @Value("${MAX_INSERT_TRIES:3}") int maxInsertTries,
