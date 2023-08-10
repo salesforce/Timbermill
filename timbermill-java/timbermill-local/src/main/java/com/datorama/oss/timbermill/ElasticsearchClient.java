@@ -1044,20 +1044,29 @@ public class ElasticsearchClient {
         reindexRequest.setTimeout(TimeValue.timeValueMinutes(10));
 
         try {
+			CountDownLatch latch = new CountDownLatch(1);
 			client.reindexAsync(reindexRequest, RequestOptions.DEFAULT, new ActionListener<BulkByScrollResponse>() {
 				@Override
 				public void onResponse(BulkByScrollResponse response) {
-					LOG.info("Moved {} documents from index {} to index {}", response.getCreated(), sourceIndex, destIndex);
-					if (isReindexSuccess(response)) {
-						deleteIndex(sourceIndex);
+					try {
+						LOG.info("Moved {} documents from index {} to index {}", response.getCreated(), sourceIndex, destIndex);
+						if (isReindexSuccess(response)) {
+							deleteIndex(sourceIndex);
+						}
+					} finally {
+						latch.countDown();
 					}
+
 				}
 
 				@Override
 				public void onFailure(Exception e) {
 					LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
+					latch.countDown();
 				}
 			});
+
+			latch.await();
 
 		} catch (Exception e) {
             LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
@@ -1079,7 +1088,9 @@ public class ElasticsearchClient {
             AcknowledgedResponse res = client.indices().delete(request, RequestOptions.DEFAULT);
             if (!res.isAcknowledged()) {
                 LOG.error("Failed to delete index {}", index);
-            }
+            } else {
+				LOG.info("Index {} deleted", index);
+			}
         } catch (IOException e) {
             LOG.error("Failed to delete index {}", index, e);
         }
