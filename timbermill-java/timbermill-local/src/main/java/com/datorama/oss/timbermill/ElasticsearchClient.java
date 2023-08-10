@@ -1045,18 +1045,16 @@ public class ElasticsearchClient {
 
         try {
 			CountDownLatch latch = new CountDownLatch(1);
+			final boolean[] isSuccessful = {false};
 			client.reindexAsync(reindexRequest, RequestOptions.DEFAULT, new ActionListener<BulkByScrollResponse>() {
 				@Override
 				public void onResponse(BulkByScrollResponse response) {
 					try {
 						LOG.info("Moved {} documents from index {} to index {}", response.getCreated(), sourceIndex, destIndex);
-						if (isReindexSuccess(response)) {
-							deleteIndex(sourceIndex);
-						}
+						isSuccessful[0] = isReindexSuccess(response);
 					} finally {
 						latch.countDown();
 					}
-
 				}
 
 				@Override
@@ -1067,6 +1065,9 @@ public class ElasticsearchClient {
 			});
 
 			latch.await();
+			if (isSuccessful[0]) {
+				deleteIndex(sourceIndex);
+			}
 
 		} catch (Exception e) {
             LOG.error("Failed to move tasks from index {} to index {}", sourceIndex, destIndex, e);
