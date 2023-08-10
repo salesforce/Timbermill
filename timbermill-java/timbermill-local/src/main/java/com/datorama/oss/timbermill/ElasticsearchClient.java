@@ -1034,6 +1034,7 @@ public class ElasticsearchClient {
         reindexRequest.setSourceIndices(sourceIndex);
         reindexRequest.setDestIndex(destIndex);
         reindexRequest.setDestOpType("create");
+		reindexRequest.setSlices(10);
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery(TTL_FIELD).gte("now");
