@@ -120,10 +120,11 @@ public class ElasticsearchClient {
     private final int fetchByIdsPartitions;
     private AtomicInteger concurrentScrolls = new AtomicInteger(0);
     private final int expiredMaxIndicesTodeleteInParallel;
+    private int indexMergePercentage;
 
     public ElasticsearchClient(String elasticUrl, int indexBulkSize, int indexingThreads, String awsRegion, String elasticUser, String elasticPassword, long maxIndexAge,
                                long maxIndexSizeInGB, long maxIndexDocs, int numOfElasticSearchActionsTries, int maxBulkIndexFetches, int searchMaxSize, PersistenceHandler persistenceHandler, int numberOfShards, int numberOfReplicas,
-                               int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel) {
+                               int maxTotalFields, Bulker bulker, int scrollLimitation, int scrollTimeoutSeconds, int fetchByIdsPartitions, int expiredMaxIndicesTodeleteInParallel, int indexMergePercentage) {
 
         validateProperties(indexBulkSize, indexingThreads, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, numOfElasticSearchActionsTries, scrollLimitation,
                 scrollTimeoutSeconds, fetchByIdsPartitions, numberOfShards, expiredMaxIndicesTodeleteInParallel);
@@ -140,6 +141,7 @@ public class ElasticsearchClient {
         this.numberOfShards = numberOfShards;
         this.maxSlices = numberOfShards <= 1 ? 2 : numberOfShards;
         this.expiredMaxIndicesTodeleteInParallel = expiredMaxIndicesTodeleteInParallel;
+        this.indexMergePercentage = indexMergePercentage;
         HttpHost httpHost = HttpHost.create(elasticUrl);
         LOG.info("Connecting to Elasticsearch at url {}", httpHost.toURI());
         RestClientBuilder builder = RestClient.builder(httpHost);
@@ -986,7 +988,7 @@ public class ElasticsearchClient {
                 if (indexNotToMerge.contains(index)) {
                     return;
                 }
-                if (isSizeLowerThen(storeSize, (long) (maxIndexSizeInGB * 0.1))) { // 10% of max index size
+                if (isSizeLowerThen(storeSize, (maxIndexSizeInGB * indexMergePercentage))) { // 10% of max index size
                     indicesToMove.add(index);
                     LOG.info("Index {} has a size of {}. Will be moved to another index", index, storeSize);
                 }

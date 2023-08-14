@@ -81,6 +81,7 @@ public class TimbermillService {
 							 @Value("${OVERFLOWED_QUEUE_CAPACITY:10000000}") int overFlowedQueueCapacity,
 							 @Value("${MAX_BULK_INDEX_FETCHES:3}") int maxBulkIndexFetches,
 							 @Value("${MERGING_CRON_EXPRESSION:0 0/10 * 1/1 * ? *}") String mergingCronExp,
+							 @Value("${INDEX_MERGE_PERCENTAGE:10}") int indexMergePercentage,
 							 @Value("${DELETION_CRON_EXPRESSION:0 0 12 1/1 * ? *}") String deletionCronExp,
 							 @Value("${DELETION_CRON_MAX_INDICES_IN_PARALLEL:1}") int expiredMaxIndicesToDeleteInParallel,
 							 @Value("${PERSISTENCE_STRATEGY:sqlite}") String persistenceStrategy,
@@ -141,7 +142,7 @@ public class TimbermillService {
 
 		ElasticsearchClient es = new ElasticsearchClient(elasticUrl, indexBulkSize, indexingThreads, awsRegion, elasticUser,
 				elasticPassword, maxIndexAge, maxIndexSizeInGB, maxIndexDocs, numOfElasticSearchActionsTries, maxBulkIndexFetches, searchMaxSize, persistenceHandler, numberOfShards, numberOfReplicas,
-				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel);
+				maxTotalFields, null, scrollLimitation, scrollTimeoutSeconds, fetchByIdsPartitions, expiredMaxIndicesToDeleteInParallel, indexMergePercentage);
 
 		CacheConfig cacheParams = new CacheConfig(redisService, cacheRedisTtlInSeconds, maximumTasksCacheWeight, maximumOrphansCacheWeight, orphansCacheRedisTtlInSeconds, eventsCacheRedisTtlInSeconds);
 		AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, cacheParams);
