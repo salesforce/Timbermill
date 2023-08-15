@@ -56,7 +56,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         esClient = new ElasticsearchClient(builder.elasticUrl, builder.indexBulkSize, builder.indexingThreads, builder.awsRegion, builder.elasticUser, builder.elasticPassword,
                 builder.maxIndexAge, builder.maxIndexSizeInGB, builder.maxIndexDocs, builder.numOfElasticSearchActionsTries, builder.maxBulkIndexFetched, builder.searchMaxSize, persistenceHandler,
                 builder.numberOfShards, builder.numberOfReplicas, builder.maxTotalFields, builder.bulker, builder.scrollLimitation, builder.scrollTimeoutSeconds, builder.fetchByIdsPartitions,
-                builder.expiredMaxIndicesToDeleteInParallel);
+                builder.expiredMaxIndicesToDeleteInParallel, builder.indexMergePercentage);
         rateLimiterMap = RateLimiterUtil.initRateLimiter(builder.limitForPeriod, builder.limitRefreshPeriodMinutes, builder.rateLimiterCapacity);
 
         CacheConfig cacheParams = new CacheConfig(redisService, builder.redisTtlInSeconds, builder.maximumTasksCacheWeight, builder.maximumOrphansCacheWeight);
@@ -65,7 +65,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         cronsRunner = new CronsRunner();
         cronsRunner.runCrons(builder.bulkPersistentFetchCronExp, builder.eventsPersistentFetchCronExp, persistenceHandler, esClient,
                 builder.deletionCronExp, buffer, overflowedQueue,
-                builder.mergingCronExp, redisService, rateLimiterMap);
+                builder.mergingCronExp, redisService, rateLimiterMap, builder.indexMergingCronExp);
         startQueueSpillerThread();
         startWorkingThread();
     }
@@ -208,6 +208,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private long maxIndexDocs = 1000000000;
         private String deletionCronExp = "0 0 12 1/1 * ? *";
         private String mergingCronExp = "0 0/1 * 1/1 * ? *";
+        private String indexMergingCronExp = "0 0/1 * 1/1 * ? *";
         private String bulkPersistentFetchCronExp = "0 0/10 * 1/1 * ? *";
         private String eventsPersistentFetchCronExp = "0 0/5 * 1/1 * ? *";
         private String persistenceHandlerStrategy = "redis";
@@ -223,6 +224,7 @@ public class LocalOutputPipe implements EventOutputPipe {
         private int limitForPeriod = 10000;
         private Duration limitRefreshPeriodMinutes = Duration.ofMinutes(1);
         private int rateLimiterCapacity = 30000;
+        private int indexMergePercentage = 10;
 
         public Builder url(String elasticUrl) {
             this.elasticUrl = elasticUrl;
@@ -296,6 +298,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder mergingCronExp(String mergingCronExp) {
             this.mergingCronExp = mergingCronExp;
+            return this;
+        }
+
+        public Builder indexMergingCronExp(String indexMergingCronExp) {
+            this.indexMergingCronExp = indexMergingCronExp;
             return this;
         }
 
@@ -457,6 +464,11 @@ public class LocalOutputPipe implements EventOutputPipe {
 
         public Builder rateLimiterCapacity(int rateLimiterCapacity) {
             this.rateLimiterCapacity = rateLimiterCapacity;
+            return this;
+        }
+
+        public Builder indexMergePercentage(int indexMergePercentage) {
+            this.indexMergePercentage = indexMergePercentage;
             return this;
         }
 
