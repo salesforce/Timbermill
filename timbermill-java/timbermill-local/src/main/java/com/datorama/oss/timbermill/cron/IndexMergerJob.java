@@ -9,6 +9,8 @@ import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.util.UUID;
@@ -16,7 +18,9 @@ import java.util.UUID;
 @DisallowConcurrentExecution
 public class IndexMergerJob implements Job {
 
-    private static final String LOCK_NAME = ExpiredTasksDeletionJob.class.getSimpleName();
+    private static final String LOCK_NAME = IndexMergerJob.class.getSimpleName();
+
+    private static final Logger LOG = LoggerFactory.getLogger(IndexMergerJob.class);
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -25,6 +29,7 @@ public class IndexMergerJob implements Job {
         JedisLock lock;
         String flowId = "Index Merging Job - " + UUID.randomUUID();
         MDC.put("id", flowId);
+        LOG.info("Starting index merging job");
 
         if (redisService == null) {
             client.mergeIndexes();
@@ -35,5 +40,6 @@ public class IndexMergerJob implements Job {
                 redisService.release(lock);
             }
         }
+        LOG.info("Finished index merging job");
     }
 }
