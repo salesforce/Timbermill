@@ -45,6 +45,7 @@ public class CronsRunner {
 			if (!Strings.isEmpty(mergingCronExp)) {
 				runPartialMergingTasksCron(es, mergingCronExp, redisService);
 			}
+			LOG.info("Index merging cron expression is: {}", indexMergingCronExp);
             if (!Strings.isEmpty(indexMergingCronExp)) {
                 runIndexMergingTasksCron(es, redisService, indexMergingCronExp);
             }
