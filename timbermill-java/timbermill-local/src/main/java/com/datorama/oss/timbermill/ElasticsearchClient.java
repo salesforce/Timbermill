@@ -988,7 +988,7 @@ public class ElasticsearchClient {
                 if (indexNotToMerge.contains(index)) {
                     return;
                 }
-                if (isSizeLowerThen(storeSize, (maxIndexSizeInGB * indexMergePercentage))) { // 10% of max index size
+                if (isSizeLowerThen(storeSize, (maxIndexSizeInGB * indexMergePercentage/100))) { // 10% of max index size
                     indicesToMove.add(index);
                     LOG.info("Index {} has a size of {}. Will be moved to another index", index, storeSize);
                 }
@@ -1074,7 +1074,7 @@ public class ElasticsearchClient {
                     LOG.info("Reindex task completed. Created {} documents. Num of failures {}", created, numOfFailures);
                     return numOfFailures == 0;
                 } else {
-					Thread.sleep(1000);
+					Thread.sleep(10000);
                 }
             }
         } catch (Exception e) {
