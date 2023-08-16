@@ -983,12 +983,23 @@ public class ElasticsearchClient {
             List<String> indicesToMove = new ArrayList<>();
             asJsonObject.forEach(jsonElement -> {
                 JsonObject jsonObject = jsonElement.getAsJsonObject();
-                String storeSize = jsonObject.get("store.size").getAsString();
+                String status = jsonObject.get("status").toString();
                 String index = jsonObject.get("index").getAsString();
+                if (status.equalsIgnoreCase("close")) {
+                    try {
+                        deleteIndex(index);
+                        return;
+                    } catch (Exception e) {
+                        // ignore error
+                        return;
+                    }
+                }
+                String storeSize = jsonObject.get("store.size").getAsString();
+
                 if (indexNotToMerge.contains(index)) {
                     return;
                 }
-                if (isSizeLowerThen(storeSize, (maxIndexSizeInGB * indexMergePercentage/100))) { // 10% of max index size
+                if (isSizeLowerThen(storeSize, (maxIndexSizeInGB * indexMergePercentage / 100))) { // 10% of max index size
                     indicesToMove.add(index);
                     LOG.info("Index {} has a size of {}. Will be moved to another index", index, storeSize);
                 }
@@ -996,7 +1007,7 @@ public class ElasticsearchClient {
             LOG.info("Number of indices to be moved: {}", indicesToMove.size());
             return indicesToMove;
         } catch (Exception e) {
-            LOG.error("Failed to get indices to be moved", e);
+            LOG.error("Failed to get indices to be moved for alias {}",alias, e);
             return Collections.emptyList();
         } finally {
             if (content != null) {
@@ -1074,7 +1085,7 @@ public class ElasticsearchClient {
                     LOG.info("Reindex task completed. Created {} documents. Num of failures {}", created, numOfFailures);
                     return numOfFailures == 0;
                 } else {
-					Thread.sleep(10000);
+                    Thread.sleep(10000);
                 }
             }
         } catch (Exception e) {
@@ -1091,7 +1102,7 @@ public class ElasticsearchClient {
         return false;
     }
 
-    private void deleteIndex(String index) {
+    private void deleteIndex(String index) throws IOException {
         try {
             LOG.info("Deleting index {}", index);
             DeleteIndexRequest request = new DeleteIndexRequest(index);
@@ -1101,8 +1112,9 @@ public class ElasticsearchClient {
             } else {
                 LOG.info("Index {} deleted", index);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.error("Failed to delete index {}", index, e);
+            throw e;
         }
     }
 }
