@@ -983,7 +983,7 @@ public class ElasticsearchClient {
             List<String> indicesToMove = new ArrayList<>();
             asJsonObject.forEach(jsonElement -> {
                 JsonObject jsonObject = jsonElement.getAsJsonObject();
-                String status = jsonObject.get("status").toString();
+                String status = jsonObject.get("status").getAsString();
                 String index = jsonObject.get("index").getAsString();
                 if (status.equalsIgnoreCase("close")) {
                     try {
