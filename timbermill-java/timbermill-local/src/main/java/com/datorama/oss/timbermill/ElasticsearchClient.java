@@ -1023,6 +1023,10 @@ public class ElasticsearchClient {
             return true;
         }
 
+        if (sizeUnit.equalsIgnoreCase("tb")) {
+            return false;
+        }
+
         if (storeSize.length() < 2) {
             LOG.info("Store size {} is not in the right format", storeSize);
             return false;
