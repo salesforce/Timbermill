@@ -118,7 +118,7 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
-							 @Value("${client.facing.events.regex}") String clientFacingEventsRegex,
+							 @Value("${client.facing.events.regex:''}") String clientFacingEventsRegex,
 							 @Value("${skip.events.at.insert.flag:false}") boolean skipEventsAtInsertFlag,
 							 @Value("${skip.events.at.drain.flag:false}") boolean skipEventsAtDrainFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
