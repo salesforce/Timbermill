@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common;
 
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -308,7 +307,6 @@ public class ElasticsearchUtil {
 	private static final Set<String> envsSet = Sets.newConcurrentHashSet();
 	private static final Pattern metadataPatten = Pattern.compile("metadata.*");
 	private static Pattern notToSkipRegexPattern;
-	private static Pattern clientFacingEventsPattern = LocalOutputPipe.getClientFacingEventsPattern();
 
 	public static Set<String> getEnvSet() {
 		return envsSet;
@@ -324,18 +322,7 @@ public class ElasticsearchUtil {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
 				eventsQueue.drainTo(unfilteredEvents, maxElement);
 				Collection<Event> events = filterEvents(unfilteredEvents, skipEventsAtDrainFlag, notToSkipRegex);
-
-				if (clientFacingEventsPattern != null){
-					events.forEach(e -> {
-						if (clientFacingEventsPattern.matcher(e.getName()).matches()){
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
-						} else {
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
-						}
-					});
-				} else {
-					KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
-				}
+				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
 				events.forEach(e -> {
