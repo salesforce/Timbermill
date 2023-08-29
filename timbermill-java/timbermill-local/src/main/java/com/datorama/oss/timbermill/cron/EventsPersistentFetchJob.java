@@ -76,5 +76,4 @@ public class EventsPersistentFetchJob implements Job {
 	private boolean isOverflowEmpty(BlockingQueue<Event> overflowedQueue) {
 		return overflowedQueue.isEmpty();
 	}
-
 }
