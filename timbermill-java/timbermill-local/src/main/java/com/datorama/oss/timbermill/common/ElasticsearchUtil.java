@@ -328,9 +328,9 @@ public class ElasticsearchUtil {
 				if (clientFacingEventsPattern != null){
 					events.forEach(e -> {
 						if (clientFacingEventsPattern.matcher(e.getName()).matches()){
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement(events.size());
+							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
 						} else {
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement(events.size());
+							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
 						}
 					});
 				} else {
