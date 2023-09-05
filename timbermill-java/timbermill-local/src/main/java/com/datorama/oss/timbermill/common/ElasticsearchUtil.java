@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common;
 
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -323,6 +322,7 @@ public class ElasticsearchUtil {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
 				eventsQueue.drainTo(unfilteredEvents, maxElement);
 				Collection<Event> events = filterEvents(unfilteredEvents, skipEventsAtDrainFlag, notToSkipRegex);
+
 
 				if (LocalOutputPipe.getClientFacingEventsPattern() != null){
 					events.forEach(e -> {

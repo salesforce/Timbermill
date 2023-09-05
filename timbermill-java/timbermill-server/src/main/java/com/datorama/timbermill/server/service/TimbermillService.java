@@ -50,8 +50,6 @@ public class TimbermillService {
 
 	private static Pattern notToSkipRegexPattern = null;
 	private static Pattern metadataPatten = Pattern.compile("metadata.*");
-	private String clientFacingEventsRegex;
-	public static Pattern clientFacingEventsPattern = null;
 
 	private boolean skipEventsAtInsertFlag;
 	private boolean skipEventsAtDrainFlag;
@@ -118,7 +116,9 @@ public class TimbermillService {
 							 @Value("${LIMIT_FOR_PERIOD:30000}") int limitForPeriod,
 							 @Value("${LIMIT_REFRESH_PERIOD_MINUTES:1}") int limitRefreshPeriod,
 							 @Value("${RATE_LIMITER_CAPACITY:1000000}") int rateLimiterCapacity,
+
 							 @Value("${client.facing.events.regex:}") String clientFacingEventsRegex,
+
 							 @Value("${skip.events.at.insert.flag:false}") boolean skipEventsAtInsertFlag,
 							 @Value("${skip.events.at.drain.flag:false}") boolean skipEventsAtDrainFlag,
 							 @Value("${not.to.skip.events.regex:.*}") String notToSkipRegex){
@@ -131,10 +131,6 @@ public class TimbermillService {
 		this.skipEventsAtInsertFlag = skipEventsAtInsertFlag;
 		this.skipEventsAtDrainFlag = skipEventsAtDrainFlag;
 		this.notToSkipRegex = notToSkipRegex;
-
-		if (!clientFacingEventsRegex.isEmpty()){
-			clientFacingEventsPattern = Pattern.compile(clientFacingEventsRegex);
-		}
 
 		RedisService redisService = null;
 		if (!StringUtils.isEmpty(redisHost)) {
@@ -155,7 +151,6 @@ public class TimbermillService {
 		AbstractCacheHandler cacheHandler = CacheHandlerUtil.getCacheHandler(cacheStrategy, cacheParams);
 		this.eventsMaxElement = eventsMaxElement;
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
-		if(!(clientFacingEventsPattern == null)){LocalOutputPipe.setClientFacingEventsPattern(clientFacingEventsPattern);}
 		cronsRunner.runCrons(bulkPersistentFetchCronExp, eventsPersistentFetchCronExp, persistenceHandler, es, deletionCronExp,
 				eventsQueue, overflowedQueue, mergingCronExp, redisService, rateLimiterMap, indexMergerCronExp);
 		startQueueSpillerThread();

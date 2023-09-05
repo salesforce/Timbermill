@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.regex.Pattern;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -42,7 +41,6 @@ public class LocalOutputPipe implements EventOutputPipe {
     private boolean stoppedRunning = false;
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
     private LoadingCache<String, RateLimiter> rateLimiterMap;
-    private static Pattern clientFacingEventsPattern = null;
 
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
@@ -123,15 +121,7 @@ public class LocalOutputPipe implements EventOutputPipe {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         } else {
-            if (clientFacingEventsPattern != null) {
-                if (clientFacingEventsPattern.matcher(event.getName()).matches()) {
-                    KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).increment();
-                } else {
-                    KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).increment();
-                }
-            } else {
-                KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
-            }
+            KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
         }
     }
 
@@ -178,14 +168,6 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public void setRateLimiterMap(LoadingCache<String, RateLimiter> rateLimiterMap) {
         this.rateLimiterMap = rateLimiterMap;
-    }
-
-    public static void setClientFacingEventsPattern(Pattern newClientFacingEventsPattern){
-        clientFacingEventsPattern = newClientFacingEventsPattern;
-    }
-
-    public static Pattern getClientFacingEventsPattern(){
-        return clientFacingEventsPattern;
     }
 
     public static class Builder {
