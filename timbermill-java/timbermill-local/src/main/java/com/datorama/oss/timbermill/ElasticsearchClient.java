@@ -56,8 +56,8 @@ import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.core.TimeValue;
+import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.search.SearchHit;
@@ -95,7 +95,7 @@ public class ElasticsearchClient {
     public static final String TYPE = "_doc";
     public static final String TIMBERMILL_SCRIPT = "timbermill-script";
     public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeConverter()).create();
-    private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS);
+//    private static final TermsQueryBuilder PARTIALS_QUERY = new TermsQueryBuilder("status", TaskStatus.PARTIAL_ERROR, TaskStatus.PARTIAL_INFO_ONLY, TaskStatus.PARTIAL_SUCCESS);
     private static final String[] ALL_TASK_FIELDS = {"*"};
     private static final String[] PARENT_FIELDS_TO_FETCH = {"name", "parentId", "primaryId", "parentsPath", "orphan", "_index", CTX + ".*"};
 
@@ -574,7 +574,7 @@ public class ElasticsearchClient {
     private BoolQueryBuilder getLatestPartialsQuery() {
         BoolQueryBuilder latestPartialsQuery = QueryBuilders.boolQuery();
         latestPartialsQuery.filter(QueryBuilders.rangeQuery(META_TASK_BEGIN).to("now-1m"));
-        latestPartialsQuery.filter(PARTIALS_QUERY);
+//        latestPartialsQuery.filter(PARTIALS_QUERY);
         return latestPartialsQuery;
     }
 
