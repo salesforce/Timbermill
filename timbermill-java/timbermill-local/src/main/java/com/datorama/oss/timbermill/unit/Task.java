@@ -4,7 +4,7 @@ import com.datorama.oss.timbermill.ElasticsearchClient;
 import com.datorama.oss.timbermill.common.ElasticsearchUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.xcontent.XContentType;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.slf4j.Logger;
