@@ -14,7 +14,7 @@
 
     <properties>
         <java.source-target.version>1.8</java.source-target.version>
-        <timbermill.version>2.5.3</timbermill.version>
+        <timbermill.version>2.5.4</timbermill.version>
         <kamon.bundle.version>2.5.12</kamon.bundle.version>
     </properties>
 
@@ -88,8 +88,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.15.1
-            </version>
+            <version>3.41.2.2</version>
         </dependency>
         <dependency>
             <groupId>org.tmatesoft.sqljet</groupId>
