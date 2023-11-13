@@ -16,7 +16,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
-        <timbermill.version>2.5.3</timbermill.version>
+        <timbermill.version>2.5.4</timbermill.version>
         <slf4jVersion>1.7.28</slf4jVersion>
     </properties>
 
