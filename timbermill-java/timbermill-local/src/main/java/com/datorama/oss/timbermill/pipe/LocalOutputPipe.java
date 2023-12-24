@@ -127,8 +127,10 @@ public class LocalOutputPipe implements EventOutputPipe {
                 LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is NOT null");
                 if (Pattern.compile(clientFacingEventsRegex).matcher(event.getName()).matches()) {
                     KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).increment();
+                    LOG.info("MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER event name {} was sent to Grafana with tag client_facing=true", event.getName());
                 } else {
                     KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).increment();
+                    LOG.info("MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER event name {} was sent to Grafana with tag client_facing=false", event.getName());
                 }
             } else {
                 LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");
