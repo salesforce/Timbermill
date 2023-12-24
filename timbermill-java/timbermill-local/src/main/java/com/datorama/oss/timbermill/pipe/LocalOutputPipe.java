@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.regex.Pattern;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -41,6 +42,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private boolean stoppedRunning = false;
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
     private LoadingCache<String, RateLimiter> rateLimiterMap;
+    private static String clientFacingEventsRegex = null;
 
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
@@ -121,7 +123,19 @@ public class LocalOutputPipe implements EventOutputPipe {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         } else {
-            KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            if(clientFacingEventsRegex != null){
+                LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is NOT null");
+                if (Pattern.compile(clientFacingEventsRegex).matcher(event.getName()).matches()) {
+                    KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).increment();
+                    LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} was sent to Grafana with tag client_facing=true", event.getName());
+                } else {
+                    KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).increment();
+                    LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} was sent to Grafana with tag client_facing=false", event.getName());
+                }
+            } else {
+                LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");
+                KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            }
         }
     }
 
@@ -168,6 +182,14 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public void setRateLimiterMap(LoadingCache<String, RateLimiter> rateLimiterMap) {
         this.rateLimiterMap = rateLimiterMap;
+    }
+
+    public static String getClientFacingEventsRegex() {
+        return clientFacingEventsRegex;
+    }
+
+    public static void setClientFacingEventsRegex(String clientFacingEventsRegex) {
+        LocalOutputPipe.clientFacingEventsRegex = clientFacingEventsRegex;
     }
 
     public static class Builder {
