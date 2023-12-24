@@ -1,6 +1,7 @@
 package com.datorama.oss.timbermill.common;
 
 import com.datorama.oss.timbermill.TaskIndexer;
+import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -322,7 +323,19 @@ public class ElasticsearchUtil {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
 				eventsQueue.drainTo(unfilteredEvents, maxElement);
 				Collection<Event> events = filterEvents(unfilteredEvents, skipEventsAtDrainFlag, notToSkipRegex);
-				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
+				if(LocalOutputPipe.getClientFacingEventsRegex() != null){
+					LOG.info("ClientFacingEvents | ElasticsearchUtil | clientFacingEventsRegex is NOT null");
+					events.forEach(e -> {
+						if (Pattern.compile(LocalOutputPipe.getClientFacingEventsRegex()).matcher(e.getName()).matches()){
+							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
+						} else {
+							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
+						}
+					});
+				} else {
+					LOG.info("ClientFacingEvents | ElasticsearchUtil | clientFacingEventsRegex is null");
+					KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
+				}
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
 				events.forEach(e -> {
@@ -347,7 +360,8 @@ public class ElasticsearchUtil {
 					LOG.error("InterruptedException was thrown from TaskIndexer:", e);
 				}
 			} catch (NullPointerException e) {
-				LOG.error("NullPointerException was thrown from TaskIndexer:{}\n {}", e.getMessage(), e.getStackTrace());
+//				LOG.error("NullPointerException was thrown from TaskIndexer:{}\n {}", e.getMessage(), e.getStackTrace());
+				LOG.error("NullPointerException was thrown from TaskIndexer", e);
 			} catch (RuntimeException e) {
 				LOG.error("Error was thrown from TaskIndexer:", e);
 			}
