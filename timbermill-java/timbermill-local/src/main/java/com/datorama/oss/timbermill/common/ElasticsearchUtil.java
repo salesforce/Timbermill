@@ -328,8 +328,10 @@ public class ElasticsearchUtil {
 					events.forEach(e -> {
 						if (Pattern.compile(LocalOutputPipe.getClientFacingEventsRegex()).matcher(e.getName()).matches()){
 							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
+							LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=true decremented Grafana metric", e.getName());
 						} else {
 							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
+							LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=false decremented Grafana metric", e.getName());
 						}
 					});
 				} else {
