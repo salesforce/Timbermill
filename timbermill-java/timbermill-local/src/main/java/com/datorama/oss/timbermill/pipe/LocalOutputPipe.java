@@ -162,8 +162,11 @@ public class LocalOutputPipe implements EventOutputPipe {
             catch (Exception e) {
                 LOG.error("failed tryReportClientFacingInputQueueMetric, event name:{}, clientFacingEventsRegex:{}, exception:{}", event.getName(), clientFacingEventsRegex, e);
             }
-        } else {
+        } else if(clientFacingEventsRegex==null){
             LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");//todo: remove log
+        }
+        else if(StringUtils.isEmpty(event.getName())){
+            LOG.info("tryReportClientFacingInputQueueMetric, event name is empty");//todo: remove log
         }
         LOG.info("done tryReportClientFacingInputQueueMetric for event name:{} with success:{}", event.getName(), success);
         return success;
