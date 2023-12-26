@@ -152,7 +152,7 @@ public class TimbermillService {
 		taskIndexer = new TaskIndexer(pluginsJson, daysRotation, es, timbermillVersion, cacheHandler);
 
 		if(!clientFacingEventsRegex.isEmpty()) {
-			LOG.info("ClientFacingEvents | TimbermillService | setting clientFacingEventsRegex");
+			LOG.info("ClientFacingEvents | TimbermillService | setting clientFacingEventsRegex:{}", clientFacingEventsRegex);
 			LocalOutputPipe.setClientFacingEventsRegex(clientFacingEventsRegex);
 		} else {
 			LOG.info("ClientFacingEvents | TimbermillService | NOT setting clientFacingEventsRegex because empty");
