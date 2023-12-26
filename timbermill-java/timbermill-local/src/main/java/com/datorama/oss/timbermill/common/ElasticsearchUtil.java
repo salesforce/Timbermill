@@ -1,7 +1,6 @@
 package com.datorama.oss.timbermill.common;
 
 import com.datorama.oss.timbermill.TaskIndexer;
-import com.datorama.oss.timbermill.pipe.LocalOutputPipe;
 import com.datorama.oss.timbermill.unit.Event;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -15,6 +14,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
+import static com.datorama.oss.timbermill.pipe.LocalOutputPipe.tryReportClientFacingInputQueueMetric;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
@@ -323,21 +323,11 @@ public class ElasticsearchUtil {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
 				eventsQueue.drainTo(unfilteredEvents, maxElement);
 				Collection<Event> events = filterEvents(unfilteredEvents, skipEventsAtDrainFlag, notToSkipRegex);
-				if(LocalOutputPipe.getClientFacingEventsRegex() != null){
-					LOG.info("ClientFacingEvents | ElasticsearchUtil | clientFacingEventsRegex is NOT null");
-					events.forEach(e -> {
-						if (Pattern.compile(LocalOutputPipe.getClientFacingEventsRegex()).matcher(e.getName()).matches()){
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
-							LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=true decremented Grafana metric", e.getName());
-						} else {
-							KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
-							LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=false decremented Grafana metric", e.getName());
-						}
-					});
-				} else {
-					LOG.info("ClientFacingEvents | ElasticsearchUtil | clientFacingEventsRegex is null");
-					KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
-				}
+				events.forEach(e -> {
+					if(!tryReportClientFacingInputQueueMetric(e, false)) {
+						KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement();
+					}
+				});
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
 				events.forEach(e -> {
