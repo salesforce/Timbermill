@@ -123,8 +123,31 @@ public class LocalOutputPipe implements EventOutputPipe {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         } else {
-            if(clientFacingEventsRegex != null){
-                LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is NOT null");
+            reportInputQueueMetric(event);
+        }
+    }
+
+//    public static void main(String[] args) {
+//        clientFacingEventsRegex = "(account_analytics.*)|(page_view.*)|(validate_login)|(last_workspace_update)|(interactive_dingo_query)|(widget_init)|(widget_rendered)|(page_load)|(iframe_route_states_log)|(workspace_analytics_average_query_load_time)|(top_workspace_analytics_orphan_count)|(workspace_analytics_orphan_count)";
+//        String name = null;
+//        try {
+//            if(clientFacingEventsRegex!=null /*&& !StringUtils.isEmpty(name)*/){
+//                if (Pattern.compile(clientFacingEventsRegex).matcher(name).matches()) {
+//                    System.out.printf("timbermill2.inputQueue.size.range.sampler event with name %s with tag client_facing=true incremented Grafana metric", name);
+//                } else {
+//                    System.out.printf("timbermill2.inputQueue.size.range.sampler event with name %s with tag client_facing=false incremented Grafana metric", name);
+//                }
+//            } else {
+//                System.out.printf("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");//todo: remove
+//            }
+//        } catch (Exception e) {
+//            System.out.printf("failed reportInputQueueMetric, event name:%s, clientFacingEventsRegex:%s, error:%s", name, clientFacingEventsRegex, e);
+//        }
+//    }
+
+    private static void reportInputQueueMetric(Event event) {
+        if(clientFacingEventsRegex!=null && !StringUtils.isEmpty(event.getName())){
+            try {
                 if (Pattern.compile(clientFacingEventsRegex).matcher(event.getName()).matches()) {
                     KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).increment();
                     LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=true incremented Grafana metric", event.getName());
@@ -132,10 +155,12 @@ public class LocalOutputPipe implements EventOutputPipe {
                     KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).increment();
                     LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=false incremented Grafana metric", event.getName());
                 }
-            } else {
-                LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");
-                KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            } catch (Exception e) {
+                LOG.error("failed reportInputQueueMetric, event name:{}, clientFacingEventsRegex:{}, exception:{}", event.getName(), clientFacingEventsRegex, e);
             }
+        } else {
+            LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");//todo: remove
+            KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
         }
     }
 
