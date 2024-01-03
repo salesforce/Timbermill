@@ -16,7 +16,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.source-target.version>1.8</java.source-target.version>
         <timbermill.version>2.5.4</timbermill.version>
-        <aspectj.version>1.9.7</aspectj.version>
+        <aspectj.version>1.9.21</aspectj.version>
         <org.springframework.version>5.3.20</org.springframework.version>
     </properties>
 
