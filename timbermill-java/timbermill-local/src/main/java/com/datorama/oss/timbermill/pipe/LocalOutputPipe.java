@@ -123,14 +123,14 @@ public class LocalOutputPipe implements EventOutputPipe {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         } else {
-            if(!tryReportClientFacingInputQueueMetric(event, true)) {
+            if(!tryReportInputQueueMetricWithTag(event, true)) {
                 KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         }
     }
 
 
-    public static boolean tryReportClientFacingInputQueueMetric(Event event, boolean isIncrement) {
+    public static boolean tryReportInputQueueMetricWithTag(Event event, boolean isIncrement) {
         LOG.info("about to tryReportClientFacingInputQueueMetric for event name:{}", event.getName());
         boolean success = false;
         //todo: remove
