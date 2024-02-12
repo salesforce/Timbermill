@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.datorama.oss.timbermill.TaskIndexer.logErrorInEventsMap;
+import static com.datorama.oss.timbermill.pipe.LocalOutputPipe.tryReportInputQueueMetricWithTag;
 
 public class ElasticsearchUtil {
 	public static final String CLIENT = "client";
@@ -322,7 +323,11 @@ public class ElasticsearchUtil {
 				Collection<Event> unfilteredEvents = new ArrayList<>();
 				eventsQueue.drainTo(unfilteredEvents, maxElement);
 				Collection<Event> events = filterEvents(unfilteredEvents, skipEventsAtDrainFlag, notToSkipRegex);
-				KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement(events.size());
+				events.forEach(e -> {
+					if(!tryReportInputQueueMetricWithTag(e, false)) {
+						KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().decrement();
+					}
+				});
 				logErrorInEventsMap(events.stream().filter(event -> event.getTaskId() != null).collect(Collectors.groupingBy(Event::getTaskId)), "drainAndIndex");
 
 				events.forEach(e -> {
