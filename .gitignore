@@ -27,6 +27,7 @@ hs_err_pid*
 /.idea/$PRODUCT_WORKSPACE_FILE$
 /.idea/.gitignore
 /timbermill-server/target/*
+.DS_Store
 /timbermill-client/target/*
 /timbermill-local/target/*
 /.idea/*
