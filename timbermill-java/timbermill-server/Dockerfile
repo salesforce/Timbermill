@@ -9,7 +9,8 @@ RUN mkdir -p /opt/microservice
 
 # Get the app
 COPY target/timbermill-server-*.jar /opt/microservice/microservice.jar
-COPY target/test-classes/log4j2.xml /opt/microservice/resources/log4j.xml
+COPY src/main/resources/log4j2.xml /opt/microservice/resources/log4j2.xml
+COPY src/main/resources/JsonTemplateLayout.json /opt/microservice/resources/JsonTemplateLayout.json
 
 # Expose the app port
 EXPOSE 8484
