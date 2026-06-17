@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.regex.Pattern;
 
 public class LocalOutputPipe implements EventOutputPipe {
 
@@ -41,6 +42,7 @@ public class LocalOutputPipe implements EventOutputPipe {
     private boolean stoppedRunning = false;
     private static final Logger LOG = LoggerFactory.getLogger(LocalOutputPipe.class);
     private LoadingCache<String, RateLimiter> rateLimiterMap;
+    private static String clientFacingEventsRegex = null;
 
     private LocalOutputPipe(Builder builder) {
         if (builder.elasticUrl == null){
@@ -121,8 +123,53 @@ public class LocalOutputPipe implements EventOutputPipe {
                 KamonConstants.MESSAGES_IN_OVERFLOWED_QUEUE_RANGE_SAMPLER.withoutTags().increment();
             }
         } else {
-            KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            if(!tryReportInputQueueMetricWithTag(event, true)) {
+                KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withoutTags().increment();
+            }
         }
+    }
+
+
+    public static boolean tryReportInputQueueMetricWithTag(Event event, boolean isIncrement) {
+        LOG.info("about to tryReportClientFacingInputQueueMetric for event name:{}", event.getName());
+        boolean success = false;
+        //todo: remove
+//        clientFacingEventsRegex = "(account_analytics.*)|(page_view.*)|(validate_login)|(last_workspace_update)|(interactive_dingo_query)|(widget_init)|(widget_rendered)|(page_load)|(iframe_route_states_log)|(workspace_analytics_average_query_load_time)|(top_workspace_analytics_orphan_count)|(workspace_analytics_orphan_count)";
+
+        if(clientFacingEventsRegex!=null && !StringUtils.isEmpty(event.getName())){
+            try {
+                if (Pattern.compile(clientFacingEventsRegex).matcher(event.getName()).matches()) {
+                    if(isIncrement) {
+                        KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).increment();
+                        LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=true incremented Grafana metric", event.getName());
+                    }
+                    else{
+                        KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", true).decrement();
+                        LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=true decremented Grafana metric", event.getName());
+                    }
+                } else {
+                    if(isIncrement) {
+                        KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).increment();
+                        LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=false incremented Grafana metric", event.getName());
+                    }
+                    else{
+                        KamonConstants.MESSAGES_IN_INPUT_QUEUE_RANGE_SAMPLER.withTag("client_facing", false).decrement();
+                        LOG.info("timbermill2.inputQueue.size.range.sampler event with name {} with tag client_facing=false decremented Grafana metric", event.getName());
+                    }
+                }
+                success = true;
+            }
+            catch (Exception e) {
+                LOG.error("failed tryReportClientFacingInputQueueMetric, event name:{}, clientFacingEventsRegex:{}, exception:{}", event.getName(), clientFacingEventsRegex, e);
+            }
+        } else if(clientFacingEventsRegex==null){
+            LOG.info("ClientFacingEvents | LocalOutputPipe | clientFacingEventsRegex is null");//todo: remove log
+        }
+        else if(StringUtils.isEmpty(event.getName())){
+            LOG.info("tryReportClientFacingInputQueueMetric, event name is empty");//todo: remove log
+        }
+        LOG.info("done tryReportClientFacingInputQueueMetric for event name:{} with success:{}", event.getName(), success);
+        return success;
     }
 
     public void close() {
@@ -168,6 +215,14 @@ public class LocalOutputPipe implements EventOutputPipe {
 
     public void setRateLimiterMap(LoadingCache<String, RateLimiter> rateLimiterMap) {
         this.rateLimiterMap = rateLimiterMap;
+    }
+
+    public static String getClientFacingEventsRegex() {
+        return clientFacingEventsRegex;
+    }
+
+    public static void setClientFacingEventsRegex(String clientFacingEventsRegex) {
+        LocalOutputPipe.clientFacingEventsRegex = clientFacingEventsRegex;
     }
 
     public static class Builder {
