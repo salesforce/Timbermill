@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <JsonTemplateLayout eventTemplateUri="classpath:JsonTemplateLayout.json"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="com.datorama" level="INFO">
+            <AppenderRef ref="console"/>
+        </Logger>
+        <Root level="info" additivity="false">
+            <AppenderRef ref="console" />
+        </Root>
+    </Loggers>
+</Configuration>
